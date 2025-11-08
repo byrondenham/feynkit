@@ -1,0 +1,164 @@
+======================================================================
+                    Triangle Graph Analysis Report
+======================================================================
+
+======================================================================
+FEYNMAN GRAPH PROPERTIES
+======================================================================
+Internal vertices:     3
+External legs:         3
+Internal propagators:  3
+Loop number:           1
+
+
+======================================================================
+EDGE LIST
+======================================================================
+Idx   Type       From  To    Mass                 Name
+----------------------------------------------------------------------
+1     Internal   1     2     m1                   propagator_12
+2     Internal   2     3     m2                   propagator_23
+3     Internal   3     1     m3                   propagator_31
+4     External   1     4     ---                  external_1
+5     External   2     5     ---                  external_2
+6     External   3     6     ---                  external_3
+======================================================================
+
+======================================================================
+SYMANZIK POLYNOMIALS
+======================================================================
+
+First Symanzik Polynomial (U):
+  U = a_1 + a_2 + a_3
+
+Second Symanzik Polynomial (F):
+  F = (a_1**2*m1**2 + a_1*a_2*m1**2 + a_1*a_2*m2**2 + a_1*a_2*s12/2 + a_1*a_2*s23/2 + a_1*a_3*m1**2 + a_1*a_3*m3**2 + a_1*a_3*s12/2 + a_1*a_3*s13/2 + a_2**2*m2**2 + a_2*a_3*m2**2 + a_2*a_3*m3**2 + a_2*a_3*s13/2 + a_2*a_3*s23/2 + a_3**2*m3**2)/mu**2
+
+
+======================================================================
+SCHWINGER PARAMETRISATION
+======================================================================
+
+Description: Schwinger parametrisation with 3 alpha parameters. Each $\alpha \in [0, \infty)$. Integration domain is $\mathbb{R}_+^{3}$.
+
+Parameters (3):
+  alpha_1, alpha_2, alpha_3
+
+Prefactor:
+  exp(epsilon*gamma_E)/(gamma(nu1)*gamma(nu2)*gamma(nu3))
+
+Measure:
+  alpha_1**(nu1 - 1)*alpha_2**(nu2 - 1)*alpha_3**(nu3 - 1)
+
+Integrand:
+  exp((-2*alpha_1**2*m1**2 - 2*alpha_1*alpha_2*m1**2 - 2*alpha_1*alpha_2*m2**2 - alpha_1*alpha_2*s12 - alpha_1*alpha_2*s23 - 2*alpha_1*alpha_3*m1**2 - 2*alpha_1*alpha_3*m3**2 - alpha_1*alpha_3*s12 - alpha_1*alpha_3*s13 - 2*alpha_2**2*m2**2 - 2*alpha_2*alpha_3*m2**2 - 2*alpha_2*alpha_3*m3**2 - alpha_2*alpha_3*s13 - alpha_2*alpha_3*s23 - 2*alpha_3**2*m3**2)/(2*mu**2*(alpha_1 + alpha_2 + alpha_3)))/(alpha_1 + alpha_2 + alpha_3)**(D/2)
+
+======================================================================
+
+======================================================================
+FEYNMAN PARAMETRISATION
+======================================================================
+
+Description: Feynman parametrisation with 3 parameters on the unit simplex. Constraint: $\sum_i a_i = 1$, all $a_i \geq 0$.
+
+Parameters (3):
+  a_1, a_2, a_3
+
+Prefactor:
+  exp(epsilon*gamma_E)*gamma(-D/2 + nu1 + nu2 + nu3)/(gamma(nu1)*gamma(nu2)*gamma(nu3))
+
+Measure:
+  a_1**(nu1 - 1)*a_2**(nu2 - 1)*a_3**(nu3 - 1)
+
+Integrand:
+  (2*mu**2)**(-D/2 + nu1 + nu2 + nu3)*(a_1 + a_2 + a_3)**(-D + nu1 + nu2 + nu3)*(2*a_1**2*m1**2 + 2*a_1*a_2*m1**2 + 2*a_1*a_2*m2**2 + a_1*a_2*s12 + a_1*a_2*s23 + 2*a_1*a_3*m1**2 + 2*a_1*a_3*m3**2 + a_1*a_3*s12 + a_1*a_3*s13 + 2*a_2**2*m2**2 + 2*a_2*a_3*m2**2 + 2*a_2*a_3*m3**2 + a_2*a_3*s13 + a_2*a_3*s23 + 2*a_3**2*m3**2)**(D/2 - nu1 - nu2 - nu3)
+
+Constraints (1):
+  [0] Eq(a_1 + a_2 + a_3, 1)
+
+======================================================================
+
+======================================================================
+LEE-POMERANSKY PARAMETRISATION
+======================================================================
+
+Description: Lee-Pomeransky parametrisation with 3 $u$ parameters. Each $u \in [0, \infty)$. Uses combined polynomial $G = U + F$. Integration domain is $\mathbb{R}_+^{3}$.
+
+Parameters (3):
+  u_1, u_2, u_3
+
+Prefactor:
+  exp(epsilon*gamma_E)*gamma(D/2)/(gamma(nu1)*gamma(nu2)*gamma(nu3)*gamma(D - nu1 - nu2 - nu3))
+
+Measure:
+  u_1**(nu1 - 1)*u_2**(nu2 - 1)*u_3**(nu3 - 1)
+
+Integrand:
+  (sqrt(2)*mu)**D/(2*m1**2*u_1**2 + 2*m1**2*u_1*u_2 + 2*m1**2*u_1*u_3 + 2*m2**2*u_1*u_2 + 2*m2**2*u_2**2 + 2*m2**2*u_2*u_3 + 2*m3**2*u_1*u_3 + 2*m3**2*u_2*u_3 + 2*m3**2*u_3**2 + 2*mu**2*(u_1 + u_2 + u_3) + s12*u_1*u_2 + s12*u_1*u_3 + s13*u_1*u_3 + s13*u_2*u_3 + s23*u_1*u_2 + s23*u_2*u_3)**(D/2)
+
+======================================================================
+
+======================================================================
+GKZ HYPERGEOMETRIC SYSTEM
+======================================================================
+
+Number of variables:   9
+Number of equations:   4
+Number of monomials:   9
+A-matrix shape:        4 × 9
+
+A-matrix:
+Matrix([[1, 1, 1, 1, 1, 1, 1, 1, 1], [2, 1, 1, 1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 2, 1, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 2, 1]])
+
+Parameter vector β (4 components):
+  -D/2 + nu1 + nu2 + nu3, nu1, nu2, nu3
+
+Euler equations (4):
+  [0] Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_7) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_9), (-D/2 + nu1 + nu2 + nu3)*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9))
+  [1] Eq(2*z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_4), nu1*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9))
+  [2] Eq(z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_2) + 2*z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_7), nu2*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9))
+  [3] Eq(z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_3) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_6) + 2*z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_9), nu3*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9))
+
+Monomial support:
+  [0] u^(2, 0, 0): m1**2/mu**2
+  [1] u^(1, 1, 0): (m1**2 + m2**2 + s12/2 + s23/2)/mu**2
+  [2] u^(1, 0, 1): (m1**2 + m3**2 + s12/2 + s13/2)/mu**2
+  [3] u^(1, 0, 0): 1
+  [4] u^(0, 2, 0): m2**2/mu**2
+  [5] u^(0, 1, 1): (m2**2 + m3**2 + s13/2 + s23/2)/mu**2
+  [6] u^(0, 1, 0): 1
+  [7] u^(0, 0, 2): m3**2/mu**2
+  [8] u^(0, 0, 1): 1
+
+======================================================================
+
+======================================================================
+TORIC IDEAL AND IBP RELATIONS
+======================================================================
+
+Number of generators: 14
+
+These generators encode integration-by-parts (IBP) relations among
+the monomial coefficients of the Lee-Pomeransky polynomial.
+
+Generators (each equation = 0):
+
+  [0] z_1*z_5 - z_2**2 = 0
+  [1] z_1*z_6 - z_2*z_3 = 0
+  [2] z_1*z_7 - z_2*z_4 = 0
+  [3] z_1*z_8 - z_3**2 = 0
+  [4] z_1*z_9 - z_3*z_4 = 0
+  [5] z_2*z_6 - z_3*z_5 = 0
+  [6] z_2*z_7 - z_4*z_5 = 0
+  [7] z_2*z_8 - z_3*z_6 = 0
+  [8] z_2*z_9 - z_4*z_6 = 0
+  [9] z_3*z_7 - z_4*z_6 = 0
+  [10] z_3*z_9 - z_4*z_8 = 0
+  [11] z_5*z_8 - z_6**2 = 0
+  [12] z_5*z_9 - z_6*z_7 = 0
+  [13] z_6*z_9 - z_7*z_8 = 0
+
+Each generator represents a syzygy (polynomial relation) among the
+monomials, which corresponds to an IBP identity for the Feynman integral.
+
+======================================================================

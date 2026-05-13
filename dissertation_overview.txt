@@ -1,0 +1,540 @@
+
+======================================================================
+  §1  Graph construction
+======================================================================
+
+── Manual construction ───────────────────────────────────────────────
+  Internal propagators : 3
+  External legs        : 3
+  Loop count           : 1
+  Nickel index         : 12e|2e|e|
+
+── Nickel / cnickel constructors ─────────────────────────────────────
+  Massless triangle (cnickel) : 12e|2e|e|  →  loops = 1
+  Massless bubble             : 11e|e|  →  loops = 1
+  Massive sunrise             : 111e|e|  →  loops = 2
+
+======================================================================
+  §2  Symanzik polynomials  U, F, G
+======================================================================
+
+── First Symanzik polynomial  U  (topology) ──────────────────────────
+  U = a_1 + a_2 + a_3
+  U encodes spanning trees of the internal graph.
+  For the triangle: three spanning trees, each missing one edge.
+
+── Second Symanzik polynomial  F  (kinematics + masses) ──────────────
+  F = a_1*a_2*s12/(2*mu**2) + a_1*a_2*s23/(2*mu**2) + a_1*a_3*s12/(2*mu**2) + a_1*a_3*s13/(2*mu**2) + a_2*a_3*s13/(2*mu**2) + a_2*a_3*s23/(2*mu**2)
+  F encodes external momenta via 2-forests.
+
+── Lee–Pomeransky polynomial  G = U + F  (in u-variables) ────────────
+  G = (2*mu**2*(u_1 + u_2 + u_3) + s12*u_1*u_2 + s12*u_1*u_3 + s13*u_1*u_3 + s13*u_2*u_3 + s23*u_1*u_2 + s23*u_2*u_3)/(2*mu**2)
+  LP variables: [u_1, u_2, u_3]
+  G is the input to the GKZ hypergeometric system.
+
+── Bubble and sunrise for comparison ─────────────────────────────────
+  Bubble  U = a_1 + a_2
+  Bubble  F = a_1*a_2*s/(2*mu**2)
+  Sunrise U = a_1*a_2 + a_1*a_3 + a_2*a_3
+  Sunrise F = a_1**2*a_2*m_1**2/mu**2 + a_1**2*a_3*m_1**2/mu**2 + a_1*a_2**2*m_2**2/mu**2 + a_1*a_2*a_3*m_1**2/mu**2 + a_1*a_2*a_3*m_2**2/mu**2 + a_1*a_2*a_3*m_3**2/mu**2 + a_1*a_2*a_3*s/(2*mu**2) + a_1*a_3**2*m_3**2/mu**2 + a_2**2*a_3*m_2**2/mu**2 + a_2*a_3**2*m_3**2/mu**2
+
+======================================================================
+  §3  Three parametrisations
+======================================================================
+
+── Schwinger parametrisation  (integration over R_{>0}^E) ────────────
+  Prefactor  : exp(epsilon*gamma_E)/(gamma(nu1)*gamma(nu2)*gamma(nu3))
+  Parameters : [alpha_1, alpha_2, alpha_3]   (Schwinger α variables)
+  Measure    : alpha_1**(nu1 - 1)*alpha_2**(nu2 - 1)*alpha_3**(nu3 - 1)
+
+── Feynman parametrisation  (simplex constraint) ─────────────────────
+  Prefactor  : exp(epsilon*gamma_E)*gamma(-D/2 + nu1 + nu2 + nu3)/(gamma(nu1)*gamma(nu2)*gamma(nu3))
+  Parameters : [a_1, a_2, a_3]   (Feynman x variables, Σxᵢ = 1)
+  Constraints: [Eq(a_1 + a_2 + a_3, 1)]
+
+── Lee–Pomeransky parametrisation  (u ∈ R_{>0}^E, no constraint) ─────
+  Prefactor  : exp(epsilon*gamma_E)*gamma(D/2)/(gamma(nu1)*gamma(nu2)*gamma(nu3)*gamma(D - nu1 - nu2 - nu3))
+  Parameters : [u_1, u_2, u_3]   (LP u variables)
+  The integrand is u^β · G^{-β₀} with G = U + F.
+
+======================================================================
+  §4  GKZ system
+======================================================================
+
+── A-matrix ──────────────────────────────────────────────────────────
+  Shape: 4 × 6  (2 rows = loops+1; 6 cols = monomials of G)
+⎡1  1  1  1  1  1⎤
+⎢                ⎥
+⎢1  1  1  0  0  0⎥
+⎢                ⎥
+⎢1  0  0  1  1  0⎥
+⎢                ⎥
+⎣0  1  0  1  0  1⎦
+  First row is the homogenisation row (all ones).
+  Remaining rows give the exponent of each u_i in each monomial.
+
+── GKZ parameters ────────────────────────────────────────────────────
+  z-variables  : [z_1, z_2, z_3, z_4, z_5, z_6]
+  β-parameters : [-D/2 + nu1 + nu2 + nu3, nu1, nu2, nu3]
+  β encodes dimension D and propagator exponents νᵢ via:
+    β₀ = (L·D)/2 − Σνᵢ
+    βₖ = νₖ   (one per Schwinger parameter)
+
+── Euler differential equations  Ê_r · I_A = β_r · I_A ───────────────
+  [0]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_6), (-D/2 + nu1 + nu2 + nu3)*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+  [1]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_3), nu1*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+  [2]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_5), nu2*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+  [3]  Eq(z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_2) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_4) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_6), nu3*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+  Each equation: (Σⱼ Aᵣⱼ · zⱼ ∂/∂zⱼ) I_A = βᵣ · I_A
+
+── GKZ for bubble and sunrise ────────────────────────────────────────
+  Bubble  A-matrix shape : (3, 3);  β = [-D/2 + nu_1 + nu_2, nu_1, nu_2]
+⎡1  1  1⎤
+⎢       ⎥
+⎢1  1  0⎥
+⎢       ⎥
+⎣1  0  1⎦
+  Sunrise A-matrix shape : (4, 10);  β = [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+⎡1  1  1  1  1  1  1  1  1  1⎤
+⎢                            ⎥
+⎢2  2  1  1  1  1  1  0  0  0⎥
+⎢                            ⎥
+⎢1  0  2  1  1  0  0  2  1  1⎥
+⎢                            ⎥
+⎣0  1  0  1  0  2  1  1  2  1⎦
+
+======================================================================
+  §5  Newton polytope
+======================================================================
+
+── Monomial support  (all columns of A, as exponent vectors) ─────────
+  6 monomials:
+    u^(1, 1, 0)  coeff = (s12 + s23)/(2*mu**2)
+    u^(1, 0, 1)  coeff = (s12 + s13)/(2*mu**2)
+    u^(1, 0, 0)  coeff = 1
+    u^(0, 1, 1)  coeff = (s13 + s23)/(2*mu**2)
+    u^(0, 1, 0)  coeff = 1
+    u^(0, 0, 1)  coeff = 1
+
+── Hull vertices, volume, Smith invariants  (via AConfiguration) ─────
+  Newton polytope vertices: [(1, 1, 0), (1, 0, 1), (1, 0, 0), (0, 1, 1), (0, 1, 0), (0, 0, 1)]
+  Number of vertices      : 6
+  Ambient dimension       : 3
+  Affine dimension        : 3
+  Normalised volume       : 4
+    (= holonomic rank = #independent master integrals for generic β)
+  Smith invariants of A   : [1, 1, 1]
+    (Smith = [1,1,1] → A-columns span the full ℤ³ lattice)
+
+── Intrinsic model — same computation, explicit SNF basis ────────────
+  Base point       : (1, 1, 0)
+  Intrinsic rank   : 3
+  Smith invariants : [1, 1, 1]
+  Intrinsic coords (first 3): [(0, 0, 0), (1, 0, 0), (0, 1, 0)]
+
+======================================================================
+  §6  Toric ideal  (IBP relations)
+======================================================================
+
+── Generators in z-variables ─────────────────────────────────────────
+  Number of generators: 2
+  [0]  -z_1*z_6 + z_3*z_4 = 0
+  [1]  -z_1*z_6 + z_2*z_5 = 0
+  z-variables: [z_1, z_2, z_3, z_4, z_5, z_6]
+
+── IBP interpretation ────────────────────────────────────────────────
+  Each generator  z^u − z^v = 0  (u,v ∈ ℤ^m, Au = Av)
+  encodes an integration-by-parts identity for I_A:
+  the differential operator ∂^u − ∂^v annihilates I_A.
+  The toric ideal is the kernel of the ring map ℤ[z] → ℤ[t^±1]
+  defined by  zⱼ ↦ t^{aⱼ}  (aⱼ = j-th column of A).
+
+── Bubble toric ideal (trivial case) ─────────────────────────────────
+  Bubble generators: 0
+  (empty — bubble GKZ system has no toric relations; it is a master integral)
+
+======================================================================
+  §7  Polytope automorphisms  Aut(P)
+======================================================================
+
+── Unimodular automorphism group ─────────────────────────────────────
+  |Aut(P)| = 48
+  Each (U, t) satisfies:  U ∈ GL_n(ℤ),  |det U| = 1,  {Uv + t} = vertices
+
+  [0]  U =
+⎡1  0  0⎤
+⎢       ⎥
+⎢0  1  0⎥
+⎢       ⎥
+⎣0  0  1⎦
+       t = [[0, 0, 0]]
+
+  [1]  U =
+⎡1  1   1 ⎤
+⎢         ⎥
+⎢0  0   -1⎥
+⎢         ⎥
+⎣0  -1  0 ⎦
+       t = [[-1, 1, 1]]
+
+  [2]  U =
+⎡1   0   0 ⎤
+⎢          ⎥
+⎢0   1   0 ⎥
+⎢          ⎥
+⎣-1  -1  -1⎦
+       t = [[0, 0, 2]]
+
+  … (45 further automorphisms)
+
+── Vertex orbits under Aut(P) ────────────────────────────────────────
+  Orbits (indices into hull vertex list):
+    [0, 1, 2, 3, 4, 5]
+  The triangle LP Newton polytope has 1 orbits:
+  3 U-monomials (degree-2 face) and 3 F-monomials (degree-1 face)
+  form separate orbits under the symmetry group.
+
+── Graph automorphisms (subgroup) ────────────────────────────────────
+  |Aut(graph)| = 6
+  These are the vertex permutations of the triangle that preserve its
+  edge structure — the dihedral group D₃ (order 6 for the equilateral
+  triangle), embedded in Aut(P).
+
+======================================================================
+  §8  Symmetry pairs  — transformation identities
+======================================================================
+
+── Definition ────────────────────────────────────────────────────────
+  A symmetry pair (M, t, P) satisfies  T·A = A·Π_P
+  where T = [[1, 0ᵀ], [t, M]] ∈ GL_{n+1}(ℤ)  and  Π_P is a column permutation.
+  It gives the integral identity:
+    I_A(β, z) = I_A(T β, z_P)
+  Unimodular maps (|det M| = 1) are polytope automorphisms;
+  non-unimodular maps (|det M| > 1) are finite-index self-embeddings.
+
+── Triangle LP symmetry pairs  (48 total) ────────────────────────────
+  Unimodular (|det| = 1): 48
+  Finite-index (|det| > 1): 0
+
+  First unimodular pair:
+    M =
+⎡1  0  0⎤
+⎢       ⎥
+⎢0  1  0⎥
+⎢       ⎥
+⎣0  0  1⎦
+    t = [0, 0, 0]
+    column permutation P = (0, 1, 2, 3, 4, 5)
+    Integral identity: I_A(β, z) = I_A(T·β, z_P)
+
+── Using AConfiguration.symmetry_pairs  (standalone) ─────────────────
+  Same result via AConfiguration: 48 pairs (48 unimodular)
+
+======================================================================
+  §9  Intrinsic lattice model
+======================================================================
+
+── Concept ───────────────────────────────────────────────────────────
+  Express a point configuration in the basis of the lattice it spans.
+  Removes the accident of the ambient ℤⁿ embedding.
+  Smith decomposition: D = U·diffs·V  (integer SNF).
+  Intrinsic rank = affine dimension = 3.
+
+  Triangle LP:
+    base point        : (1, 1, 0)
+    Smith invariants  : [1, 1, 1]
+    intrinsic rank    : 3
+    intrinsic coords  :
+      (0, 0, 0)
+      (1, 0, 0)
+      (0, 1, 0)
+      (0, 0, 1)
+      (-1, 1, 1)
+      (0, 1, 1)
+
+  Triple-K star:
+    Smith invariants  : [1, 1, 2]
+    (Smith [1,1,2] → columns span an index-2 sublattice of ℤ³,
+     the even-parity sublattice {x : Σxᵢ ≡ 0 mod 2}.)
+
+======================================================================
+  §10  Polytope equivalence
+======================================================================
+
+── Unimodular equivalence  (Liu–Cai, arXiv:2506.23846) ───────────────
+  Tests: ∃ U ∈ GL_n(ℤ), t ∈ ℤⁿ  such that  {Uv + t} = vertices of Q.
+  Unimodular equivalence ⟹ GKZ systems have identical analytic structure.
+
+  Triangle (labelling A) ↔ Triangle (labelling B): True
+  Witness U =
+⎡1  0  0⎤
+⎢       ⎥
+⎢0  1  0⎥
+⎢       ⎥
+⎣0  0  1⎦
+  Translation t = None
+
+  Massless triangle ↔ Massive triangle: False
+
+── Affine equivalence  (rational maps, hull vertices only) ───────────
+  Tests: ∃ M ∈ GL_n(ℚ), t ∈ ℚⁿ  with  M·vert(P) + t = vert(Q).
+  Weaker than unimodular; captures same combinatorial shape up to scaling.
+
+  Massless triangle ↔ itself (rel): True, det = 1
+
+── Point-configuration equivalence  (stricter GKZ condition) ─────────
+  Tests the same map on ALL A-columns, not just hull vertices.
+  This is the correct condition for GKZ-system isomorphism.
+
+  Triangle LP ↔ Triple-K (all columns): True
+  det M = 2
+
+======================================================================
+  §11  Finite-index map  (det ≠ ±1 integer maps)
+======================================================================
+
+── Concept ───────────────────────────────────────────────────────────
+  An integer affine map x ↦ Mx + t with M ∈ GL_n(ℤ) but |det M| > 1.
+  Such a map takes every source point to a target point, but the image
+  lattice has index |det M| in the target lattice.
+  For GKZ systems, a det = k map implies the holonomic ranks differ by k.
+
+── Triangle LP → Triple-K  (hull vertices of each) ───────────────────
+  Equivalent (polytope): True
+  det M = 2   (ratio of normalised volumes: 4 / 4 = 1)
+  M =
+⎡0  -1  -1⎤
+⎢         ⎥
+⎢1  1   0 ⎥
+⎢         ⎥
+⎣1  0   1 ⎦
+  t = [[2, 0, 0]]
+
+── Full point-configuration finite-index map ─────────────────────────
+  Found: True,  det = 2,  unimodular: False
+  M =
+⎡1  1   0 ⎤
+⎢         ⎥
+⎢1  0   1 ⎥
+⎢         ⎥
+⎣0  -1  -1⎦
+  t = [[0, 0, 2]]
+  column permutation: [0, 1, 2, 5, 4, 3]
+
+======================================================================
+  §12  Pairing-matrix canonical form  (Grinis–Kasprzyk)
+======================================================================
+
+── Definition ────────────────────────────────────────────────────────
+  Given a matrix M, the pairing-matrix canonical form is the unique
+  lexicographically maximal form under row and column permutations.
+  Used to canonicalise Newton polytope support matrices.
+
+── Triangle LP A-matrix ──────────────────────────────────────────────
+  Input A (rows × cols) = (4, 6)
+  PM_max (canonical form):
+⎡1  1  1  1  1  1⎤
+⎢                ⎥
+⎢1  1  0  0  0  1⎥
+⎢                ⎥
+⎢0  1  1  0  1  0⎥
+⎢                ⎥
+⎣0  0  1  1  0  1⎦
+  Row permutation    : [0, 1, 2, 3]
+  Column permutation : [5, 3, 0, 2, 4, 1]
+  Symmetry vector    : [(4, 6), (3, 5), (2, 4), (1, 3)]
+
+── Checking the canonical form is indeed maximal ─────────────────────
+  is_canonical(PM_max) = False
+
+======================================================================
+  §13  Landau singularity analysis
+======================================================================
+
+── Method: edge-part of the principal A-determinant ──────────────────
+  The Landau singularities of I_A are encoded in the principal
+  A-determinant E_A.  The edge-part E_A^(1) is the product over
+  all edges of the discriminant of G restricted to each edge.
+
+── Triangle ──────────────────────────────────────────────────────────
+  Landau polynomial (product of edge discriminants):
+    L = (s12 + s13)**2*(s12 + s23)**2*(s13 + s23)**2
+  Landau surfaces (irreducible factors):
+    [0]  s12 + s13 = 0
+    [1]  s12 + s23 = 0
+    [2]  s13 + s23 = 0
+
+  Interpretation: each surface L_k = 0 is a threshold in the
+  external kinematics where the integral develops a leading singularity.
+
+── Bubble ────────────────────────────────────────────────────────────
+  Landau polynomial : 1
+  Landau surfaces   : ()
+  (Single surface: the familiar threshold p² = 4m² for massive bubble,
+   or p² = 0 for the massless case.)
+
+── Massive sunrise ───────────────────────────────────────────────────
+  Landau surfaces (5 total):
+    [0]  m_3 = 0
+    [1]  m_2 = 0
+    [2]  m_1 = 0
+    [3]  2*m_1**2 - 4*m_1*m_3 + 2*m_2**2 + 2*m_3**2 + s = 0
+    [4]  2*m_1**2 + 4*m_1*m_3 + 2*m_2**2 + 2*m_3**2 + s = 0
+
+======================================================================
+  §14  with_()  — parametric specialisations
+======================================================================
+
+── Concept ───────────────────────────────────────────────────────────
+  FeynmanIntegral.with_(**overrides) returns a new instance with the
+  specified fields replaced and all cached properties cleared.
+  Used to specialise kinematics, impose equal masses, etc.
+
+── Equal exponents  ν₁ = ν₂ = ν₃ = ν ─────────────────────────────────
+  G = (2*mu**2*(u_1 + u_2 + u_3) + s12*u_1*u_2 + s12*u_1*u_3 + s13*u_1*u_3 + s13*u_2*u_3 + s23*u_1*u_2 + s23*u_2*u_3)/(2*mu**2)
+  β-parameters : [-D/2 + 3*nu, nu, nu, nu]
+  (All three νᵢ collapse to a single symbol ν.)
+
+  In D = 4 dimensions:
+  β₀ = nu1 + nu2 + nu3 - 2
+  βₖ = nu1  (same ν-symbols, now numeric D)
+
+======================================================================
+  §15  AConfiguration  — standalone GKZ inputs
+======================================================================
+
+── Standard dissertation configurations ──────────────────────────────
+  Name                          shape   dim  verts   norm-vol  Smith
+  ──────────────────────────────────────────────────────────────
+  triangle (4×6)               (4, 6)     3      6          4  [1, 1, 1]
+  triple-K (4×6)               (4, 6)     3      6          4  [1, 1, 2]
+  4-simplex Δ₄ (5×5)           (5, 5)     4      5          1  [1, 1, 1, 1]
+  banana₃ (4×4)                (4, 4)     3      4          1  [1, 1, 1]
+
+── AConfiguration equivalence methods ────────────────────────────────
+
+  triangle.is_unimodular_equivalent_to(triangle)
+    equivalent = True
+
+  triangle.is_affinely_equivalent_to(triple-K)  [hull vertices]
+    equivalent = True,  det M = 2
+
+  triangle.is_point_config_equivalent_to(triple-K)  [all columns]
+    equivalent = True,  det M = 2
+
+  triangle.finite_index_map_to(triple-K)
+    found = True,  det = 2,  unimodular = False
+
+  triangle.automorphisms()
+    |Aut(P)| = 48
+    orbits   = [[0, 1, 2, 3, 4, 5]]
+
+======================================================================
+  §16  Conformal artifacts  (BMS simplex · companion)
+======================================================================
+
+── massless_polygon_a_config(n)  — 1-loop n-gon ──────────────────────
+  n=3: (4, 6), dim=3, Smith=[1, 1, 1]
+  n=4: (5, 10), dim=4, Smith=[1, 1, 1, 1]
+
+── bms_simplex_a_config(n)  — BMS n-point conformal integral ─────────
+  G_n(u) = Σᵢ pᵢ² ∏_{j≠i} uⱼ  +  4 Σᵢ uᵢ² ∏_{j≠i} uⱼ
+  2n monomials (n lower + n upper), ambient ℝⁿ
+  Smith [1,…,1,2] → even-parity sublattice (for all n)
+  n=3: (4, 6), dim=3, norm-vol=4, Smith=[1, 1, 2]
+  n=4: (5, 8), dim=4, norm-vol=8, Smith=[1, 1, 1, 2]
+
+── conformal_companion_a_config(n)  — finite-index companion to BMS_n 
+  G_n(u) = Σᵢ ∏_{j≠i} uⱼ  +  Σᵢ pᵢ² uᵢ
+  Same lower monomials as BMS_n; upper monomials are the standard basis eᵢ
+  n=3: companion → BMS_n  found=True, det=2
+  n=4: companion → BMS_n  found=False, det=—
+  (det=2 map exists for n=3; for n≥4 the map is broken by S_n → S_{n-1})
+
+======================================================================
+  §17  Database  (store · lookup · find_equivalent)
+======================================================================
+
+── Store and retrieve integrals ──────────────────────────────────────
+  Database summary:
+FeynkitDatabase: /tmp/tmpf3vbbxnv.db
+  3 integral(s)  ·  0 equivalence check(s) cached
+
+  A shape      gens    L  props   bin  label
+  ────────────────────────────────────────────────────
+  4×6            2    1      3   yes  massless_triangle
+  3×3            ?    1      2     ?  massless_bubble
+  4×10          21    2      3   yes  massive_sunrise
+  Lookup massless triangle: label = massless_triangle
+
+── find_equivalent  — equivalence-based retrieval ────────────────────
+  Integrals unimodular-equivalent to massless triangle: []
+
+======================================================================
+  §18  Text and LaTeX output
+======================================================================
+
+── to_text()  — plain-text analysis report (first 20 lines) ──────────
+  ======================================================================
+                     Feynman Integral Analysis Report                   
+  ======================================================================
+  
+  ======================================================================
+  FEYNMAN GRAPH PROPERTIES
+  ======================================================================
+  Internal vertices:     3
+  External legs:         3
+  Internal propagators:  3
+  Loop number:           1
+  
+  
+  ======================================================================
+  EDGE LIST
+  ======================================================================
+  Idx   Type       From  To    Mass                 Name           
+  ----------------------------------------------------------------------
+  1     Internal   1     2     ---                  ---            
+  2     Internal   2     3     ---                  ---            
+  … (148 lines total)
+
+── to_latex()  — self-contained LaTeX document (preamble only) ───────
+  \documentclass[11pt,a4paper]{article}
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+  \usepackage{amsmath,amssymb,amsthm}
+  \usepackage{geometry}
+  \usepackage{booktabs}
+  … (354 lines total)
+  Compile with pdflatex to get a standalone analysis document.
+
+======================================================================
+  §0  Summary — key invariants of the massless triangle
+======================================================================
+
+  Diagram           : 1-loop massless triangle  (K₃)
+  Nickel index      : 12e|2e|e|
+  Loops             : 1
+  Propagators       : 3
+
+  Symanzik U        : a_1 + a_2 + a_3
+  Symanzik F        : a_1*a_2*s12/(2*mu**2) + a_1*a_2*s23/(2*mu**2) + a_1*a_3*s12/(2*mu**2) + a_1*a_3*s13/(2*mu**2) + a_2*a_3*s13/(2*mu**2) + a_2*a_3*s23/(2*mu**2)
+  LP poly G         : (2*mu**2*(u_1 + u_2 + u_3) + s12*u_1*u_2 + s12*u_1*u_3 + s13*u_1*u_3 + s13*u_2*u_3 + s23*u_1*u_2 + s23*u_2*u_3)/(2*mu**2)
+
+  GKZ A-matrix      : 4 × 6
+  β-parameters      : [-D/2 + nu1 + nu2 + nu3, nu1, nu2, nu3]
+  Toric generators  : 2
+
+  Newton polytope   : 6 monomials, "
+  6 hull vertices
+  Ambient dim       : 3
+  Normalised vol    : 4  (= holonomic rank for generic β)
+  Smith invariants  : [1, 1, 1]
+
+  |Aut(P)|          : 48
+  Symmetry pairs    : 48  (48 unimodular)
+
+  Landau surfaces   : 3
+
+======================================================================
+  All sections completed.
+======================================================================

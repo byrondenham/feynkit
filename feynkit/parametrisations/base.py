@@ -9,6 +9,8 @@ from dataclasses import dataclass
 
 import sympy as sp
 
+from ..core.graph import Graph
+
 
 @dataclass
 class ParametrisationResult:
@@ -64,6 +66,22 @@ class Parametrisation(ABC):
     All parametrisation implementations (Schwinger, Feynman, Lee-Pomeransky)
     inherit from this class and implement the `compute()` method.
     """
+
+    def __init__(
+        self,
+        graph: Graph,
+        dimension: sp.Expr,
+        loop_count: int,
+        propagator_exponents: dict[int, sp.Expr],
+        u_polynomial: sp.Expr,
+        f_polynomial: sp.Expr,
+    ) -> None:
+        self.graph = graph
+        self.dimension = dimension
+        self.loop_count = loop_count
+        self.propagator_exponents = propagator_exponents
+        self.u_polynomial = u_polynomial
+        self.f_polynomial = f_polynomial
 
     @abstractmethod
     def compute(self) -> ParametrisationResult:

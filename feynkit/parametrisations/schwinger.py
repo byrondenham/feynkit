@@ -53,30 +53,7 @@ class SchwingerParametrisation(Parametrisation):
         u_polynomial: sp.Expr,
         f_polynomial: sp.Expr,
     ):
-        """
-        Initialise Schwinger parametrisation.
-
-        Parameters
-        ----------
-        graph : Graph
-            Feynman graph.
-        dimension : sp.Expr
-            Spacetime dimension.
-        loop_count : int
-            Number of loops.
-        propagator_exponents : Dict[int, sp.Expr]
-            Propagator exponents.
-        u_polynomial : sp.Expr
-            First Symanzik polynomial.
-        f_polynomial : sp.Expr
-            Second Symanzik polynomial.
-        """
-        self.graph = graph
-        self.dimension = dimension
-        self.loop_count = loop_count
-        self.propagator_exponents = propagator_exponents
-        self.u_polynomial = u_polynomial
-        self.f_polynomial = f_polynomial
+        super().__init__(graph, dimension, loop_count, propagator_exponents, u_polynomial, f_polynomial)
 
     @property
     def name(self) -> str:

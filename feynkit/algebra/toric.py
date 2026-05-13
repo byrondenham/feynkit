@@ -9,24 +9,31 @@ integration-by-parts (IBP) identities for Feynman integrals.
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
+import tempfile
+
 import sympy as sp
 
 from ..core.exceptions import ComputationError
 
 
-def compute_toric_ideal_generators(a_matrix: sp.Matrix) -> list[sp.Expr]:
+def _4ti2_binary() -> str | None:
+    """Return the path to the 4ti2 markov binary, or None if not installed."""
+    return shutil.which("markov") or shutil.which("4ti2-markov")
+
+
+def compute_toric_ideal_generators(
+    a_matrix: sp.Matrix,
+    backend: str = "auto",
+) -> list[sp.Expr]:
     """
     Compute generators of the toric ideal associated with the A-matrix.
 
     The toric ideal I_A a subset of mathbb{C}[z_1, ..., z_m] consists of all polynomial relations
     among the variables z_j that are compatible with the monomial structure
     encoded by A. These relations correspond to IBP identities for Feynman integrals.
-
-    The algorithm works by:
-    1. Introducing auxiliary variables t_i for each row of A
-    2. Creating a parametrisation: z_j = prod_i t_i^(A[i,j])
-    3. Computing a Gröbner basis with elimination order
-    4. Extracting polynomials that depend only on z variables
 
     Parameters
     ----------
@@ -37,6 +44,9 @@ def compute_toric_ideal_generators(a_matrix: sp.Matrix) -> list[sp.Expr]:
 
         Each column of A represents the exponent vector of a monomial
         in the Lee-Pomeransky polynomial G(u).
+    backend : str
+        Which backend to use: ``"auto"`` (use 4ti2 if installed, else SymPy),
+        ``"4ti2"`` (require 4ti2), or ``"sympy"`` (always use SymPy/Buchberger).
 
     Returns
     -------
@@ -51,7 +61,7 @@ def compute_toric_ideal_generators(a_matrix: sp.Matrix) -> list[sp.Expr]:
     Raises
     ------
     ComputationError
-        If Gröbner basis computation fails.
+        If Gröbner basis computation fails or the requested backend is unavailable.
 
     Notes
     -----
@@ -72,22 +82,17 @@ def compute_toric_ideal_generators(a_matrix: sp.Matrix) -> list[sp.Expr]:
     - Generators give a minimal set of reduction relations
     - The variety V(I_A) parametrises master integrals
 
-    Computational Approach:
+    **Backends:**
 
-    We use Buchberger's algorithm via SymPy's Gröbner basis computation:
-    1. Create the ideal ⟨z_j - t^(A[:,j])⟩ for all j
-    2. Compute Gröbner basis with 'lex' order (t's eliminated first)
-    3. Extract polynomials in the basis involving only z variables
+    The ``"4ti2"`` backend calls the external ``markov`` binary from the 4ti2
+    software package.  It computes the minimal Markov basis of I_A, which is
+    the minimal generating set of the toric ideal — smaller than the Gröbner
+    basis for n≥4 (e.g. 10 vs 11 for the box, 30 vs 36 for the pentagon).
+    Install with ``sudo pacman -S 4ti2`` (Arch) or ``sudo apt install 4ti2``.
 
-    The lexicographic term order "lex" with t > z ensures elimination of t variables.
-
-    Computational Complexity:
-
-    Gröbner basis computation can be expensive (doubly exponential in worst case).
-    For Feynman integrals with many edges (large m), consider:
-    - Using specialised IBP reduction software
-    - Computing only a partial basis
-    - Exploiting problem-specific structure (symmetries, etc.)
+    The ``"sympy"`` backend uses Buchberger's algorithm via SymPy with a
+    lexicographic elimination order (t-variables first).  It is self-contained
+    but doubly-exponential in the worst case.
 
     Examples
     --------
@@ -116,56 +121,118 @@ def compute_toric_ideal_generators(a_matrix: sp.Matrix) -> list[sp.Expr]:
     .. [3] Schabinger, R.M. (2012). "A new algorithm for the generation of
             unitarity-compatible integration by parts relations."
             JHEP 01, 077.
+    .. [4] 4ti2 team (2008). "4ti2 — A software package for algebraic,
+            geometric and combinatorial problems on linear spaces."
+            https://4ti2.github.io/
     """
+    if backend == "auto":
+        backend = "4ti2" if _4ti2_binary() else "sympy"
+
+    if backend == "4ti2":
+        binary = _4ti2_binary()
+        if binary is None:
+            raise ComputationError(
+                "4ti2 backend requested but 'markov' binary not found. "
+                "Install with: sudo pacman -S 4ti2"
+            )
+        return _compute_4ti2_backend(a_matrix, binary)
+
+    if backend == "sympy":
+        return _compute_sympy_backend(a_matrix)
+
+    raise ComputationError(f"Unknown backend {backend!r}. Choose 'auto', '4ti2', or 'sympy'.")
+
+
+def _compute_4ti2_backend(a_matrix: sp.Matrix, binary: str) -> list[sp.Expr]:
+    """Compute minimal toric ideal generators by calling the 4ti2 markov binary.
+
+    The markov basis is the minimal generating set of I_A (the Markov basis),
+    which is smaller than or equal to the Gröbner basis for any term order.
+    For n-gons: groebner gives 2/11/36/91/196 while markov gives 2/10/30/70/140
+    for n=3..7, so the difference is significant for larger diagrams.
+    """
+    num_rows, num_cols = a_matrix.shape
+
+    z_vars = sp.symbols(" ".join(f"z_{j + 1}" for j in range(num_cols)))
+    if num_cols == 1:
+        z_vars = (z_vars,)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        prefix = os.path.join(tmpdir, "input")
+        mat_path = prefix + ".mat"
+
+        with open(mat_path, "w") as f:
+            f.write(f"{num_rows} {num_cols}\n")
+            for i in range(num_rows):
+                f.write(" ".join(str(int(a_matrix[i, j])) for j in range(num_cols)) + "\n")
+
+        result = subprocess.run(
+            [binary, prefix],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        if result.returncode != 0:
+            raise ComputationError(
+                f"4ti2 markov failed (exit {result.returncode}): {result.stderr.strip()}"
+            )
+
+        mar_path = prefix + ".mar"
+        if not os.path.exists(mar_path):
+            raise ComputationError(f"4ti2 markov produced no output file at {mar_path}")
+
+        with open(mar_path) as f:
+            lines = [ln for ln in f.read().splitlines() if ln.strip()]
+
+    n_gens, _n_vars = map(int, lines[0].split())
+
+    generators = []
+    for line in lines[1 : n_gens + 1]:
+        v = list(map(int, line.split()))
+        pos = sp.Integer(1)
+        neg = sp.Integer(1)
+        for i, vi in enumerate(v):
+            if vi > 0:
+                pos *= z_vars[i] ** vi
+            elif vi < 0:
+                neg *= z_vars[i] ** (-vi)
+        generators.append(sp.expand(pos - neg))
+
+    return generators
+
+
+def _compute_sympy_backend(a_matrix: sp.Matrix) -> list[sp.Expr]:
+    """Compute toric ideal generators via SymPy's Buchberger algorithm."""
     try:
-        # Get dimensions of A-matrix
-        num_rows, num_cols = a_matrix.shape  # r × m
+        num_rows, num_cols = a_matrix.shape
 
-        # === Create symbolic variables ===
-        # z variables: one for each column of A (each monomial in support)
-        z_vars = sp.symbols(" ".join([f"z_{j + 1}" for j in range(num_cols)]))
+        z_vars = sp.symbols(" ".join(f"z_{j + 1}" for j in range(num_cols)))
         if num_cols == 1:
-            z_vars = (z_vars,)  # Ensure it's a tuple
+            z_vars = (z_vars,)
 
-        # t variables: one for each row of A (parametrising the toric variety)
-        t_vars = sp.symbols(" ".join([f"t_{i}" for i in range(num_rows)]))
+        t_vars = sp.symbols(" ".join(f"t_{i}" for i in range(num_rows)))
         if num_rows == 1:
-            t_vars = (t_vars,)  # Ensure it's a tuple
+            t_vars = (t_vars,)
 
-        # === Construct the parametrisation polynomials ===
-        # For each column j of A, create polynomial: z_j - prod_i t_i^(A[i,j])
         parametrisation_polys = []
-
         for j in range(num_cols):
-            # Build monomial: prod_i t_i^(A[i,j])
             monomial = sp.Integer(1)
             for i in range(num_rows):
                 exponent = int(a_matrix[i, j])
                 if exponent > 0:
                     monomial *= t_vars[i] ** exponent
-
-            # Create relation: z_j - monomial = 0
             parametrisation_polys.append(z_vars[j] - monomial)
 
-        # === Compute Gröbner basis with elimination order ===
-        # Use lexicographic order with t > z to eliminate t variables
-        # Variables ordered as: t_0, t_1, ..., t_{r-1}, z_1, z_2, ..., z_m
         all_vars = list(t_vars) + list(z_vars)
 
-        # Compute Gröbner basis using Buchberger's algorithm
-        # The "lex" order ensures t variables are eliminated first
         try:
             groebner_basis = sp.groebner(
                 parametrisation_polys, *all_vars, order="lex", method="buchberger"
             )
         except Exception:
-            # If buchberger fails, try without specifying method
             groebner_basis = sp.groebner(parametrisation_polys, *all_vars, order="lex")
 
-        # === Extract toric ideal generators ===
-        # Keep only polynomials that involve no t variables (pure z-polynomials)
         toric_gens = []
-
         for g in groebner_basis:
             poly = g.as_expr() if hasattr(g, "as_expr") else g
             if poly.free_symbols.isdisjoint(set(t_vars)):
@@ -228,7 +295,6 @@ def is_binomial_ideal(generators: list[sp.Expr]) -> bool:
     True
     """
     for gen in generators:
-        # Count terms in expanded polynomial
         expanded = sp.expand(gen)
         poly = sp.Poly(expanded)
         if len(poly.terms()) > 2:
@@ -270,15 +336,12 @@ def extract_binomial_form(generator: sp.Expr) -> tuple[sp.Expr, sp.Expr]:
     if len(terms) != 2:
         raise ComputationError(f"Generator is not binomial, has {len(terms)} terms: {generator}")
 
-    # Extract the two monomials
     (exp1, coeff1), (exp2, coeff2) = terms
 
-    # Reconstruct monomials
     vars_list = poly.gens
     mono1 = sp.prod([v**e for v, e in zip(vars_list, exp1)])
     mono2 = sp.prod([v**e for v, e in zip(vars_list, exp2)])
 
-    # Determine which is positive
     if coeff1 > 0:
         return mono1, mono2
     else:

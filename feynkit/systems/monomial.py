@@ -77,18 +77,26 @@ def extract_monomial_support(
             Birkhäuser.
     """
     try:
-        # Expand polynomial and convert to Poly object for term extraction
-        expanded_poly = sp.expand(polynomial)
-        poly_obj = sp.Poly(expanded_poly, *variables)
-
-        # Extract all (monomial, coefficient) pairs
-        # P.terms() returns tuples of (exponent_tuple, coefficient)
-        support = [
-            (tuple(int(exp) for exp in monom), sp.simplify(coeff))
-            for monom, coeff in poly_obj.terms()
-        ]
-
-        return support
+        var_idx = {v: i for i, v in enumerate(variables)}
+        n = len(variables)
+        support: dict[tuple[int, ...], sp.Expr] = {}
+        for term in sp.Add.make_args(sp.expand(polynomial)):
+            exponents = [0] * n
+            coeff: sp.Expr = sp.Integer(1)
+            for factor in sp.Mul.make_args(term):
+                if factor.is_Pow:
+                    base, exp = factor.as_base_exp()
+                    if base in var_idx:
+                        exponents[var_idx[base]] = int(exp)
+                    else:
+                        coeff = coeff * factor
+                elif factor in var_idx:
+                    exponents[var_idx[factor]] = 1
+                else:
+                    coeff = coeff * factor
+            key = tuple(exponents)
+            support[key] = support.get(key, sp.Integer(0)) + coeff
+        return [(k, v) for k, v in support.items() if v != 0]
 
     except Exception as e:
         raise PolynomialError(f"Failed to extract monomial support: {e}") from e

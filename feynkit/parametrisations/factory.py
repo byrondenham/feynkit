@@ -14,7 +14,7 @@ import sympy as sp
 from ..core.exceptions import ValidationError
 from ..core.graph import Graph
 from ..core.validation import validate_dimension_parameter, validate_propagator_exponents
-from ..polynomials.symanzik import calculate_symanzik_polynomials
+from ..polynomials.symanzik import _calculate_symanzik_polynomials
 from .feynman import FeynmanParametrisation
 from .lee_pomeransky import LeePomeranskyParametrisation
 from .schwinger import SchwingerParametrisation
@@ -61,7 +61,7 @@ class AllParametrisations:
         )
 
 
-def create_parametrisations(
+def _create_parametrisations(
     graph: Graph,
     dimension: sp.Expr,
     loop_count: int,
@@ -163,7 +163,7 @@ def create_parametrisations(
         )
 
     # Compute Symanzik polynomials
-    u_polynomial, f_polynomial = calculate_symanzik_polynomials(graph, momentum_products)
+    u_polynomial, f_polynomial = _calculate_symanzik_polynomials(graph, momentum_products)
 
     # Create parametrisation instances
     schwinger = SchwingerParametrisation(

@@ -46,11 +46,12 @@ from .geometry import (
     project_to_3d_pca,
 )
 from .polytope import save_polytope_tikz, visualise_newton_polytope
-from .tikz import TikzDocument
+from .tikz import TikzDocument, graph_to_tikz
 
 __all__ = [
     # TikZ
     "TikzDocument",
+    "graph_to_tikz",
     # Polytope visualisation
     "visualise_newton_polytope",
     "save_polytope_tikz",

@@ -116,6 +116,27 @@ def construct_gkz_matrix(
         raise MatrixError(f"Failed to construct GKZ A-matrix: {e}") from e
 
 
+def construct_gkz_matrix_from_exponents(
+    exponent_vecs: list[tuple[int, ...]],
+    n_vars: int,
+) -> sp.Matrix:
+    """
+    Build the GKZ A-matrix directly from pre-computed exponent vectors.
+
+    Avoids symbolic polynomial construction entirely; each column is
+    ``[1, alpha[0], alpha[1], ..., alpha[n-1]]``.
+    """
+    if not exponent_vecs:
+        raise PolynomialError("Empty exponent vector list")
+    m = len(exponent_vecs)
+    A = sp.zeros(n_vars + 1, m)
+    for j, alpha in enumerate(exponent_vecs):
+        A[0, j] = 1
+        for i, exp in enumerate(alpha):
+            A[i + 1, j] = exp
+    return A
+
+
 def validate_gkz_matrix(A: sp.Matrix) -> None:
     """
     Validate that a matrix is a valid GKZ A-matrix.

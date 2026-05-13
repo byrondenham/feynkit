@@ -374,9 +374,9 @@ def _extract_planar_edges(points: np.ndarray, tolerance: float = 1e-8) -> list[t
             edges.append((edge_v1, edge_v2))
 
         return edges
-    except Exception as e:
-        # Fallback: shouldn't happen for valid planar polytopes
-        print(f"Warning: 2D hull failed: {e}")
+    except Exception:
+        # Fallback: should not happen for valid planar polytopes.
+        # Keep library output stable by avoiding direct console prints here.
         return []
 
 

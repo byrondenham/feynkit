@@ -237,7 +237,7 @@ def toric_ideal_to_text(toric_generators: list[sp.Expr]) -> str:
     return "\n".join(lines)
 
 
-def create_analysis_report(
+def _create_analysis_report(
     graph: Graph,
     u_polynomial: sp.Expr,
     f_polynomial: sp.Expr,

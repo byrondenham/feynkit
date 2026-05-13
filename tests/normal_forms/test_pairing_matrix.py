@@ -6,8 +6,8 @@ from sympy import Matrix, symbols
 
 from feynkit.normal_forms.pairing_matrix import (
     _apply_permutation,
-    _matrix_lexicographic_compare,
     is_canonical,
+    matrix_lexicographic_compare as _matrix_lexicographic_compare,
     maximal_pairing_matrix,
 )
 

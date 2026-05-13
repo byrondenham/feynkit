@@ -56,35 +56,29 @@ class LeePomeranskyParametrisation(Parametrisation):
         u_polynomial: sp.Expr,
         f_polynomial: sp.Expr,
     ):
-        """
-        Initialise Lee-Pomeransky parametrisation.
-
-        Parameters
-        ----------
-        graph : Graph
-            Feynman graph.
-        dimension : sp.Expr
-            Spacetime dimension.
-        loop_count : int
-            Number of loops.
-        propagator_exponents : Dict[int, sp.Expr]
-            Propagator exponents.
-        u_polynomial : sp.Expr
-            First Symanzik polynomial.
-        f_polynomial : sp.Expr
-            Second Symanzik polynomial.
-        """
-        self.graph = graph
-        self.dimension = dimension
-        self.loop_count = loop_count
-        self.propagator_exponents = propagator_exponents
-        self.u_polynomial = u_polynomial
-        self.f_polynomial = f_polynomial
+        super().__init__(graph, dimension, loop_count, propagator_exponents, u_polynomial, f_polynomial)
 
     @property
     def name(self) -> str:
         """Return the name of this parametrisation."""
         return "Lee-Pomeransky"
+
+    def _build_lp_substitution(
+        self,
+    ) -> tuple[list[sp.Symbol], dict[sp.Symbol, sp.Expr], sp.Expr, sp.Expr]:
+        """Build LP parameters, substitution map, and substituted U/F polynomials."""
+        internal_edges = self.graph.get_internal_edges()
+        lp_params = [
+            sp.Symbol(f"{LEE_POMERANSKY_PARAM_PREFIX}_{e.idx}", nonnegative=True, real=True)
+            for e in internal_edges
+        ]
+        param_substitution = {
+            self.graph.schwinger_parameters[e.idx]: lp_params[i]
+            for i, e in enumerate(internal_edges)
+        }
+        u_lp = self.u_polynomial.subs(param_substitution)
+        f_lp = self.f_polynomial.subs(param_substitution)
+        return lp_params, param_substitution, u_lp, f_lp
 
     def compute(self) -> ParametrisationResult:
         """
@@ -118,26 +112,12 @@ class LeePomeranskyParametrisation(Parametrisation):
         >>> print(result.integrand)
         """
         try:
+            lp_params, _, u_lp, f_lp = self._build_lp_substitution()
             internal_edges = self.graph.get_internal_edges()
             num_internal = len(internal_edges)
 
-            # Create Lee-Pomeransky parameters u_i for each internal edge
-            lp_params = [
-                sp.Symbol(f"{LEE_POMERANSKY_PARAM_PREFIX}_{e.idx}", nonnegative=True, real=True)
-                for e in internal_edges
-            ]
-
-            # Substitute u parameters into Symanzik polynomials
-            param_substitution = {
-                self.graph.schwinger_parameters[e.idx]: lp_params[i]
-                for i, e in enumerate(internal_edges)
-            }
-
-            u_lp = self.u_polynomial.subs(param_substitution)
-            f_lp = self.f_polynomial.subs(param_substitution)
-
             # Combined polynomial G(u) = U(u) + F(u)
-            g_polynomial = sp.simplify(u_lp + f_lp)
+            g_polynomial = sp.expand(u_lp + f_lp)
 
             # Sum of all propagator exponents: sum_i nu_i
             nu_sum = sum([self.propagator_exponents[e.idx] for e in internal_edges])
@@ -212,19 +192,5 @@ class LeePomeranskyParametrisation(Parametrisation):
         >>> G = lee_pom.get_g_polynomial()
         >>> print(G)
         """
-        internal_edges = self.graph.get_internal_edges()
-
-        lp_params = [
-            sp.Symbol(f"{LEE_POMERANSKY_PARAM_PREFIX}_{e.idx}", nonnegative=True, real=True)
-            for e in internal_edges
-        ]
-
-        param_substitution = {
-            self.graph.schwinger_parameters[e.idx]: lp_params[i]
-            for i, e in enumerate(internal_edges)
-        }
-
-        u_lp = self.u_polynomial.subs(param_substitution)
-        f_lp = self.f_polynomial.subs(param_substitution)
-
-        return sp.simplify(u_lp + f_lp)
+        _, _, u_lp, f_lp = self._build_lp_substitution()
+        return sp.expand(u_lp + f_lp)

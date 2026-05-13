@@ -43,6 +43,13 @@ from .groebner import (
     is_in_ideal,
     reduce_polynomial,
 )
+from .monomial_change import (
+    apply_monomial_change,
+    monomial_substitution_from_affine,
+    overall_monomial_factor,
+    transform_exponent_vector,
+    transform_support,
+)
 from .syzygy import trivial_syzygy
 from .toric import (
     compute_toric_ideal_generators,
@@ -61,6 +68,12 @@ __all__ = [
     "compute_groebner_basis",
     "reduce_polynomial",
     "is_in_ideal",
+    # Monomial changes
+    "monomial_substitution_from_affine",
+    "overall_monomial_factor",
+    "apply_monomial_change",
+    "transform_exponent_vector",
+    "transform_support",
     # Syzygies
     "trivial_syzygy",
 ]

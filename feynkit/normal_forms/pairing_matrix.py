@@ -41,7 +41,7 @@ class PairingMatrixResult:
     symmetry_vector: Optional[list[tuple[int, int]]] = None
 
 
-def _symbolic_compare(expr1: sp.Expr, expr2: sp.Expr) -> int:
+def symbolic_compare(expr1: sp.Expr, expr2: sp.Expr) -> int:
     """
     Compare two SymPy expressions symbollicaly.
 
@@ -66,7 +66,7 @@ def _symbolic_compare(expr1: sp.Expr, expr2: sp.Expr) -> int:
         return 0
 
 
-def _matrix_lexicographic_compare(M1: sp.Matrix, M2: sp.Matrix) -> int:
+def matrix_lexicographic_compare(M1: sp.Matrix, M2: sp.Matrix) -> int:
     """
     Compare two matrices lexicographically (row by row, left to right).
 
@@ -84,7 +84,7 @@ def _matrix_lexicographic_compare(M1: sp.Matrix, M2: sp.Matrix) -> int:
 
     for row1, row2 in zip(rows1, rows2):
         for elem1, elem2 in zip(row1, row2):
-            cmp = _symbolic_compare(elem1, elem2)
+            cmp = symbolic_compare(elem1, elem2)
             if cmp != 0:
                 return cmp
 
@@ -173,7 +173,7 @@ def _find_maximal_row(PM: sp.Matrix) -> int:
 
     for i in range(1, m):
         row = PM.row(i)
-        if _matrix_lexicographic_compare(sp.Matrix([row]), sp.Matrix([max_row])) > 0:
+        if matrix_lexicographic_compare(sp.Matrix([row]), sp.Matrix([max_row])) > 0:
             max_idx = i
             max_row = row
 
@@ -213,7 +213,7 @@ def _find_maximal_element_in_row(PM: sp.Matrix, row_idx: int) -> int:
     max_idx = 0
     max_val = row[0]
     for j in range(1, len(row)):
-        if _symbolic_compare(row[j], max_val) > 0:
+        if symbolic_compare(row[j], max_val) > 0:
             max_idx = j
             max_val = row[j]
 
@@ -301,7 +301,7 @@ def _maximal_pairing_recursive(
 
     for i in range(unfixed_start + 1, m):
         row = PM.row(i)
-        if _matrix_lexicographic_compare(sp.Matrix([row]), sp.Matrix([max_row])) > 0:
+        if matrix_lexicographic_compare(sp.Matrix([row]), sp.Matrix([max_row])) > 0:
             max_idx = i
             max_row = row
 
@@ -322,7 +322,7 @@ def _maximal_pairing_recursive(
 
     for j in range(fixed_rows, n):
         val = PM_working[fixed_rows, j]
-        if max_col_val is None or _symbolic_compare(val, max_col_val) > 0:
+        if max_col_val is None or symbolic_compare(val, max_col_val) > 0:
             max_col_val = val
             max_col_idx = j
 
@@ -333,7 +333,7 @@ def _maximal_pairing_recursive(
     # Find all unfixed columns with the same maximal value
     equivalent_cols = []
     for j in range(fixed_rows, n):
-        if _symbolic_compare(PM_working[fixed_rows, j], max_col_val) == 0:
+        if symbolic_compare(PM_working[fixed_rows, j], max_col_val) == 0:
             equivalent_cols.append(j)
 
     # Try all equivalent column placements
@@ -359,7 +359,7 @@ def _maximal_pairing_recursive(
         )
 
     # Keep lexicographically maximal result
-    if best_matrix is None or _matrix_lexicographic_compare(result_matrix, best_matrix) > 0:
+    if best_matrix is None or matrix_lexicographic_compare(result_matrix, best_matrix) > 0:
         best_matrix = result_matrix
         best_row_perm = result_row_perm[:]
         best_col_perm = result_col_perm[:]
@@ -427,4 +427,4 @@ def is_canonical(PM: sp.Matrix) -> bool:
         True if PM is already maximal, False otherwise
     """
     result = maximal_pairing_matrix(PM)
-    return _matrix_lexicographic_compare(PM, result.PM_max) == 0
+    return matrix_lexicographic_compare(PM, result.PM_max) == 0

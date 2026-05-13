@@ -8,6 +8,7 @@ structures associated with Feynman integrals.
 from typing import Optional
 
 from ..core.exceptions import ValidationError
+from ..core.graph import Graph
 
 
 class TikzDocument:
@@ -267,3 +268,96 @@ class TikzDocument:
     def __str__(self) -> str:
         """Return the TikZ code."""
         return self.get_code()
+
+
+def graph_to_tikz(graph: Graph) -> str:
+    """
+    Generate a TikZ diagram of a Feynman graph.
+
+    Parameters
+    ----------
+    graph : Graph
+        Feynman graph.
+
+    Returns
+    -------
+    str
+        TikZ code wrapped in a figure environment.
+    """
+    internal_vertices = set()
+    for edge in graph.edges:
+        if edge.is_internal:
+            internal_vertices.add(edge.v1)
+            internal_vertices.add(edge.v2)
+
+    num_internal = len(internal_vertices)
+
+    lines = [
+        "\\begin{figure}[htbp]",
+        "\\centering",
+        "\\begin{tikzpicture}[",
+        "  vertex/.style={circle, fill=black, inner sep=2pt},",
+        "  external/.style={circle, draw=black, inner sep=1.5pt},",
+        "  propagator/.style={thick},",
+        "  external_leg/.style={dashed}",
+        "]",
+        "",
+    ]
+
+    if num_internal == 2:
+        lines.extend(
+            [
+                "  % Internal vertices",
+                "  \\node[vertex] (v1) at (0, 0) {};",
+                "  \\node[vertex] (v2) at (3, 0) {};",
+            ]
+        )
+    elif num_internal == 3:
+        lines.extend(
+            [
+                "  % Internal vertices",
+                "  \\node[vertex] (v1) at (90:2cm) {};",
+                "  \\node[vertex] (v2) at (210:2cm) {};",
+                "  \\node[vertex] (v3) at (330:2cm) {};",
+            ]
+        )
+    else:
+        angle_step = 360 / num_internal
+        lines.append("  % Internal vertices")
+        for i, v in enumerate(sorted(internal_vertices)):
+            angle = 90 + i * angle_step
+            lines.append(f"  \\node[vertex] (v{v}) at ({angle}:2cm) {{}};")
+
+    lines.append("")
+    lines.append("  % Internal propagators")
+    drawn_edges: set[tuple[int, int]] = set()
+    for edge in graph.edges:
+        if edge.is_internal:
+            edge_key = tuple(sorted([edge.v1, edge.v2]))
+            if edge_key not in drawn_edges:
+                lines.append(f"  \\draw[propagator] (v{edge.v1}) -- (v{edge.v2});")
+                drawn_edges.add(edge_key)
+
+    lines.append("")
+    lines.append("  % External legs")
+    external_count = 0
+    for edge in graph.edges:
+        if not edge.is_internal:
+            internal_v = edge.v1 if edge.v1 in internal_vertices else edge.v2
+            external_count += 1
+            angle = 90 + (external_count - 1) * (360 / graph.external_legs)
+            lines.append(f"  \\node[external] (e{external_count}) at ({angle}:3.5cm) {{}};")
+            lines.append(f"  \\draw[external_leg] (v{internal_v}) -- (e{external_count});")
+
+    lines.extend(
+        [
+            "",
+            "\\end{tikzpicture}",
+            "\\caption{Feynman diagram topology. Internal vertices are shown as filled circles, "
+            "internal propagators as solid lines, and external legs as dashed lines.}",
+            "\\label{fig:feynman_graph}",
+            "\\end{figure}",
+        ]
+    )
+
+    return "\n".join(lines)

@@ -8,14 +8,14 @@ import sympy as sp
 
 from feynkit import Edge, Graph
 from feynkit.io import (
-    create_analysis_document,
-    create_analysis_report,
     edges_to_latex_table,
     edges_to_text,
     graph_to_latex_table,
     graph_to_text,
     to_latex,
 )
+from feynkit.io.latex import _create_analysis_document
+from feynkit.io.text import _create_analysis_report
 
 
 @pytest.fixture  # type: ignore
@@ -63,7 +63,7 @@ class TestLatexExport:
         U = sp.Symbol("U")
         F = sp.Symbol("F")
 
-        doc = create_analysis_document(
+        doc = _create_analysis_document(
             graph=simple_graph,
             u_polynomial=U,
             f_polynomial=F,
@@ -100,7 +100,7 @@ class TestTextExport:
         U = sp.Symbol("U")
         F = sp.Symbol("F")
 
-        report = create_analysis_report(
+        report = _create_analysis_report(
             graph=simple_graph,
             u_polynomial=U,
             f_polynomial=F,
@@ -123,7 +123,7 @@ class TestFileSaving:
         U = sp.Symbol("U")
         F = sp.Symbol("F")
 
-        doc = create_analysis_document(
+        doc = _create_analysis_document(
             graph=simple_graph,
             u_polynomial=U,
             f_polynomial=F,
@@ -143,7 +143,7 @@ class TestFileSaving:
         U = sp.Symbol("U")
         F = sp.Symbol("F")
 
-        report = create_analysis_report(
+        report = _create_analysis_report(
             graph=simple_graph,
             u_polynomial=U,
             f_polynomial=F,

@@ -23,6 +23,58 @@ from .validation import (
     validate_positive_integer,
 )
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Mass-code helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Codes that map to zero mass.
+_MASSLESS_CODES: frozenset[str] = frozenset(("0", "z"))
+
+# Single-character codes that denote a *shared* symbolic mass m_{code}.
+# Range: digits 1–9 and lowercase letters a–y, excluding the reserved codes
+# 'n' (unique non-zero) and 's' (special shared).
+_LABELED_CODES: frozenset[str] = frozenset(
+    [str(d) for d in range(1, 10)]
+    + [c for c in "abcdefghijklmnopqrstuvwxy" if c not in ("n", "s")]
+)
+
+_ALL_VALID_CODES: frozenset[str] = _MASSLESS_CODES | {"n", "s"} | _LABELED_CODES
+
+
+def _mass_from_code(mc: str, edge_idx: int, mass_assumptions: dict) -> sp.Expr:
+    """Map a single mass-code character to a SymPy mass expression."""
+    if mc in _MASSLESS_CODES:
+        return sp.Integer(0)
+    if mc == "n":
+        return sp.Symbol(f"m_{edge_idx}", **mass_assumptions)
+    if mc == "s":
+        return sp.Symbol("m_s", **mass_assumptions)
+    # Labeled code: all edges sharing the same label share the same symbol.
+    return sp.Symbol(f"m_{mc}", **mass_assumptions)
+
+
+def _mass_code_from_expr(mass: sp.Expr) -> str:
+    """Reverse-map a SymPy mass expression to a single mass-code character.
+
+    Digit-labeled symbols (m_1 … m_9) are ambiguous with unique-mass symbols
+    created by the 'n' code (which also uses m_{edge_idx}), so they are always
+    returned as 'n'.  Letter-labeled symbols (m_a … m_y, m_s) round-trip
+    exactly.
+    """
+    if mass == sp.Integer(0):
+        return "z"
+    if isinstance(mass, sp.Symbol):
+        name = mass.name
+        # Symbols created by _mass_from_code have the form "m_X" (len 3).
+        if name.startswith("m_") and len(name) == 3:
+            c = name[2]
+            if c == "s":
+                return "s"
+            # Letter labels 'a'-'y' (excl. 'n','s') round-trip unambiguously.
+            if c.isalpha() and c.islower() and c not in ("n", "s"):
+                return c
+    return "n"
+
 
 class Graph:
     """
@@ -67,7 +119,7 @@ class Graph:
     Examples
     --------
     >>> import sympy as sp
-    >>> from feynman.core import Edge, Graph
+    >>> from feynkit.core import Edge, Graph
     >>>
     >>> # Create a simple bubble diagram (2 vertices, 2 internal edges, 2 external legs)
     >>> m1, m2 = sp.symbols('m1 m2', nonnegative=True)
@@ -238,6 +290,350 @@ class Graph:
         """
         return len(self._internal_edges) - self.internal_vertices + 1
 
+    # ── Nickel / CNickel index ────────────────────────────────────────────────
+
+    def _nickel_adjacency(
+        self,
+    ) -> tuple[dict[int, list[tuple[int, str]]], dict[int, int]]:
+        """
+        Build adjacency structures for Nickel index computation.
+
+        Returns (adj, ext_deg) where:
+        - adj[v] = list of (neighbor_v, mass_char) for internal edges
+        - ext_deg[v] = number of external legs at internal vertex v
+        """
+        from collections import Counter, defaultdict
+
+        # Build a mass-code map that correctly labels shared masses.
+        # _mass_code_from_expr alone cannot distinguish a unique 'n' mass
+        # (m_{edge_idx}) from a shared digit-labeled mass (both named m_1, etc.).
+        # Here we count occurrences: symbols appearing on >1 edge are shared and
+        # receive a stable letter label; symbols appearing on exactly 1 edge get 'n'.
+        zero = sp.Integer(0)
+        mass_count: Counter = Counter(
+            e.mass for e in self._internal_edges if e.mass is not None and e.mass != zero
+        )
+
+        # First pass: masses that already have a good reverse label (letter/special).
+        mass_code_map: dict[sp.Expr, str] = {}
+        used_letters: set[str] = set()
+        for mass in mass_count:
+            code = _mass_code_from_expr(mass)
+            if code != "n":
+                mass_code_map[mass] = code
+                if code.isalpha() and code not in ("n", "s", "z"):
+                    used_letters.add(code)
+
+        # Second pass: unlabeled shared masses get fresh letters (sorted for stability).
+        _LETTER_POOL = [c for c in "abcdefghijklmopqrtuvwxy"]  # a-y, excl. n,s
+        available = [c for c in _LETTER_POOL if c not in used_letters]
+        unlabeled_shared = sorted(
+            (m for m, cnt in mass_count.items() if cnt > 1 and m not in mass_code_map),
+            key=str,
+        )
+        for mass, letter in zip(unlabeled_shared, available):
+            mass_code_map[mass] = letter
+
+        def _mc(e: Edge) -> str:
+            m = e.mass if e.mass is not None else zero
+            if m == zero:
+                return "z"
+            return mass_code_map.get(m, "n")
+
+        adj: dict[int, list[tuple[int, str]]] = defaultdict(list)
+        for e in self._internal_edges:
+            mc = _mc(e)
+            adj[e.v1].append((e.v2, mc))
+            if e.v2 != e.v1:
+                adj[e.v2].append((e.v1, mc))
+
+        ext_deg: dict[int, int] = defaultdict(int)
+        for e in self._external_edges:
+            ext_deg[e.v1] += 1
+
+        return dict(adj), dict(ext_deg)
+
+    def _nickel_entry_and_colors(
+        self,
+        i: int,
+        orig_v: int,
+        new_label: dict[int, int],
+        adj: dict[int, list[tuple[int, str]]],
+        ext_deg: dict[int, int],
+    ) -> tuple[str, list[str]]:
+        """
+        Build the Nickel entry string and mass color list for vertex with
+        new label i (corresponding to original vertex orig_v).
+        """
+        from collections import defaultdict
+
+        groups: dict[int, list[str]] = defaultdict(list)
+        for nb, mc in adj.get(orig_v, []):
+            j = new_label[nb]
+            if j >= i:
+                groups[j].append(mc)
+
+        entry = ""
+        mass_chars: list[str] = []
+        for j in sorted(groups):
+            mcs = sorted(groups[j])
+            entry += str(j) * len(mcs)
+            mass_chars.extend(mcs)
+
+        entry += "e" * ext_deg.get(orig_v, 0)
+        return entry, mass_chars
+
+    def nickel_index(self) -> str:
+        """
+        Canonical Nickel topology string for this graph.
+
+        The Nickel index encodes the graph topology as a string that is
+        invariant under vertex relabelling (canonical = lex minimum over
+        all n! relabellings of internal vertices).
+
+        For each vertex i (0-indexed), the entry lists higher-numbered
+        internal neighbors in ascending order followed by 'e' for each
+        external leg; entries are separated by '|'.
+
+        Examples
+        --------
+        Massless bubble:   ``"11e|e|"``
+        Massless triangle: ``"12e|2e|e|"``
+        Massless box:      ``"13e|2e|3e|e|"``
+        3-prop banana:     ``"111e|e|"``
+
+        Notes
+        -----
+        Supports up to 9 internal vertices (single-digit vertex labels).
+        """
+        from itertools import permutations
+
+        V = self.internal_vertices
+        if V > 9:
+            raise NotImplementedError(
+                f"Nickel index requires V ≤ 9; this graph has {V} internal vertices"
+            )
+
+        adj, ext_deg = self._nickel_adjacency()
+
+        best: str | None = None
+        for perm in permutations(range(1, V + 1)):
+            new_label = {v: i for i, v in enumerate(perm)}
+            parts = []
+            for i in range(V):
+                entry, _ = self._nickel_entry_and_colors(
+                    i, perm[i], new_label, adj, ext_deg
+                )
+                parts.append(entry)
+            s = "|".join(parts) + "|"
+            if best is None or s < best:
+                best = s
+
+        return best or ""
+
+    def cnickel(self) -> str:
+        """
+        Canonical Colored Nickel (CNickel) index: topology + mass coloring.
+
+        Extends :meth:`nickel_index` with a mass-color suffix separated by
+        ``':'``.  Mass codes: ``'z'`` = zero mass (massless propagator),
+        ``'n'`` = nonzero mass (massive propagator).  The colors are listed
+        in the order the corresponding internal edges appear left-to-right
+        in the topology string.
+
+        The canonical form minimises the full ``(topology, coloring)`` pair
+        lexicographically, correctly handling graphs with automorphisms.
+
+        Examples
+        --------
+        Massless triangle:     ``"12e|2e|e|:zzz"``
+        One-massive triangle:  ``"12e|2e|e|:zzn"``
+        All-massive triangle:  ``"12e|2e|e|:nnn"``
+        Massless bubble:       ``"11e|e|:zz"``
+        """
+        from itertools import permutations
+
+        V = self.internal_vertices
+        if V > 9:
+            raise NotImplementedError(
+                f"CNickel index requires V ≤ 9; this graph has {V} internal vertices"
+            )
+
+        adj, ext_deg = self._nickel_adjacency()
+
+        best: tuple[str, str] | None = None
+        for perm in permutations(range(1, V + 1)):
+            new_label = {v: i for i, v in enumerate(perm)}
+            parts = []
+            all_colors: list[str] = []
+            for i in range(V):
+                entry, colors = self._nickel_entry_and_colors(
+                    i, perm[i], new_label, adj, ext_deg
+                )
+                parts.append(entry)
+                all_colors.extend(colors)
+            nickel = "|".join(parts) + "|"
+            mass_str = "".join(all_colors)
+            pair = (nickel, mass_str)
+            if best is None or pair < best:
+                best = pair
+
+        assert best is not None
+        return f"{best[0]}:{best[1]}"
+
+    @classmethod
+    def from_cnickel(cls, cnickel: str) -> "Graph":
+        """
+        Construct a :class:`Graph` from a CNickel string.
+
+        Accepts both the full ``"<topology>:<colors>"`` form and a bare
+        topology string (all edges default to massless when colors are absent).
+
+        Vertex labels in the string are 0-indexed; feynkit's internal vertex
+        numbering (1-indexed) is assigned in the same order.  External legs are
+        numbered sequentially in the order they appear reading left-to-right
+        through the topology entries.
+
+        Massive edges (color ``'n'``) receive a symbolic mass
+        ``m_<idx>`` with assumptions ``{nonnegative: True, real: True}``.
+        Massless edges (color ``'z'``) receive ``mass = 0``.
+
+        Parameters
+        ----------
+        cnickel
+            CNickel string, e.g. ``"12e|2e|e|:nzz"`` or ``"12e|2e|e|"``.
+
+        Returns
+        -------
+        Graph
+
+        Raises
+        ------
+        ValueError
+            If the string is malformed, contains out-of-range vertex labels,
+            or the mass-color count does not match the internal edge count.
+
+        Examples
+        --------
+        >>> Graph.from_cnickel("11e|e|:zz")          # massless bubble
+        >>> Graph.from_cnickel("12e|2e|e|:zzz")      # massless triangle
+        >>> Graph.from_cnickel("12e|2e|e|:nzz")      # one-mass triangle
+        >>> Graph.from_cnickel("111e|e|:zzz")        # massless 3-prop banana
+        >>> Graph.from_cnickel("12e|2e|e|")           # bare topology → massless
+        """
+        from .constants import MASS_ASSUMPTIONS
+
+        if ":" in cnickel:
+            topology, color_part = cnickel.rsplit(":", 1)
+            if "|" in color_part:
+                # Structured format: color string mirrors the topology structure
+                # (one color per topology character, '|' as separator).
+                # Extract only the colors that sit at digit (internal-edge) positions.
+                topo_chars = topology.rstrip("|").replace("|", "")
+                color_chars = color_part.rstrip("|").replace("|", "")
+                mass_str = "".join(
+                    cc for tc, cc in zip(topo_chars, color_chars) if tc.isdigit()
+                )
+            else:
+                mass_str = color_part
+        else:
+            topology = cnickel
+            mass_str = ""
+
+        topology = topology.rstrip("|")
+        if not topology:
+            raise ValueError(f"Empty topology in CNickel string: {cnickel!r}")
+
+        parts = topology.split("|")
+        V = len(parts)
+
+        internal_edges: list[Edge] = []
+        external_edges: list[Edge] = []
+        edge_idx = 1
+        mass_idx = 0
+
+        # ── internal edges ────────────────────────────────────────────────
+        for i, entry in enumerate(parts):
+            for ch in entry:
+                if ch.isdigit():
+                    j = int(ch)
+                    if j >= V:
+                        raise ValueError(
+                            f"Vertex label {j} out of range [0, {V - 1}] "
+                            f"in entry {i} of {cnickel!r}"
+                        )
+                    if j >= i:
+                        if mass_idx < len(mass_str):
+                            mc = mass_str[mass_idx]
+                        else:
+                            mc = "z"
+                        if mc not in _ALL_VALID_CODES:
+                            raise ValueError(
+                                f"Unknown mass code {mc!r} in {cnickel!r}"
+                            )
+                        mass_idx += 1
+                        mass = _mass_from_code(mc, edge_idx, MASS_ASSUMPTIONS)
+                        internal_edges.append(
+                            Edge(
+                                idx=edge_idx,
+                                v1=i + 1,
+                                v2=j + 1,
+                                is_internal=True,
+                                mass=mass,
+                            )
+                        )
+                        edge_idx += 1
+                elif ch != "e":
+                    raise ValueError(
+                        f"Unexpected character {ch!r} in entry {i} "
+                        f"of topology {topology!r}"
+                    )
+
+        if mass_str and mass_idx != len(mass_str):
+            raise ValueError(
+                f"Mass-color length {len(mass_str)} does not match "
+                f"internal edge count {mass_idx} in {cnickel!r}"
+            )
+
+        # ── external edges ────────────────────────────────────────────────
+        ext_v = V + 1
+        for i, entry in enumerate(parts):
+            for ch in entry:
+                if ch == "e":
+                    external_edges.append(
+                        Edge(
+                            idx=edge_idx,
+                            v1=i + 1,
+                            v2=ext_v,
+                            is_internal=False,
+                        )
+                    )
+                    edge_idx += 1
+                    ext_v += 1
+
+        total_ext = ext_v - (V + 1)
+        return cls(
+            internal_vertices=V,
+            external_legs=total_ext,
+            edges=internal_edges + external_edges,
+        )
+
+    @classmethod
+    def from_nickel(cls, nickel: str) -> "Graph":
+        """
+        Construct a massless :class:`Graph` from a bare Nickel topology string.
+
+        Equivalent to ``Graph.from_cnickel(nickel)`` — the mass-color suffix is
+        omitted, so all propagators default to zero mass.
+
+        Examples
+        --------
+        >>> Graph.from_nickel("11e|e|")       # massless bubble
+        >>> Graph.from_nickel("12e|2e|e|")    # massless triangle
+        >>> Graph.from_nickel("13e|2e|3e|e|") # massless box
+        """
+        return cls.from_cnickel(nickel)
+
     def calculate_laplacian(self, include_external: bool = True) -> sp.Matrix:
         """
         Compute the graph Laplacian matrix.
@@ -350,8 +746,7 @@ class Graph:
         else:
             M = L
 
-        # Return factored determinant
-        return sp.factor(M.det())
+        return sp.expand(M.det(method="bareiss"))
 
     def expand_w_by_external_parameters(self) -> dict[tuple[int, ...], sp.Expr]:
         """

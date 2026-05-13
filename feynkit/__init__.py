@@ -1,63 +1,53 @@
 """
-Feynkit: A comprehensive toolkit for symbolic Feynman integral computations.
+Feynkit: A unified toolkit for symbolic Feynman integral computations.
 
-Feynkit provides a modern, well-documented API for working with Feynman integrals
-using parametric representations, algebraic geometry methods, and differential
-equation techniques.
+The primary interface is :class:`FeynmanIntegral`, an immutable object that
+exposes every representation of an integral — graph topology, Symanzik /
+Lee-Pomeransky polynomials, parametric representations, GKZ system, Newton
+polytope, and toric ideal — as a ``cached_property`` derived lazily from
+one underlying graph and its kinematic data.
 
 Quick Start
 -----------
 >>> import sympy as sp
->>> from feynkit import (
-...     Edge, Graph,
-...     create_momentum_products,
-...     create_parametrisations,
-...     create_gkz_system
-... )
->>> from feynkit.algebra import compute_toric_ideal_generators
->>> from feynkit.visualisation import visualise_newton_polytope
->>> from feynkit.io import create_analysis_document
+>>> from feynkit import Edge, Graph, FeynmanIntegral
 >>>
->>> # Create a bubble diagram
 >>> e1 = Edge(idx=1, v1=1, v2=2, is_internal=True)
 >>> e2 = Edge(idx=2, v1=2, v2=1, is_internal=True)
 >>> ex1 = Edge(idx=3, v1=1, v2=3, is_internal=False)
 >>> ex2 = Edge(idx=4, v1=2, v2=4, is_internal=False)
->>>
 >>> graph = Graph(internal_vertices=2, external_legs=2, edges=[e1, e2, ex1, ex2])
 >>>
->>> # Full analysis with export
->>> D = sp.Symbol('D', positive=True)
->>> nu1, nu2 = sp.symbols('nu1 nu2', positive=True)
->>> p_dot = create_momentum_products(n_external=2, use_mandelstam=True)
->>> all_param = create_parametrisations(graph, D, 1, {1: nu1, 2: nu2}, p_dot)
+>>> integral = FeynmanIntegral(graph)
+>>> integral.symanzik.u                     # Symanzik U
+>>> integral.gkz.a_matrix                   # GKZ A-matrix
+>>> integral.toric_ideal.generators         # IBP relations
+>>> integral.is_affinely_equivalent_to(other)
+>>> integral.to_latex()                     # full analysis document
 >>>
->>> # Export to LaTeX
->>> latex_doc = create_analysis_document(
-...     graph=graph,
-...     u_polynomial=all_param.u_polynomial,
-...     f_polynomial=all_param.f_polynomial,
-...     title="My Analysis"
-... )
+>>> # Derive a related integral with a different dimension; cache is fresh.
+>>> integral.with_(dimension=4)
 
-Modules
--------
+Submodules
+----------
 core
-    Core data structures: Edge, Graph, and validation utilities.
+    Edge, Graph, validation utilities, error types.
+polynomials
+    Polynomial transforms (inversion, rescaling, projective forms).
+parametrisations
+    Schwinger / Feynman / Lee-Pomeransky representation classes.
+systems
+    GKZ A-matrix, monomial support, Euler operators.
+algebra
+    Toric ideal, syzygy, monomial-change utilities.
+normal_forms
+    Pairing-matrix canonicalisation and polytope equivalence.
 kinematics
     Momentum products and Mandelstam variables.
-polynomials
-    Symanzik polynomial computation and manipulation.
-parametrisations
-    Schwinger, Feynman, and Lee-Pomeransky parametric representations.
-systems
-    GKZ hypergeometric systems and Euler operators.
-algebra
-    Toric ideals and Gröbner basis computations.
 visualisation
-    TikZ generation and polytope visualisation.
+    TikZ generation and Newton polytope rendering.
 io
-    LaTeX and text export utilities.
+    LaTeX and text formatters.
 
 References
 ----------
@@ -72,8 +62,21 @@ References
         American Mathematical Society.
 """
 
-# Import commonly used functions for convenience
-from feynkit.algebra import compute_toric_ideal_generators
+from feynkit.artifacts.conformal import (
+    bms_simplex_a_config,
+    complete_graph_a_config,
+    conformal_companion_a_config,
+    massless_polygon_a_config,
+)
+from feynkit.a_configuration import (
+    AConfiguration,
+    FiniteIndexResult,
+    IntrinsicModel,
+    SymmetryPair,
+    finite_index_map,
+    intrinsic_lattice_model,
+    symmetry_pairs,
+)
 from feynkit.core import (
     Edge,
     FeynkitError,
@@ -81,27 +84,57 @@ from feynkit.core import (
     ValidationError,
     __version__,
 )
-from feynkit.io import create_analysis_document, create_analysis_report
-from feynkit.kinematics import create_momentum_products
-from feynkit.parametrisations import create_parametrisations
-from feynkit.polynomials import calculate_symanzik_polynomials
-from feynkit.systems import create_gkz_system
-from feynkit.visualisation import visualise_newton_polytope
+from feynkit.database import FeynkitDatabase
+from feynkit.integral import FeynmanIntegral
+from feynkit.landau import (
+    EdgeDiscriminant,
+    LandauAnalysis,
+    landau_analysis,
+    landau_analysis_from_polynomial,
+)
+from feynkit.types import (
+    NewtonPolytope,
+    PolytopeAutomorphisms,
+    PolytopeEquivalence,
+    SymanzikPolynomials,
+    ToricIdeal,
+)
+from feynkit.normal_forms import PairingMatrixResult
+from feynkit.parametrisations import ParametrisationResult
+from feynkit.systems import GKZSystem
 
 __all__ = [
     "__version__",
-    # Core
-    "Edge",
-    "Graph",
+    # Errors
     "FeynkitError",
     "ValidationError",
-    # Convenience imports
-    "create_momentum_products",
-    "calculate_symanzik_polynomials",
-    "create_parametrisations",
-    "create_gkz_system",
-    "compute_toric_ideal_generators",
-    "visualise_newton_polytope",
-    "create_analysis_document",
-    "create_analysis_report",
+    # Inputs
+    "Edge",
+    "Graph",
+    # Unified façade
+    "FeynmanIntegral",
+    # Conformal artifacts
+    "massless_polygon_a_config",
+    "bms_simplex_a_config",
+    "complete_graph_a_config",
+    "conformal_companion_a_config",
+    # A-configurations (arbitrary GKZ inputs)
+    "AConfiguration",
+    "FiniteIndexResult",
+    "IntrinsicModel",
+    "SymmetryPair",
+    "finite_index_map",
+    "intrinsic_lattice_model",
+    "symmetry_pairs",
+    # Database
+    "FeynkitDatabase",
+    # Value types
+    "SymanzikPolynomials",
+    "NewtonPolytope",
+    "ToricIdeal",
+    "PolytopeEquivalence",
+    "PolytopeAutomorphisms",
+    "ParametrisationResult",
+    "GKZSystem",
+    "PairingMatrixResult",
 ]

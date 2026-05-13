@@ -11,8 +11,11 @@ from feynkit.algebra import (
     extract_binomial_form,
     is_binomial_ideal,
 )
+from feynkit.algebra.toric import _4ti2_binary
 from feynkit.core import ComputationError
 from feynkit.systems import construct_gkz_matrix
+
+requires_4ti2 = pytest.mark.skipif(_4ti2_binary() is None, reason="4ti2 not installed")
 
 
 @pytest.fixture  # type: ignore
@@ -98,6 +101,64 @@ class TestToricIdealUtilities:
 
         with pytest.raises(ComputationError):
             extract_binomial_form(gen)
+
+
+class TestToricIdealBackends:
+    """Test backend selection and 4ti2 correctness."""
+
+    def test_unknown_backend_raises(self) -> None:
+        A = sp.Matrix([[1, 1, 1], [0, 1, 2]])
+        with pytest.raises(ComputationError, match="Unknown backend"):
+            compute_toric_ideal_generators(A, backend="nonsense")
+
+    def test_4ti2_missing_raises_when_required(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("feynkit.algebra.toric._4ti2_binary", lambda: None)
+        A = sp.Matrix([[1, 1, 1], [0, 1, 2]])
+        with pytest.raises(ComputationError, match="4ti2 backend"):
+            compute_toric_ideal_generators(A, backend="4ti2")
+
+    @requires_4ti2
+    def test_4ti2_known_relation(self) -> None:
+        """z_1*z_3 - z_2^2 is in I_A for the standard twisted cubic matrix."""
+        A = sp.Matrix([[1, 1, 1], [0, 1, 2]])
+        gens = compute_toric_ideal_generators(A, backend="4ti2")
+        z1, z2, z3 = sp.symbols("z_1 z_2 z_3")
+        expected = z1 * z3 - z2**2
+        assert any(sp.expand(g - expected) == 0 or sp.expand(g + expected) == 0 for g in gens)
+
+    @requires_4ti2
+    def test_backends_agree_on_generator_count(self) -> None:
+        """Both backends should return the same number of generators for well-conditioned cases."""
+        for A in [
+            sp.Matrix([[1, 1, 1], [0, 1, 2]]),
+            sp.Matrix([[1, 1, 1], [2, 1, 0], [0, 1, 2]]),
+        ]:
+            gens_sympy = compute_toric_ideal_generators(A, backend="sympy")
+            gens_4ti2 = compute_toric_ideal_generators(A, backend="4ti2")
+            assert len(gens_sympy) == len(gens_4ti2)
+
+    @requires_4ti2
+    def test_4ti2_generators_are_binomial(self) -> None:
+        A = sp.Matrix([[1, 1, 1], [2, 1, 0], [0, 1, 2]])
+        gens = compute_toric_ideal_generators(A, backend="4ti2")
+        assert is_binomial_ideal(gens)
+
+    @requires_4ti2
+    def test_auto_backend_uses_4ti2(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When 4ti2 is installed, auto should call the 4ti2 backend."""
+        calls: list[str] = []
+        real_compute = __import__(
+            "feynkit.algebra.toric", fromlist=["_compute_4ti2_backend"]
+        )._compute_4ti2_backend
+
+        def recording_4ti2(a_matrix: sp.Matrix, binary: str) -> list[sp.Expr]:
+            calls.append(binary)
+            return real_compute(a_matrix, binary)
+
+        monkeypatch.setattr("feynkit.algebra.toric._compute_4ti2_backend", recording_4ti2)
+        A = sp.Matrix([[1, 1, 1], [0, 1, 2]])
+        compute_toric_ideal_generators(A, backend="auto")
+        assert len(calls) == 1
 
 
 class TestToricIdealFromPolynomial:

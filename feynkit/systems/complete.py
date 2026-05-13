@@ -14,7 +14,7 @@ import sympy as sp
 
 from ..core.exceptions import ValidationError
 from .euler import create_euler_equations
-from .gkz import construct_gkz_matrix
+from .gkz import construct_gkz_matrix, construct_gkz_matrix_from_exponents
 from .monomial import extract_monomial_support
 
 
@@ -68,7 +68,7 @@ class GKZSystem:
         return "\n".join(lines)
 
 
-def create_gkz_system(
+def _create_gkz_system(
     g_polynomial: sp.Expr,
     u_variables: list[sp.Symbol],
     dimension: sp.Expr,
@@ -143,12 +143,14 @@ def create_gkz_system(
             f"number of propagator exponents ({len(propagator_exponents)})"
         )
 
-    # Extract monomial support from G(u)
-    support = extract_monomial_support(g_polynomial, u_variables)
+    # Extract monomial support from G(u), sorted canonically
+    raw_support = extract_monomial_support(g_polynomial, u_variables)
+    support = sorted(raw_support, key=lambda p: (-sum(p[0]), tuple(-e for e in p[0])))
     num_monomials = len(support)
 
-    # Construct A-matrix
-    a_matrix = construct_gkz_matrix(g_polynomial, u_variables)
+    # Construct A-matrix from sorted support
+    exponent_vecs = [alpha for alpha, _ in support]
+    a_matrix = construct_gkz_matrix_from_exponents(exponent_vecs, len(u_variables))
 
     # Create differential variables z_j
     z_variables = [sp.Symbol(f"z_{j + 1}") for j in range(num_monomials)]
@@ -161,6 +163,47 @@ def create_gkz_system(
     # Generate Euler differential equations
     euler_equations = create_euler_equations(a_matrix, beta_parameters, z_variables)
 
+    return GKZSystem(
+        a_matrix=a_matrix,
+        z_variables=z_variables,
+        support=support,
+        beta_parameters=beta_parameters,
+        euler_equations=euler_equations,
+        dimension=dimension,
+        propagator_exponents=propagator_exponents,
+    )
+
+
+def _create_gkz_system_direct(
+    exponent_vecs: list[tuple[int, ...]],
+    lp_params: list[sp.Symbol],
+    dimension: sp.Expr,
+    propagator_exponents: list[sp.Expr],
+) -> GKZSystem:
+    """
+    Construct a GKZ system directly from pre-enumerated exponent vectors.
+
+    Bypasses symbolic polynomial construction entirely — the A-matrix is built
+    from graph-combinatorial data, not from G = U + F as a SymPy expression.
+    The ``support`` field uses coefficient ``1`` for every monomial (the
+    coefficients are not needed for the A-matrix or Euler equations).
+    """
+    if len(lp_params) != len(propagator_exponents):
+        raise ValidationError(
+            f"Number of LP params ({len(lp_params)}) must match "
+            f"number of propagator exponents ({len(propagator_exponents)})"
+        )
+    # Sort descending by total degree, then descending lex — matches sp.Poly grevlex output
+    # so that z_j labels are consistent with the polynomial-based path.
+    sorted_vecs = sorted(exponent_vecs, key=lambda v: (-sum(v), tuple(-e for e in v)))
+    n_vars = len(lp_params)
+    a_matrix = construct_gkz_matrix_from_exponents(sorted_vecs, n_vars)
+    support = [(alpha, sp.Integer(1)) for alpha in sorted_vecs]
+    m = len(exponent_vecs)
+    z_variables = [sp.Symbol(f"z_{j + 1}") for j in range(m)]
+    nu_sum = sum(propagator_exponents)
+    beta_parameters = [nu_sum - dimension / 2] + list(propagator_exponents)
+    euler_equations = create_euler_equations(a_matrix, beta_parameters, z_variables)
     return GKZSystem(
         a_matrix=a_matrix,
         z_variables=z_variables,

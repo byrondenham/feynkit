@@ -1,0 +1,2088 @@
+════════════════════════════════════════════════════════════════════════
+  feynkit comprehensive survey
+════════════════════════════════════════════════════════════════════════
+  Database : /home/byron/docs/ph32048/feynkit/feynkit_survey.db
+  Output   : /home/byron/docs/ph32048/feynkit/feynkit_survey.txt
+
+════════════════════════════════════════════════════════════════════════
+  FAMILY 1 — Massless 1-loop n-gons  (n = 3 … 7)
+════════════════════════════════════════════════════════════════════════
+
+  Building 3-gon (C_3) ...
+    done in 0.5s  →  A=4×6, toric_gens=2, vol=4
+  Building 4-gon (C_4) ...
+    done in 0.9s  →  A=5×10, toric_gens=10, vol=11
+  Building 5-gon (C_5) ...
+    done in 2.0s  →  A=6×15, toric_gens=30, vol=26
+  Building 6-gon (C_6) ...
+    done in 4.4s  →  A=7×21, toric_gens=70, vol=57
+  Building 7-gon (C_7) ...
+    done in 8.6s  →  A=8×28, toric_gens=140, vol=120
+════════════════════════════════════════════════════════════════════════
+  FAMILY 2 — Massless banana diagrams  (k = 2 … 6)
+════════════════════════════════════════════════════════════════════════
+
+  Building bubble (banana-2) ...
+    done in 0.2s  →  A=3×3, toric_gens=0, vol=1
+  Building sunset (banana-3) ...
+    done in 0.2s  →  A=4×4, toric_gens=0, vol=1
+  Building 4-banana (banana-4) ...
+    done in 0.3s  →  A=5×5, toric_gens=0, vol=1
+  Building 5-banana (banana-5) ...
+    done in 0.3s  →  A=6×6, toric_gens=0, vol=1
+  Building 6-banana (banana-6) ...
+    done in 0.4s  →  A=7×7, toric_gens=0, vol=1
+════════════════════════════════════════════════════════════════════════
+  FAMILY 3 — Massless complete graphs K_n  (n = 3, 4)
+════════════════════════════════════════════════════════════════════════
+  [K_5 excluded: 235 A-columns in R^10, hull computation takes ~10 min]
+
+  Building K_3 complete ...
+    done in 0.0s  →  A=4×6, toric_gens=2, vol=4
+  Building K_4 complete ...
+    done in 0.1s  →  A=7×31, toric_gens=191, vol=262
+════════════════════════════════════════════════════════════════════════
+  FAMILY 4a — BMS n-point conformal simplex  (n = 3 … 6)
+════════════════════════════════════════════════════════════════════════
+
+  Building BMS_3 simplex ...
+    done in 0.0s  →  A=4×6, toric_gens=2, vol=4
+  Building BMS_4 simplex ...
+    done in 0.0s  →  A=5×8, toric_gens=3, vol=8
+  Building BMS_5 simplex ...
+    done in 0.0s  →  A=6×10, toric_gens=4, vol=16
+  Building BMS_6 simplex ...
+    done in 0.0s  →  A=7×12, toric_gens=5, vol=32
+════════════════════════════════════════════════════════════════════════
+  FAMILY 4b — Conformal companion  (n = 3 … 6)
+════════════════════════════════════════════════════════════════════════
+
+  Building companion_3 ...
+    done in 0.0s  →  A=4×6, toric_gens=2, vol=4
+  Building companion_4 ...
+    done in 0.0s  →  A=5×8, toric_gens=3, vol=8
+  Building companion_5 ...
+    done in 0.0s  →  A=6×10, toric_gens=4, vol=16
+  Building companion_6 ...
+    done in 0.0s  →  A=7×12, toric_gens=5, vol=32
+════════════════════════════════════════════════════════════════════════
+  FULL GKZ DATA PER DIAGRAM
+════════════════════════════════════════════════════════════════════════
+════════════════════════════════════════════════════════════════════════
+  3-gon (C_3)  [n-gon]
+════════════════════════════════════════════════════════════════════════
+  Nickel index  : 12e|2e|e|
+  Loops         : 1
+  Propagators   : 3
+  External legs : 3
+
+  Schwinger params  : [alpha_1, alpha_2, alpha_3]
+  U  =  a_1 + a_2 + a_3
+  F  =  a_1*a_2*s12/(2*mu**2) + a_1*a_2*s23/(2*mu**2) + a_1*a_3*s12/(2*mu**2) + a_1*a_3*s13/(2*mu**2) + a_2*a_3*s13/(2*mu**2) + a_2*a_3*s23/(2*mu**2)
+  G  =  U + F  =  (2*mu**2*(u_1 + u_2 + u_3) + s12*u_1*u_2 + s12*u_1*u_3 + s13*u_1*u_3 + s13*u_2*u_3 + s23*u_1*u_2 + s23*u_2*u_3)/(2*mu**2)
+  LP params         : [u_1, u_2, u_3]
+
+  GKZ A-matrix  (4 × 6)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1 ]
+    [ 1  1  1  0  0  0 ]
+    [ 1  0  0  1  1  0 ]
+    [ 0  1  0  1  0  1 ]
+
+  β-parameters  :  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+  z-variables   :  [z_1, z_2, z_3, z_4, z_5, z_6]
+
+  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:
+    [0]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_6), (-D/2 + nu_1 + nu_2 + nu_3)*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+    [1]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_3), nu_1*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+    [2]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_5), nu_2*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+    [3]  Eq(z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_2) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_4) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_6), nu_3*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+
+  Toric ideal  (2 generators)  [IBP relations, z^u - z^v = 0]:
+    z_1*z_6 - z_2*z_5  =  0
+    z_1*z_6 - z_3*z_4  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 6
+    Hull vertices                  : 6
+    Ambient dimension              : 3
+    Normalised volume (= hol. rank): 4
+    Smith invariants               : [1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  4-gon (C_4)  [n-gon]
+════════════════════════════════════════════════════════════════════════
+  Nickel index  : 12e|3e|3e|e|
+  Loops         : 1
+  Propagators   : 4
+  External legs : 4
+
+  Schwinger params  : [alpha_1, alpha_2, alpha_3, alpha_4]
+  U  =  a_1 + a_2 + a_3 + a_4
+  F  =  a_1*a_2*s12/(2*mu**2) + a_1*a_2*s23/(2*mu**2) + a_1*a_2*s24/(2*mu**2) + a_1*a_3*s12/(2*mu**2) + a_1*a_3*s13/(2*mu**2) + a_1*a_3*s24/(2*mu**2) + a_1*a_3*s34/(2*mu**2) + a_1*a_4*s12/(2*mu**2) + a_1*a_4*s13/(2*mu**2) + a_1*a_4*s14/(2*mu**2) + a_2*a_3*s13/(2*mu**2) + a_2*a_3*s23/(2*mu**2) + a_2*a_3*s34/(2*mu**2) + a_2*a_4*s13/(2*mu**2) + a_2*a_4*s14/(2*mu**2) + a_2*a_4*s23/(2*mu**2) + a_2*a_4*s24/(2*mu**2) + a_3*a_4*s14/(2*mu**2) + a_3*a_4*s24/(2*mu**2) + a_3*a_4*s34/(2*mu**2)
+  G  =  U + F  =  (2*mu**2*(u_1 + u_2 + u_3 + u_4) + s12*u_1*u_2 + s12*u_1*u_3 + s12*u_1*u_4 + s13*u_1*u_3 + s13*u_1*u_4 + s13*u_2*u_3 + s13*u_2*u_4 + s14*u_1*u_4 + s14*u_2*u_4 + s14*u_3*u_4 + s23*u_1*u_2 + s23*u_2*u_3 + s23*u_2*u_4 + s24*u_1*u_2 + s24*u_1*u_3 + s24*u_2*u_4 + s24*u_3*u_4 + s34*u_1*u_3 + s34*u_2*u_3 + s34*u_3*u_4)/(2*mu**2)
+  LP params         : [u_1, u_2, u_3, u_4]
+
+  GKZ A-matrix  (5 × 10)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1  1  1  1 ]
+    [ 1  1  1  1  0  0  0  0  0  0 ]
+    [ 1  0  0  0  1  1  1  0  0  0 ]
+    [ 0  1  0  0  1  0  0  1  1  0 ]
+    [ 0  0  1  0  0  1  0  1  0  1 ]
+
+  β-parameters  :  [-D/2 + nu_1 + nu_2 + nu_3 + nu_4, nu_1, nu_2, nu_3, nu_4]
+  z-variables   :  [z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10]
+
+  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:
+    [0]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_1) + z_10*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_10) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_7) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_9), (-D/2 + nu_1 + nu_2 + nu_3 + nu_4)*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10))
+    [1]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_4), nu_1*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10))
+    [2]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_1) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_7), nu_2*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10))
+    [3]  Eq(z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_2) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_5) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_9), nu_3*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10))
+    [4]  Eq(z_10*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_10) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_3) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_6) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10), z_8), nu_4*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10))
+
+  Toric ideal  (10 generators)  [IBP relations, z^u - z^v = 0]:
+    z_6*z_9 - z_7*z_8  =  0
+    z_10*z_5 - z_6*z_9  =  0
+    z_3*z_9 - z_4*z_8  =  0
+    z_10*z_2 - z_3*z_9  =  0
+    z_1*z_8 - z_2*z_6  =  0
+    z_1*z_9 - z_2*z_7  =  0
+    z_1*z_8 - z_3*z_5  =  0
+    z_1*z_10 - z_3*z_7  =  0
+    z_1*z_9 - z_4*z_5  =  0
+    z_1*z_10 - z_4*z_6  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 10
+    Hull vertices                  : 10
+    Ambient dimension              : 4
+    Normalised volume (= hol. rank): 11
+    Smith invariants               : [1, 1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  5-gon (C_5)  [n-gon]
+════════════════════════════════════════════════════════════════════════
+  Nickel index  : 12e|3e|4e|4e|e|
+  Loops         : 1
+  Propagators   : 5
+  External legs : 5
+
+  Schwinger params  : [alpha_1, alpha_2, alpha_3, alpha_4, alpha_5]
+  U  =  a_1 + a_2 + a_3 + a_4 + a_5
+  F  =  a_1*a_2*s12/(2*mu**2) + a_1*a_2*s23/(2*mu**2) + a_1*a_2*s24/(2*mu**2) + a_1*a_2*s25/(2*mu**2) + a_1*a_3*s12/(2*mu**2) + a_1*a_3*s13/(2*mu**2) + a_1*a_3*s24/(2*mu**2) + a_1*a_3*s25/(2*mu**2) + a_1*a_3*s34/(2*mu**2) + a_1*a_3*s35/(2*mu**2) + a_1*a_4*s12/(2*mu**2) + a_1*a_4*s13/(2*mu**2) + a_1*a_4*s14/(2*mu**2) + a_1*a_4*s25/(2*mu**2) + a_1*a_4*s35/(2*mu**2) + a_1*a_4*s45/(2*mu**2) + a_1*a_5*s12/(2*mu**2) + a_1*a_5*s13/(2*mu**2) + a_1*a_5*s14/(2*mu**2) + a_1*a_5*s15/(2*mu**2) + a_2*a_3*s13/(2*mu**2) + a_2*a_3*s23/(2*mu**2) + a_2*a_3*s34/(2*mu**2) + a_2*a_3*s35/(2*mu**2) + a_2*a_4*s13/(2*mu**2) + a_2*a_4*s14/(2*mu**2) + a_2*a_4*s23/(2*mu**2) + a_2*a_4*s24/(2*mu**2) + a_2*a_4*s35/(2*mu**2) + a_2*a_4*s45/(2*mu**2) + a_2*a_5*s13/(2*mu**2) + a_2*a_5*s14/(2*mu**2) + a_2*a_5*s15/(2*mu**2) + a_2*a_5*s23/(2*mu**2) + a_2*a_5*s24/(2*mu**2) + a_2*a_5*s25/(2*mu**2) + a_3*a_4*s14/(2*mu**2) + a_3*a_4*s24/(2*mu**2) + a_3*a_4*s34/(2*mu**2) + a_3*a_4*s45/(2*mu**2) + a_3*a_5*s14/(2*mu**2) + a_3*a_5*s15/(2*mu**2) + a_3*a_5*s24/(2*mu**2) + a_3*a_5*s25/(2*mu**2) + a_3*a_5*s34/(2*mu**2) + a_3*a_5*s35/(2*mu**2) + a_4*a_5*s15/(2*mu**2) + a_4*a_5*s25/(2*mu**2) + a_4*a_5*s35/(2*mu**2) + a_4*a_5*s45/(2*mu**2)
+  G  =  U + F  =  (2*mu**2*(u_1 + u_2 + u_3 + u_4 + u_5) + s12*u_1*u_2 + s12*u_1*u_3 + s12*u_1*u_4 + s12*u_1*u_5 + s13*u_1*u_3 + s13*u_1*u_4 + s13*u_1*u_5 + s13*u_2*u_3 + s13*u_2*u_4 + s13*u_2*u_5 + s14*u_1*u_4 + s14*u_1*u_5 + s14*u_2*u_4 + s14*u_2*u_5 + s14*u_3*u_4 + s14*u_3*u_5 + s15*u_1*u_5 + s15*u_2*u_5 + s15*u_3*u_5 + s15*u_4*u_5 + s23*u_1*u_2 + s23*u_2*u_3 + s23*u_2*u_4 + s23*u_2*u_5 + s24*u_1*u_2 + s24*u_1*u_3 + s24*u_2*u_4 + s24*u_2*u_5 + s24*u_3*u_4 + s24*u_3*u_5 + s25*u_1*u_2 + s25*u_1*u_3 + s25*u_1*u_4 + s25*u_2*u_5 + s25*u_3*u_5 + s25*u_4*u_5 + s34*u_1*u_3 + s34*u_2*u_3 + s34*u_3*u_4 + s34*u_3*u_5 + s35*u_1*u_3 + s35*u_1*u_4 + s35*u_2*u_3 + s35*u_2*u_4 + s35*u_3*u_5 + s35*u_4*u_5 + s45*u_1*u_4 + s45*u_2*u_4 + s45*u_3*u_4 + s45*u_4*u_5)/(2*mu**2)
+  LP params         : [u_1, u_2, u_3, u_4, u_5]
+
+  GKZ A-matrix  (6 × 15)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 ]
+    [ 1  1  1  1  1  0  0  0  0  0  0  0  0  0  0 ]
+    [ 1  0  0  0  0  1  1  1  1  0  0  0  0  0  0 ]
+    [ 0  1  0  0  0  1  0  0  0  1  1  1  0  0  0 ]
+    [ 0  0  1  0  0  0  1  0  0  1  0  0  1  1  0 ]
+    [ 0  0  0  1  0  0  0  1  0  0  1  0  1  0  1 ]
+
+  β-parameters  :  [-D/2 + nu_1 + nu_2 + nu_3 + nu_4 + nu_5, nu_1, nu_2, nu_3, nu_4, nu_5]
+  z-variables   :  [z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15]
+
+  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:
+    [0]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_1) + z_10*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_10) + z_11*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_11) + z_12*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_12) + z_13*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_13) + z_14*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_14) + z_15*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_15) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_7) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_9), (-D/2 + nu_1 + nu_2 + nu_3 + nu_4 + nu_5)*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15))
+    [1]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_5), nu_1*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15))
+    [2]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_1) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_7) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_9), nu_2*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15))
+    [3]  Eq(z_10*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_10) + z_11*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_11) + z_12*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_12) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_2) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_6), nu_3*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15))
+    [4]  Eq(z_10*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_10) + z_13*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_13) + z_14*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_14) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_3) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_7), nu_4*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15))
+    [5]  Eq(z_11*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_11) + z_13*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_13) + z_15*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_15) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_4) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15), z_8), nu_5*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15))
+
+  Toric ideal  (30 generators)  [IBP relations, z^u - z^v = 0]:
+    z_11*z_14 - z_12*z_13  =  0
+    z_10*z_15 - z_12*z_13  =  0
+    -z_11*z_9 + z_12*z_8  =  0
+    -z_14*z_8 + z_15*z_7  =  0
+    -z_10*z_9 + z_12*z_7  =  0
+    -z_13*z_9 + z_15*z_7  =  0
+    -z_11*z_7 + z_13*z_6  =  0
+    -z_12*z_7 + z_14*z_6  =  0
+    -z_10*z_8 + z_13*z_6  =  0
+    -z_12*z_8 + z_15*z_6  =  0
+    -z_11*z_5 + z_12*z_4  =  0
+    -z_14*z_4 + z_15*z_3  =  0
+    -z_10*z_5 + z_12*z_3  =  0
+    -z_13*z_5 + z_15*z_3  =  0
+    -z_11*z_3 + z_13*z_2  =  0
+    -z_12*z_3 + z_14*z_2  =  0
+    -z_10*z_4 + z_13*z_2  =  0
+    -z_12*z_4 + z_15*z_2  =  0
+    z_1*z_10 - z_2*z_7  =  0
+    z_1*z_11 - z_2*z_8  =  0
+    z_1*z_12 - z_2*z_9  =  0
+    z_1*z_10 - z_3*z_6  =  0
+    z_1*z_13 - z_3*z_8  =  0
+    z_1*z_14 - z_3*z_9  =  0
+    z_1*z_11 - z_4*z_6  =  0
+    z_1*z_13 - z_4*z_7  =  0
+    z_1*z_15 - z_4*z_9  =  0
+    z_1*z_12 - z_5*z_6  =  0
+    z_1*z_14 - z_5*z_7  =  0
+    z_1*z_15 - z_5*z_8  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 15
+    Hull vertices                  : 15
+    Ambient dimension              : 5
+    Normalised volume (= hol. rank): 26
+    Smith invariants               : [1, 1, 1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  6-gon (C_6)  [n-gon]
+════════════════════════════════════════════════════════════════════════
+  Nickel index  : 12e|3e|4e|5e|5e|e|
+  Loops         : 1
+  Propagators   : 6
+  External legs : 6
+
+  Schwinger params  : [alpha_1, alpha_2, alpha_3, alpha_4, alpha_5, alpha_6]
+  U  =  a_1 + a_2 + a_3 + a_4 + a_5 + a_6
+  F  =  a_1*a_2*s12/(2*mu**2) + a_1*a_2*s23/(2*mu**2) + a_1*a_2*s24/(2*mu**2) + a_1*a_2*s25/(2*mu**2) + a_1*a_2*s26/(2*mu**2) + a_1*a_3*s12/(2*mu**2) + a_1*a_3*s13/(2*mu**2) + a_1*a_3*s24/(2*mu**2) + a_1*a_3*s25/(2*mu**2) + a_1*a_3*s26/(2*mu**2) + a_1*a_3*s34/(2*mu**2) + a_1*a_3*s35/(2*mu**2) + a_1*a_3*s36/(2*mu**2) + a_1*a_4*s12/(2*mu**2) + a_1*a_4*s13/(2*mu**2) + a_1*a_4*s14/(2*mu**2) + a_1*a_4*s25/(2*mu**2) + a_1*a_4*s26/(2*mu**2) + a_1*a_4*s35/(2*mu**2) + a_1*a_4*s36/(2*mu**2) + a_1*a_4*s45/(2*mu**2) + a_1*a_4*s46/(2*mu**2) + a_1*a_5*s12/(2*mu**2) + a_1*a_5*s13/(2*mu**2) + a_1*a_5*s14/(2*mu**2) + a_1*a_5*s15/(2*mu**2) + a_1*a_5*s26/(2*mu**2) + a_1*a_5*s36/(2*mu**2) + a_1*a_5*s46/(2*mu**2) + a_1*a_5*s56/(2*mu**2) + a_1*a_6*s12/(2*mu**2) + a_1*a_6*s13/(2*mu**2) + a_1*a_6*s14/(2*mu**2) + a_1*a_6*s15/(2*mu**2) + a_1*a_6*s16/(2*mu**2) + a_2*a_3*s13/(2*mu**2) + a_2*a_3*s23/(2*mu**2) + a_2*a_3*s34/(2*mu**2) + a_2*a_3*s35/(2*mu**2) + a_2*a_3*s36/(2*mu**2) + a_2*a_4*s13/(2*mu**2) + a_2*a_4*s14/(2*mu**2) + a_2*a_4*s23/(2*mu**2) + a_2*a_4*s24/(2*mu**2) + a_2*a_4*s35/(2*mu**2) + a_2*a_4*s36/(2*mu**2) + a_2*a_4*s45/(2*mu**2) + a_2*a_4*s46/(2*mu**2) + a_2*a_5*s13/(2*mu**2) + a_2*a_5*s14/(2*mu**2) + a_2*a_5*s15/(2*mu**2) + a_2*a_5*s23/(2*mu**2) + a_2*a_5*s24/(2*mu**2) + a_2*a_5*s25/(2*mu**2) + a_2*a_5*s36/(2*mu**2) + a_2*a_5*s46/(2*mu**2) + a_2*a_5*s56/(2*mu**2) + a_2*a_6*s13/(2*mu**2) + a_2*a_6*s14/(2*mu**2) + a_2*a_6*s15/(2*mu**2) + a_2*a_6*s16/(2*mu**2) + a_2*a_6*s23/(2*mu**2) + a_2*a_6*s24/(2*mu**2) + a_2*a_6*s25/(2*mu**2) + a_2*a_6*s26/(2*mu**2) + a_3*a_4*s14/(2*mu**2) + a_3*a_4*s24/(2*mu**2) + a_3*a_4*s34/(2*mu**2) + a_3*a_4*s45/(2*mu**2) + a_3*a_4*s46/(2*mu**2) + a_3*a_5*s14/(2*mu**2) + a_3*a_5*s15/(2*mu**2) + a_3*a_5*s24/(2*mu**2) + a_3*a_5*s25/(2*mu**2) + a_3*a_5*s34/(2*mu**2) + a_3*a_5*s35/(2*mu**2) + a_3*a_5*s46/(2*mu**2) + a_3*a_5*s56/(2*mu**2) + a_3*a_6*s14/(2*mu**2) + a_3*a_6*s15/(2*mu**2) + a_3*a_6*s16/(2*mu**2) + a_3*a_6*s24/(2*mu**2) + a_3*a_6*s25/(2*mu**2) + a_3*a_6*s26/(2*mu**2) + a_3*a_6*s34/(2*mu**2) + a_3*a_6*s35/(2*mu**2) + a_3*a_6*s36/(2*mu**2) + a_4*a_5*s15/(2*mu**2) + a_4*a_5*s25/(2*mu**2) + a_4*a_5*s35/(2*mu**2) + a_4*a_5*s45/(2*mu**2) + a_4*a_5*s56/(2*mu**2) + a_4*a_6*s15/(2*mu**2) + a_4*a_6*s16/(2*mu**2) + a_4*a_6*s25/(2*mu**2) + a_4*a_6*s26/(2*mu**2) + a_4*a_6*s35/(2*mu**2) + a_4*a_6*s36/(2*mu**2) + a_4*a_6*s45/(2*mu**2) + a_4*a_6*s46/(2*mu**2) + a_5*a_6*s16/(2*mu**2) + a_5*a_6*s26/(2*mu**2) + a_5*a_6*s36/(2*mu**2) + a_5*a_6*s46/(2*mu**2) + a_5*a_6*s56/(2*mu**2)
+  G  =  U + F  =  (2*mu**2*(u_1 + u_2 + u_3 + u_4 + u_5 + u_6) + s12*u_1*u_2 + s12*u_1*u_3 + s12*u_1*u_4 + s12*u_1*u_5 + s12*u_1*u_6 + s13*u_1*u_3 + s13*u_1*u_4 + s13*u_1*u_5 + s13*u_1*u_6 + s13*u_2*u_3 + s13*u_2*u_4 + s13*u_2*u_5 + s13*u_2*u_6 + s14*u_1*u_4 + s14*u_1*u_5 + s14*u_1*u_6 + s14*u_2*u_4 + s14*u_2*u_5 + s14*u_2*u_6 + s14*u_3*u_4 + s14*u_3*u_5 + s14*u_3*u_6 + s15*u_1*u_5 + s15*u_1*u_6 + s15*u_2*u_5 + s15*u_2*u_6 + s15*u_3*u_5 + s15*u_3*u_6 + s15*u_4*u_5 + s15*u_4*u_6 + s16*u_1*u_6 + s16*u_2*u_6 + s16*u_3*u_6 + s16*u_4*u_6 + s16*u_5*u_6 + s23*u_1*u_2 + s23*u_2*u_3 + s23*u_2*u_4 + s23*u_2*u_5 + s23*u_2*u_6 + s24*u_1*u_2 + s24*u_1*u_3 + s24*u_2*u_4 + s24*u_2*u_5 + s24*u_2*u_6 + s24*u_3*u_4 + s24*u_3*u_5 + s24*u_3*u_6 + s25*u_1*u_2 + s25*u_1*u_3 + s25*u_1*u_4 + s25*u_2*u_5 + s25*u_2*u_6 + s25*u_3*u_5 + s25*u_3*u_6 + s25*u_4*u_5 + s25*u_4*u_6 + s26*u_1*u_2 + s26*u_1*u_3 + s26*u_1*u_4 + s26*u_1*u_5 + s26*u_2*u_6 + s26*u_3*u_6 + s26*u_4*u_6 + s26*u_5*u_6 + s34*u_1*u_3 + s34*u_2*u_3 + s34*u_3*u_4 + s34*u_3*u_5 + s34*u_3*u_6 + s35*u_1*u_3 + s35*u_1*u_4 + s35*u_2*u_3 + s35*u_2*u_4 + s35*u_3*u_5 + s35*u_3*u_6 + s35*u_4*u_5 + s35*u_4*u_6 + s36*u_1*u_3 + s36*u_1*u_4 + s36*u_1*u_5 + s36*u_2*u_3 + s36*u_2*u_4 + s36*u_2*u_5 + s36*u_3*u_6 + s36*u_4*u_6 + s36*u_5*u_6 + s45*u_1*u_4 + s45*u_2*u_4 + s45*u_3*u_4 + s45*u_4*u_5 + s45*u_4*u_6 + s46*u_1*u_4 + s46*u_1*u_5 + s46*u_2*u_4 + s46*u_2*u_5 + s46*u_3*u_4 + s46*u_3*u_5 + s46*u_4*u_6 + s46*u_5*u_6 + s56*u_1*u_5 + s56*u_2*u_5 + s56*u_3*u_5 + s56*u_4*u_5 + s56*u_5*u_6)/(2*mu**2)
+  LP params         : [u_1, u_2, u_3, u_4, u_5, u_6]
+
+  GKZ A-matrix  (7 × 21)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 ]
+    [ 1  1  1  1  1  1  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0 ]
+    [ 1  0  0  0  0  0  1  1  1  1  1  0  0  0  0  0  0  0  0  0  0 ]
+    [ 0  1  0  0  0  0  1  0  0  0  0  1  1  1  1  0  0  0  0  0  0 ]
+    [ 0  0  1  0  0  0  0  1  0  0  0  1  0  0  0  1  1  1  0  0  0 ]
+    [ 0  0  0  1  0  0  0  0  1  0  0  0  1  0  0  1  0  0  1  1  0 ]
+    [ 0  0  0  0  1  0  0  0  0  1  0  0  0  1  0  0  1  0  1  0  1 ]
+
+  β-parameters  :  [-D/2 + nu_1 + nu_2 + nu_3 + nu_4 + nu_5 + nu_6, nu_1, nu_2, nu_3, nu_4, nu_5, nu_6]
+  z-variables   :  [z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21]
+
+  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:
+    [0]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_1) + z_10*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_10) + z_11*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_11) + z_12*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_12) + z_13*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_13) + z_14*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_14) + z_15*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_15) + z_16*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_16) + z_17*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_17) + z_18*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_18) + z_19*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_19) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_2) + z_20*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_20) + z_21*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_21) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_7) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_9), (-D/2 + nu_1 + nu_2 + nu_3 + nu_4 + nu_5 + nu_6)*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21))
+    [1]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_6), nu_1*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21))
+    [2]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_1) + z_10*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_10) + z_11*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_11) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_7) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_9), nu_2*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21))
+    [3]  Eq(z_12*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_12) + z_13*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_13) + z_14*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_14) + z_15*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_15) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_2) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_7), nu_3*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21))
+    [4]  Eq(z_12*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_12) + z_16*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_16) + z_17*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_17) + z_18*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_18) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_3) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_8), nu_4*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21))
+    [5]  Eq(z_13*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_13) + z_16*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_16) + z_19*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_19) + z_20*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_20) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_4) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_9), nu_5*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21))
+    [6]  Eq(z_10*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_10) + z_14*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_14) + z_17*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_17) + z_19*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_19) + z_21*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_21) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21), z_5), nu_6*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21))
+
+  Toric ideal  (70 generators)  [IBP relations, z^u - z^v = 0]:
+    z_16*z_21 - z_17*z_20  =  0
+    z_16*z_21 - z_18*z_19  =  0
+    z_14*z_18 - z_15*z_17  =  0
+    z_14*z_20 - z_15*z_19  =  0
+    z_13*z_18 - z_15*z_16  =  0
+    z_13*z_21 - z_15*z_19  =  0
+    z_12*z_19 - z_13*z_17  =  0
+    z_12*z_19 - z_14*z_16  =  0
+    z_12*z_20 - z_15*z_16  =  0
+    z_12*z_21 - z_15*z_17  =  0
+    z_10*z_15 - z_11*z_14  =  0
+    -z_10*z_20 + z_21*z_9  =  0
+    -z_11*z_13 + z_15*z_9  =  0
+    -z_11*z_19 + z_21*z_9  =  0
+    -z_17*z_9 + z_19*z_8  =  0
+    -z_18*z_9 + z_20*z_8  =  0
+    -z_10*z_16 + z_19*z_8  =  0
+    -z_10*z_18 + z_21*z_8  =  0
+    -z_11*z_12 + z_15*z_8  =  0
+    -z_11*z_16 + z_20*z_8  =  0
+    -z_11*z_17 + z_21*z_8  =  0
+    -z_13*z_8 + z_16*z_7  =  0
+    -z_14*z_8 + z_17*z_7  =  0
+    -z_15*z_8 + z_18*z_7  =  0
+    -z_12*z_9 + z_16*z_7  =  0
+    -z_14*z_9 + z_19*z_7  =  0
+    -z_15*z_9 + z_20*z_7  =  0
+    -z_10*z_12 + z_17*z_7  =  0
+    -z_10*z_13 + z_19*z_7  =  0
+    -z_10*z_15 + z_21*z_7  =  0
+    -z_14*z_6 + z_15*z_5  =  0
+    -z_20*z_5 + z_21*z_4  =  0
+    -z_13*z_6 + z_15*z_4  =  0
+    -z_19*z_6 + z_21*z_4  =  0
+    -z_17*z_4 + z_19*z_3  =  0
+    -z_18*z_4 + z_20*z_3  =  0
+    -z_16*z_5 + z_19*z_3  =  0
+    -z_18*z_5 + z_21*z_3  =  0
+    -z_12*z_6 + z_15*z_3  =  0
+    -z_16*z_6 + z_20*z_3  =  0
+    -z_17*z_6 + z_21*z_3  =  0
+    -z_13*z_3 + z_16*z_2  =  0
+    -z_14*z_3 + z_17*z_2  =  0
+    -z_15*z_3 + z_18*z_2  =  0
+    -z_12*z_4 + z_16*z_2  =  0
+    -z_14*z_4 + z_19*z_2  =  0
+    -z_15*z_4 + z_2*z_20  =  0
+    -z_12*z_5 + z_17*z_2  =  0
+    -z_13*z_5 + z_19*z_2  =  0
+    -z_15*z_5 + z_2*z_21  =  0
+    z_1*z_12 - z_2*z_8  =  0
+    z_1*z_13 - z_2*z_9  =  0
+    z_1*z_14 - z_10*z_2  =  0
+    z_1*z_15 - z_11*z_2  =  0
+    z_1*z_12 - z_3*z_7  =  0
+    z_1*z_16 - z_3*z_9  =  0
+    z_1*z_17 - z_10*z_3  =  0
+    z_1*z_18 - z_11*z_3  =  0
+    z_1*z_13 - z_4*z_7  =  0
+    z_1*z_16 - z_4*z_8  =  0
+    z_1*z_19 - z_10*z_4  =  0
+    z_1*z_20 - z_11*z_4  =  0
+    z_1*z_14 - z_5*z_7  =  0
+    z_1*z_17 - z_5*z_8  =  0
+    z_1*z_19 - z_5*z_9  =  0
+    z_1*z_21 - z_11*z_5  =  0
+    z_1*z_15 - z_6*z_7  =  0
+    z_1*z_18 - z_6*z_8  =  0
+    z_1*z_20 - z_6*z_9  =  0
+    z_1*z_21 - z_10*z_6  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 21
+    Hull vertices                  : 21
+    Ambient dimension              : 6
+    Normalised volume (= hol. rank): 57
+    Smith invariants               : [1, 1, 1, 1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  7-gon (C_7)  [n-gon]
+════════════════════════════════════════════════════════════════════════
+  Nickel index  : 12e|3e|4e|5e|6e|6e|e|
+  Loops         : 1
+  Propagators   : 7
+  External legs : 7
+
+  Schwinger params  : [alpha_1, alpha_2, alpha_3, alpha_4, alpha_5, alpha_6, alpha_7]
+  U  =  a_1 + a_2 + a_3 + a_4 + a_5 + a_6 + a_7
+  F  =  a_1*a_2*s12/(2*mu**2) + a_1*a_2*s23/(2*mu**2) + a_1*a_2*s24/(2*mu**2) + a_1*a_2*s25/(2*mu**2) + a_1*a_2*s26/(2*mu**2) + a_1*a_2*s27/(2*mu**2) + a_1*a_3*s12/(2*mu**2) + a_1*a_3*s13/(2*mu**2) + a_1*a_3*s24/(2*mu**2) + a_1*a_3*s25/(2*mu**2) + a_1*a_3*s26/(2*mu**2) + a_1*a_3*s27/(2*mu**2) + a_1*a_3*s34/(2*mu**2) + a_1*a_3*s35/(2*mu**2) + a_1*a_3*s36/(2*mu**2) + a_1*a_3*s37/(2*mu**2) + a_1*a_4*s12/(2*mu**2) + a_1*a_4*s13/(2*mu**2) + a_1*a_4*s14/(2*mu**2) + a_1*a_4*s25/(2*mu**2) + a_1*a_4*s26/(2*mu**2) + a_1*a_4*s27/(2*mu**2) + a_1*a_4*s35/(2*mu**2) + a_1*a_4*s36/(2*mu**2) + a_1*a_4*s37/(2*mu**2) + a_1*a_4*s45/(2*mu**2) + a_1*a_4*s46/(2*mu**2) + a_1*a_4*s47/(2*mu**2) + a_1*a_5*s12/(2*mu**2) + a_1*a_5*s13/(2*mu**2) + a_1*a_5*s14/(2*mu**2) + a_1*a_5*s15/(2*mu**2) + a_1*a_5*s26/(2*mu**2) + a_1*a_5*s27/(2*mu**2) + a_1*a_5*s36/(2*mu**2) + a_1*a_5*s37/(2*mu**2) + a_1*a_5*s46/(2*mu**2) + a_1*a_5*s47/(2*mu**2) + a_1*a_5*s56/(2*mu**2) + a_1*a_5*s57/(2*mu**2) + a_1*a_6*s12/(2*mu**2) + a_1*a_6*s13/(2*mu**2) + a_1*a_6*s14/(2*mu**2) + a_1*a_6*s15/(2*mu**2) + a_1*a_6*s16/(2*mu**2) + a_1*a_6*s27/(2*mu**2) + a_1*a_6*s37/(2*mu**2) + a_1*a_6*s47/(2*mu**2) + a_1*a_6*s57/(2*mu**2) + a_1*a_6*s67/(2*mu**2) + a_1*a_7*s12/(2*mu**2) + a_1*a_7*s13/(2*mu**2) + a_1*a_7*s14/(2*mu**2) + a_1*a_7*s15/(2*mu**2) + a_1*a_7*s16/(2*mu**2) + a_1*a_7*s17/(2*mu**2) + a_2*a_3*s13/(2*mu**2) + a_2*a_3*s23/(2*mu**2) + a_2*a_3*s34/(2*mu**2) + a_2*a_3*s35/(2*mu**2) + a_2*a_3*s36/(2*mu**2) + a_2*a_3*s37/(2*mu**2) + a_2*a_4*s13/(2*mu**2) + a_2*a_4*s14/(2*mu**2) + a_2*a_4*s23/(2*mu**2) + a_2*a_4*s24/(2*mu**2) + a_2*a_4*s35/(2*mu**2) + a_2*a_4*s36/(2*mu**2) + a_2*a_4*s37/(2*mu**2) + a_2*a_4*s45/(2*mu**2) + a_2*a_4*s46/(2*mu**2) + a_2*a_4*s47/(2*mu**2) + a_2*a_5*s13/(2*mu**2) + a_2*a_5*s14/(2*mu**2) + a_2*a_5*s15/(2*mu**2) + a_2*a_5*s23/(2*mu**2) + a_2*a_5*s24/(2*mu**2) + a_2*a_5*s25/(2*mu**2) + a_2*a_5*s36/(2*mu**2) + a_2*a_5*s37/(2*mu**2) + a_2*a_5*s46/(2*mu**2) + a_2*a_5*s47/(2*mu**2) + a_2*a_5*s56/(2*mu**2) + a_2*a_5*s57/(2*mu**2) + a_2*a_6*s13/(2*mu**2) + a_2*a_6*s14/(2*mu**2) + a_2*a_6*s15/(2*mu**2) + a_2*a_6*s16/(2*mu**2) + a_2*a_6*s23/(2*mu**2) + a_2*a_6*s24/(2*mu**2) + a_2*a_6*s25/(2*mu**2) + a_2*a_6*s26/(2*mu**2) + a_2*a_6*s37/(2*mu**2) + a_2*a_6*s47/(2*mu**2) + a_2*a_6*s57/(2*mu**2) + a_2*a_6*s67/(2*mu**2) + a_2*a_7*s13/(2*mu**2) + a_2*a_7*s14/(2*mu**2) + a_2*a_7*s15/(2*mu**2) + a_2*a_7*s16/(2*mu**2) + a_2*a_7*s17/(2*mu**2) + a_2*a_7*s23/(2*mu**2) + a_2*a_7*s24/(2*mu**2) + a_2*a_7*s25/(2*mu**2) + a_2*a_7*s26/(2*mu**2) + a_2*a_7*s27/(2*mu**2) + a_3*a_4*s14/(2*mu**2) + a_3*a_4*s24/(2*mu**2) + a_3*a_4*s34/(2*mu**2) + a_3*a_4*s45/(2*mu**2) + a_3*a_4*s46/(2*mu**2) + a_3*a_4*s47/(2*mu**2) + a_3*a_5*s14/(2*mu**2) + a_3*a_5*s15/(2*mu**2) + a_3*a_5*s24/(2*mu**2) + a_3*a_5*s25/(2*mu**2) + a_3*a_5*s34/(2*mu**2) + a_3*a_5*s35/(2*mu**2) + a_3*a_5*s46/(2*mu**2) + a_3*a_5*s47/(2*mu**2) + a_3*a_5*s56/(2*mu**2) + a_3*a_5*s57/(2*mu**2) + a_3*a_6*s14/(2*mu**2) + a_3*a_6*s15/(2*mu**2) + a_3*a_6*s16/(2*mu**2) + a_3*a_6*s24/(2*mu**2) + a_3*a_6*s25/(2*mu**2) + a_3*a_6*s26/(2*mu**2) + a_3*a_6*s34/(2*mu**2) + a_3*a_6*s35/(2*mu**2) + a_3*a_6*s36/(2*mu**2) + a_3*a_6*s47/(2*mu**2) + a_3*a_6*s57/(2*mu**2) + a_3*a_6*s67/(2*mu**2) + a_3*a_7*s14/(2*mu**2) + a_3*a_7*s15/(2*mu**2) + a_3*a_7*s16/(2*mu**2) + a_3*a_7*s17/(2*mu**2) + a_3*a_7*s24/(2*mu**2) + a_3*a_7*s25/(2*mu**2) + a_3*a_7*s26/(2*mu**2) + a_3*a_7*s27/(2*mu**2) + a_3*a_7*s34/(2*mu**2) + a_3*a_7*s35/(2*mu**2) + a_3*a_7*s36/(2*mu**2) + a_3*a_7*s37/(2*mu**2) + a_4*a_5*s15/(2*mu**2) + a_4*a_5*s25/(2*mu**2) + a_4*a_5*s35/(2*mu**2) + a_4*a_5*s45/(2*mu**2) + a_4*a_5*s56/(2*mu**2) + a_4*a_5*s57/(2*mu**2) + a_4*a_6*s15/(2*mu**2) + a_4*a_6*s16/(2*mu**2) + a_4*a_6*s25/(2*mu**2) + a_4*a_6*s26/(2*mu**2) + a_4*a_6*s35/(2*mu**2) + a_4*a_6*s36/(2*mu**2) + a_4*a_6*s45/(2*mu**2) + a_4*a_6*s46/(2*mu**2) + a_4*a_6*s57/(2*mu**2) + a_4*a_6*s67/(2*mu**2) + a_4*a_7*s15/(2*mu**2) + a_4*a_7*s16/(2*mu**2) + a_4*a_7*s17/(2*mu**2) + a_4*a_7*s25/(2*mu**2) + a_4*a_7*s26/(2*mu**2) + a_4*a_7*s27/(2*mu**2) + a_4*a_7*s35/(2*mu**2) + a_4*a_7*s36/(2*mu**2) + a_4*a_7*s37/(2*mu**2) + a_4*a_7*s45/(2*mu**2) + a_4*a_7*s46/(2*mu**2) + a_4*a_7*s47/(2*mu**2) + a_5*a_6*s16/(2*mu**2) + a_5*a_6*s26/(2*mu**2) + a_5*a_6*s36/(2*mu**2) + a_5*a_6*s46/(2*mu**2) + a_5*a_6*s56/(2*mu**2) + a_5*a_6*s67/(2*mu**2) + a_5*a_7*s16/(2*mu**2) + a_5*a_7*s17/(2*mu**2) + a_5*a_7*s26/(2*mu**2) + a_5*a_7*s27/(2*mu**2) + a_5*a_7*s36/(2*mu**2) + a_5*a_7*s37/(2*mu**2) + a_5*a_7*s46/(2*mu**2) + a_5*a_7*s47/(2*mu**2) + a_5*a_7*s56/(2*mu**2) + a_5*a_7*s57/(2*mu**2) + a_6*a_7*s17/(2*mu**2) + a_6*a_7*s27/(2*mu**2) + a_6*a_7*s37/(2*mu**2) + a_6*a_7*s47/(2*mu**2) + a_6*a_7*s57/(2*mu**2) + a_6*a_7*s67/(2*mu**2)
+  G  =  U + F  =  (2*mu**2*(u_1 + u_2 + u_3 + u_4 + u_5 + u_6 + u_7) + s12*u_1*u_2 + s12*u_1*u_3 + s12*u_1*u_4 + s12*u_1*u_5 + s12*u_1*u_6 + s12*u_1*u_7 + s13*u_1*u_3 + s13*u_1*u_4 + s13*u_1*u_5 + s13*u_1*u_6 + s13*u_1*u_7 + s13*u_2*u_3 + s13*u_2*u_4 + s13*u_2*u_5 + s13*u_2*u_6 + s13*u_2*u_7 + s14*u_1*u_4 + s14*u_1*u_5 + s14*u_1*u_6 + s14*u_1*u_7 + s14*u_2*u_4 + s14*u_2*u_5 + s14*u_2*u_6 + s14*u_2*u_7 + s14*u_3*u_4 + s14*u_3*u_5 + s14*u_3*u_6 + s14*u_3*u_7 + s15*u_1*u_5 + s15*u_1*u_6 + s15*u_1*u_7 + s15*u_2*u_5 + s15*u_2*u_6 + s15*u_2*u_7 + s15*u_3*u_5 + s15*u_3*u_6 + s15*u_3*u_7 + s15*u_4*u_5 + s15*u_4*u_6 + s15*u_4*u_7 + s16*u_1*u_6 + s16*u_1*u_7 + s16*u_2*u_6 + s16*u_2*u_7 + s16*u_3*u_6 + s16*u_3*u_7 + s16*u_4*u_6 + s16*u_4*u_7 + s16*u_5*u_6 + s16*u_5*u_7 + s17*u_1*u_7 + s17*u_2*u_7 + s17*u_3*u_7 + s17*u_4*u_7 + s17*u_5*u_7 + s17*u_6*u_7 + s23*u_1*u_2 + s23*u_2*u_3 + s23*u_2*u_4 + s23*u_2*u_5 + s23*u_2*u_6 + s23*u_2*u_7 + s24*u_1*u_2 + s24*u_1*u_3 + s24*u_2*u_4 + s24*u_2*u_5 + s24*u_2*u_6 + s24*u_2*u_7 + s24*u_3*u_4 + s24*u_3*u_5 + s24*u_3*u_6 + s24*u_3*u_7 + s25*u_1*u_2 + s25*u_1*u_3 + s25*u_1*u_4 + s25*u_2*u_5 + s25*u_2*u_6 + s25*u_2*u_7 + s25*u_3*u_5 + s25*u_3*u_6 + s25*u_3*u_7 + s25*u_4*u_5 + s25*u_4*u_6 + s25*u_4*u_7 + s26*u_1*u_2 + s26*u_1*u_3 + s26*u_1*u_4 + s26*u_1*u_5 + s26*u_2*u_6 + s26*u_2*u_7 + s26*u_3*u_6 + s26*u_3*u_7 + s26*u_4*u_6 + s26*u_4*u_7 + s26*u_5*u_6 + s26*u_5*u_7 + s27*u_1*u_2 + s27*u_1*u_3 + s27*u_1*u_4 + s27*u_1*u_5 + s27*u_1*u_6 + s27*u_2*u_7 + s27*u_3*u_7 + s27*u_4*u_7 + s27*u_5*u_7 + s27*u_6*u_7 + s34*u_1*u_3 + s34*u_2*u_3 + s34*u_3*u_4 + s34*u_3*u_5 + s34*u_3*u_6 + s34*u_3*u_7 + s35*u_1*u_3 + s35*u_1*u_4 + s35*u_2*u_3 + s35*u_2*u_4 + s35*u_3*u_5 + s35*u_3*u_6 + s35*u_3*u_7 + s35*u_4*u_5 + s35*u_4*u_6 + s35*u_4*u_7 + s36*u_1*u_3 + s36*u_1*u_4 + s36*u_1*u_5 + s36*u_2*u_3 + s36*u_2*u_4 + s36*u_2*u_5 + s36*u_3*u_6 + s36*u_3*u_7 + s36*u_4*u_6 + s36*u_4*u_7 + s36*u_5*u_6 + s36*u_5*u_7 + s37*u_1*u_3 + s37*u_1*u_4 + s37*u_1*u_5 + s37*u_1*u_6 + s37*u_2*u_3 + s37*u_2*u_4 + s37*u_2*u_5 + s37*u_2*u_6 + s37*u_3*u_7 + s37*u_4*u_7 + s37*u_5*u_7 + s37*u_6*u_7 + s45*u_1*u_4 + s45*u_2*u_4 + s45*u_3*u_4 + s45*u_4*u_5 + s45*u_4*u_6 + s45*u_4*u_7 + s46*u_1*u_4 + s46*u_1*u_5 + s46*u_2*u_4 + s46*u_2*u_5 + s46*u_3*u_4 + s46*u_3*u_5 + s46*u_4*u_6 + s46*u_4*u_7 + s46*u_5*u_6 + s46*u_5*u_7 + s47*u_1*u_4 + s47*u_1*u_5 + s47*u_1*u_6 + s47*u_2*u_4 + s47*u_2*u_5 + s47*u_2*u_6 + s47*u_3*u_4 + s47*u_3*u_5 + s47*u_3*u_6 + s47*u_4*u_7 + s47*u_5*u_7 + s47*u_6*u_7 + s56*u_1*u_5 + s56*u_2*u_5 + s56*u_3*u_5 + s56*u_4*u_5 + s56*u_5*u_6 + s56*u_5*u_7 + s57*u_1*u_5 + s57*u_1*u_6 + s57*u_2*u_5 + s57*u_2*u_6 + s57*u_3*u_5 + s57*u_3*u_6 + s57*u_4*u_5 + s57*u_4*u_6 + s57*u_5*u_7 + s57*u_6*u_7 + s67*u_1*u_6 + s67*u_2*u_6 + s67*u_3*u_6 + s67*u_4*u_6 + s67*u_5*u_6 + s67*u_6*u_7)/(2*mu**2)
+  LP params         : [u_1, u_2, u_3, u_4, u_5, u_6, u_7]
+
+  GKZ A-matrix  (8 × 28)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 ]
+    [ 1  1  1  1  1  1  1  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0 ]
+    [ 1  0  0  0  0  0  0  1  1  1  1  1  1  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0 ]
+    [ 0  1  0  0  0  0  0  1  0  0  0  0  0  1  1  1  1  1  0  0  0  0  0  0  0  0  0  0 ]
+    [ 0  0  1  0  0  0  0  0  1  0  0  0  0  1  0  0  0  0  1  1  1  1  0  0  0  0  0  0 ]
+    [ 0  0  0  1  0  0  0  0  0  1  0  0  0  0  1  0  0  0  1  0  0  0  1  1  1  0  0  0 ]
+    [ 0  0  0  0  1  0  0  0  0  0  1  0  0  0  0  1  0  0  0  1  0  0  1  0  0  1  1  0 ]
+    [ 0  0  0  0  0  1  0  0  0  0  0  1  0  0  0  0  1  0  0  0  1  0  0  1  0  1  0  1 ]
+
+  β-parameters  :  [-D/2 + nu_1 + nu_2 + nu_3 + nu_4 + nu_5 + nu_6 + nu_7, nu_1, nu_2, nu_3, nu_4, nu_5, nu_6, nu_7]
+  z-variables   :  [z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28]
+
+  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:
+    [0]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_1) + z_10*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_10) + z_11*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_11) + z_12*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_12) + z_13*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_13) + z_14*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_14) + z_15*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_15) + z_16*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_16) + z_17*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_17) + z_18*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_18) + z_19*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_19) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_2) + z_20*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_20) + z_21*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_21) + z_22*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_22) + z_23*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_23) + z_24*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_24) + z_25*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_25) + z_26*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_26) + z_27*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_27) + z_28*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_28) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_7) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_9), (-D/2 + nu_1 + nu_2 + nu_3 + nu_4 + nu_5 + nu_6 + nu_7)*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28))
+    [1]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_7), nu_1*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28))
+    [2]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_1) + z_10*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_10) + z_11*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_11) + z_12*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_12) + z_13*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_13) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_9), nu_2*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28))
+    [3]  Eq(z_14*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_14) + z_15*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_15) + z_16*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_16) + z_17*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_17) + z_18*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_18) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_2) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_8), nu_3*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28))
+    [4]  Eq(z_14*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_14) + z_19*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_19) + z_20*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_20) + z_21*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_21) + z_22*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_22) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_3) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_9), nu_4*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28))
+    [5]  Eq(z_10*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_10) + z_15*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_15) + z_19*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_19) + z_23*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_23) + z_24*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_24) + z_25*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_25) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_4), nu_5*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28))
+    [6]  Eq(z_11*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_11) + z_16*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_16) + z_20*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_20) + z_23*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_23) + z_26*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_26) + z_27*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_27) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_5), nu_6*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28))
+    [7]  Eq(z_12*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_12) + z_17*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_17) + z_21*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_21) + z_24*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_24) + z_26*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_26) + z_28*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_28) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28), z_6), nu_7*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9, z_10, z_11, z_12, z_13, z_14, z_15, z_16, z_17, z_18, z_19, z_20, z_21, z_22, z_23, z_24, z_25, z_26, z_27, z_28))
+
+  Toric ideal  (140 generators)  [IBP relations, z^u - z^v = 0]:
+    z_23*z_28 - z_24*z_27  =  0
+    z_23*z_28 - z_25*z_26  =  0
+    z_20*z_28 - z_21*z_27  =  0
+    z_20*z_28 - z_22*z_26  =  0
+    z_19*z_26 - z_20*z_24  =  0
+    z_19*z_27 - z_20*z_25  =  0
+    z_19*z_26 - z_21*z_23  =  0
+    z_19*z_28 - z_21*z_25  =  0
+    z_19*z_27 - z_22*z_23  =  0
+    z_19*z_28 - z_22*z_24  =  0
+    z_17*z_22 - z_18*z_21  =  0
+    z_17*z_25 - z_18*z_24  =  0
+    z_17*z_27 - z_18*z_26  =  0
+    z_16*z_22 - z_18*z_20  =  0
+    z_16*z_25 - z_18*z_23  =  0
+    z_16*z_28 - z_18*z_26  =  0
+    z_15*z_26 - z_16*z_24  =  0
+    z_15*z_26 - z_17*z_23  =  0
+    z_15*z_22 - z_18*z_19  =  0
+    z_15*z_27 - z_18*z_23  =  0
+    z_15*z_28 - z_18*z_24  =  0
+    z_14*z_23 - z_15*z_20  =  0
+    z_14*z_24 - z_15*z_21  =  0
+    z_14*z_23 - z_16*z_19  =  0
+    z_14*z_26 - z_16*z_21  =  0
+    z_14*z_24 - z_17*z_19  =  0
+    z_14*z_26 - z_17*z_20  =  0
+    z_14*z_25 - z_18*z_19  =  0
+    z_14*z_27 - z_18*z_20  =  0
+    z_14*z_28 - z_18*z_21  =  0
+    z_12*z_18 - z_13*z_17  =  0
+    z_11*z_28 - z_12*z_27  =  0
+    z_11*z_18 - z_13*z_16  =  0
+    z_11*z_28 - z_13*z_26  =  0
+    z_10*z_26 - z_11*z_24  =  0
+    z_10*z_27 - z_11*z_25  =  0
+    z_10*z_26 - z_12*z_23  =  0
+    z_10*z_28 - z_12*z_25  =  0
+    z_10*z_18 - z_13*z_15  =  0
+    z_10*z_27 - z_13*z_23  =  0
+    z_10*z_28 - z_13*z_24  =  0
+    -z_10*z_20 + z_23*z_9  =  0
+    -z_10*z_21 + z_24*z_9  =  0
+    -z_10*z_22 + z_25*z_9  =  0
+    -z_11*z_19 + z_23*z_9  =  0
+    -z_11*z_21 + z_26*z_9  =  0
+    -z_11*z_22 + z_27*z_9  =  0
+    -z_12*z_19 + z_24*z_9  =  0
+    -z_12*z_20 + z_26*z_9  =  0
+    -z_12*z_22 + z_28*z_9  =  0
+    -z_13*z_14 + z_18*z_9  =  0
+    -z_13*z_19 + z_25*z_9  =  0
+    -z_13*z_20 + z_27*z_9  =  0
+    -z_13*z_21 + z_28*z_9  =  0
+    -z_15*z_9 + z_19*z_8  =  0
+    -z_16*z_9 + z_20*z_8  =  0
+    -z_17*z_9 + z_21*z_8  =  0
+    -z_18*z_9 + z_22*z_8  =  0
+    -z_10*z_14 + z_19*z_8  =  0
+    -z_10*z_16 + z_23*z_8  =  0
+    -z_10*z_17 + z_24*z_8  =  0
+    -z_10*z_18 + z_25*z_8  =  0
+    -z_11*z_14 + z_20*z_8  =  0
+    -z_11*z_15 + z_23*z_8  =  0
+    -z_11*z_17 + z_26*z_8  =  0
+    -z_11*z_18 + z_27*z_8  =  0
+    -z_12*z_14 + z_21*z_8  =  0
+    -z_12*z_15 + z_24*z_8  =  0
+    -z_12*z_16 + z_26*z_8  =  0
+    -z_12*z_18 + z_28*z_8  =  0
+    -z_17*z_7 + z_18*z_6  =  0
+    -z_27*z_6 + z_28*z_5  =  0
+    -z_16*z_7 + z_18*z_5  =  0
+    -z_26*z_7 + z_28*z_5  =  0
+    -z_24*z_5 + z_26*z_4  =  0
+    -z_25*z_5 + z_27*z_4  =  0
+    -z_23*z_6 + z_26*z_4  =  0
+    -z_25*z_6 + z_28*z_4  =  0
+    -z_15*z_7 + z_18*z_4  =  0
+    -z_23*z_7 + z_27*z_4  =  0
+    -z_24*z_7 + z_28*z_4  =  0
+    -z_20*z_4 + z_23*z_3  =  0
+    -z_21*z_4 + z_24*z_3  =  0
+    -z_22*z_4 + z_25*z_3  =  0
+    -z_19*z_5 + z_23*z_3  =  0
+    -z_21*z_5 + z_26*z_3  =  0
+    -z_22*z_5 + z_27*z_3  =  0
+    -z_19*z_6 + z_24*z_3  =  0
+    -z_20*z_6 + z_26*z_3  =  0
+    -z_22*z_6 + z_28*z_3  =  0
+    -z_14*z_7 + z_18*z_3  =  0
+    -z_19*z_7 + z_25*z_3  =  0
+    -z_20*z_7 + z_27*z_3  =  0
+    -z_21*z_7 + z_28*z_3  =  0
+    -z_15*z_3 + z_19*z_2  =  0
+    -z_16*z_3 + z_2*z_20  =  0
+    -z_17*z_3 + z_2*z_21  =  0
+    -z_18*z_3 + z_2*z_22  =  0
+    -z_14*z_4 + z_19*z_2  =  0
+    -z_16*z_4 + z_2*z_23  =  0
+    -z_17*z_4 + z_2*z_24  =  0
+    -z_18*z_4 + z_2*z_25  =  0
+    -z_14*z_5 + z_2*z_20  =  0
+    -z_15*z_5 + z_2*z_23  =  0
+    -z_17*z_5 + z_2*z_26  =  0
+    -z_18*z_5 + z_2*z_27  =  0
+    -z_14*z_6 + z_2*z_21  =  0
+    -z_15*z_6 + z_2*z_24  =  0
+    -z_16*z_6 + z_2*z_26  =  0
+    -z_18*z_6 + z_2*z_28  =  0
+    z_1*z_14 - z_2*z_9  =  0
+    z_1*z_15 - z_10*z_2  =  0
+    z_1*z_16 - z_11*z_2  =  0
+    z_1*z_17 - z_12*z_2  =  0
+    z_1*z_18 - z_13*z_2  =  0
+    z_1*z_14 - z_3*z_8  =  0
+    z_1*z_19 - z_10*z_3  =  0
+    z_1*z_20 - z_11*z_3  =  0
+    z_1*z_21 - z_12*z_3  =  0
+    z_1*z_22 - z_13*z_3  =  0
+    z_1*z_15 - z_4*z_8  =  0
+    z_1*z_19 - z_4*z_9  =  0
+    z_1*z_23 - z_11*z_4  =  0
+    z_1*z_24 - z_12*z_4  =  0
+    z_1*z_25 - z_13*z_4  =  0
+    z_1*z_16 - z_5*z_8  =  0
+    z_1*z_20 - z_5*z_9  =  0
+    z_1*z_23 - z_10*z_5  =  0
+    z_1*z_26 - z_12*z_5  =  0
+    z_1*z_27 - z_13*z_5  =  0
+    z_1*z_17 - z_6*z_8  =  0
+    z_1*z_21 - z_6*z_9  =  0
+    z_1*z_24 - z_10*z_6  =  0
+    z_1*z_26 - z_11*z_6  =  0
+    z_1*z_28 - z_13*z_6  =  0
+    z_1*z_18 - z_7*z_8  =  0
+    z_1*z_22 - z_7*z_9  =  0
+    z_1*z_25 - z_10*z_7  =  0
+    z_1*z_27 - z_11*z_7  =  0
+    z_1*z_28 - z_12*z_7  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 28
+    Hull vertices                  : 28
+    Ambient dimension              : 7
+    Normalised volume (= hol. rank): 120
+    Smith invariants               : [1, 1, 1, 1, 1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  bubble (banana-2)  [banana]
+════════════════════════════════════════════════════════════════════════
+  Nickel index  : 11e|e|
+  Loops         : 1
+  Propagators   : 2
+  External legs : 2
+
+  Schwinger params  : [alpha_1, alpha_2]
+  U  =  a_1 + a_2
+  F  =  a_1*a_2*s/(2*mu**2)
+  G  =  U + F  =  u_1 + u_2 + s*u_1*u_2/(2*mu**2)
+  LP params         : [u_1, u_2]
+
+  GKZ A-matrix  (3 × 3)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1 ]
+    [ 1  1  0 ]
+    [ 1  0  1 ]
+
+  β-parameters  :  [-D/2 + nu_1 + nu_2, nu_1, nu_2]
+  z-variables   :  [z_1, z_2, z_3]
+
+  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:
+    [0]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3), z_3), (-D/2 + nu_1 + nu_2)*Phi(z_1, z_2, z_3))
+    [1]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3), z_2), nu_1*Phi(z_1, z_2, z_3))
+    [2]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3), z_1) + z_3*Derivative(Phi(z_1, z_2, z_3), z_3), nu_2*Phi(z_1, z_2, z_3))
+
+  Toric ideal : trivial  (no IBP relations)
+
+  Newton polytope:
+    Monomials (A-columns)          : 3
+    Hull vertices                  : 3
+    Ambient dimension              : 2
+    Normalised volume (= hol. rank): 1
+    Smith invariants               : [1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  sunset (banana-3)  [banana]
+════════════════════════════════════════════════════════════════════════
+  Nickel index  : 111e|e|
+  Loops         : 2
+  Propagators   : 3
+  External legs : 2
+
+  Schwinger params  : [alpha_1, alpha_2, alpha_3]
+  U  =  a_1*a_2 + a_1*a_3 + a_2*a_3
+  F  =  a_1*a_2*a_3*s/(2*mu**2)
+  G  =  U + F  =  u_1*u_2 + u_1*u_3 + u_2*u_3 + s*u_1*u_2*u_3/(2*mu**2)
+  LP params         : [u_1, u_2, u_3]
+
+  GKZ A-matrix  (4 × 4)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1 ]
+    [ 1  1  1  0 ]
+    [ 1  1  0  1 ]
+    [ 1  0  1  1 ]
+
+  β-parameters  :  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+  z-variables   :  [z_1, z_2, z_3, z_4]
+
+  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:
+    [0]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4), z_4), (-D/2 + nu_1 + nu_2 + nu_3)*Phi(z_1, z_2, z_3, z_4))
+    [1]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4), z_3), nu_1*Phi(z_1, z_2, z_3, z_4))
+    [2]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4), z_2) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4), z_4), nu_2*Phi(z_1, z_2, z_3, z_4))
+    [3]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4), z_1) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4), z_4), nu_3*Phi(z_1, z_2, z_3, z_4))
+
+  Toric ideal : trivial  (no IBP relations)
+
+  Newton polytope:
+    Monomials (A-columns)          : 4
+    Hull vertices                  : 4
+    Ambient dimension              : 3
+    Normalised volume (= hol. rank): 1
+    Smith invariants               : [1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  4-banana (banana-4)  [banana]
+════════════════════════════════════════════════════════════════════════
+  Nickel index  : 1111e|e|
+  Loops         : 3
+  Propagators   : 4
+  External legs : 2
+
+  Schwinger params  : [alpha_1, alpha_2, alpha_3, alpha_4]
+  U  =  a_1*a_2*a_3 + a_1*a_2*a_4 + a_1*a_3*a_4 + a_2*a_3*a_4
+  F  =  a_1*a_2*a_3*a_4*s/(2*mu**2)
+  G  =  U + F  =  u_1*u_2*u_3 + u_1*u_2*u_4 + u_1*u_3*u_4 + u_2*u_3*u_4 + s*u_1*u_2*u_3*u_4/(2*mu**2)
+  LP params         : [u_1, u_2, u_3, u_4]
+
+  GKZ A-matrix  (5 × 5)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1 ]
+    [ 1  1  1  1  0 ]
+    [ 1  1  1  0  1 ]
+    [ 1  1  0  1  1 ]
+    [ 1  0  1  1  1 ]
+
+  β-parameters  :  [-D/2 + nu_1 + nu_2 + nu_3 + nu_4, nu_1, nu_2, nu_3, nu_4]
+  z-variables   :  [z_1, z_2, z_3, z_4, z_5]
+
+  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:
+    [0]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_5), (-D/2 + nu_1 + nu_2 + nu_3 + nu_4)*Phi(z_1, z_2, z_3, z_4, z_5))
+    [1]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_4), nu_1*Phi(z_1, z_2, z_3, z_4, z_5))
+    [2]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_3) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_5), nu_2*Phi(z_1, z_2, z_3, z_4, z_5))
+    [3]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_2) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_5), nu_3*Phi(z_1, z_2, z_3, z_4, z_5))
+    [4]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_1) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5), z_5), nu_4*Phi(z_1, z_2, z_3, z_4, z_5))
+
+  Toric ideal : trivial  (no IBP relations)
+
+  Newton polytope:
+    Monomials (A-columns)          : 5
+    Hull vertices                  : 5
+    Ambient dimension              : 4
+    Normalised volume (= hol. rank): 1
+    Smith invariants               : [1, 1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  5-banana (banana-5)  [banana]
+════════════════════════════════════════════════════════════════════════
+  Nickel index  : 11111e|e|
+  Loops         : 4
+  Propagators   : 5
+  External legs : 2
+
+  Schwinger params  : [alpha_1, alpha_2, alpha_3, alpha_4, alpha_5]
+  U  =  a_1*a_2*a_3*a_4 + a_1*a_2*a_3*a_5 + a_1*a_2*a_4*a_5 + a_1*a_3*a_4*a_5 + a_2*a_3*a_4*a_5
+  F  =  a_1*a_2*a_3*a_4*a_5*s/(2*mu**2)
+  G  =  U + F  =  u_1*u_2*u_3*u_4 + u_1*u_2*u_3*u_5 + u_1*u_2*u_4*u_5 + u_1*u_3*u_4*u_5 + u_2*u_3*u_4*u_5 + s*u_1*u_2*u_3*u_4*u_5/(2*mu**2)
+  LP params         : [u_1, u_2, u_3, u_4, u_5]
+
+  GKZ A-matrix  (6 × 6)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1 ]
+    [ 1  1  1  1  1  0 ]
+    [ 1  1  1  1  0  1 ]
+    [ 1  1  1  0  1  1 ]
+    [ 1  1  0  1  1  1 ]
+    [ 1  0  1  1  1  1 ]
+
+  β-parameters  :  [-D/2 + nu_1 + nu_2 + nu_3 + nu_4 + nu_5, nu_1, nu_2, nu_3, nu_4, nu_5]
+  z-variables   :  [z_1, z_2, z_3, z_4, z_5, z_6]
+
+  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:
+    [0]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_6), (-D/2 + nu_1 + nu_2 + nu_3 + nu_4 + nu_5)*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+    [1]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_5), nu_1*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+    [2]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_4) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_6), nu_2*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+    [3]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_3) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_6), nu_3*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+    [4]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_2) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_6), nu_4*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+    [5]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_1) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6), z_6), nu_5*Phi(z_1, z_2, z_3, z_4, z_5, z_6))
+
+  Toric ideal : trivial  (no IBP relations)
+
+  Newton polytope:
+    Monomials (A-columns)          : 6
+    Hull vertices                  : 6
+    Ambient dimension              : 5
+    Normalised volume (= hol. rank): 1
+    Smith invariants               : [1, 1, 1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  6-banana (banana-6)  [banana]
+════════════════════════════════════════════════════════════════════════
+  Nickel index  : 111111e|e|
+  Loops         : 5
+  Propagators   : 6
+  External legs : 2
+
+  Schwinger params  : [alpha_1, alpha_2, alpha_3, alpha_4, alpha_5, alpha_6]
+  U  =  a_1*a_2*a_3*a_4*a_5 + a_1*a_2*a_3*a_4*a_6 + a_1*a_2*a_3*a_5*a_6 + a_1*a_2*a_4*a_5*a_6 + a_1*a_3*a_4*a_5*a_6 + a_2*a_3*a_4*a_5*a_6
+  F  =  a_1*a_2*a_3*a_4*a_5*a_6*s/(2*mu**2)
+  G  =  U + F  =  u_1*u_2*u_3*u_4*u_5 + u_1*u_2*u_3*u_4*u_6 + u_1*u_2*u_3*u_5*u_6 + u_1*u_2*u_4*u_5*u_6 + u_1*u_3*u_4*u_5*u_6 + u_2*u_3*u_4*u_5*u_6 + s*u_1*u_2*u_3*u_4*u_5*u_6/(2*mu**2)
+  LP params         : [u_1, u_2, u_3, u_4, u_5, u_6]
+
+  GKZ A-matrix  (7 × 7)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1 ]
+    [ 1  1  1  1  1  1  0 ]
+    [ 1  1  1  1  1  0  1 ]
+    [ 1  1  1  1  0  1  1 ]
+    [ 1  1  1  0  1  1  1 ]
+    [ 1  1  0  1  1  1  1 ]
+    [ 1  0  1  1  1  1  1 ]
+
+  β-parameters  :  [-D/2 + nu_1 + nu_2 + nu_3 + nu_4 + nu_5 + nu_6, nu_1, nu_2, nu_3, nu_4, nu_5, nu_6]
+  z-variables   :  [z_1, z_2, z_3, z_4, z_5, z_6, z_7]
+
+  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:
+    [0]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_7), (-D/2 + nu_1 + nu_2 + nu_3 + nu_4 + nu_5 + nu_6)*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7))
+    [1]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_6), nu_1*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7))
+    [2]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_5) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_7), nu_2*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7))
+    [3]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_4) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_7), nu_3*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7))
+    [4]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_3) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_7), nu_4*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7))
+    [5]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_2) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_7), nu_5*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7))
+    [6]  Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_1) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7), z_7), nu_6*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7))
+
+  Toric ideal : trivial  (no IBP relations)
+
+  Newton polytope:
+    Monomials (A-columns)          : 7
+    Hull vertices                  : 7
+    Ambient dimension              : 6
+    Normalised volume (= hol. rank): 1
+    Smith invariants               : [1, 1, 1, 1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  K_3 complete  [K_n]
+════════════════════════════════════════════════════════════════════════
+  Nickel index  : 12e|2e|e|
+  Loops         : 1
+  Propagators   : 3
+  External legs : 3
+
+  Schwinger params  : [alpha_1, alpha_2, alpha_3]
+  U  =  a_1 + a_2 + a_3
+  F  =  a_1*a_2*s12/(2*mu**2) + a_1*a_2*s23/(2*mu**2) + a_1*a_3*s12/(2*mu**2) + a_1*a_3*s13/(2*mu**2) + a_2*a_3*s13/(2*mu**2) + a_2*a_3*s23/(2*mu**2)
+  G  =  U + F  =  (2*mu**2*(u_1 + u_2 + u_3) + s12*u_1*u_2 + s12*u_1*u_3 + s13*u_1*u_3 + s13*u_2*u_3 + s23*u_1*u_2 + s23*u_2*u_3)/(2*mu**2)
+  LP params         : [u_1, u_2, u_3]
+
+  GKZ A-matrix  (4 × 6)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1 ]
+    [ 1  1  1  0  0  0 ]
+    [ 1  0  0  1  1  0 ]
+    [ 0  1  0  1  0  1 ]
+
+  Toric ideal  (2 generators)  [IBP relations, z^u - z^v = 0]:
+    z_1*z_6 - z_2*z_5  =  0
+    z_1*z_6 - z_3*z_4  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 6
+    Hull vertices                  : 6
+    Ambient dimension              : 3
+    Normalised volume (= hol. rank): 4
+    Smith invariants               : [1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  K_4 complete  [K_n]
+════════════════════════════════════════════════════════════════════════
+  GKZ A-matrix  (7 × 31)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 ]
+    [ 1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  0  0  0  0  0  0  0  0  0  0  0  0  0 ]
+    [ 1  1  1  1  1  1  1  1  1  0  0  0  0  0  0  0  0  0  1  1  1  1  1  1  1  1  1  0  0  0  0 ]
+    [ 1  1  1  0  0  0  0  0  0  1  1  1  1  1  1  0  0  0  1  1  1  1  1  1  0  0  0  1  1  1  0 ]
+    [ 1  0  0  1  1  1  0  0  0  1  1  1  0  0  0  1  1  0  1  1  1  0  0  0  1  1  0  1  1  1  1 ]
+    [ 0  1  0  1  0  0  1  1  0  1  0  0  1  1  0  1  0  1  1  0  0  1  1  0  1  1  1  1  1  0  1 ]
+    [ 0  0  1  0  1  0  1  0  1  0  1  0  1  0  1  1  1  1  0  1  0  1  0  1  1  0  1  1  0  1  1 ]
+
+  Toric ideal  (191 generators)  [IBP relations, z^u - z^v = 0]:
+    z_25*z_29 - z_26*z_28  =  0
+    z_24*z_31 - z_27*z_30  =  0
+    z_23*z_30 - z_24*z_29  =  0
+    z_23*z_31 - z_27*z_29  =  0
+    z_22*z_29 - z_23*z_28  =  0
+    z_22*z_30 - z_24*z_28  =  0
+    z_22*z_31 - z_27*z_28  =  0
+    z_21*z_27 - z_24*z_26  =  0
+    z_21*z_31 - z_26*z_30  =  0
+    z_20*z_26 - z_21*z_25  =  0
+    z_20*z_29 - z_21*z_28  =  0
+    z_20*z_27 - z_24*z_25  =  0
+    z_20*z_31 - z_25*z_30  =  0
+    z_19*z_24 - z_20*z_23  =  0
+    z_19*z_24 - z_21*z_22  =  0
+    z_19*z_30 - z_21*z_28  =  0
+    z_19*z_27 - z_22*z_26  =  0
+    z_19*z_27 - z_23*z_25  =  0
+    z_19*z_31 - z_26*z_28  =  0
+    z_16*z_30 - z_17*z_28  =  0
+    z_15*z_27 - z_18*z_24  =  0
+    z_15*z_31 - z_18*z_30  =  0
+    z_14*z_24 - z_15*z_23  =  0
+    z_14*z_30 - z_15*z_29  =  0
+    z_14*z_27 - z_18*z_23  =  0
+    z_14*z_31 - z_18*z_29  =  0
+    z_13*z_23 - z_14*z_22  =  0
+    z_13*z_29 - z_14*z_28  =  0
+    z_13*z_24 - z_15*z_22  =  0
+    z_13*z_30 - z_15*z_28  =  0
+    z_13*z_27 - z_18*z_22  =  0
+    z_13*z_31 - z_18*z_28  =  0
+    z_12*z_18 - z_14*z_17  =  0
+    z_12*z_23 - z_14*z_21  =  0
+    z_12*z_24 - z_15*z_21  =  0
+    z_12*z_31 - z_17*z_29  =  0
+    z_11*z_29 - z_12*z_28  =  0
+    z_11*z_18 - z_13*z_17  =  0
+    z_11*z_18 - z_15*z_16  =  0
+    z_11*z_31 - z_17*z_28  =  0
+    z_10*z_15 - z_11*z_14  =  0
+    z_10*z_15 - z_12*z_13  =  0
+    z_10*z_17 - z_12*z_16  =  0
+    z_10*z_30 - z_12*z_28  =  0
+    z_10*z_18 - z_14*z_16  =  0
+    z_10*z_31 - z_16*z_29  =  0
+    -z_11*z_27 + z_28*z_9  =  0
+    -z_15*z_25 + z_28*z_9  =  0
+    -z_16*z_24 + z_28*z_9  =  0
+    -z_17*z_22 + z_28*z_9  =  0
+    -z_17*z_24 + z_30*z_9  =  0
+    -z_17*z_27 + z_31*z_9  =  0
+    -z_18*z_20 + z_28*z_9  =  0
+    -z_14*z_9 + z_15*z_8  =  0
+    -z_23*z_9 + z_24*z_8  =  0
+    -z_29*z_9 + z_30*z_8  =  0
+    -z_10*z_27 + z_28*z_8  =  0
+    -z_12*z_27 + z_30*z_8  =  0
+    -z_13*z_26 + z_28*z_8  =  0
+    -z_14*z_25 + z_28*z_8  =  0
+    -z_14*z_26 + z_29*z_8  =  0
+    -z_15*z_26 + z_30*z_8  =  0
+    -z_16*z_23 + z_28*z_8  =  0
+    -z_17*z_23 + z_30*z_8  =  0
+    -z_18*z_19 + z_28*z_8  =  0
+    -z_18*z_21 + z_30*z_8  =  0
+    -z_18*z_26 + z_31*z_8  =  0
+    -z_28*z_8 + z_29*z_7  =  0
+    -z_28*z_9 + z_30*z_7  =  0
+    -z_13*z_25 + z_28*z_7  =  0
+    -z_16*z_22 + z_28*z_7  =  0
+    -z_16*z_27 + z_31*z_7  =  0
+    -z_18*z_25 + z_31*z_7  =  0
+    -z_12*z_8 + z_14*z_6  =  0
+    -z_17*z_8 + z_18*z_6  =  0
+    -z_21*z_8 + z_23*z_6  =  0
+    -z_12*z_9 + z_15*z_6  =  0
+    -z_21*z_9 + z_24*z_6  =  0
+    -z_26*z_9 + z_27*z_6  =  0
+    -z_11*z_26 + z_28*z_6  =  0
+    -z_12*z_25 + z_28*z_6  =  0
+    -z_12*z_26 + z_29*z_6  =  0
+    -z_16*z_21 + z_28*z_6  =  0
+    -z_17*z_19 + z_28*z_6  =  0
+    -z_17*z_21 + z_30*z_6  =  0
+    -z_17*z_26 + z_31*z_6  =  0
+    -z_20*z_6 + z_21*z_5  =  0
+    -z_25*z_6 + z_26*z_5  =  0
+    -z_28*z_6 + z_29*z_5  =  0
+    -z_17*z_7 + z_18*z_5  =  0
+    -z_16*z_9 + z_18*z_5  =  0
+    -z_20*z_9 + z_24*z_5  =  0
+    -z_25*z_9 + z_27*z_5  =  0
+    -z_11*z_25 + z_28*z_5  =  0
+    -z_16*z_20 + z_28*z_5  =  0
+    -z_17*z_20 + z_30*z_5  =  0
+    -z_17*z_25 + z_31*z_5  =  0
+    z_4*z_9 - z_5*z_8  =  0
+    z_4*z_9 - z_6*z_7  =  0
+    -z_10*z_6 + z_12*z_4  =  0
+    -z_16*z_6 + z_17*z_4  =  0
+    -z_28*z_6 + z_30*z_4  =  0
+    -z_26*z_7 + z_27*z_4  =  0
+    -z_10*z_8 + z_14*z_4  =  0
+    -z_16*z_8 + z_18*z_4  =  0
+    -z_25*z_8 + z_27*z_4  =  0
+    -z_10*z_25 + z_28*z_4  =  0
+    -z_10*z_26 + z_29*z_4  =  0
+    -z_16*z_19 + z_28*z_4  =  0
+    -z_16*z_26 + z_31*z_4  =  0
+    -z_13*z_5 + z_16*z_3  =  0
+    -z_15*z_5 + z_17*z_3  =  0
+    -z_22*z_5 + z_25*z_3  =  0
+    -z_11*z_7 + z_16*z_3  =  0
+    -z_15*z_7 + z_18*z_3  =  0
+    -z_20*z_7 + z_25*z_3  =  0
+    -z_24*z_7 + z_27*z_3  =  0
+    -z_11*z_9 + z_17*z_3  =  0
+    -z_13*z_9 + z_18*z_3  =  0
+    -z_22*z_9 + z_27*z_3  =  0
+    -z_28*z_9 + z_3*z_31  =  0
+    -z_11*z_22 + z_28*z_3  =  0
+    -z_11*z_24 + z_3*z_30  =  0
+    -z_13*z_20 + z_28*z_3  =  0
+    -z_15*z_20 + z_3*z_30  =  0
+    z_2*z_9 - z_3*z_8  =  0
+    -z_14*z_3 + z_15*z_2  =  0
+    z_2*z_24 - z_23*z_3  =  0
+    z_2*z_30 - z_29*z_3  =  0
+    -z_13*z_4 + z_16*z_2  =  0
+    z_2*z_25 - z_22*z_4  =  0
+    z_2*z_26 - z_23*z_4  =  0
+    -z_10*z_7 + z_16*z_2  =  0
+    -z_14*z_7 + z_18*z_2  =  0
+    -z_19*z_7 + z_2*z_25  =  0
+    z_2*z_27 - z_23*z_7  =  0
+    -z_13*z_8 + z_18*z_2  =  0
+    -z_19*z_8 + z_2*z_26  =  0
+    z_2*z_27 - z_22*z_8  =  0
+    z_2*z_31 - z_28*z_8  =  0
+    -z_10*z_22 + z_2*z_28  =  0
+    -z_10*z_23 + z_2*z_29  =  0
+    -z_10*z_24 + z_2*z_30  =  0
+    -z_11*z_23 + z_2*z_30  =  0
+    -z_12*z_22 + z_2*z_30  =  0
+    -z_13*z_19 + z_2*z_28  =  0
+    -z_13*z_21 + z_2*z_30  =  0
+    -z_14*z_19 + z_2*z_29  =  0
+    -z_14*z_20 + z_2*z_30  =  0
+    -z_15*z_19 + z_2*z_30  =  0
+    z_1*z_7 - z_2*z_5  =  0
+    z_1*z_8 - z_2*z_6  =  0
+    z_1*z_13 - z_11*z_2  =  0
+    z_1*z_14 - z_12*z_2  =  0
+    z_1*z_18 - z_17*z_2  =  0
+    z_1*z_22 - z_2*z_20  =  0
+    z_1*z_23 - z_2*z_21  =  0
+    z_1*z_7 - z_3*z_4  =  0
+    z_1*z_9 - z_3*z_6  =  0
+    z_1*z_13 - z_10*z_3  =  0
+    z_1*z_15 - z_12*z_3  =  0
+    z_1*z_22 - z_19*z_3  =  0
+    z_1*z_24 - z_21*z_3  =  0
+    z_1*z_27 - z_26*z_3  =  0
+    z_1*z_16 - z_11*z_4  =  0
+    z_1*z_18 - z_15*z_4  =  0
+    z_1*z_25 - z_20*z_4  =  0
+    z_1*z_26 - z_21*z_4  =  0
+    z_1*z_27 - z_24*z_4  =  0
+    z_1*z_16 - z_10*z_5  =  0
+    z_1*z_17 - z_12*z_5  =  0
+    z_1*z_18 - z_14*z_5  =  0
+    z_1*z_25 - z_19*z_5  =  0
+    z_1*z_27 - z_23*z_5  =  0
+    z_1*z_17 - z_11*z_6  =  0
+    z_1*z_18 - z_13*z_6  =  0
+    z_1*z_26 - z_19*z_6  =  0
+    z_1*z_27 - z_22*z_6  =  0
+    z_1*z_31 - z_28*z_6  =  0
+    z_1*z_18 - z_12*z_7  =  0
+    z_1*z_27 - z_21*z_7  =  0
+    z_1*z_18 - z_11*z_8  =  0
+    z_1*z_27 - z_20*z_8  =  0
+    z_1*z_18 - z_10*z_9  =  0
+    z_1*z_27 - z_19*z_9  =  0
+    z_1*z_28 - z_10*z_20  =  0
+    z_1*z_29 - z_10*z_21  =  0
+    z_1*z_28 - z_11*z_19  =  0
+    z_1*z_30 - z_11*z_21  =  0
+    z_1*z_29 - z_12*z_19  =  0
+    z_1*z_30 - z_12*z_20  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 31
+    Hull vertices                  : 31
+    Ambient dimension              : 6
+    Normalised volume (= hol. rank): 262
+    Smith invariants               : [1, 1, 1, 1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  BMS_3 simplex  [BMS]
+════════════════════════════════════════════════════════════════════════
+  GKZ A-matrix  (4 × 6)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1 ]
+    [ 0  1  1  1  1  2 ]
+    [ 1  0  1  1  2  1 ]
+    [ 1  1  0  2  1  1 ]
+
+  Toric ideal  (2 generators)  [IBP relations, z^u - z^v = 0]:
+    z_1*z_6 - z_2*z_5  =  0
+    z_1*z_6 - z_3*z_4  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 6
+    Hull vertices                  : 6
+    Ambient dimension              : 3
+    Normalised volume (= hol. rank): 4
+    Smith invariants               : [1, 1, 2]
+
+════════════════════════════════════════════════════════════════════════
+  BMS_4 simplex  [BMS]
+════════════════════════════════════════════════════════════════════════
+  GKZ A-matrix  (5 × 8)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1  1 ]
+    [ 0  1  1  1  1  1  1  2 ]
+    [ 1  0  1  1  1  1  2  1 ]
+    [ 1  1  0  1  1  2  1  1 ]
+    [ 1  1  1  0  2  1  1  1 ]
+
+  Toric ideal  (3 generators)  [IBP relations, z^u - z^v = 0]:
+    z_1*z_8 - z_2*z_7  =  0
+    z_1*z_8 - z_3*z_6  =  0
+    z_1*z_8 - z_4*z_5  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 8
+    Hull vertices                  : 8
+    Ambient dimension              : 4
+    Normalised volume (= hol. rank): 8
+    Smith invariants               : [1, 1, 1, 2]
+
+════════════════════════════════════════════════════════════════════════
+  BMS_5 simplex  [BMS]
+════════════════════════════════════════════════════════════════════════
+  GKZ A-matrix  (6 × 10)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1  1  1  1 ]
+    [ 0  1  1  1  1  1  1  1  1  2 ]
+    [ 1  0  1  1  1  1  1  1  2  1 ]
+    [ 1  1  0  1  1  1  1  2  1  1 ]
+    [ 1  1  1  0  1  1  2  1  1  1 ]
+    [ 1  1  1  1  0  2  1  1  1  1 ]
+
+  Toric ideal  (4 generators)  [IBP relations, z^u - z^v = 0]:
+    z_1*z_10 - z_2*z_9  =  0
+    z_1*z_10 - z_3*z_8  =  0
+    z_1*z_10 - z_4*z_7  =  0
+    z_1*z_10 - z_5*z_6  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 10
+    Hull vertices                  : 10
+    Ambient dimension              : 5
+    Normalised volume (= hol. rank): 16
+    Smith invariants               : [1, 1, 1, 1, 2]
+
+════════════════════════════════════════════════════════════════════════
+  BMS_6 simplex  [BMS]
+════════════════════════════════════════════════════════════════════════
+  GKZ A-matrix  (7 × 12)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1  1  1  1  1  1 ]
+    [ 0  1  1  1  1  1  1  1  1  1  1  2 ]
+    [ 1  0  1  1  1  1  1  1  1  1  2  1 ]
+    [ 1  1  0  1  1  1  1  1  1  2  1  1 ]
+    [ 1  1  1  0  1  1  1  1  2  1  1  1 ]
+    [ 1  1  1  1  0  1  1  2  1  1  1  1 ]
+    [ 1  1  1  1  1  0  2  1  1  1  1  1 ]
+
+  Toric ideal  (5 generators)  [IBP relations, z^u - z^v = 0]:
+    z_1*z_12 - z_11*z_2  =  0
+    z_1*z_12 - z_10*z_3  =  0
+    z_1*z_12 - z_4*z_9  =  0
+    z_1*z_12 - z_5*z_8  =  0
+    z_1*z_12 - z_6*z_7  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 12
+    Hull vertices                  : 12
+    Ambient dimension              : 6
+    Normalised volume (= hol. rank): 32
+    Smith invariants               : [1, 1, 1, 1, 1, 2]
+
+════════════════════════════════════════════════════════════════════════
+  companion_3  [companion]
+════════════════════════════════════════════════════════════════════════
+  GKZ A-matrix  (4 × 6)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1 ]
+    [ 0  1  1  1  0  0 ]
+    [ 1  0  1  0  1  0 ]
+    [ 1  1  0  0  0  1 ]
+
+  Toric ideal  (2 generators)  [IBP relations, z^u - z^v = 0]:
+    z_2*z_5 - z_3*z_6  =  0
+    z_1*z_4 - z_3*z_6  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 6
+    Hull vertices                  : 6
+    Ambient dimension              : 3
+    Normalised volume (= hol. rank): 4
+    Smith invariants               : [1, 1, 1]
+
+════════════════════════════════════════════════════════════════════════
+  companion_4  [companion]
+════════════════════════════════════════════════════════════════════════
+  GKZ A-matrix  (5 × 8)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1  1 ]
+    [ 0  1  1  1  1  0  0  0 ]
+    [ 1  0  1  1  0  1  0  0 ]
+    [ 1  1  0  1  0  0  1  0 ]
+    [ 1  1  1  0  0  0  0  1 ]
+
+  Toric ideal  (3 generators)  [IBP relations, z^u - z^v = 0]:
+    z_3*z_7 - z_4*z_8  =  0
+    z_2*z_6 - z_4*z_8  =  0
+    z_1*z_5 - z_4*z_8  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 8
+    Hull vertices                  : 8
+    Ambient dimension              : 4
+    Normalised volume (= hol. rank): 8
+    Smith invariants               : [1, 1, 1, 2]
+
+════════════════════════════════════════════════════════════════════════
+  companion_5  [companion]
+════════════════════════════════════════════════════════════════════════
+  GKZ A-matrix  (6 × 10)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1  1  1  1 ]
+    [ 0  1  1  1  1  1  0  0  0  0 ]
+    [ 1  0  1  1  1  0  1  0  0  0 ]
+    [ 1  1  0  1  1  0  0  1  0  0 ]
+    [ 1  1  1  0  1  0  0  0  1  0 ]
+    [ 1  1  1  1  0  0  0  0  0  1 ]
+
+  Toric ideal  (4 generators)  [IBP relations, z^u - z^v = 0]:
+    -z_10*z_5 + z_4*z_9  =  0
+    -z_10*z_5 + z_3*z_8  =  0
+    -z_10*z_5 + z_2*z_7  =  0
+    z_1*z_6 - z_10*z_5  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 10
+    Hull vertices                  : 10
+    Ambient dimension              : 5
+    Normalised volume (= hol. rank): 16
+    Smith invariants               : [1, 1, 1, 1, 3]
+
+════════════════════════════════════════════════════════════════════════
+  companion_6  [companion]
+════════════════════════════════════════════════════════════════════════
+  GKZ A-matrix  (7 × 12)
+  [Rows = lattice coordinates; columns = monomials of G]
+    [ 1  1  1  1  1  1  1  1  1  1  1  1 ]
+    [ 0  1  1  1  1  1  1  0  0  0  0  0 ]
+    [ 1  0  1  1  1  1  0  1  0  0  0  0 ]
+    [ 1  1  0  1  1  1  0  0  1  0  0  0 ]
+    [ 1  1  1  0  1  1  0  0  0  1  0  0 ]
+    [ 1  1  1  1  0  1  0  0  0  0  1  0 ]
+    [ 1  1  1  1  1  0  0  0  0  0  0  1 ]
+
+  Toric ideal  (5 generators)  [IBP relations, z^u - z^v = 0]:
+    z_11*z_5 - z_12*z_6  =  0
+    z_10*z_4 - z_12*z_6  =  0
+    -z_12*z_6 + z_3*z_9  =  0
+    -z_12*z_6 + z_2*z_8  =  0
+    z_1*z_7 - z_12*z_6  =  0
+
+  Newton polytope:
+    Monomials (A-columns)          : 12
+    Hull vertices                  : 12
+    Ambient dimension              : 6
+    Normalised volume (= hol. rank): 32
+    Smith invariants               : [1, 1, 1, 1, 1, 4]
+
+════════════════════════════════════════════════════════════════════════
+  INVARIANT SUMMARY TABLE
+════════════════════════════════════════════════════════════════════════
+
+Label                   Family     A-shape   pts  verts   dim       vol  toric  Smith
+------------------------------------------------------------------------------
+3-gon (C_3)             n-gon          4×6     6      6     3         4      2  [1, 1, 1]
+4-gon (C_4)             n-gon         5×10    10     10     4        11     10  [1, 1, 1, 1]
+5-gon (C_5)             n-gon         6×15    15     15     5        26     30  [1, 1, 1, 1, 1]
+6-gon (C_6)             n-gon         7×21    21     21     6        57     70  [1, 1, 1, 1, 1, 1]
+7-gon (C_7)             n-gon         8×28    28     28     7       120    140  [1, 1, 1, 1, 1, 1, 1]
+bubble (banana-2)       banana         3×3     3      3     2         1      0  [1, 1]
+sunset (banana-3)       banana         4×4     4      4     3         1      0  [1, 1, 1]
+4-banana (banana-4)     banana         5×5     5      5     4         1      0  [1, 1, 1, 1]
+5-banana (banana-5)     banana         6×6     6      6     5         1      0  [1, 1, 1, 1, 1]
+6-banana (banana-6)     banana         7×7     7      7     6         1      0  [1, 1, 1, 1, 1, 1]
+K_3 complete            K_n            4×6     6      6     3         4      2  [1, 1, 1]
+K_4 complete            K_n           7×31    31     31     6       262    191  [1, 1, 1, 1, 1, 1]
+BMS_3 simplex           BMS            4×6     6      6     3         4      2  [1, 1, 2]
+BMS_4 simplex           BMS            5×8     8      8     4         8      3  [1, 1, 1, 2]
+BMS_5 simplex           BMS           6×10    10     10     5        16      4  [1, 1, 1, 1, 2]
+BMS_6 simplex           BMS           7×12    12     12     6        32      5  [1, 1, 1, 1, 1, 2]
+companion_3             companion      4×6     6      6     3         4      2  [1, 1, 1]
+companion_4             companion      5×8     8      8     4         8      3  [1, 1, 1, 2]
+companion_5             companion     6×10    10     10     5        16      4  [1, 1, 1, 1, 3]
+companion_6             companion     7×12    12     12     6        32      5  [1, 1, 1, 1, 1, 4]
+
+════════════════════════════════════════════════════════════════════════
+  PAIRWISE AFFINE EQUIVALENCE SURVEY
+════════════════════════════════════════════════════════════════════════
+
+  For each pair of diagrams with matching ambient dimension,
+  all four relations are tested:
+    unimodular   — Liu–Cai algorithm, |det M| = 1
+    affine_poly  — rational map on Newton polytope hull vertices
+    point_config — rational map on all A-columns (GKZ condition)
+    finite_index — integer map, |det M| > 1 allowed
+
+
+────────────────────────────────────────────────────────────────────────
+  Ambient dimension 3  (5 diagrams in this group)
+────────────────────────────────────────────────────────────────────────
+  3-gon (C_3)  ↔  sunset (banana-3)
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  3-gon (C_3)  ↔  K_3 complete
+    unimodular          ✓
+    affine_polytope     ✓  (det = 1)
+    point_config        ✓  (det = 1)
+    finite_index        ✓  (det = 1)
+
+  3-gon (C_3)  ↔  BMS_3 simplex
+    unimodular          ✗
+    affine_polytope     ✓  (det = -2)
+    point_config        ✓  (det = -2)
+    finite_index        ✓  (det = 2)
+
+  3-gon (C_3)  ↔  companion_3
+    unimodular          ✓
+    affine_polytope     ✓  (det = 1)
+    point_config        ✓  (det = 1)
+    finite_index        ✓  (det = 1)
+
+  sunset (banana-3)  ↔  K_3 complete
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  sunset (banana-3)  ↔  BMS_3 simplex
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  sunset (banana-3)  ↔  companion_3
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  K_3 complete  ↔  BMS_3 simplex
+    unimodular          ✗
+    affine_polytope     ✓  (det = -2)
+    point_config        ✓  (det = -2)
+    finite_index        ✓  (det = 2)
+
+  K_3 complete  ↔  companion_3
+    unimodular          ✓
+    affine_polytope     ✓  (det = 1)
+    point_config        ✓  (det = 1)
+    finite_index        ✓  (det = 1)
+
+  BMS_3 simplex  ↔  companion_3
+    unimodular          ✗
+    affine_polytope     ✓  (det = -1/2)
+    point_config        ✓  (det = -1/2)
+    finite_index        ✗
+
+
+────────────────────────────────────────────────────────────────────────
+  Ambient dimension 4  (4 diagrams in this group)
+────────────────────────────────────────────────────────────────────────
+  4-gon (C_4)  ↔  4-banana (banana-4)
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  4-gon (C_4)  ↔  BMS_4 simplex
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  4-gon (C_4)  ↔  companion_4
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  4-banana (banana-4)  ↔  BMS_4 simplex
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  4-banana (banana-4)  ↔  companion_4
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  BMS_4 simplex  ↔  companion_4
+    unimodular          ✗
+    affine_polytope     ✓  (det = 1)
+    point_config        ✓  (det = 1)
+    finite_index        ✗
+
+
+────────────────────────────────────────────────────────────────────────
+  Ambient dimension 5  (4 diagrams in this group)
+────────────────────────────────────────────────────────────────────────
+  5-gon (C_5)  ↔  5-banana (banana-5)
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  5-gon (C_5)  ↔  BMS_5 simplex
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  5-gon (C_5)  ↔  companion_5
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  5-banana (banana-5)  ↔  BMS_5 simplex
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  5-banana (banana-5)  ↔  companion_5
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  BMS_5 simplex  ↔  companion_5
+    unimodular          ✗
+    affine_polytope     ✓  (det = -3/2)
+    point_config        ✓  (det = -3/2)
+    finite_index        ✗
+
+
+────────────────────────────────────────────────────────────────────────
+  Ambient dimension 6  (5 diagrams in this group)
+────────────────────────────────────────────────────────────────────────
+  6-gon (C_6)  ↔  6-banana (banana-6)
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  6-gon (C_6)  ↔  K_4 complete
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  6-gon (C_6)  ↔  BMS_6 simplex
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  6-gon (C_6)  ↔  companion_6
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  6-banana (banana-6)  ↔  K_4 complete
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  6-banana (banana-6)  ↔  BMS_6 simplex
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  6-banana (banana-6)  ↔  companion_6
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  K_4 complete  ↔  BMS_6 simplex
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  K_4 complete  ↔  companion_6
+    unimodular          ✗
+    affine_polytope     ✗
+    point_config        ✗
+    finite_index        ✗
+
+  BMS_6 simplex  ↔  companion_6
+    unimodular          ✗
+    affine_polytope     ✓  (det = 2)
+    point_config        ✓  (det = 2)
+    finite_index        ✗
+
+════════════════════════════════════════════════════════════════════════
+  EXPLICIT CHANGES OF VARIABLES FOR FOUND MAPS
+════════════════════════════════════════════════════════════════════════
+
+
+────────────────────────────────────────────────────────────────────────
+  unimodular  :  3-gon (C_3)  →  K_3 complete
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 1  0  0 ]
+    [ 0  1  0 ]
+    [ 0  0  1 ]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  v_1
+  u_2  =  v_2
+  u_3  =  v_3
+
+  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):
+    β      =  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+    T·β    =  ['-D/2 + nu_1 + nu_2 + nu_3', 'nu_1', 'nu_2', 'nu_3']
+  [T·β gives the β-parameters of the target integral]
+
+
+────────────────────────────────────────────────────────────────────────
+  affine_polytope  :  3-gon (C_3)  →  K_3 complete  (det = 1)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 1  0  0 ]
+    [ 0  1  0 ]
+    [ 0  0  1 ]
+
+  Translation t  =  [0, 0, 0]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  v_1
+  u_2  =  v_2
+  u_3  =  v_3
+
+  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):
+    β      =  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+    T·β    =  ['-D/2 + nu_1 + nu_2 + nu_3', 'nu_1', 'nu_2', 'nu_3']
+  [T·β gives the β-parameters of the target integral]
+
+
+────────────────────────────────────────────────────────────────────────
+  point_config  :  3-gon (C_3)  →  K_3 complete  (det = 1)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 1  0  0 ]
+    [ 0  1  0 ]
+    [ 0  0  1 ]
+
+  Translation t  =  [0, 0, 0]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  v_1
+  u_2  =  v_2
+  u_3  =  v_3
+
+  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):
+    β      =  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+    T·β    =  ['-D/2 + nu_1 + nu_2 + nu_3', 'nu_1', 'nu_2', 'nu_3']
+  [T·β gives the β-parameters of the target integral]
+
+
+────────────────────────────────────────────────────────────────────────
+  finite_index  :  3-gon (C_3)  →  K_3 complete  (det = 1)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 1  0  0 ]
+    [ 0  1  0 ]
+    [ 0  0  1 ]
+
+  Translation t  =  [0, 0, 0]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  v_1
+  u_2  =  v_2
+  u_3  =  v_3
+
+  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):
+    β      =  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+    T·β    =  ['-D/2 + nu_1 + nu_2 + nu_3', 'nu_1', 'nu_2', 'nu_3']
+  [T·β gives the β-parameters of the target integral]
+
+
+────────────────────────────────────────────────────────────────────────
+  affine_polytope  :  3-gon (C_3)  →  BMS_3 simplex  (det = -2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ -1  -1   0 ]
+    [ -1   0  -1 ]
+    [  0   1   1 ]
+
+  Translation t  =  [2, 2, 0]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1 - v_2 + 2
+  u_2  =  -v_1 - v_3 + 2
+  u_3  =  v_2 + v_3
+
+  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):
+    β      =  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+    T·β    =  ['-D/2 + nu_1 + nu_2 + nu_3', '-D + nu_1 + nu_2 + 2*nu_3', '-D + nu_1 + 2*nu_2 + nu_3', 'nu_2 + nu_3']
+  [T·β gives the β-parameters of the target integral]
+
+
+────────────────────────────────────────────────────────────────────────
+  point_config  :  3-gon (C_3)  →  BMS_3 simplex  (det = -2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ -1  -1   0 ]
+    [ -1   0  -1 ]
+    [  0   1   1 ]
+
+  Translation t  =  [2, 2, 0]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1 - v_2 + 2
+  u_2  =  -v_1 - v_3 + 2
+  u_3  =  v_2 + v_3
+
+  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):
+    β      =  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+    T·β    =  ['-D/2 + nu_1 + nu_2 + nu_3', '-D + nu_1 + nu_2 + 2*nu_3', '-D + nu_1 + 2*nu_2 + nu_3', 'nu_2 + nu_3']
+  [T·β gives the β-parameters of the target integral]
+
+
+────────────────────────────────────────────────────────────────────────
+  finite_index  :  3-gon (C_3)  →  BMS_3 simplex  (det = 2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ -1  -1   0 ]
+    [ -1   0  -1 ]
+    [  0   1   1 ]
+
+  Translation t  =  [2, 2, 0]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1 - v_2 + 2
+  u_2  =  -v_1 - v_3 + 2
+  u_3  =  v_2 + v_3
+
+  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):
+    β      =  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+    T·β    =  ['-D/2 + nu_1 + nu_2 + nu_3', '-D + nu_1 + nu_2 + 2*nu_3', '-D + nu_1 + 2*nu_2 + nu_3', 'nu_2 + nu_3']
+  [T·β gives the β-parameters of the target integral]
+
+
+────────────────────────────────────────────────────────────────────────
+  unimodular  :  3-gon (C_3)  →  companion_3
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 0  -1   0 ]
+    [ 1   1   1 ]
+    [ 0   0  -1 ]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_2
+  u_2  =  v_1 + v_2 + v_3
+  u_3  =  -v_3
+
+  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):
+    β      =  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+    T·β    =  ['-D/2 + nu_1 + nu_2 + nu_3', '-nu_2', 'nu_1 + nu_2 + nu_3', '-nu_3']
+  [T·β gives the β-parameters of the target integral]
+
+
+────────────────────────────────────────────────────────────────────────
+  affine_polytope  :  3-gon (C_3)  →  companion_3  (det = 1)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 1   1   1 ]
+    [ 0  -1   0 ]
+    [ 0   0  -1 ]
+
+  Translation t  =  [-1, 1, 1]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  v_1 + v_2 + v_3 - 1
+  u_2  =  1 - v_2
+  u_3  =  1 - v_3
+
+  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):
+    β      =  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+    T·β    =  ['-D/2 + nu_1 + nu_2 + nu_3', 'D/2', '-D/2 + nu_1 + nu_3', '-D/2 + nu_1 + nu_2']
+  [T·β gives the β-parameters of the target integral]
+
+
+────────────────────────────────────────────────────────────────────────
+  point_config  :  3-gon (C_3)  →  companion_3  (det = 1)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 1   1   1 ]
+    [ 0  -1   0 ]
+    [ 0   0  -1 ]
+
+  Translation t  =  [-1, 1, 1]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  v_1 + v_2 + v_3 - 1
+  u_2  =  1 - v_2
+  u_3  =  1 - v_3
+
+  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):
+    β      =  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+    T·β    =  ['-D/2 + nu_1 + nu_2 + nu_3', 'D/2', '-D/2 + nu_1 + nu_3', '-D/2 + nu_1 + nu_2']
+  [T·β gives the β-parameters of the target integral]
+
+
+────────────────────────────────────────────────────────────────────────
+  finite_index  :  3-gon (C_3)  →  companion_3  (det = 1)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 0  -1   0 ]
+    [ 0   0  -1 ]
+    [ 1   1   1 ]
+
+  Translation t  =  [1, 1, -1]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  1 - v_2
+  u_2  =  1 - v_3
+  u_3  =  v_1 + v_2 + v_3 - 1
+
+  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):
+    β      =  [-D/2 + nu_1 + nu_2 + nu_3, nu_1, nu_2, nu_3]
+    T·β    =  ['-D/2 + nu_1 + nu_2 + nu_3', '-D/2 + nu_1 + nu_3', '-D/2 + nu_1 + nu_2', 'D/2']
+  [T·β gives the β-parameters of the target integral]
+
+
+────────────────────────────────────────────────────────────────────────
+  affine_polytope  :  K_3 complete  →  BMS_3 simplex  (det = -2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ -1  -1   0 ]
+    [ -1   0  -1 ]
+    [  0   1   1 ]
+
+  Translation t  =  [2, 2, 0]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1 - v_2 + 2
+  u_2  =  -v_1 - v_3 + 2
+  u_3  =  v_2 + v_3
+
+
+────────────────────────────────────────────────────────────────────────
+  point_config  :  K_3 complete  →  BMS_3 simplex  (det = -2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ -1  -1   0 ]
+    [ -1   0  -1 ]
+    [  0   1   1 ]
+
+  Translation t  =  [2, 2, 0]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1 - v_2 + 2
+  u_2  =  -v_1 - v_3 + 2
+  u_3  =  v_2 + v_3
+
+
+────────────────────────────────────────────────────────────────────────
+  finite_index  :  K_3 complete  →  BMS_3 simplex  (det = 2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ -1  -1   0 ]
+    [ -1   0  -1 ]
+    [  0   1   1 ]
+
+  Translation t  =  [2, 2, 0]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1 - v_2 + 2
+  u_2  =  -v_1 - v_3 + 2
+  u_3  =  v_2 + v_3
+
+
+────────────────────────────────────────────────────────────────────────
+  unimodular  :  K_3 complete  →  companion_3
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 0  -1   0 ]
+    [ 1   1   1 ]
+    [ 0   0  -1 ]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_2
+  u_2  =  v_1 + v_2 + v_3
+  u_3  =  -v_3
+
+
+────────────────────────────────────────────────────────────────────────
+  affine_polytope  :  K_3 complete  →  companion_3  (det = 1)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 1   1   1 ]
+    [ 0  -1   0 ]
+    [ 0   0  -1 ]
+
+  Translation t  =  [-1, 1, 1]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  v_1 + v_2 + v_3 - 1
+  u_2  =  1 - v_2
+  u_3  =  1 - v_3
+
+
+────────────────────────────────────────────────────────────────────────
+  point_config  :  K_3 complete  →  companion_3  (det = 1)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 1   1   1 ]
+    [ 0  -1   0 ]
+    [ 0   0  -1 ]
+
+  Translation t  =  [-1, 1, 1]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  v_1 + v_2 + v_3 - 1
+  u_2  =  1 - v_2
+  u_3  =  1 - v_3
+
+
+────────────────────────────────────────────────────────────────────────
+  finite_index  :  K_3 complete  →  companion_3  (det = 1)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ 0  -1   0 ]
+    [ 0   0  -1 ]
+    [ 1   1   1 ]
+
+  Translation t  =  [1, 1, -1]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  1 - v_2
+  u_2  =  1 - v_3
+  u_3  =  v_1 + v_2 + v_3 - 1
+
+
+────────────────────────────────────────────────────────────────────────
+  affine_polytope  :  BMS_3 simplex  →  companion_3  (det = -1/2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ -1/2  -1/2   1/2 ]
+    [  1/2  -1/2  -1/2 ]
+    [ -1/2   1/2  -1/2 ]
+
+  Translation t  =  [1, 1, 1]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1/2 - v_2/2 + v_3/2 + 1
+  u_2  =  v_1/2 - v_2/2 - v_3/2 + 1
+  u_3  =  -v_1/2 + v_2/2 - v_3/2 + 1
+
+
+────────────────────────────────────────────────────────────────────────
+  point_config  :  BMS_3 simplex  →  companion_3  (det = -1/2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (3 × 3):
+    [ -1/2  -1/2   1/2 ]
+    [  1/2  -1/2  -1/2 ]
+    [ -1/2   1/2  -1/2 ]
+
+  Translation t  =  [1, 1, 1]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1/2 - v_2/2 + v_3/2 + 1
+  u_2  =  v_1/2 - v_2/2 - v_3/2 + 1
+  u_3  =  -v_1/2 + v_2/2 - v_3/2 + 1
+
+
+────────────────────────────────────────────────────────────────────────
+  affine_polytope  :  BMS_4 simplex  →  companion_4  (det = 1)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (4 × 4):
+    [ -1/2  -1/2  -1/2   1/2 ]
+    [  1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2   1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2   1/2  -1/2 ]
+
+  Translation t  =  [3/2, 3/2, 3/2, 3/2]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1/2 - v_2/2 - v_3/2 + v_4/2 + 3/2
+  u_2  =  v_1/2 - v_2/2 - v_3/2 - v_4/2 + 3/2
+  u_3  =  -v_1/2 + v_2/2 - v_3/2 - v_4/2 + 3/2
+  u_4  =  -v_1/2 - v_2/2 + v_3/2 - v_4/2 + 3/2
+
+
+────────────────────────────────────────────────────────────────────────
+  point_config  :  BMS_4 simplex  →  companion_4  (det = 1)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (4 × 4):
+    [ -1/2  -1/2  -1/2   1/2 ]
+    [  1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2   1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2   1/2  -1/2 ]
+
+  Translation t  =  [3/2, 3/2, 3/2, 3/2]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1/2 - v_2/2 - v_3/2 + v_4/2 + 3/2
+  u_2  =  v_1/2 - v_2/2 - v_3/2 - v_4/2 + 3/2
+  u_3  =  -v_1/2 + v_2/2 - v_3/2 - v_4/2 + 3/2
+  u_4  =  -v_1/2 - v_2/2 + v_3/2 - v_4/2 + 3/2
+
+
+────────────────────────────────────────────────────────────────────────
+  affine_polytope  :  BMS_5 simplex  →  companion_5  (det = -3/2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (5 × 5):
+    [ -1/2  -1/2  -1/2  -1/2   1/2 ]
+    [  1/2  -1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2   1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2   1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2  -1/2   1/2  -1/2 ]
+
+  Translation t  =  [2, 2, 2, 2, 2]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1/2 - v_2/2 - v_3/2 - v_4/2 + v_5/2 + 2
+  u_2  =  v_1/2 - v_2/2 - v_3/2 - v_4/2 - v_5/2 + 2
+  u_3  =  -v_1/2 + v_2/2 - v_3/2 - v_4/2 - v_5/2 + 2
+  u_4  =  -v_1/2 - v_2/2 + v_3/2 - v_4/2 - v_5/2 + 2
+  u_5  =  -v_1/2 - v_2/2 - v_3/2 + v_4/2 - v_5/2 + 2
+
+
+────────────────────────────────────────────────────────────────────────
+  point_config  :  BMS_5 simplex  →  companion_5  (det = -3/2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (5 × 5):
+    [ -1/2  -1/2  -1/2  -1/2   1/2 ]
+    [  1/2  -1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2   1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2   1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2  -1/2   1/2  -1/2 ]
+
+  Translation t  =  [2, 2, 2, 2, 2]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1/2 - v_2/2 - v_3/2 - v_4/2 + v_5/2 + 2
+  u_2  =  v_1/2 - v_2/2 - v_3/2 - v_4/2 - v_5/2 + 2
+  u_3  =  -v_1/2 + v_2/2 - v_3/2 - v_4/2 - v_5/2 + 2
+  u_4  =  -v_1/2 - v_2/2 + v_3/2 - v_4/2 - v_5/2 + 2
+  u_5  =  -v_1/2 - v_2/2 - v_3/2 + v_4/2 - v_5/2 + 2
+
+
+────────────────────────────────────────────────────────────────────────
+  affine_polytope  :  BMS_6 simplex  →  companion_6  (det = 2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (6 × 6):
+    [ -1/2  -1/2  -1/2  -1/2  -1/2   1/2 ]
+    [  1/2  -1/2  -1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2   1/2  -1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2   1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2  -1/2   1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2  -1/2  -1/2   1/2  -1/2 ]
+
+  Translation t  =  [5/2, 5/2, 5/2, 5/2, 5/2, 5/2]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1/2 - v_2/2 - v_3/2 - v_4/2 - v_5/2 + v_6/2 + 5/2
+  u_2  =  v_1/2 - v_2/2 - v_3/2 - v_4/2 - v_5/2 - v_6/2 + 5/2
+  u_3  =  -v_1/2 + v_2/2 - v_3/2 - v_4/2 - v_5/2 - v_6/2 + 5/2
+  u_4  =  -v_1/2 - v_2/2 + v_3/2 - v_4/2 - v_5/2 - v_6/2 + 5/2
+  u_5  =  -v_1/2 - v_2/2 - v_3/2 + v_4/2 - v_5/2 - v_6/2 + 5/2
+  u_6  =  -v_1/2 - v_2/2 - v_3/2 - v_4/2 + v_5/2 - v_6/2 + 5/2
+
+
+────────────────────────────────────────────────────────────────────────
+  point_config  :  BMS_6 simplex  →  companion_6  (det = 2)
+────────────────────────────────────────────────────────────────────────
+  Linear map M  (6 × 6):
+    [ -1/2  -1/2  -1/2  -1/2  -1/2   1/2 ]
+    [  1/2  -1/2  -1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2   1/2  -1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2   1/2  -1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2  -1/2   1/2  -1/2  -1/2 ]
+    [ -1/2  -1/2  -1/2  -1/2   1/2  -1/2 ]
+
+  Translation t  =  [5/2, 5/2, 5/2, 5/2, 5/2, 5/2]
+
+  Change of integration variables  (u = source diagram, v = target):
+    u_i  =  Σ_j M_ij v_j  +  t_i
+  u_1  =  -v_1/2 - v_2/2 - v_3/2 - v_4/2 - v_5/2 + v_6/2 + 5/2
+  u_2  =  v_1/2 - v_2/2 - v_3/2 - v_4/2 - v_5/2 - v_6/2 + 5/2
+  u_3  =  -v_1/2 + v_2/2 - v_3/2 - v_4/2 - v_5/2 - v_6/2 + 5/2
+  u_4  =  -v_1/2 - v_2/2 + v_3/2 - v_4/2 - v_5/2 - v_6/2 + 5/2
+  u_5  =  -v_1/2 - v_2/2 - v_3/2 + v_4/2 - v_5/2 - v_6/2 + 5/2
+  u_6  =  -v_1/2 - v_2/2 - v_3/2 - v_4/2 + v_5/2 - v_6/2 + 5/2
+
+════════════════════════════════════════════════════════════════════════
+  PATTERN ANALYSIS
+════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────
+  Smith normal form patterns
+────────────────────────────────────────────────────────────────────────
+  Diagrams are grouped by their Smith invariants.
+  Diagrams in the same group span the same sublattice.
+
+  Smith [1, 1, 1, 1, 1, 1, 1]  (1 diagrams):
+    7-gon (C_7)
+  Smith [1, 1, 1, 1, 1, 1]  (3 diagrams):
+    6-gon (C_6)
+    6-banana (banana-6)
+    K_4 complete
+  Smith [1, 1, 1, 1, 1, 2]  (1 diagrams):
+    BMS_6 simplex
+  Smith [1, 1, 1, 1, 1, 4]  (1 diagrams):
+    companion_6
+  Smith [1, 1, 1, 1, 1]  (2 diagrams):
+    5-gon (C_5)
+    5-banana (banana-5)
+  Smith [1, 1, 1, 1, 2]  (1 diagrams):
+    BMS_5 simplex
+  Smith [1, 1, 1, 1, 3]  (1 diagrams):
+    companion_5
+  Smith [1, 1, 1, 1]  (2 diagrams):
+    4-gon (C_4)
+    4-banana (banana-4)
+  Smith [1, 1, 1, 2]  (2 diagrams):
+    BMS_4 simplex
+    companion_4
+  Smith [1, 1, 1]  (4 diagrams):
+    3-gon (C_3)
+    sunset (banana-3)
+    K_3 complete
+    companion_3
+  Smith [1, 1, 2]  (1 diagrams):
+    BMS_3 simplex
+  Smith [1, 1]  (1 diagrams):
+    bubble (banana-2)
+
+
+────────────────────────────────────────────────────────────────────────
+  Toric ideal (IBP relation) counts
+────────────────────────────────────────────────────────────────────────
+  Label                   n_pts  amb_dim  toric_gens
+------------------------------------------------------
+  3-gon (C_3)                 6        3           2
+  4-gon (C_4)                10        4          10
+  5-gon (C_5)                15        5          30
+  6-gon (C_6)                21        6          70
+  7-gon (C_7)                28        7         140
+  bubble (banana-2)           3        2           0
+  sunset (banana-3)           4        3           0
+  4-banana (banana-4)         5        4           0
+  5-banana (banana-5)         6        5           0
+  6-banana (banana-6)         7        6           0
+  K_3 complete                6        3           2
+  K_4 complete               31        6         191
+  BMS_3 simplex               6        3           2
+  BMS_4 simplex               8        4           3
+  BMS_5 simplex              10        5           4
+  BMS_6 simplex              12        6           5
+  companion_3                 6        3           2
+  companion_4                 8        4           3
+  companion_5                10        5           4
+  companion_6                12        6           5
+
+  Pattern: n-gon toric count grows rapidly (~C(n,2) × something).
+  Banana diagrams have 0 generators (simplex = single master integral).
+
+
+────────────────────────────────────────────────────────────────────────
+  Normalised volumes (= holonomic rank)
+────────────────────────────────────────────────────────────────────────
+  Label                          vol
+------------------------------------
+  3-gon (C_3)                      4
+  4-gon (C_4)                     11
+  5-gon (C_5)                     26
+  6-gon (C_6)                     57
+  7-gon (C_7)                    120
+  bubble (banana-2)                1
+  sunset (banana-3)                1
+  4-banana (banana-4)              1
+  5-banana (banana-5)              1
+  6-banana (banana-6)              1
+  K_3 complete                     4
+  K_4 complete                   262
+  BMS_3 simplex                    4
+  BMS_4 simplex                    8
+  BMS_5 simplex                   16
+  BMS_6 simplex                   32
+  companion_3                      4
+  companion_4                      8
+  companion_5                     16
+  companion_6                     32
+
+  BMS_n simplex: vol = 2^(n-1)  (powers of 2: 4, 8, 16, 32 for n=3..6)
+  n-gon: vol grows faster than exponential in n.
+
+
+────────────────────────────────────────────────────────────────────────
+  Equivalence class summary
+────────────────────────────────────────────────────────────────────────
+  unimodular:
+    3-gon (C_3)  ≅  K_3 complete
+    3-gon (C_3)  ≅  companion_3
+    K_3 complete  ≅  companion_3
+
+  affine_polytope:
+    3-gon (C_3)  ≅  K_3 complete  (det = 1)
+    3-gon (C_3)  ≅  BMS_3 simplex  (det = -2)
+    3-gon (C_3)  ≅  companion_3  (det = 1)
+    K_3 complete  ≅  BMS_3 simplex  (det = -2)
+    K_3 complete  ≅  companion_3  (det = 1)
+    BMS_3 simplex  ≅  companion_3  (det = -1/2)
+    BMS_4 simplex  ≅  companion_4  (det = 1)
+    BMS_5 simplex  ≅  companion_5  (det = -3/2)
+    BMS_6 simplex  ≅  companion_6  (det = 2)
+
+  point_config:
+    3-gon (C_3)  ≅  K_3 complete  (det = 1)
+    3-gon (C_3)  ≅  BMS_3 simplex  (det = -2)
+    3-gon (C_3)  ≅  companion_3  (det = 1)
+    K_3 complete  ≅  BMS_3 simplex  (det = -2)
+    K_3 complete  ≅  companion_3  (det = 1)
+    BMS_3 simplex  ≅  companion_3  (det = -1/2)
+    BMS_4 simplex  ≅  companion_4  (det = 1)
+    BMS_5 simplex  ≅  companion_5  (det = -3/2)
+    BMS_6 simplex  ≅  companion_6  (det = 2)
+
+  finite_index:
+    3-gon (C_3)  ≅  K_3 complete  (det = 1)
+    3-gon (C_3)  ≅  BMS_3 simplex  (det = 2)
+    3-gon (C_3)  ≅  companion_3  (det = 1)
+    K_3 complete  ≅  BMS_3 simplex  (det = 2)
+    K_3 complete  ≅  companion_3  (det = 1)
+
+════════════════════════════════════════════════════════════════════════
+  Survey complete.
+════════════════════════════════════════════════════════════════════════

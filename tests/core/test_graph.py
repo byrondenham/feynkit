@@ -156,6 +156,69 @@ class TestGraphMethods:
             assert a1 in coeff.free_symbols or a2 in coeff.free_symbols or coeff.is_number
 
 
+class TestCNickelTadpole:
+    """Regression tests for tadpole / self-loop CNickel parsing."""
+
+    def test_tadpole_bare_has_one_internal_edge(self) -> None:
+        g = Graph.from_cnickel("0|")
+        assert len(g.get_internal_edges()) == 1
+
+    def test_tadpole_bare_has_no_external_legs(self) -> None:
+        g = Graph.from_cnickel("0|")
+        assert g.external_legs == 0
+
+    def test_tadpole_bare_is_self_loop(self) -> None:
+        g = Graph.from_cnickel("0|")
+        e = g.get_internal_edges()[0]
+        assert e.v1 == e.v2
+
+    def test_tadpole_with_mass_color_has_one_edge(self) -> None:
+        g = Graph.from_cnickel("0|:z|")
+        assert len(g.get_internal_edges()) == 1
+
+    def test_tadpole_with_mass_color_is_massless(self) -> None:
+        import sympy as sp
+        g = Graph.from_cnickel("0|:z|")
+        assert g.get_internal_edges()[0].mass == sp.Integer(0)
+
+    def test_tadpole_cnickel_roundtrip(self) -> None:
+        g = Graph.from_cnickel("0|:z|")
+        assert g.cnickel() == "0|:z"
+
+    def test_zero_digit_mass_code_is_massless(self) -> None:
+        import sympy as sp
+        g = Graph.from_cnickel("e11|e|:n00|n|")
+        for e in g.get_internal_edges():
+            assert e.mass == sp.Integer(0)
+
+    def test_special_mass_code_gives_shared_symbol(self) -> None:
+        g = Graph.from_cnickel("12e|2e|e|:sss")
+        masses = [str(e.mass) for e in g.get_internal_edges()]
+        assert masses == ["m_s", "m_s", "m_s"]
+
+    def test_letter_label_codes_give_shared_symbols(self) -> None:
+        g = Graph.from_cnickel("12e|2e|e|:aab")
+        masses = [str(e.mass) for e in g.get_internal_edges()]
+        assert masses.count("m_a") == 2
+        assert masses.count("m_b") == 1
+
+    def test_letter_label_cnickel_roundtrip(self) -> None:
+        assert Graph.from_cnickel("12e|2e|e|:aab").cnickel() == "12e|2e|e|:aab"
+
+    def test_special_mass_cnickel_roundtrip(self) -> None:
+        assert Graph.from_cnickel("12e|2e|e|:sss").cnickel() == "12e|2e|e|:sss"
+
+    def test_structured_color_string_with_external_legs(self) -> None:
+        # 'e11|e|:zzz|z|' — colors mirror topology structure including 'e' positions
+        g = Graph.from_cnickel("e11|e|:zzz|z|")
+        assert len(g.get_internal_edges()) == 2
+        assert g.external_legs == 2
+
+    def test_existing_graphs_unaffected(self) -> None:
+        for cn in ("11e|e|:zz", "12e|2e|e|:zzz", "111e|e|:zzz"):
+            assert Graph.from_cnickel(cn).cnickel() == cn
+
+
 class TestGraphStringRepresentation:
     """Test Graph string representations."""
 

@@ -1,7 +1,7 @@
 # feynkit: Mathematics Reference
 
 This document gives a self-contained account of every mathematical object and algorithm implemented in
-the feynkit library. It is intended as context for a Claude session that has access to the primary
+the feynkit library. It is intended as a reference to be read alongside the primary
 source papers, and as a dissertation reference. Each section states the definition, the precise formula
 used in the code, the variable-naming conventions (symbol ↔ Python identifier), and the paper(s) to
 consult for derivation or proof.

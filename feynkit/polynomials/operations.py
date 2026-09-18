@@ -46,7 +46,9 @@ def homogenise_polynomial(poly: sp.Expr, variables: list[sp.Symbol]) -> sp.Expr:
             term_degree = sum(monom)
             homogenising_power = max_degree - term_degree
             result += (
-                coeff * sp.prod([v**e for v, e in zip(variables, monom)]) * h**homogenising_power
+                coeff
+                * sp.prod([v**e for v, e in zip(variables, monom, strict=True)])
+                * h**homogenising_power
             )
 
         return result

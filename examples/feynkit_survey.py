@@ -109,7 +109,7 @@ def _matrix_lines(M: sp.Matrix, indent: str = "    ") -> list[str]:
     col_widths = [max(len(str(rows[r][c])) for r in range(M.rows)) for c in range(M.cols)]
     out = []
     for row in rows:
-        cells = [str(v).rjust(w) for v, w in zip(row, col_widths)]
+        cells = [str(v).rjust(w) for v, w in zip(row, col_widths, strict=True)]
         out.append(indent + "[ " + "  ".join(cells) + " ]")
     return out
 

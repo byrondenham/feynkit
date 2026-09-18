@@ -62,7 +62,7 @@ class TestDehomogenisedSymanzikPolynomials:
         sym = massless_triangle.symanzik
         t = sp.Symbol("t", positive=True)
         alphas = sym.schwinger_parameters
-        subs = {a: t * v for a, v in zip(alphas[:-1], new_vars)}
+        subs = {a: t * v for a, v in zip(alphas[:-1], new_vars, strict=True)}
         subs[alphas[-1]] = t
         L = massless_triangle.loop_count
         assert sp.expand(sym.u.subs(subs) - t**L * u_tilde) == 0

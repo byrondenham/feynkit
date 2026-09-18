@@ -193,7 +193,9 @@ class TestGKZParity:
         assert col_set(integral.gkz.a_matrix) == col_set(free_pipeline["gkz"].a_matrix)
 
     def test_beta_matches_free_function(self, integral: FeynmanIntegral, free_pipeline) -> None:
-        for a, b in zip(integral.gkz.beta_parameters, free_pipeline["gkz"].beta_parameters):
+        for a, b in zip(
+            integral.gkz.beta_parameters, free_pipeline["gkz"].beta_parameters, strict=True
+        ):
             assert _expr_eq(a, b)
 
     def test_support_size_matches_free_function(

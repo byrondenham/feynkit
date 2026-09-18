@@ -186,7 +186,7 @@ def _univariate_discriminant(coeffs: list[sp.Expr], t_exps: list[int]) -> sp.Exp
     """
     _t = sp.Symbol("_t_landau_internal_")
     P = sp.Integer(0)
-    for c, e in zip(coeffs, t_exps):
+    for c, e in zip(coeffs, t_exps, strict=True):
         P = P + c * _t**e
     poly = sp.Poly(P, _t)
     deg = poly.degree()

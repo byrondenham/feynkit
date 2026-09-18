@@ -410,8 +410,8 @@ def _label_preserving_orderings(
 
     result: list[int] = [-1] * len(combo)
     for group_perms in _prod(*[perms for _, perms in groups]):
-        for (positions, _), assigned in zip(groups, group_perms):
-            for pos, entry in zip(positions, assigned):
+        for (positions, _), assigned in zip(groups, group_perms, strict=True):
+            for pos, entry in zip(positions, assigned, strict=True):
                 result[pos] = entry
         yield tuple(result)
 

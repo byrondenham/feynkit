@@ -82,8 +82,8 @@ def matrix_lexicographic_compare(M1: sp.Matrix, M2: sp.Matrix) -> int:
     rows1 = M1.tolist()
     rows2 = M2.tolist()
 
-    for row1, row2 in zip(rows1, rows2):
-        for elem1, elem2 in zip(row1, row2):
+    for row1, row2 in zip(rows1, rows2, strict=True):
+        for elem1, elem2 in zip(row1, row2, strict=True):
             cmp = symbolic_compare(elem1, elem2)
             if cmp != 0:
                 return cmp

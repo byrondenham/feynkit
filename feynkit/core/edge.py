@@ -1,7 +1,7 @@
 """
 Edge representation for Feynman graphs.
 
-This module provides the Edge dataclass representing propagators and exteral momenta
+This module provides the Edge dataclass representing propagators and external momenta
 in Feynman diagrams.
 """
 
@@ -65,11 +65,11 @@ class Edge:
     their attributes cannot be modified. To "modify" an edge, create a new one
     with updated values using dataclasses.replace().
 
-    Thte vertex index convention follows:
+    The vertex index convention follows:
     - Internal vertices: 1 to r_int
     - External vertices: (r_int + 1) to (r_int + n_ext)
 
-    For self-loops (v1 == v2), special hangling may be needed in graph algorithms.
+    For self-loops (v1 == v2), special handling may be needed in graph algorithms.
 
     References
     ----------

@@ -64,7 +64,7 @@ def _matrix(M: sp.Matrix, indent: int = 4) -> None:
     rows = M.tolist()
     widths = [max(len(str(rows[r][c])) for r in range(M.rows)) for c in range(M.cols)]
     for row in rows:
-        cells = [str(v).rjust(w) for v, w in zip(row, widths)]
+        cells = [str(v).rjust(w) for v, w in zip(row, widths, strict=True)]
         print(pad + "[ " + "  ".join(cells) + " ]")
 
 

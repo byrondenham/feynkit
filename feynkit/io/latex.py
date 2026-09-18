@@ -114,9 +114,36 @@ def to_latex_split(expr: sp.Expr, max_length: int = 80) -> str:
     if len(latex_str) <= max_length:
         return latex_str
 
-    # For long expressions, try to use split environment
-    # This requires identifying good break points
-    return latex_str  # For now, return as-is (user can wrap in split manually)
+    # Break only at top-level "+" / "-" (brace depth zero) so that fractions,
+    # exponents and function arguments are never split apart.
+    chunks: list[str] = []
+    depth = 0
+    start = 0
+    for i, ch in enumerate(latex_str):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+        elif depth == 0 and i > start and latex_str.startswith((" + ", " - "), i):
+            chunks.append(latex_str[start:i])
+            start = i
+    chunks.append(latex_str[start:])
+
+    if len(chunks) == 1:
+        return latex_str
+
+    lines: list[str] = []
+    current = chunks[0]
+    for chunk in chunks[1:]:
+        if len(current) + len(chunk) > max_length:
+            lines.append(current)
+            current = chunk.strip()
+        else:
+            current += chunk
+    lines.append(current)
+
+    body = " \\\\\n& ".join(lines)
+    return "\\begin{split}\n" + body + "\n\\end{split}"
 
 
 def graph_to_latex_table(graph: Graph) -> str:

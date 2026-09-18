@@ -188,7 +188,8 @@ class SchwingerParametrisation(Parametrisation):
             for e in internal_edges[:-1]
         ]
         substitution: dict[sp.Symbol, sp.Expr] = {
-            self.graph.schwinger_parameters[e.idx]: v for e, v in zip(internal_edges, new_vars)
+            self.graph.schwinger_parameters[e.idx]: v
+            for e, v in zip(internal_edges[:-1], new_vars, strict=True)
         }
         substitution[self.graph.schwinger_parameters[internal_edges[-1].idx]] = sp.Integer(1)
 

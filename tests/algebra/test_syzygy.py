@@ -10,12 +10,12 @@ x, y, z = sp.symbols("x y z")
 
 
 def _is_syzygy(coeffs: list[sp.Expr], gens: list[sp.Expr]) -> bool:
-    return sp.expand(sum(c * f for c, f in zip(coeffs, gens))) == 0
+    return sp.expand(sum(c * f for c, f in zip(coeffs, gens, strict=True))) == 0
 
 
 def _proportional(a: list[sp.Expr], b: list[sp.Expr]) -> bool:
-    ratios = {sp.cancel(p / q) for p, q in zip(a, b) if q != 0}
-    zeros_match = all((p == 0) == (q == 0) for p, q in zip(a, b))
+    ratios = {sp.cancel(p / q) for p, q in zip(a, b, strict=True) if q != 0}
+    zeros_match = all((p == 0) == (q == 0) for p, q in zip(a, b, strict=True))
     return zeros_match and len(ratios) == 1 and next(iter(ratios)).is_number
 
 

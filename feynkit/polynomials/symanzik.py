@@ -28,7 +28,7 @@ def _reverse_monomials(poly_expr: sp.Expr, variables: list[sp.Symbol]) -> sp.Exp
         return sp.Integer(0)
     poly = sp.Poly(poly_expr, *variables, domain="EX")
     terms: dict[tuple[int, ...], sp.Expr] = {}
-    for monom, coeff in zip(poly.monoms(), poly.coeffs()):
+    for monom, coeff in zip(poly.monoms(), poly.coeffs(), strict=True):
         terms[tuple(1 - e for e in monom)] = coeff
     if not terms:
         return sp.Integer(0)

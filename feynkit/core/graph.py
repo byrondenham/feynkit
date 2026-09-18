@@ -330,7 +330,8 @@ class Graph:
             (m for m, cnt in mass_count.items() if cnt > 1 and m not in mass_code_map),
             key=str,
         )
-        for mass, letter in zip(unlabeled_shared, available):
+        # `available` is the full letter pool; only as many as there are masses are used.
+        for mass, letter in zip(unlabeled_shared, available, strict=False):
             mass_code_map[mass] = letter
 
         def _mc(e: Edge) -> str:
@@ -526,7 +527,9 @@ class Graph:
                 # Extract only the colors that sit at digit (internal-edge) positions.
                 topo_chars = topology.rstrip("|").replace("|", "")
                 color_chars = color_part.rstrip("|").replace("|", "")
-                mass_str = "".join(cc for tc, cc in zip(topo_chars, color_chars) if tc.isdigit())
+                mass_str = "".join(
+                    cc for tc, cc in zip(topo_chars, color_chars, strict=True) if tc.isdigit()
+                )
             else:
                 mass_str = color_part
         else:

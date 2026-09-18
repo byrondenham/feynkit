@@ -162,7 +162,7 @@ def vertex_edge_graph(vertices: np.ndarray) -> nx.Graph:
         coords = deltas @ basis
         if rank == 1:
             order = np.argsort(coords[:, 0])
-            for a, b in zip(order, order[1:]):
+            for a, b in zip(order, order[1:], strict=True):
                 G.add_edge(int(a), int(b))
             return G
         try:

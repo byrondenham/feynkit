@@ -339,8 +339,8 @@ def extract_binomial_form(generator: sp.Expr) -> tuple[sp.Expr, sp.Expr]:
     (exp1, coeff1), (exp2, coeff2) = terms
 
     vars_list = poly.gens
-    mono1 = sp.prod([v**e for v, e in zip(vars_list, exp1)])
-    mono2 = sp.prod([v**e for v, e in zip(vars_list, exp2)])
+    mono1 = sp.prod([v**e for v, e in zip(vars_list, exp1, strict=True)])
+    mono2 = sp.prod([v**e for v, e in zip(vars_list, exp2, strict=True)])
 
     if coeff1 > 0:
         return mono1, mono2

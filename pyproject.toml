@@ -105,7 +105,6 @@ ignore = [
     "E501",  # line too long (handled by black)
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex (we'll handle this case by case)
-    "B905",  # zip() without strict= (py310+); lengths are guaranteed by construction
 ]
 
 [tool.ruff.lint.per-file-ignores]

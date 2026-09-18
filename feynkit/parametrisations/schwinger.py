@@ -6,11 +6,13 @@ transforming the Feynman integral into an integral over Schwinger parameters.
 """
 
 import sympy as sp
+import numpy as np
 
 from ..core.constants import ALPHA_PARAM_PREFIX, DEFAULT_EPSILON, DEFAULT_GAMMA_E
 from ..core.exceptions import ComputationError
 from ..core.graph import Graph
 from .base import Parametrisation, ParametrisationResult
+from ..systems.gkz import construct_gkz_matrix
 
 
 class SchwingerParametrisation(Parametrisation):
@@ -151,3 +153,62 @@ class SchwingerParametrisation(Parametrisation):
 
         except Exception as e:
             raise ComputationError(f"Failed to compute Schwinger parametrisation: {e}") from e
+
+    def dehomogenised_symanzik_polynomials(self) -> tuple[tuple[sp.Expr, sp.Expr], list[sp.Symbols]]:
+        """
+        Apply the substitution needed to obtain the dehomogenised Symanzik polynomials. This can be used to bring the Schwinger parametrisation into the form of a GKZ integral. Specifically, the substitution is {α_1, ..., α_N} -> {tu_1, ..., tu_{N-1}, t}, based on work from https://arxiv.org/abs/2609.16107v1.
+
+        Returns
+        ---
+        tuple[sp.Expr, sp.Expr]
+            Dehomomgenised Symanzik polynomials Ũ and F̃ in the new variables
+
+        list[sp.Symbols]
+            List of the new variables {u_i}
+        """
+
+        t = sp.symbols("t")
+        alpha = [sp.Symbol(f"{ALPHA_PARAM_PREFIX}_{e.idx}", nonnegative=True, real=True) for e in self.internal_edges]
+        u = [sp.Symbol(f"{u}_{e.idx}", nonnegative=True, real=True) for e in self.internal_edges]
+
+        new_vars = tuple(t * ui for ui in new_vars)
+        substitution = dict(zip(alpha, new_vars))
+
+        u_tilde_polynomial = self.u_polynomial.subs(substitution)
+        f_tilde_polynomial = self.f_polynomial.subs(substitution)
+
+        return [u_tilde_polynomial, f_tilde_polynomial], u
+
+    def get_A_matrix(self) -> sp.Matrix:
+        """
+        Get the \mathcal{A}-matrix of the GKZ integral obtained when manipulating the Schwinger representation into the form of an A-hypergeometric function. See https://arxiv.org/abs/2609.16107v1 for a full treatment.
+
+        Returns:
+        ---
+        A-matrix
+            The \mathcal{A}-matrix of the GKZ integral. Because the integral consists of a product of two functions, the dehomogenised Symanzik polynomials Ũ and F̃, the \mathcal{A}-matrix will necessarily be of the form::
+
+            1 ... 1 | 0 ... 0 
+            0 ... 0 | 1 ... 1
+            -----------------
+              A_1   |   A_1
+        """
+
+        [u_tilde_polynomial, f_tilde_polynomial], u = self.dehomogenised_symanzik_polynomials(self)
+
+        A_1 = construct_gkz_matrix(u_tilde_polynomial, u)
+        A_2 = construct_gkz_matrix(f_tilde_polynomial, u)
+
+        _, n = A_1.shape
+        _, N = A_2.shape
+
+        head = np.zeros((2, (n + N)), dtype = int)
+
+        for i in range(2):          
+                  for j in range((n+N)):
+        
+                       if ((i == 0) & (j < n)) or ((i == 1) & (j >= n)):
+        
+                            head[i][j] = 1
+        
+        return sp.Matrix(np.r_[head, np.c_[A_1, A_2]])

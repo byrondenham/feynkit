@@ -33,10 +33,10 @@ from pathlib import Path
 
 import sympy as sp
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Output helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _rule(char: str = "─", width: int = 68) -> None:
     print(char * width)
@@ -79,7 +79,9 @@ def _fmt_euler(eq: sp.Eq) -> str:
             idx = str(var).split("_", 1)[1]
             lhs_parts.append(f"z_{idx} ∂_{idx}")
 
-    phi_atoms = [a for a in sp.preorder_traversal(eq.rhs) if isinstance(a, sp.core.function.AppliedUndef)]
+    phi_atoms = [
+        a for a in sp.preorder_traversal(eq.rhs) if isinstance(a, sp.core.function.AppliedUndef)
+    ]
     if phi_atoms:
         beta = sp.expand(eq.rhs / phi_atoms[0])
     else:
@@ -91,6 +93,7 @@ def _fmt_euler(eq: sp.Eq) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 # Single-diagram analysis
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
     from feynkit import FeynmanIntegral, FeynkitDatabase
@@ -143,8 +146,7 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
         _sec("GKZ hypergeometric system")
         gkz = fi.gkz
         A = gkz.a_matrix
-        print(f"  A-matrix  ({A.rows} × {A.cols})"
-              f"  [rows = coordinates; cols = monomials of G]")
+        print(f"  A-matrix  ({A.rows} × {A.cols})" f"  [rows = coordinates; cols = monomials of G]")
         _matrix(A)
         print()
         _kv("β-parameters", gkz.beta_parameters)
@@ -188,7 +190,7 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
         _kv("Vertex orbits under Aut(P)", aut.vertex_orbits)
         sym_pairs = fi.symmetry_pairs
         uni_pairs = [p for p in sym_pairs if p.is_unimodular]
-        fi_pairs  = [p for p in sym_pairs if not p.is_unimodular]
+        fi_pairs = [p for p in sym_pairs if not p.is_unimodular]
         _kv("Symmetry pairs total", len(sym_pairs))
         _kv("  unimodular (|det|=1)", len(uni_pairs))
         _kv("  finite-index (|det|>1)", len(fi_pairs))
@@ -219,6 +221,7 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
 # Two-diagram equivalence analysis
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
     from feynkit import FeynmanIntegral, FeynkitDatabase
     from feynkit.a_configuration import AConfiguration, finite_index_map, FiniteIndexResult
@@ -240,7 +243,10 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
         ti = fi.toric_ideal
         _sec(f"Diagram {tag}  —  {fi.cnickel}")
         _kv("Nickel", fi.nickel_index)
-        _kv("Loops / props / ext", f"{fi.loop_count} / {len(fi.graph.get_internal_edges())} / {fi.graph.external_legs}")
+        _kv(
+            "Loops / props / ext",
+            f"{fi.loop_count} / {len(fi.graph.get_internal_edges())} / {fi.graph.external_legs}",
+        )
         print(f"  U  =  {fi.symanzik.u}")
         print(f"  F  =  {fi.symanzik.f}")
         print(f"  G  =  {fi.symanzik.g}")
@@ -250,7 +256,10 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
         print()
         _kv("β-parameters", gkz.beta_parameters)
         _kv("Toric generators", len(ti.generators))
-        _kv("Monomials / verts / dim", f"{cfg.n_points} / {len(cfg.newton_polytope_points)} / {cfg.ambient_dim}")
+        _kv(
+            "Monomials / verts / dim",
+            f"{cfg.n_points} / {len(cfg.newton_polytope_points)} / {cfg.ambient_dim}",
+        )
         _kv("Normalised volume", cfg.normalized_volume)
         _kv("Smith invariants", cfg.smith_invariants)
         db.store(fi, label=fi.cnickel)
@@ -272,9 +281,9 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
 
     results = []
     for relation, method in [
-        ("unimodular",      cfg1.is_unimodular_equivalent_to),
+        ("unimodular", cfg1.is_unimodular_equivalent_to),
         ("affine_polytope", cfg1.is_affinely_equivalent_to),
-        ("point_config",    cfg1.is_point_config_equivalent_to),
+        ("point_config", cfg1.is_point_config_equivalent_to),
     ]:
         res = method(cfg2)
         status = "YES" if res.equivalent else "no"
@@ -290,7 +299,9 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
         print(f"  {'finite_index':<22} {status}{det_str}")
     else:
         fi_res = FiniteIndexResult(found=False)
-        print(f"  {'finite_index':<22} n/a  (different monomial counts: {cfg1.n_points} vs {cfg2.n_points})")
+        print(
+            f"  {'finite_index':<22} n/a  (different monomial counts: {cfg1.n_points} vs {cfg2.n_points})"
+        )
 
     # ── change of variables for any found map ────────────────────────────────
     any_found = any(r.equivalent for _, r in results) or fi_res.found
@@ -328,9 +339,11 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
             print(f"    {ui}  =  {sp.simplify(expr)}")
         print()
         beta1 = list(fi1.gkz.beta_parameters)
-        t_vals = ([t[i, 0] for i in range(n)] if t is not None and t.cols == 1
-                  else [t[0, i] for i in range(n)] if t is not None
-                  else [sp.Integer(0)] * n)
+        t_vals = (
+            [t[i, 0] for i in range(n)]
+            if t is not None and t.cols == 1
+            else [t[0, i] for i in range(n)] if t is not None else [sp.Integer(0)] * n
+        )
         T_rows = [[sp.Integer(1)] + [sp.Integer(0)] * n]
         for i in range(n):
             T_rows.append([t_vals[i]] + [M[i, j] for j in range(n)])
@@ -371,6 +384,7 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
 # Entry point
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="fk",
@@ -408,15 +422,16 @@ examples:
 
     sec = parser.add_argument_group(
         "sections",
-        "which sections to show for a single diagram "
-        "(omit all flags to show every section)",
+        "which sections to show for a single diagram " "(omit all flags to show every section)",
     )
-    sec.add_argument("-s", "--symanzik",   action="store_true", help="Symanzik polynomials")
-    sec.add_argument("-p", "--params",     action="store_true", help="Integral parametrisations")
-    sec.add_argument("-g", "--gkz",        action="store_true", help="GKZ A-matrix + Euler equations")
-    sec.add_argument("-t", "--toric",      action="store_true", help="Toric ideal (IBP generators)")
-    sec.add_argument("-n", "--newton",     action="store_true", help="Newton polytope")
-    sec.add_argument("-S", "--symmetries", action="store_true", help="Polytope automorphisms + symmetry pairs")
+    sec.add_argument("-s", "--symanzik", action="store_true", help="Symanzik polynomials")
+    sec.add_argument("-p", "--params", action="store_true", help="Integral parametrisations")
+    sec.add_argument("-g", "--gkz", action="store_true", help="GKZ A-matrix + Euler equations")
+    sec.add_argument("-t", "--toric", action="store_true", help="Toric ideal (IBP generators)")
+    sec.add_argument("-n", "--newton", action="store_true", help="Newton polytope")
+    sec.add_argument(
+        "-S", "--symmetries", action="store_true", help="Polytope automorphisms + symmetry pairs"
+    )
 
     args = parser.parse_args(argv)
 
@@ -427,12 +442,18 @@ examples:
 
     if len(args.diagrams) == 1:
         sections: set[str] = set()
-        if args.symanzik:   sections.add("symanzik")
-        if args.params:     sections.add("params")
-        if args.gkz:        sections.add("gkz")
-        if args.toric:      sections.add("toric")
-        if args.newton:     sections.add("newton")
-        if args.symmetries: sections.add("symmetries")
+        if args.symanzik:
+            sections.add("symanzik")
+        if args.params:
+            sections.add("params")
+        if args.gkz:
+            sections.add("gkz")
+        if args.toric:
+            sections.add("toric")
+        if args.newton:
+            sections.add("newton")
+        if args.symmetries:
+            sections.add("symmetries")
         analyse_one(args.diagrams[0], db_path, sections)
     else:
         analyse_pair(args.diagrams[0], args.diagrams[1], db_path)

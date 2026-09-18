@@ -39,12 +39,14 @@ def triangle_a_config() -> AConfiguration:
         1  0  0  1  1  0     ← u2 exponent
         0  1  0  1  0  1     ← u3 exponent
     """
-    M = sp.Matrix([
-        [1, 1, 1, 1, 1, 1],
-        [1, 1, 1, 0, 0, 0],
-        [1, 0, 0, 1, 1, 0],
-        [0, 1, 0, 1, 0, 1],
-    ])
+    M = sp.Matrix(
+        [
+            [1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 0, 0, 0],
+            [1, 0, 0, 1, 1, 0],
+            [0, 1, 0, 1, 0, 1],
+        ]
+    )
     return AConfiguration(M, is_homogenized=True)
 
 
@@ -68,12 +70,14 @@ def triple_k_a_config() -> AConfiguration:
         1  2  1  1  0  1
         1  1  2  1  1  0
     """
-    M = sp.Matrix([
-        [1, 1, 1, 1, 1, 1],
-        [2, 1, 1, 0, 1, 1],
-        [1, 2, 1, 1, 0, 1],
-        [1, 1, 2, 1, 1, 0],
-    ])
+    M = sp.Matrix(
+        [
+            [1, 1, 1, 1, 1, 1],
+            [2, 1, 1, 0, 1, 1],
+            [1, 2, 1, 1, 0, 1],
+            [1, 1, 2, 1, 1, 0],
+        ]
+    )
     return AConfiguration(M, is_homogenized=True)
 
 
@@ -92,13 +96,15 @@ def four_point_simplex_a_config() -> AConfiguration:
 
     (The last column corresponds to the origin point (0,0,0,0).)
     """
-    M = sp.Matrix([
-        [1, 1, 1, 1, 1],
-        [1, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0],
-        [0, 0, 1, 0, 0],
-        [0, 0, 0, 1, 0],
-    ])
+    M = sp.Matrix(
+        [
+            [1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0],
+            [0, 0, 1, 0, 0],
+            [0, 0, 0, 1, 0],
+        ]
+    )
     return AConfiguration(M, is_homogenized=True)
 
 
@@ -115,10 +121,12 @@ def banana3_a_config() -> AConfiguration:
         1  1  0  1
         1  0  1  1
     """
-    M = sp.Matrix([
-        [1, 1, 1, 1],
-        [1, 1, 1, 0],
-        [1, 1, 0, 1],
-        [1, 0, 1, 1],
-    ])
+    M = sp.Matrix(
+        [
+            [1, 1, 1, 1],
+            [1, 1, 1, 0],
+            [1, 1, 0, 1],
+            [1, 0, 1, 1],
+        ]
+    )
     return AConfiguration(M, is_homogenized=True)

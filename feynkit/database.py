@@ -96,10 +96,7 @@ class IntegralRecord:
         label = f" [{self.label!r}]" if self.label else ""
         gens = f", {self.n_toric_gens} gens" if self.n_toric_gens is not None else ""
         cn = f", cnickel={self.cnickel!r}" if self.cnickel else ""
-        aut = (
-            f", |Aut(P)|={self.poly_aut_order}"
-            if self.poly_aut_order is not None else ""
-        )
+        aut = f", |Aut(P)|={self.poly_aut_order}" if self.poly_aut_order is not None else ""
         return (
             f"IntegralRecord(id={self.id}, A={self.n_rows}×{self.n_cols}"
             f"{gens}{cn}{aut}{label}, stored={self.stored_at[:10]})"
@@ -134,17 +131,15 @@ class FeynkitDatabase:
     def _migrate(self) -> None:
         """Add columns introduced after the initial schema (idempotent)."""
         new_cols = [
-            ("cnickel",          "TEXT"),
-            ("poly_aut_order",   "INTEGER"),
-            ("graph_aut_order",  "INTEGER"),
+            ("cnickel", "TEXT"),
+            ("poly_aut_order", "INTEGER"),
+            ("graph_aut_order", "INTEGER"),
             ("coeff_pres_order", "INTEGER"),
-            ("vertex_orbits",    "TEXT"),
+            ("vertex_orbits", "TEXT"),
         ]
         for col, coltype in new_cols:
             try:
-                self._conn.execute(
-                    f"ALTER TABLE integrals ADD COLUMN {col} {coltype}"
-                )
+                self._conn.execute(f"ALTER TABLE integrals ADD COLUMN {col} {coltype}")
                 self._conn.commit()
             except sqlite3.OperationalError:
                 pass  # column already present
@@ -159,9 +154,7 @@ class FeynkitDatabase:
 
     @staticmethod
     def _ser_matrix(m: sp.Matrix) -> str:
-        return json.dumps(
-            [[int(m[i, j]) for j in range(m.cols)] for i in range(m.rows)]
-        )
+        return json.dumps([[int(m[i, j]) for j in range(m.cols)] for i in range(m.rows)])
 
     @staticmethod
     def _deser_matrix(s: str) -> sp.Matrix:
@@ -191,9 +184,7 @@ class FeynkitDatabase:
 
     def _to_record(self, row: sqlite3.Row) -> IntegralRecord:
         gens = self._deser_exprs(row["toric_gens"]) if row["toric_gens"] is not None else None
-        is_bin = (
-            bool(row["is_binomial"]) if row["is_binomial"] is not None else None
-        )
+        is_bin = bool(row["is_binomial"]) if row["is_binomial"] is not None else None
         keys = row.keys()
 
         def _opt(col: str):
@@ -226,9 +217,7 @@ class FeynkitDatabase:
 
     # ── internal fast-path used by FeynmanIntegral ────────────────────────
 
-    def _lookup_toric(
-        self, points: list[tuple[int, ...]]
-    ) -> list[sp.Expr] | None:
+    def _lookup_toric(self, points: list[tuple[int, ...]]) -> list[sp.Expr] | None:
         """Return cached toric generators for these Newton points, or None."""
         fp = self._fingerprint(points)
         row = self._conn.execute(
@@ -293,7 +282,8 @@ class FeynkitDatabase:
                 fp,
                 self._ser_matrix(A),
                 self._ser_points(pts),
-                A.rows, A.cols,
+                A.rows,
+                A.cols,
                 fi.loop_count,
                 len(fi.graph.get_internal_edges()),
                 fi.graph.external_legs,
@@ -379,7 +369,8 @@ class FeynkitDatabase:
                 fp,
                 self._ser_matrix(A),
                 self._ser_points(pts),
-                A.rows, A.cols,
+                A.rows,
+                A.cols,
                 fi.loop_count,
                 len(fi.graph.get_internal_edges()),
                 fi.graph.external_legs,
@@ -397,17 +388,13 @@ class FeynkitDatabase:
         )
         self._conn.commit()
 
-        row = self._conn.execute(
-            "SELECT * FROM integrals WHERE fingerprint=?", (fp,)
-        ).fetchone()
+        row = self._conn.execute("SELECT * FROM integrals WHERE fingerprint=?", (fp,)).fetchone()
         return self._to_record(row)
 
     def lookup(self, fi: "FeynmanIntegral") -> IntegralRecord | None:
         """Return the stored record for fi, or None if not present."""
         fp = self._fingerprint(fi.newton_polytope.points)
-        row = self._conn.execute(
-            "SELECT * FROM integrals WHERE fingerprint=?", (fp,)
-        ).fetchone()
+        row = self._conn.execute("SELECT * FROM integrals WHERE fingerprint=?", (fp,)).fetchone()
         return self._to_record(row) if row else None
 
     def find_equivalent(
@@ -469,9 +456,7 @@ class FeynkitDatabase:
                 result = is_affinely_equivalent(pts_q, pts_c)
 
             witness = (
-                self._ser_matrix(result.witness_map)
-                if result.witness_map is not None
-                else None
+                self._ser_matrix(result.witness_map) if result.witness_map is not None else None
             )
             now = self._now()
             for fa, fb in ((fp_q, fp_c), (fp_c, fp_q)):
@@ -536,9 +521,7 @@ class FeynkitDatabase:
                 result = is_affinely_equivalent(pts_q, pts_c)
 
             witness = (
-                self._ser_matrix(result.witness_map)
-                if result.witness_map is not None
-                else None
+                self._ser_matrix(result.witness_map) if result.witness_map is not None else None
             )
             now = self._now()
             for fa, fb in ((fp_q, fp_c), (fp_c, fp_q)):
@@ -578,32 +561,22 @@ class FeynkitDatabase:
         """Return every stored record, oldest first."""
         return [
             self._to_record(r)
-            for r in self._conn.execute(
-                "SELECT * FROM integrals ORDER BY id"
-            ).fetchall()
+            for r in self._conn.execute("SELECT * FROM integrals ORDER BY id").fetchall()
         ]
 
     def get_by_id(self, record_id: int) -> IntegralRecord | None:
-        row = self._conn.execute(
-            "SELECT * FROM integrals WHERE id=?", (record_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT * FROM integrals WHERE id=?", (record_id,)).fetchone()
         return self._to_record(row) if row else None
 
     def summary(self) -> str:
         """Human-readable overview of the database contents."""
-        n_int = self._conn.execute(
-            "SELECT COUNT(*) FROM integrals"
-        ).fetchone()[0]
-        n_equiv = self._conn.execute(
-            "SELECT COUNT(*) FROM equivalences"
-        ).fetchone()[0]
-        rows = self._conn.execute(
-            """SELECT n_rows, n_cols, n_toric_gens, loop_count,
+        n_int = self._conn.execute("SELECT COUNT(*) FROM integrals").fetchone()[0]
+        n_equiv = self._conn.execute("SELECT COUNT(*) FROM equivalences").fetchone()[0]
+        rows = self._conn.execute("""SELECT n_rows, n_cols, n_toric_gens, loop_count,
                       n_props, is_binomial, cnickel,
                       poly_aut_order, graph_aut_order, coeff_pres_order,
                       label, stored_at
-               FROM integrals ORDER BY id"""
-        ).fetchall()
+               FROM integrals ORDER BY id""").fetchall()
 
         # Decide whether to show automorphism columns (any row has data).
         show_aut = any(r["poly_aut_order"] is not None for r in rows)
@@ -616,10 +589,7 @@ class FeynkitDatabase:
             )
             sep = "  " + "─" * 72
         else:
-            header = (
-                f"  {'A shape':<10} {'gens':>6}  {'L':>3}  {'props':>5}"
-                f"  {'bin':>4}  label"
-            )
+            header = f"  {'A shape':<10} {'gens':>6}  {'L':>3}  {'props':>5}" f"  {'bin':>4}  label"
             sep = "  " + "─" * 52
 
         lines = [
@@ -663,7 +633,5 @@ class FeynkitDatabase:
         self.close()
 
     def __repr__(self) -> str:
-        n = self._conn.execute(
-            "SELECT COUNT(*) FROM integrals"
-        ).fetchone()[0]
+        n = self._conn.execute("SELECT COUNT(*) FROM integrals").fetchone()[0]
         return f"FeynkitDatabase({str(self._path)!r}, {n} record(s))"

@@ -49,12 +49,18 @@ FLUSH = sys.stdout.flush
 
 
 def print_section(title: str) -> None:
-    print(); print(SEP); print(f"  {title}"); print(SEP); FLUSH()
+    print()
+    print(SEP)
+    print(f"  {title}")
+    print(SEP)
+    FLUSH()
 
 
 def describe(label: str, cfg: AConfiguration) -> None:
     print(f"  {label}")
-    print(f"    N={cfg.n_points}  dim={cfg.ambient_dim}  Smith={cfg.smith_invariants}  vol₀={cfg.normalized_volume}")
+    print(
+        f"    N={cfg.n_points}  dim={cfg.ambient_dim}  Smith={cfg.smith_invariants}  vol₀={cfg.normalized_volume}"
+    )
     FLUSH()
 
 
@@ -63,7 +69,8 @@ def check_map(label_a: str, a: AConfiguration, label_b: str, b: AConfiguration) 
     print(f"  finite_index_map({label_a} → {label_b}): found={fim.found}", end="")
     if fim.found:
         print(f"  det={fim.determinant}  unimod={fim.is_unimodular}", end="")
-    print(); FLUSH()
+    print()
+    FLUSH()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -76,17 +83,18 @@ print("""  G polynomial: G(u) = ∑ᵢ ∏_{j≠i} uⱼ  +  ∑ᵢ pᵢ² uᵢ
   For n=3 this is the triangle by construction.\n""")
 
 bms3 = bms_simplex_a_config(3)
-cn3  = conformal_companion_a_config(3)
-tri  = massless_polygon_a_config(3)
+cn3 = conformal_companion_a_config(3)
+tri = massless_polygon_a_config(3)
 
 assert cn3.smith_invariants == tri.smith_invariants == [1, 1, 1]
 assert cn3.normalized_volume == tri.normalized_volume == 4
-print("  n=3: companion matches triangle ✓"); FLUSH()
+print("  n=3: companion matches triangle ✓")
+FLUSH()
 
 print()
 for n in [3, 4, 5]:
     comp = conformal_companion_a_config(n)
-    bms  = bms_simplex_a_config(n)
+    bms = bms_simplex_a_config(n)
     describe(f"companion({n})", comp)
     describe(f"BMS_{n}     ", bms)
     smith_last = comp.smith_invariants[-1]
@@ -116,12 +124,12 @@ print("""  For n=4: lower monomials have degree 3 (odd sum).
 
 bms4 = bms_simplex_a_config(4)
 
-lower4 = [(0,1,1,1),(1,0,1,1),(1,1,0,1),(1,1,1,0)]
+lower4 = [(0, 1, 1, 1), (1, 0, 1, 1), (1, 1, 0, 1), (1, 1, 1, 0)]
 
 upper_sets = {
-    "box-cycle":  [(1,1,0,0),(0,1,1,0),(0,0,1,1),(1,0,0,1)],
-    "star+cross": [(1,1,0,0),(1,0,1,0),(1,0,0,1),(0,1,1,0)],
-    "opposite":   [(1,1,0,0),(0,0,1,1),(1,0,1,0),(0,1,0,1)],
+    "box-cycle": [(1, 1, 0, 0), (0, 1, 1, 0), (0, 0, 1, 1), (1, 0, 0, 1)],
+    "star+cross": [(1, 1, 0, 0), (1, 0, 1, 0), (1, 0, 0, 1), (0, 1, 1, 0)],
+    "opposite": [(1, 1, 0, 0), (0, 0, 1, 1), (1, 0, 1, 0), (0, 1, 0, 1)],
 }
 
 for name, upper4 in upper_sets.items():
@@ -139,7 +147,8 @@ for name, upper4 in upper_sets.items():
         print(f"    affine≡BMS_4={r_aff.equivalent}  unimod≡BMS_4={r_uni.equivalent}")
     except Exception as e:
         print(f"  {name}: error — {e}")
-    print(); FLUSH()
+    print()
+    FLUSH()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -160,10 +169,13 @@ bms4_cols_np = np.array(
     dtype=np.int64,
 )
 
+
 # Generate all 4-tuples from {-1,0,1} with even sum (41 per column)
 def even_sum_cols() -> list[tuple]:
     from itertools import product as ip
+
     return [t for t in ip((-1, 0, 1), repeat=4) if sum(t) % 2 == 0]
+
 
 even_cols = even_sum_cols()
 print(f"  Even-sum columns from {{-1,0,1}}: {len(even_cols)} per column")
@@ -201,11 +213,13 @@ print(f"  Running batched det filter...", flush=True)
 found_companions = []
 
 batch_size = 100_000
-flat_gen = ((c1 + c2 + c3 + c4)
-            for c1 in even_cols
-            for c2 in even_cols
-            for c3 in even_cols
-            for c4 in even_cols)
+flat_gen = (
+    (c1 + c2 + c3 + c4)
+    for c1 in even_cols
+    for c2 in even_cols
+    for c3 in even_cols
+    for c4 in even_cols
+)
 
 batch = []
 checked = 0
@@ -231,7 +245,7 @@ for flat in flat_gen:
                     t = np.zeros(4, dtype=np.int64)
                     t[t_idx] = t_sum
                     shifted = bms4_cols_np - t[np.newaxis, :]  # (8,4)
-                    cand2 = (adj @ shifted.T).T               # (8,4)
+                    cand2 = (adj @ shifted.T).T  # (8,4)
                     if not np.all(cand2 % 2 == 0):
                         continue
                     cand = cand2 // 2
@@ -241,18 +255,25 @@ for flat in flat_gen:
                     try:
                         cfg = AConfiguration(sp.Matrix(A_np.tolist()), is_homogenized=True)
                         if cfg.smith_invariants == [1, 1, 1, 1]:
-                            found_companions.append({
-                                "M": M.tolist(), "t": t.tolist(),
-                                "det": det, "smith": cfg.smith_invariants,
-                                "vol": cfg.normalized_volume, "cols": cand.tolist(),
-                            })
+                            found_companions.append(
+                                {
+                                    "M": M.tolist(),
+                                    "t": t.tolist(),
+                                    "det": det,
+                                    "smith": cfg.smith_invariants,
+                                    "vol": cfg.normalized_volume,
+                                    "cols": cand.tolist(),
+                                }
+                            )
                     except Exception:
                         pass
     checked += len(batch)
     batch = []
     if checked % 1_000_000 == 0:
-        print(f"  ... {checked:,} checked, {len(found_companions)} companions found so far",
-              flush=True)
+        print(
+            f"  ... {checked:,} checked, {len(found_companions)} companions found so far",
+            flush=True,
+        )
 
 # Process any remaining
 if batch:
@@ -279,11 +300,16 @@ if batch:
                     try:
                         cfg = AConfiguration(sp.Matrix(A_np.tolist()), is_homogenized=True)
                         if cfg.smith_invariants == [1, 1, 1, 1]:
-                            found_companions.append({
-                                "M": M.tolist(), "t": t.tolist(),
-                                "det": det, "smith": cfg.smith_invariants,
-                                "vol": cfg.normalized_volume, "cols": cand.tolist(),
-                            })
+                            found_companions.append(
+                                {
+                                    "M": M.tolist(),
+                                    "t": t.tolist(),
+                                    "det": det,
+                                    "smith": cfg.smith_invariants,
+                                    "vol": cfg.normalized_volume,
+                                    "cols": cand.tolist(),
+                                }
+                            )
                     except Exception:
                         pass
     checked += len(batch)
@@ -306,21 +332,27 @@ if found_companions:
         print(f"    M = {c['M']}")
         print(f"    t = {c['t']}")
         cols_i = c["cols"]  # list of 8 column vectors (each length 4)
-        G_expr = sum(sp.Mul(*[_u_syms[k]**col[k] for k in range(4) if col[k] > 0])
-                     for col in cols_i)
+        G_expr = sum(
+            sp.Mul(*[_u_syms[k] ** col[k] for k in range(4) if col[k] > 0]) for col in cols_i
+        )
         print(f"    G(u) = {sp.expand(G_expr)}")
         cfg = AConfiguration(
-            sp.Matrix([[1]*8] + [[col[r] for col in cols_i] for r in range(4)]),
-            is_homogenized=True
+            sp.Matrix([[1] * 8] + [[col[r] for col in cols_i] for r in range(4)]),
+            is_homogenized=True,
         )
         from itertools import permutations as _perms
+
         col_set = frozenset(tuple(col) for col in cols_i)
-        sym_count = sum(1 for perm in _perms(range(4))
-                        if frozenset(tuple(col[perm[r]] for r in range(4))
-                                     for col in cols_i) == col_set)
+        sym_count = sum(
+            1
+            for perm in _perms(range(4))
+            if frozenset(tuple(col[perm[r]] for r in range(4)) for col in cols_i) == col_set
+        )
         fim = finite_index_map(cfg, bms4)
-        print(f"    S4-symmetry: {sym_count}/24  |  "
-              f"finite_index_map → BMS_4: found={fim.found}  det={fim.determinant}")
+        print(
+            f"    S4-symmetry: {sym_count}/24  |  "
+            f"finite_index_map → BMS_4: found={fim.found}  det={fim.determinant}"
+        )
         FLUSH()
 else:
     print("""

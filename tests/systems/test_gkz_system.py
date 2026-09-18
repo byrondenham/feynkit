@@ -53,9 +53,7 @@ class TestMonomialSupport:
         assert (1, 1) in exponents
         assert (0, 2) in exponents
 
-    def test_support_coefficients(
-        self, simple_polynomial: tuple[sp.Expr, list[sp.Symbol]]
-    ) -> None:
+    def test_support_coefficients(self, simple_polynomial: tuple[sp.Expr, list[sp.Symbol]]) -> None:
         poly, variables = simple_polynomial
         support = extract_monomial_support(poly, variables)
         for _, coeff in support:

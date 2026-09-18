@@ -174,9 +174,7 @@ def _hull_edges(pts: np.ndarray) -> list[list[int]]:
     return edges
 
 
-def _univariate_discriminant(
-    coeffs: list[sp.Expr], t_exps: list[int]
-) -> sp.Expr:
+def _univariate_discriminant(coeffs: list[sp.Expr], t_exps: list[int]) -> sp.Expr:
     """Discriminant of P(t) = Σ coeffs[k] * t^{t_exps[k]}.
 
     Returns Res(P, P') / lc(P)^{deg P - 1}, the standard polynomial

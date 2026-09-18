@@ -55,7 +55,6 @@ from .normal_forms.polytope_automorphisms import (
 )
 from .types import PolytopeAutomorphisms, PolytopeEquivalence
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Value types
 # ──────────────────────────────────────────────────────────────────────────────
@@ -171,9 +170,7 @@ class SymmetryPair:
             rows.append([self.translation[i, 0]] + M_list[i])
         return sp.ImmutableMatrix(rows)
 
-    def transform_beta(
-        self, beta: "list[sp.Expr] | sp.Matrix"
-    ) -> "list[sp.Expr]":
+    def transform_beta(self, beta: "list[sp.Expr] | sp.Matrix") -> "list[sp.Expr]":
         """
         Apply T to the GKZ parameter vector β.
 
@@ -432,6 +429,7 @@ class AConfiguration:
     def automorphisms(self) -> PolytopeAutomorphisms:
         """Compute the unimodular automorphism group of the Newton polytope."""
         from .normal_forms.polytope_automorphisms import compute_polytope_automorphisms
+
         return compute_polytope_automorphisms(self.newton_polytope_points)
 
     def symmetry_pairs(self) -> "list[SymmetryPair]":
@@ -534,10 +532,7 @@ def finite_index_map(
     for anchor_tgt_idx in range(n_tgt):
         v0_tgt = tgt_pts[anchor_tgt_idx]
         deltas_tgt = (tgt_pts - v0_tgt).astype(np.int64)
-        tgt_delta_set = {
-            tuple(int(x) for x in row): i
-            for i, row in enumerate(deltas_tgt.tolist())
-        }
+        tgt_delta_set = {tuple(int(x) for x in row): i for i, row in enumerate(deltas_tgt.tolist())}
 
         other_tgt = [j for j in range(n_tgt) if j != anchor_tgt_idx]
         for combo in combinations(other_tgt, aff_dim):
@@ -663,13 +658,15 @@ def symmetry_pairs(
     aff_dim = int(np.linalg.matrix_rank(deltas[1:].astype(float))) if N > 1 else 0
 
     if aff_dim == 0:
-        return [SymmetryPair(
-            linear_map=sp.ImmutableMatrix(sp.eye(n_dim)),
-            translation=sp.ImmutableMatrix(sp.zeros(n_dim, 1)),
-            column_permutation=tuple(range(N)),
-            determinant=1,
-            is_unimodular=True,
-        )]
+        return [
+            SymmetryPair(
+                linear_map=sp.ImmutableMatrix(sp.eye(n_dim)),
+                translation=sp.ImmutableMatrix(sp.zeros(n_dim, 1)),
+                column_permutation=tuple(range(N)),
+                determinant=1,
+                is_unimodular=True,
+            )
+        ]
 
     if aff_dim != n_dim:
         # Lower-dimensional configuration: M is under-determined in the ambient
@@ -718,8 +715,7 @@ def symmetry_pairs(
         v0 = pts[anchor_idx]
         deltas_from = (pts - v0).astype(np.int64)
         delta_to_idx: dict[tuple, int] = {
-            tuple(int(x) for x in row): i
-            for i, row in enumerate(deltas_from.tolist())
+            tuple(int(x) for x in row): i for i, row in enumerate(deltas_from.tolist())
         }
 
         others = [j for j in range(N) if j != anchor_idx]
@@ -730,8 +726,7 @@ def symmetry_pairs(
             label_to_others[labels[j]].append(j)
 
         # Skip anchor if any needed label class is underrepresented.
-        if any(len(label_to_others[lbl]) < basis_label_needs[lbl]
-               for lbl in basis_label_classes):
+        if any(len(label_to_others[lbl]) < basis_label_needs[lbl] for lbl in basis_label_classes):
             continue
 
         # Generate label-valid unordered combos, then try all orderings that
@@ -793,13 +788,15 @@ def symmetry_pairs(
                 if det == 0:
                     continue
 
-                results.append(SymmetryPair(
-                    linear_map=sp.ImmutableMatrix(M),
-                    translation=sp.ImmutableMatrix(t),
-                    column_permutation=tuple(col_perm),
-                    determinant=det,
-                    is_unimodular=(det == 1),
-                ))
+                results.append(
+                    SymmetryPair(
+                        linear_map=sp.ImmutableMatrix(M),
+                        translation=sp.ImmutableMatrix(t),
+                        column_permutation=tuple(col_perm),
+                        determinant=det,
+                        is_unimodular=(det == 1),
+                    )
+                )
 
     return results
 
@@ -840,9 +837,7 @@ def intrinsic_lattice_model(
     aff_dim = 0 if d.size == 0 else int(np.linalg.matrix_rank(d.astype(float)))
 
     if aff_dim == 0:
-        coords: tuple[tuple[int, ...], ...] = tuple(
-            (0,) * pts.shape[1] for _ in range(len(pts))
-        )
+        coords: tuple[tuple[int, ...], ...] = tuple((0,) * pts.shape[1] for _ in range(len(pts)))
         return IntrinsicModel(
             base_point=base,
             smith_invariants=[],

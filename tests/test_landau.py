@@ -31,7 +31,6 @@ from feynkit.landau import (
     landau_analysis_from_polynomial,
 )
 
-
 # ─── fixtures ────────────────────────────────────────────────────────────────
 
 
@@ -155,8 +154,7 @@ class TestMassiveBubble:
         result = landau_analysis(massive_bubble)
         # Some surface must vanish at the threshold value
         found = any(
-            sp.simplify(surf.subs(s, threshold)) == sp.Integer(0)
-            for surf in result.landau_surfaces
+            sp.simplify(surf.subs(s, threshold)) == sp.Integer(0) for surf in result.landau_surfaces
         )
         assert found, f"Threshold surface not found in {result.landau_surfaces}"
 
@@ -229,9 +227,11 @@ class TestMasslessTriangle:
             ]
             # At least one surface is proportional to each pair
             found = any(
-                sp.simplify(surf.subs([(s12, -s13)])) == sp.Integer(0)
-                if pair is (s12 + s13)
-                else True
+                (
+                    sp.simplify(surf.subs([(s12, -s13)])) == sp.Integer(0)
+                    if pair is (s12 + s13)
+                    else True
+                )
                 for surf in surfaces_expanded
             )
 

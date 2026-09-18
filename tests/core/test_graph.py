@@ -178,6 +178,7 @@ class TestCNickelTadpole:
 
     def test_tadpole_with_mass_color_is_massless(self) -> None:
         import sympy as sp
+
         g = Graph.from_cnickel("0|:z|")
         assert g.get_internal_edges()[0].mass == sp.Integer(0)
 
@@ -187,6 +188,7 @@ class TestCNickelTadpole:
 
     def test_zero_digit_mass_code_is_massless(self) -> None:
         import sympy as sp
+
         g = Graph.from_cnickel("e11|e|:n00|n|")
         for e in g.get_internal_edges():
             assert e.mass == sp.Integer(0)

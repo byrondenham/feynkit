@@ -4,7 +4,6 @@ Mandelstam variable utilities for Feynman integrals.
 Provides functions to work with Mandelstam variables and kinematic constraints.
 """
 
-
 import sympy as sp
 
 

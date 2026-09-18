@@ -15,7 +15,6 @@ from typing import Iterable
 
 import sympy as sp
 
-
 try:
     from sageall import Matrix as SageMatrix  # type: ignore[import-not-found]
 except ImportError as exc:  # pragma: no cover - depends on optional dependency

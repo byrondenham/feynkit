@@ -13,7 +13,6 @@ import sympy as sp
 
 from feynkit.normal_forms import is_affinely_equivalent, is_unimodular_equivalent
 
-
 # Source polytope: unit square in the plane.
 points_a = [(0, 0), (1, 0), (1, 1), (0, 1)]
 
@@ -21,8 +20,7 @@ points_a = [(0, 0), (1, 0), (1, 1), (0, 1)]
 points_b = [(3, -1), (4, -1), (5, 0), (4, 0)]
 
 # Same square but slightly off-lattice: not unimodularly equivalent.
-points_c_rational = sp.Matrix([[0, 0], [sp.Rational(3, 2), 0],
-                               [sp.Rational(3, 2), 1], [0, 1]])
+points_c_rational = sp.Matrix([[0, 0], [sp.Rational(3, 2), 0], [sp.Rational(3, 2), 1], [0, 1]])
 
 print("Unimodular equivalence (Liu–Cai)")
 print("=" * 60)

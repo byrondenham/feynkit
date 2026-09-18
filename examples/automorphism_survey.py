@@ -18,18 +18,18 @@ from feynkit.normal_forms.polytope_automorphisms import (
 )
 
 DIAGRAMS = [
-    ("Massless bubble",         "11e|e|:zz"),
-    ("Massive bubble",          "11e|e|:nn"),
-    ("One-mass bubble",         "11e|e|:nz"),
-    ("Massless triangle",       "12e|2e|e|:zzz"),
-    ("One-mass triangle",       "12e|2e|e|:nzz"),
-    ("Two-mass triangle",       "12e|2e|e|:nnz"),
-    ("All-mass triangle",       "12e|2e|e|:nnn"),
-    ("Massless box",            "12e|3e|3e|e|:zzzz"),
-    ("One-mass box",            "12e|3e|3e|e|:nzzz"),
-    ("Massless 3-prop banana",  "111e|e|:zzz"),
-    ("Massive 3-prop banana",   "111e|e|:nnn"),
-    ("Massless 4-prop banana",   "1111e|e|:zzzz"),
+    ("Massless bubble", "11e|e|:zz"),
+    ("Massive bubble", "11e|e|:nn"),
+    ("One-mass bubble", "11e|e|:nz"),
+    ("Massless triangle", "12e|2e|e|:zzz"),
+    ("One-mass triangle", "12e|2e|e|:nzz"),
+    ("Two-mass triangle", "12e|2e|e|:nnz"),
+    ("All-mass triangle", "12e|2e|e|:nnn"),
+    ("Massless box", "12e|3e|3e|e|:zzzz"),
+    ("One-mass box", "12e|3e|3e|e|:nzzz"),
+    ("Massless 3-prop banana", "111e|e|:zzz"),
+    ("Massive 3-prop banana", "111e|e|:nnn"),
+    ("Massless 4-prop banana", "1111e|e|:zzzz"),
 ]
 
 SEP = "-" * 72

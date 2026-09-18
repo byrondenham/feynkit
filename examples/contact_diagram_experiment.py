@@ -33,10 +33,10 @@ from feynkit.artifacts.conformal import bms_simplex_a_config
 from feynkit.normal_forms._invariants import hull_vertex_indices
 from feynkit.normal_forms.affine_equivalence import is_affinely_equivalent
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Contact diagram factory
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def contact_a_config(n: int) -> AConfiguration:
     """
@@ -58,6 +58,7 @@ def contact_a_config(n: int) -> AConfiguration:
 # ──────────────────────────────────────────────────────────────────────────────
 # Polytope invariants helper
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _normalized_volume(pts: np.ndarray) -> int | str:
     """Normalised lattice volume of the convex hull of pts (rows = points)."""
@@ -125,6 +126,7 @@ def describe(cfg: AConfiguration, label: str) -> dict:
 # Equivalence search
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _classify(det: int | None) -> str:
     if det is None:
         return "—"
@@ -135,9 +137,7 @@ def _classify(det: int | None) -> str:
     return "rational-affine"
 
 
-def polytope_equivalence(
-    d1: dict, d2: dict, label: str
-) -> dict:
+def polytope_equivalence(d1: dict, d2: dict, label: str) -> dict:
     """
     Check equivalence at the polytope level (hull vertices only).
 
@@ -152,15 +152,19 @@ def polytope_equivalence(
 
     # Quick invariant checks.
     if d1["n_verts"] != d2["n_verts"]:
-        print(f"\n  [Polytope] {label}: FAIL — vertex counts differ "
-              f"({d1['n_verts']} vs {d2['n_verts']})")
+        print(
+            f"\n  [Polytope] {label}: FAIL — vertex counts differ "
+            f"({d1['n_verts']} vs {d2['n_verts']})"
+        )
         return {"level": "polytope", "reason": "vertex_count_mismatch", "equivalent": False}
     if d1["amb_dim"] != d2["amb_dim"]:
         print(f"\n  [Polytope] {label}: FAIL — ambient dimension mismatch")
         return {"level": "polytope", "reason": "dim_mismatch", "equivalent": False}
     if d1["vol"] != d2["vol"]:
-        print(f"\n  [Polytope] {label}: FAIL — normalised volume differs "
-              f"({d1['vol']} vs {d2['vol']})")
+        print(
+            f"\n  [Polytope] {label}: FAIL — normalised volume differs "
+            f"({d1['vol']} vs {d2['vol']})"
+        )
         return {"level": "polytope", "reason": "volume_mismatch", "equivalent": False}
 
     # Integer affine map on vertices.
@@ -174,8 +178,14 @@ def polytope_equivalence(
         print(f"    det M = {det}")
         print(f"    M =\n{sp.pretty(M)}")
         print(f"    t = {t.T.tolist()[0]}")
-        return {"level": "polytope", "equivalent": True, "classification": cls,
-                "M": M, "t": t, "det": det}
+        return {
+            "level": "polytope",
+            "equivalent": True,
+            "classification": cls,
+            "M": M,
+            "t": t,
+            "det": det,
+        }
 
     # Rational-affine brute force.
     res = is_affinely_equivalent(V1.tolist(), V2.tolist())
@@ -190,11 +200,19 @@ def polytope_equivalence(
             print(f"    M =\n{sp.pretty(M)}")
         if t is not None:
             print(f"    t = {t.T.tolist()}")
-        return {"level": "polytope", "equivalent": True, "classification": cls,
-                "M": M, "t": t, "det": det}
+        return {
+            "level": "polytope",
+            "equivalent": True,
+            "classification": cls,
+            "M": M,
+            "t": t,
+            "det": det,
+        }
 
-    print(f"\n  [Polytope] {label}: NO EQUIVALENCE FOUND "
-          f"(invariants matched: vol={d1['vol']}, verts={d1['n_verts']})")
+    print(
+        f"\n  [Polytope] {label}: NO EQUIVALENCE FOUND "
+        f"(invariants matched: vol={d1['vol']}, verts={d1['n_verts']})"
+    )
     return {"level": "polytope", "equivalent": False, "reason": "no_map_found"}
 
 
@@ -215,8 +233,14 @@ def point_config_equivalence(d1: dict, d2: dict, label: str) -> dict:
         det = fi.determinant
         cls = _classify(det)
         print(f"  [Point-config] {label}: EQUIVALENT ({cls}), det M = {det}")
-        return {"level": "point_config", "equivalent": True, "classification": cls,
-                "det": det, "M": fi.witness_matrix, "t": fi.translation}
+        return {
+            "level": "point_config",
+            "equivalent": True,
+            "classification": cls,
+            "det": det,
+            "M": fi.witness_matrix,
+            "t": fi.translation,
+        }
 
     print(f"  [Point-config] {label}: NO EQUIVALENCE (no integer affine map on full point sets)")
     return {"level": "point_config", "equivalent": False}
@@ -225,6 +249,7 @@ def point_config_equivalence(d1: dict, d2: dict, label: str) -> dict:
 # ──────────────────────────────────────────────────────────────────────────────
 # Main experiment
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     summary_rows = []
@@ -243,31 +268,35 @@ def main() -> None:
         polytope_res = polytope_equivalence(d_bms, d_cd, f"BMS_{n} vs Contact_{n}")
         point_res = point_config_equivalence(d_bms, d_cd, f"BMS_{n} vs Contact_{n}")
 
-        summary_rows.append({
-            "n": n,
-            "bms_verts": d_bms["n_verts"],
-            "cd_verts": d_cd["n_verts"],
-            "bms_vol": d_bms["vol"],
-            "cd_vol": d_cd["vol"],
-            "bms_smith": d_bms["smith"],
-            "cd_smith": d_cd["smith"],
-            "poly_equiv": polytope_res["equivalent"],
-            "poly_class": polytope_res.get("classification", polytope_res.get("reason", "—")),
-            "poly_det": polytope_res.get("det", "—"),
-            "pc_equiv": point_res["equivalent"],
-            "pc_class": point_res.get("classification", point_res.get("reason", "—")),
-            "pc_det": point_res.get("det", "—"),
-        })
+        summary_rows.append(
+            {
+                "n": n,
+                "bms_verts": d_bms["n_verts"],
+                "cd_verts": d_cd["n_verts"],
+                "bms_vol": d_bms["vol"],
+                "cd_vol": d_cd["vol"],
+                "bms_smith": d_bms["smith"],
+                "cd_smith": d_cd["smith"],
+                "poly_equiv": polytope_res["equivalent"],
+                "poly_class": polytope_res.get("classification", polytope_res.get("reason", "—")),
+                "poly_det": polytope_res.get("det", "—"),
+                "pc_equiv": point_res["equivalent"],
+                "pc_class": point_res.get("classification", point_res.get("reason", "—")),
+                "pc_det": point_res.get("det", "—"),
+            }
+        )
 
     # ── Summary table ──────────────────────────────────────────────────────────
     print(f"\n\n{'═'*70}")
     print("  SUMMARY TABLE")
     print(f"{'═'*70}")
-    header = (f"{'n':>2}  {'V_bms':>5}  {'V_cd':>4}  "
-              f"{'Vol_bms':>7}  {'Vol_cd':>6}  "
-              f"{'Smith_bms':<14}  {'Smith_cd':<12}  "
-              f"{'Poly-equiv?':>11}  {'Class':>15}  {'det M':>8}  "
-              f"{'PC-equiv?':>9}  {'PC-class':>15}")
+    header = (
+        f"{'n':>2}  {'V_bms':>5}  {'V_cd':>4}  "
+        f"{'Vol_bms':>7}  {'Vol_cd':>6}  "
+        f"{'Smith_bms':<14}  {'Smith_cd':<12}  "
+        f"{'Poly-equiv?':>11}  {'Class':>15}  {'det M':>8}  "
+        f"{'PC-equiv?':>9}  {'PC-class':>15}"
+    )
     print(header)
     print("─" * len(header))
     for r in summary_rows:

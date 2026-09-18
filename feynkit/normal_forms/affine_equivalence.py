@@ -26,7 +26,6 @@ import sympy as sp
 from ..types import PolytopeEquivalence
 from . import _invariants
 
-
 BackendName = Literal["auto", "sympy", "sage"]
 AffineMethod = Literal["brute_force", "sage"]
 
@@ -136,9 +135,16 @@ def is_unimodular_equivalent(
     W_a_inv = W_a.inv()
 
     return _direct_basis_search(
-        V_a, V_b, GW_a, GW_b,
-        deltas_a, basis_indices, W_a, W_a_inv,
-        idx_a, idx_b,
+        V_a,
+        V_b,
+        GW_a,
+        GW_b,
+        deltas_a,
+        basis_indices,
+        W_a,
+        W_a_inv,
+        idx_a,
+        idx_b,
     )
 
 
@@ -266,8 +272,7 @@ def _direct_basis_search(
         deltas_b = (V_b - v_0_image).astype(np.int64)
 
         # Fast delta→index lookup (hull vertices are distinct, so no collisions).
-        delta_to_b_idx = {tuple(int(x) for x in row): i
-                          for i, row in enumerate(deltas_b.tolist())}
+        delta_to_b_idx = {tuple(int(x) for x in row): i for i, row in enumerate(deltas_b.tolist())}
 
         others = [j for j in range(n_vert) if j != anchor_idx]
 

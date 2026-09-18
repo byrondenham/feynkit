@@ -31,7 +31,6 @@ from feynkit.polynomials.symanzik import _calculate_symanzik_polynomials
 from feynkit.systems.complete import _create_gkz_system
 from feynkit.systems.monomial import extract_monomial_support
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ──────────────────────────────────────────────────────────────────────────────
@@ -129,24 +128,16 @@ class TestConstruction:
 
 
 class TestSymanzikParity:
-    def test_symanzik_is_value_type(
-        self, integral: FeynmanIntegral
-    ) -> None:
+    def test_symanzik_is_value_type(self, integral: FeynmanIntegral) -> None:
         assert isinstance(integral.symanzik, SymanzikPolynomials)
 
-    def test_u_matches_free_function(
-        self, integral: FeynmanIntegral, free_pipeline
-    ) -> None:
+    def test_u_matches_free_function(self, integral: FeynmanIntegral, free_pipeline) -> None:
         assert _expr_eq(integral.symanzik.u, free_pipeline["u"])
 
-    def test_f_matches_free_function(
-        self, integral: FeynmanIntegral, free_pipeline
-    ) -> None:
+    def test_f_matches_free_function(self, integral: FeynmanIntegral, free_pipeline) -> None:
         assert _expr_eq(integral.symanzik.f, free_pipeline["f"])
 
-    def test_g_matches_free_function(
-        self, integral: FeynmanIntegral, free_pipeline
-    ) -> None:
+    def test_g_matches_free_function(self, integral: FeynmanIntegral, free_pipeline) -> None:
         assert _expr_eq(integral.symanzik.g, free_pipeline["g"])
 
     def test_lp_substitution_matches_free_function(
@@ -172,9 +163,7 @@ class TestParametrisationParity:
         assert _expr_eq(integral.schwinger.measure, expected.measure)
         assert _expr_eq(integral.schwinger.integrand, expected.integrand)
 
-    def test_feynman_matches_free_function(
-        self, integral: FeynmanIntegral, free_pipeline
-    ) -> None:
+    def test_feynman_matches_free_function(self, integral: FeynmanIntegral, free_pipeline) -> None:
         expected = free_pipeline["all_param"].feynman.compute()
         assert integral.feynman.name == expected.name
         assert _expr_eq(integral.feynman.prefactor, expected.prefactor)
@@ -197,17 +186,13 @@ class TestParametrisationParity:
 
 
 class TestGKZParity:
-    def test_a_matrix_matches_free_function(
-        self, integral: FeynmanIntegral, free_pipeline
-    ) -> None:
+    def test_a_matrix_matches_free_function(self, integral: FeynmanIntegral, free_pipeline) -> None:
         def col_set(M: sp.Matrix) -> frozenset[tuple[int, ...]]:
             return frozenset(tuple(int(M[r, j]) for r in range(M.rows)) for j in range(M.cols))
 
         assert col_set(integral.gkz.a_matrix) == col_set(free_pipeline["gkz"].a_matrix)
 
-    def test_beta_matches_free_function(
-        self, integral: FeynmanIntegral, free_pipeline
-    ) -> None:
+    def test_beta_matches_free_function(self, integral: FeynmanIntegral, free_pipeline) -> None:
         for a, b in zip(integral.gkz.beta_parameters, free_pipeline["gkz"].beta_parameters):
             assert _expr_eq(a, b)
 
@@ -221,9 +206,7 @@ class TestNewtonPolytope:
     def test_is_value_type(self, integral: FeynmanIntegral) -> None:
         assert isinstance(integral.newton_polytope, NewtonPolytope)
 
-    def test_support_matches_free_function(
-        self, integral: FeynmanIntegral, free_pipeline
-    ) -> None:
+    def test_support_matches_free_function(self, integral: FeynmanIntegral, free_pipeline) -> None:
         from_facade = sorted([e for e, _ in integral.newton_polytope.support])
         from_free = sorted([e for e, _ in free_pipeline["support"]])
         assert from_facade == from_free
@@ -244,9 +227,7 @@ class TestToricIdealParity:
     def test_is_value_type(self, integral: FeynmanIntegral) -> None:
         assert isinstance(integral.toric_ideal, ToricIdeal)
 
-    def test_generators_match_free_function(
-        self, integral: FeynmanIntegral, free_pipeline
-    ) -> None:
+    def test_generators_match_free_function(self, integral: FeynmanIntegral, free_pipeline) -> None:
         # Generators may come back in a different SymPy ordering; compare as
         # sets of expanded expressions.
         from_facade = {sp.expand(g) for g in integral.toric_ideal.generators}
@@ -281,9 +262,7 @@ class TestCachingAndImmutability:
         # The dimension field on the GKZ system should reflect the override.
         assert derived.gkz.dimension == sp.Integer(4)
 
-    def test_propagator_exponents_view_is_a_copy(
-        self, integral: FeynmanIntegral
-    ) -> None:
+    def test_propagator_exponents_view_is_a_copy(self, integral: FeynmanIntegral) -> None:
         view = integral.propagator_exponents
         view[999] = sp.Integer(0)
         assert 999 not in integral.propagator_exponents
@@ -303,9 +282,7 @@ class TestLaziness:
 
 
 class TestEquivalenceVerbs:
-    def test_unimodular_self_equivalent(
-        self, integral: FeynmanIntegral, bubble: Graph
-    ) -> None:
+    def test_unimodular_self_equivalent(self, integral: FeynmanIntegral, bubble: Graph) -> None:
         other = FeynmanIntegral(bubble)
         result = integral.is_unimodular_equivalent_to(other)
         assert isinstance(result, PolytopeEquivalence)
@@ -314,9 +291,7 @@ class TestEquivalenceVerbs:
         assert result.witness_map is not None
         assert result.vertex_correspondence is not None
 
-    def test_affine_self_equivalent(
-        self, integral: FeynmanIntegral, bubble: Graph
-    ) -> None:
+    def test_affine_self_equivalent(self, integral: FeynmanIntegral, bubble: Graph) -> None:
         other = FeynmanIntegral(bubble)
         result = integral.is_affinely_equivalent_to(other)
         assert isinstance(result, PolytopeEquivalence)

@@ -75,8 +75,10 @@ for n in [2, 3, 4]:
     print(f"  n={n}:")
     print(f"    G₀  = {sp.collect(G0_simplified, u)}")
     print(f"    G   = {G}")
-    print(f"    monomials: {len(monoms)} total  ({len(lower)} lower deg {n-1},  "
-          f"{len(upper_m)} upper deg {n+1})")
+    print(
+        f"    monomials: {len(monoms)} total  ({len(lower)} lower deg {n-1},  "
+        f"{len(upper_m)} upper deg {n+1})"
+    )
     print()
 
 
@@ -105,9 +107,7 @@ exponent vector.
 """)
 
 # Build the affine map
-M = np.array([[-1, -1, 0],
-              [-1,  0, -1],
-              [ 0,  1,  1]], dtype=int)
+M = np.array([[-1, -1, 0], [-1, 0, -1], [0, 1, 1]], dtype=int)
 t = np.array([2, 2, 0], dtype=int)
 
 print(f"  det(M) = {int(round(np.linalg.det(M)))}")
@@ -117,10 +117,14 @@ cn3 = massless_polygon_a_config(3)
 bms3 = bms_simplex_a_config(3)
 
 # Columns of A (excluding homogenisation row 0) are the affine coords
-tri_cols = [tuple(int(cn3.matrix[r, j]) for r in range(1, cn3.matrix.shape[0]))
-            for j in range(cn3.matrix.shape[1])]
-bms_cols = {tuple(int(bms3.matrix[r, j]) for r in range(1, bms3.matrix.shape[0]))
-            for j in range(bms3.matrix.shape[1])}
+tri_cols = [
+    tuple(int(cn3.matrix[r, j]) for r in range(1, cn3.matrix.shape[0]))
+    for j in range(cn3.matrix.shape[1])
+]
+bms_cols = {
+    tuple(int(bms3.matrix[r, j]) for r in range(1, bms3.matrix.shape[0]))
+    for j in range(bms3.matrix.shape[1])
+}
 
 print("\n  Verifying map on all 6 triangle monomials:")
 all_hit = True
@@ -168,14 +172,14 @@ For n≥4:  n(n+1)/2 > 2n  (equivalently n > 3), so N(C_n) > N(BMS_n).
 print(f"  {'n':>3}  {'N(C_n LP)':>12}  {'N(BMS_n)':>10}  {'equal?':>8}")
 print(f"  {'─'*3}  {'─'*12}  {'─'*10}  {'─'*8}")
 for n in range(3, 7):
-    n_cn  = n * (n + 1) // 2
+    n_cn = n * (n + 1) // 2
     n_bms = 2 * n
     print(f"  {n:>3}  {n_cn:>12}  {n_bms:>10}  {str(n_cn == n_bms):>8}")
 
 print()
 print("  Verifying with feynkit for n=4,5:")
 for n in [4, 5]:
-    cn  = massless_polygon_a_config(n)
+    cn = massless_polygon_a_config(n)
     bms = bms_simplex_a_config(n)
     print(f"\n  n={n}:  C_{n} LP has N={cn.n_points}, BMS_{n} has N={bms.n_points}")
     if cn.n_points != bms.n_points:
@@ -217,14 +221,16 @@ for n in [2, 3, 4, 5]:
     # Build sub-configurations
     hom = [1] * len(lower_m)
     lower_A = sp.Matrix([hom] + [[m[k] for m in lower_m] for k in range(n)])
-    upper_A = sp.Matrix([[1]*len(upper_m)] + [[m[k] for m in upper_m] for k in range(n)])
+    upper_A = sp.Matrix([[1] * len(upper_m)] + [[m[k] for m in upper_m] for k in range(n)])
     cfg_lower = AConfiguration(lower_A, is_homogenized=True)
     cfg_upper = AConfiguration(upper_A, is_homogenized=True)
 
     full_cfg = bms_simplex_a_config(n)
-    print(f"  n={n}:  full vol₀={full_cfg.normalized_volume} = 2^{n-1}={2**(n-1)}"
-          f"  |  lower vol₀={cfg_lower.normalized_volume}"
-          f"  |  upper vol₀={cfg_upper.normalized_volume}")
+    print(
+        f"  n={n}:  full vol₀={full_cfg.normalized_volume} = 2^{n-1}={2**(n-1)}"
+        f"  |  lower vol₀={cfg_lower.normalized_volume}"
+        f"  |  upper vol₀={cfg_upper.normalized_volume}"
+    )
 
 print()
 print("  BMS_n holonomic rank = 2^{n-1}:  confirmed for n=2,3,4,5.")

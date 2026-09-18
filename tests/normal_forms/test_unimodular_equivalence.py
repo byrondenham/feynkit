@@ -9,7 +9,6 @@ import sympy as sp
 from feynkit import Edge, FeynmanIntegral, Graph, PolytopeEquivalence
 from feynkit.normal_forms import is_unimodular_equivalent
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Polytope generators
 # ──────────────────────────────────────────────────────────────────────────────
@@ -23,7 +22,7 @@ def unit_simplex(n: int) -> np.ndarray:
 def unit_cube(n: int) -> np.ndarray:
     """The unit hypercube [0,1]^n with all 2^n vertices."""
     pts = []
-    for i in range(2 ** n):
+    for i in range(2**n):
         pts.append([(i >> j) & 1 for j in range(n)])
     return np.array(pts, dtype=int)
 
@@ -70,14 +69,17 @@ def apply_unimodular(points: np.ndarray, U: np.ndarray, Z: np.ndarray) -> np.nda
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("polytope_factory,n", [
-    (unit_simplex, 2),
-    (unit_simplex, 3),
-    (unit_cube, 2),
-    (unit_cube, 3),
-    (cross_polytope, 2),
-    (cross_polytope, 3),
-])
+@pytest.mark.parametrize(
+    "polytope_factory,n",
+    [
+        (unit_simplex, 2),
+        (unit_simplex, 3),
+        (unit_cube, 2),
+        (unit_cube, 3),
+        (cross_polytope, 2),
+        (cross_polytope, 3),
+    ],
+)
 def test_self_equivalence(polytope_factory, n) -> None:
     pts = polytope_factory(n)
     result = is_unimodular_equivalent(pts, pts)
@@ -107,14 +109,17 @@ def test_pure_translation() -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("polytope_factory,n,seed", [
-    (unit_simplex, 2, 1),
-    (unit_simplex, 3, 2),
-    (unit_cube, 2, 3),
-    (unit_cube, 3, 4),
-    (cross_polytope, 2, 5),
-    (cross_polytope, 3, 6),
-])
+@pytest.mark.parametrize(
+    "polytope_factory,n,seed",
+    [
+        (unit_simplex, 2, 1),
+        (unit_simplex, 3, 2),
+        (unit_cube, 2, 3),
+        (unit_cube, 3, 4),
+        (cross_polytope, 2, 5),
+        (cross_polytope, 3, 6),
+    ],
+)
 def test_random_unimodular_image_recovered(polytope_factory, n, seed) -> None:
     """A polytope and its image under a random unimodular map must be unimodularly equivalent."""
     rng = np.random.default_rng(seed)
@@ -155,21 +160,21 @@ def test_witness_map_actually_works() -> None:
 
 
 def test_different_vertex_count() -> None:
-    a = unit_simplex(2)              # 3 vertices
-    b = unit_cube(2)                 # 4 vertices
+    a = unit_simplex(2)  # 3 vertices
+    b = unit_cube(2)  # 4 vertices
     assert is_unimodular_equivalent(a, b).equivalent is False
 
 
 def test_different_dimension() -> None:
-    a = unit_simplex(2)              # 2-d
-    b = unit_simplex(3)              # 3-d
+    a = unit_simplex(2)  # 2-d
+    b = unit_simplex(3)  # 3-d
     assert is_unimodular_equivalent(a, b).equivalent is False
 
 
 def test_scaled_polytope_not_unimodular() -> None:
     """Scaling by 2 multiplies all edge labels by 2^? — generally not unimodular."""
     pts = unit_cube(2)
-    pts_scaled = 2 * pts             # 2x scaled square
+    pts_scaled = 2 * pts  # 2x scaled square
     # The scaled cube has different edge lengths, so it's not unimodularly
     # equivalent to the unit cube (det of any U mapping one to the other
     # would be 2^n != ±1).
@@ -213,7 +218,7 @@ def test_permuted_input_order() -> None:
 
 def test_interior_lattice_points_ignored() -> None:
     """Lattice points strictly inside the polytope must not affect the result."""
-    pts = unit_cube(2)                  # 4 vertices
+    pts = unit_cube(2)  # 4 vertices
     # Add a redundant point inside the square (not a vertex).
     augmented = np.vstack([pts, np.array([[0, 0]])])  # duplicate of first vertex
     # Should still be equivalent to the plain unit cube.
@@ -264,12 +269,15 @@ def test_two_different_loops_not_equivalent() -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("polytope_factory,n,seed", [
-    (unit_simplex, 2, 100),
-    (unit_simplex, 2, 101),
-    (unit_cube, 2, 102),
-    (unit_simplex, 3, 103),
-])
+@pytest.mark.parametrize(
+    "polytope_factory,n,seed",
+    [
+        (unit_simplex, 2, 100),
+        (unit_simplex, 2, 101),
+        (unit_cube, 2, 102),
+        (unit_simplex, 3, 103),
+    ],
+)
 def test_cross_validation_with_brute_force(polytope_factory, n, seed) -> None:
     """Liu–Cai must agree with the brute-force backend on small examples (where
     affine equivalence implies unimodular for unimodular images)."""

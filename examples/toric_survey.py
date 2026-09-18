@@ -27,10 +27,11 @@ from feynkit import Edge, FeynkitDatabase, FeynmanIntegral, Graph
 
 # ── diagram constructors ──────────────────────────────────────────────────────
 
+
 def _polygon(n: int, n_masses: int, db: FeynkitDatabase) -> FeynmanIntegral:
     """Massless or partially-massive 1-loop polygon with n propagators."""
     nus = sp.symbols(f"nu1:{n + 1}", positive=True)
-    ms  = sp.symbols(f"m1:{n + 1}", nonnegative=True) if n_masses else []
+    ms = sp.symbols(f"m1:{n + 1}", nonnegative=True) if n_masses else []
 
     def mass(i: int) -> sp.Expr:
         return ms[i] if i < n_masses else sp.Integer(0)
@@ -45,16 +46,20 @@ def _polygon(n: int, n_masses: int, db: FeynkitDatabase) -> FeynmanIntegral:
         g = Graph(internal_vertices=2, external_legs=2, edges=edges)
     else:
         internal = [
-            Edge(idx=i + 1, v1=(i % n) + 1, v2=((i + 1) % n) + 1,
-                 is_internal=True, mass=mass(i), nu=nus[i])
+            Edge(
+                idx=i + 1,
+                v1=(i % n) + 1,
+                v2=((i + 1) % n) + 1,
+                is_internal=True,
+                mass=mass(i),
+                nu=nus[i],
+            )
             for i in range(n)
         ]
         external = [
-            Edge(idx=n + 1 + i, v1=i + 1, v2=n + 1 + i, is_internal=False)
-            for i in range(n)
+            Edge(idx=n + 1 + i, v1=i + 1, v2=n + 1 + i, is_internal=False) for i in range(n)
         ]
-        g = Graph(internal_vertices=n, external_legs=n,
-                  edges=internal + external)
+        g = Graph(internal_vertices=n, external_legs=n, edges=internal + external)
 
     return FeynmanIntegral(
         g,
@@ -66,7 +71,7 @@ def _polygon(n: int, n_masses: int, db: FeynkitDatabase) -> FeynmanIntegral:
 def _banana(n_props: int, *, massive: bool, db: FeynkitDatabase) -> FeynmanIntegral:
     """Banana / sunrise graph: n_props parallel propagators, (n_props−1)-loop."""
     nus = sp.symbols(f"nu1:{n_props + 1}", positive=True)
-    ms  = sp.symbols(f"m1:{n_props + 1}", nonnegative=True)
+    ms = sp.symbols(f"m1:{n_props + 1}", nonnegative=True)
 
     def mass(i: int) -> sp.Expr:
         return ms[i] if massive else sp.Integer(0)
@@ -88,6 +93,7 @@ def _banana(n_props: int, *, massive: bool, db: FeynkitDatabase) -> FeynmanInteg
 
 # ── diagram families ──────────────────────────────────────────────────────────
 
+
 def build_families(db: FeynkitDatabase) -> list[tuple[str, list[tuple[str, FeynmanIntegral]]]]:
     """
     Return the full list of diagram families.
@@ -97,52 +103,58 @@ def build_families(db: FeynkitDatabase) -> list[tuple[str, list[tuple[str, Feynm
     only happens when toric_ideal is first accessed.
     """
     names_poly = {
-        2: "bubble", 3: "triangle", 4: "box", 5: "pentagon",
-        6: "hexagon", 7: "heptagon", 8: "octagon", 9: "nonagon",
+        2: "bubble",
+        3: "triangle",
+        4: "box",
+        5: "pentagon",
+        6: "hexagon",
+        7: "heptagon",
+        8: "octagon",
+        9: "nonagon",
     }
 
     families: list[tuple[str, list[tuple[str, FeynmanIntegral]]]] = []
 
     # 1. Massless L-gons
-    families.append((
-        "massless polygons  (L = 2 … 9)",
-        [
-            (f"massless {names_poly[n]}  ({n} props)", _polygon(n, 0, db))
-            for n in range(2, 10)
-        ],
-    ))
+    families.append(
+        (
+            "massless polygons  (L = 2 … 9)",
+            [(f"massless {names_poly[n]}  ({n} props)", _polygon(n, 0, db)) for n in range(2, 10)],
+        )
+    )
 
     # 2–7. Each polygon with masses added one at a time (skip k=0, already above)
     for n in range(3, 9):
         name = names_poly[n]
-        families.append((
-            f"{name}: adding masses  (k = 1 … {n})",
-            [
-                (f"{name}, {k}/{n} massive", _polygon(n, k, db))
-                for k in range(1, n + 1)
-            ],
-        ))
+        families.append(
+            (
+                f"{name}: adding masses  (k = 1 … {n})",
+                [(f"{name}, {k}/{n} massive", _polygon(n, k, db)) for k in range(1, n + 1)],
+            )
+        )
 
     # 8. Massless banana  (n = 3 … 9 props)
     #    n=2 massless = massless bubble, already in family 1
-    families.append((
-        "massless banana  (n = 3 … 9 props)",
-        [
-            (f"massless banana  {n} props  ({n - 1}-loop)",
-             _banana(n, massive=False, db=db))
-            for n in range(3, 10)
-        ],
-    ))
+    families.append(
+        (
+            "massless banana  (n = 3 … 9 props)",
+            [
+                (f"massless banana  {n} props  ({n - 1}-loop)", _banana(n, massive=False, db=db))
+                for n in range(3, 10)
+            ],
+        )
+    )
 
     # 9. Massive banana  (n = 2 … 9 props)
-    families.append((
-        "massive banana  (n = 2 … 9 props)",
-        [
-            (f"massive banana  {n} props  ({n - 1}-loop)",
-             _banana(n, massive=True, db=db))
-            for n in range(2, 10)
-        ],
-    ))
+    families.append(
+        (
+            "massive banana  (n = 2 … 9 props)",
+            [
+                (f"massive banana  {n} props  ({n - 1}-loop)", _banana(n, massive=True, db=db))
+                for n in range(2, 10)
+            ],
+        )
+    )
 
     return families
 
@@ -150,6 +162,7 @@ def build_families(db: FeynkitDatabase) -> list[tuple[str, list[tuple[str, Feynm
 # ── output helpers ────────────────────────────────────────────────────────────
 
 W = 74
+
 
 def _hdr(title: str) -> None:
     print(f"\n  ── {title} {'─' * max(2, W - 6 - len(title))}", flush=True)
@@ -174,6 +187,7 @@ def _row_stored(idx: int, total: int, label: str, rec, elapsed: float) -> None:
 
 
 # ── equivalence analysis ──────────────────────────────────────────────────────
+
 
 def equivalence_analysis(db: FeynkitDatabase) -> None:
     """
@@ -202,8 +216,7 @@ def equivalence_analysis(db: FeynkitDatabase) -> None:
             parent[pa] = pb
 
     for i, rec in enumerate(records, 1):
-        print(f"  checking equivalences for [{i}/{n}] {rec.label} …",
-              end="\r", flush=True)
+        print(f"  checking equivalences for [{i}/{n}] {rec.label} …", end="\r", flush=True)
         matches = db.find_equivalent_record(rec, relation="unimodular")
         for m in matches:
             union(rec.fingerprint, m.fingerprint)
@@ -218,18 +231,20 @@ def equivalence_analysis(db: FeynkitDatabase) -> None:
     non_trivial = [cls for cls in classes.values() if len(cls) > 1]
     trivial_count = sum(1 for cls in classes.values() if len(cls) == 1)
 
-    print(f"  {len(classes)} class(es) total  "
-          f"({len(non_trivial)} non-trivial, {trivial_count} singletons)\n",
-          flush=True)
+    print(
+        f"  {len(classes)} class(es) total  "
+        f"({len(non_trivial)} non-trivial, {trivial_count} singletons)\n",
+        flush=True,
+    )
 
     for cls in sorted(non_trivial, key=lambda c: -len(c)):
         rep = cls[0]
         labels = ", ".join(r.label or r.fingerprint[:8] for r in cls)
-        print(f"  [{len(cls)} equivalent]  A={rep.n_rows}×{rep.n_cols}  {labels}",
-              flush=True)
+        print(f"  [{len(cls)} equivalent]  A={rep.n_rows}×{rep.n_cols}  {labels}", flush=True)
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     db_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("feynkit_survey.db")
@@ -269,8 +284,7 @@ def main() -> None:
                 t0 = time.perf_counter()
                 rec = db.store(fi, label=label)
                 label_cache[label] = rec
-                _row_stored(global_idx, total, label, rec,
-                            time.perf_counter() - t0)
+                _row_stored(global_idx, total, label, rec, time.perf_counter() - t0)
 
         print(flush=True)
         print(db.summary(), flush=True)

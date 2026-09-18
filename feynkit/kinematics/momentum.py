@@ -5,7 +5,6 @@ This module provides functions to create momentum dot product dictionaries
 for external momenta in various representations (generic or Mandelstam variables).
 """
 
-
 import sympy as sp
 
 from ..core.exceptions import ValidationError

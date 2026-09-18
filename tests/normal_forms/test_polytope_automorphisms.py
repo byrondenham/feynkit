@@ -29,7 +29,6 @@ from feynkit.normal_forms.polytope_automorphisms import (
     compute_polytope_automorphisms,
 )
 
-
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -126,9 +125,9 @@ class TestWitnessValidity:
                 p_col = sp.Matrix(list(p))
                 img = U * p_col + t
                 img_key = tuple(int(x) for x in img)
-                assert img_key in pt_set, (
-                    f"Map ({U}, {t}) sends {p} to {img_key} not in polytope for {cnickel}"
-                )
+                assert (
+                    img_key in pt_set
+                ), f"Map ({U}, {t}) sends {p} to {img_key} not in polytope for {cnickel}"
 
     def test_bubble(self):
         self._check_maps("11e|e|:zz")

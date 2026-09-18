@@ -25,6 +25,7 @@ W = 72
 
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
+
 def header(title: str) -> None:
     print("\n" + "=" * W)
     print(f"  {title}")
@@ -47,6 +48,7 @@ def show_poly(label: str, expr: sp.Expr, max_terms: int = 12) -> None:
 
 
 # ── Analysis function ─────────────────────────────────────────────────────────
+
 
 def analyse(
     name: str,
@@ -132,6 +134,7 @@ def analyse(
 
 # ── Diagram constructors ──────────────────────────────────────────────────────
 
+
 def _triangle(masses) -> FeynmanIntegral:
     nu = sp.symbols("nu1:4", positive=True)
     edges = [
@@ -167,8 +170,7 @@ def massless_box() -> FeynmanIntegral:
     nu = sp.symbols("nu1:5", positive=True)
     z = sp.Integer(0)
     internal = [
-        Edge(idx=i + 1, v1=(i % 4) + 1, v2=((i + 1) % 4) + 1,
-             is_internal=True, mass=z, nu=nu[i])
+        Edge(idx=i + 1, v1=(i % 4) + 1, v2=((i + 1) % 4) + 1, is_internal=True, mass=z, nu=nu[i])
         for i in range(4)
     ]
     external = [Edge(idx=5 + i, v1=i + 1, v2=5 + i, is_internal=False) for i in range(4)]
@@ -217,9 +219,9 @@ def planar_double_box() -> FeynmanIntegral:
         Edge(idx=5, v1=3, v2=5, is_internal=True, mass=m[4], nu=nu[4]),  # left-bottom
         Edge(idx=6, v1=4, v2=6, is_internal=True, mass=m[5], nu=nu[5]),  # right-bottom
         Edge(idx=7, v1=5, v2=6, is_internal=True, mass=m[6], nu=nu[6]),  # bottom
-        Edge(idx=8,  v1=1, v2=7,  is_internal=False),
-        Edge(idx=9,  v1=2, v2=8,  is_internal=False),
-        Edge(idx=10, v1=5, v2=9,  is_internal=False),
+        Edge(idx=8, v1=1, v2=7, is_internal=False),
+        Edge(idx=9, v1=2, v2=8, is_internal=False),
+        Edge(idx=10, v1=5, v2=9, is_internal=False),
         Edge(idx=11, v1=6, v2=10, is_internal=False),
     ]
     g = Graph(internal_vertices=6, external_legs=4, edges=edges)
@@ -243,9 +245,9 @@ def tetrahedron() -> FeynmanIntegral:
         Edge(idx=4, v1=2, v2=3, is_internal=True, mass=m[3], nu=nu[3]),
         Edge(idx=5, v1=2, v2=4, is_internal=True, mass=m[4], nu=nu[4]),
         Edge(idx=6, v1=3, v2=4, is_internal=True, mass=m[5], nu=nu[5]),
-        Edge(idx=7,  v1=1, v2=5, is_internal=False),
-        Edge(idx=8,  v1=2, v2=6, is_internal=False),
-        Edge(idx=9,  v1=3, v2=7, is_internal=False),
+        Edge(idx=7, v1=1, v2=5, is_internal=False),
+        Edge(idx=8, v1=2, v2=6, is_internal=False),
+        Edge(idx=9, v1=3, v2=7, is_internal=False),
         Edge(idx=10, v1=4, v2=8, is_internal=False),
     ]
     g = Graph(internal_vertices=4, external_legs=4, edges=edges)
@@ -253,6 +255,7 @@ def tetrahedron() -> FeynmanIntegral:
 
 
 # ── Equivalence helper ────────────────────────────────────────────────────────
+
 
 def compare(
     name_a: str,
@@ -292,26 +295,26 @@ print("  COMPLETE FEYNMAN DIAGRAM ANALYSIS")
 print("=" * W)
 
 print("\nConstructing diagrams …")
-tri0   = massless_triangle()
-tri1   = massive_triangle()
-tri1m0 = one_mass_triangle(mass_on=0)   # mass on propagator 1 (v1–v2)
-tri1m1 = one_mass_triangle(mass_on=1)   # mass on propagator 2 (v2–v3)
-box0   = massless_box()
-sun    = massive_sunrise()
-dbox   = planar_double_box()
-tet    = tetrahedron()
+tri0 = massless_triangle()
+tri1 = massive_triangle()
+tri1m0 = one_mass_triangle(mass_on=0)  # mass on propagator 1 (v1–v2)
+tri1m1 = one_mass_triangle(mass_on=1)  # mass on propagator 2 (v2–v3)
+box0 = massless_box()
+sun = massive_sunrise()
+dbox = planar_double_box()
+tet = tetrahedron()
 print("Done.\n")
 
 # ── Per-diagram analysis ──────────────────────────────────────────────────────
 
 analyse("1. Massless triangle  (1-loop, 3 massless propagators)", tri0)
-analyse("2. Massive triangle   (1-loop, 3 massive propagators)",  tri1)
-analyse("3. One-mass triangle  (1-loop, mass on prop 1)",         tri1m0)
-analyse("4. One-mass triangle  (1-loop, mass on prop 2)",         tri1m1)
+analyse("2. Massive triangle   (1-loop, 3 massive propagators)", tri1)
+analyse("3. One-mass triangle  (1-loop, mass on prop 1)", tri1m0)
+analyse("4. One-mass triangle  (1-loop, mass on prop 2)", tri1m1)
 analyse("5. Massless box       (1-loop, 4 massless propagators)", box0)
-analyse("6. Massive sunrise    (2-loop, 3 massive propagators)",  sun)
-analyse("7. Planar double box  (2-loop, 7 massive propagators)",  dbox, show_toric=False)
-analyse("8. Tetrahedron / K4   (3-loop, 6 massive propagators)",  tet,  show_toric=False)
+analyse("6. Massive sunrise    (2-loop, 3 massive propagators)", sun)
+analyse("7. Planar double box  (2-loop, 7 massive propagators)", dbox, show_toric=False)
+analyse("8. Tetrahedron / K4   (3-loop, 6 massive propagators)", tet, show_toric=False)
 
 # ── Equivalence comparisons ───────────────────────────────────────────────────
 
@@ -326,13 +329,13 @@ print("""
 
 print("─" * W)
 
-compare("Massless triangle",       tri0,   "Massive triangle",        tri1)
-compare("Massless triangle",       tri0,   "One-mass tri (prop 1)",   tri1m0)
-compare("Massive triangle",        tri1,   "One-mass tri (prop 1)",   tri1m0)
-compare("Massless triangle",       tri0,   "Massless box",             box0)
-compare("Massless box",            box0,   "Massive sunrise",          sun)
-compare("Massive sunrise",         sun,    "Massive triangle",         tri1)
-compare("One-mass tri (prop 1)",   tri1m0, "One-mass tri (prop 2)",   tri1m1)
+compare("Massless triangle", tri0, "Massive triangle", tri1)
+compare("Massless triangle", tri0, "One-mass tri (prop 1)", tri1m0)
+compare("Massive triangle", tri1, "One-mass tri (prop 1)", tri1m0)
+compare("Massless triangle", tri0, "Massless box", box0)
+compare("Massless box", box0, "Massive sunrise", sun)
+compare("Massive sunrise", sun, "Massive triangle", tri1)
+compare("One-mass tri (prop 1)", tri1m0, "One-mass tri (prop 2)", tri1m1)
 
 print("\n" + "─" * W)
 print(f"""

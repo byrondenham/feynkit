@@ -62,7 +62,6 @@ from .types import (
     ToricIdeal,
 )
 
-
 __all__ = [
     "FeynmanIntegral",
     "NewtonPolytope",
@@ -285,9 +284,7 @@ class FeynmanIntegral:
             u_lp=u_lp,
             f_lp=f_lp,
             g=sp.expand(u_lp + f_lp),
-            schwinger_parameters=[
-                self._graph.schwinger_parameters[e.idx] for e in edges
-            ],
+            schwinger_parameters=[self._graph.schwinger_parameters[e.idx] for e in edges],
             lp_parameters=list(lp_params),
         )
 
@@ -330,6 +327,7 @@ class FeynmanIntegral:
     @cached_property
     def newton_polytope(self) -> NewtonPolytope:
         from .systems.gkz import construct_gkz_matrix_from_exponents
+
         s = self.symanzik
         support = extract_monomial_support(s.g, s.lp_parameters)
         exponent_vecs = [alpha for alpha, _ in support]
@@ -455,9 +453,7 @@ class FeynmanIntegral:
                 "propagator_exponents", dict(self._propagator_exponents)
             ),
             loop_count=loop_count,
-            momentum_products=overrides.pop(
-                "momentum_products", dict(self._momentum_products)
-            ),
+            momentum_products=overrides.pop("momentum_products", dict(self._momentum_products)),
             use_mandelstam=overrides.pop("use_mandelstam", self._use_mandelstam),
             kinematic_constraints=overrides.pop(
                 "kinematic_constraints", list(self._kinematic_constraints)
@@ -530,9 +526,7 @@ class FeynmanIntegral:
 
     # ──────── Comparison ────────
 
-    def is_unimodular_equivalent_to(
-        self, other: "FeynmanIntegral"
-    ) -> PolytopeEquivalence:
+    def is_unimodular_equivalent_to(self, other: "FeynmanIntegral") -> PolytopeEquivalence:
         """
         Test whether two integrals' Newton polytopes are unimodularly
         equivalent (Liu–Cai, arXiv:2506.23846).

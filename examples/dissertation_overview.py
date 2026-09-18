@@ -29,10 +29,16 @@ Supporting examples: bubble (1-loop, 2-point) and massive sunrise (2-loop).
 import sympy as sp
 
 from feynkit import (
-    Edge, FeynmanIntegral, Graph,
-    PolytopeEquivalence, PolytopeAutomorphisms,
-    AConfiguration, FiniteIndexResult,
-    finite_index_map, intrinsic_lattice_model, symmetry_pairs,
+    Edge,
+    FeynmanIntegral,
+    Graph,
+    PolytopeEquivalence,
+    PolytopeAutomorphisms,
+    AConfiguration,
+    FiniteIndexResult,
+    finite_index_map,
+    intrinsic_lattice_model,
+    symmetry_pairs,
     landau_analysis,
 )
 from feynkit.artifacts.conformal import (
@@ -41,11 +47,14 @@ from feynkit.artifacts.conformal import (
     massless_polygon_a_config,
 )
 from feynkit.artifacts.dissertation import (
-    triangle_a_config, triple_k_a_config,
-    four_point_simplex_a_config, banana3_a_config,
+    triangle_a_config,
+    triple_k_a_config,
+    four_point_simplex_a_config,
+    banana3_a_config,
 )
 from feynkit.normal_forms import (
-    is_unimodular_equivalent, is_affinely_equivalent,
+    is_unimodular_equivalent,
+    is_affinely_equivalent,
     is_point_config_equivalent,
     maximal_pairing_matrix,
 )
@@ -70,13 +79,13 @@ hdr(1, "Graph construction")
 # Method A: manual edge list.
 # Internal edges carry a mass (symbolic or sp.Integer(0)) and a propagator
 # exponent ν.  External legs have is_internal=False and no mass/ν.
-m = sp.Integer(0)          # massless
+m = sp.Integer(0)  # massless
 nu1, nu2, nu3 = sp.symbols("nu1 nu2 nu3", positive=True)
 
 triangle_edges = [
-    Edge(idx=1, v1=1, v2=2, is_internal=True,  mass=m,  nu=nu1),
-    Edge(idx=2, v1=2, v2=3, is_internal=True,  mass=m,  nu=nu2),
-    Edge(idx=3, v1=3, v2=1, is_internal=True,  mass=m,  nu=nu3),
+    Edge(idx=1, v1=1, v2=2, is_internal=True, mass=m, nu=nu1),
+    Edge(idx=2, v1=2, v2=3, is_internal=True, mass=m, nu=nu2),
+    Edge(idx=3, v1=3, v2=1, is_internal=True, mass=m, nu=nu3),
     Edge(idx=4, v1=1, v2=4, is_internal=False),
     Edge(idx=5, v1=2, v2=5, is_internal=False),
     Edge(idx=6, v1=3, v2=6, is_internal=False),
@@ -95,14 +104,18 @@ print(f"  Nickel index         : {fi_tri.nickel_index}")
 
 # Method B: from a Nickel / colored-Nickel string.
 # The cnickel encodes topology + mass pattern compactly.
-fi_tri_b = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")   # zzz = all massless
-fi_bubble = FeynmanIntegral.from_cnickel("11e|e|:zz")       # massless bubble
-fi_sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")    # massive sunrise
+fi_tri_b = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")  # zzz = all massless
+fi_bubble = FeynmanIntegral.from_cnickel("11e|e|:zz")  # massless bubble
+fi_sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")  # massive sunrise
 
 sec("Nickel / cnickel constructors")
 print(f"  Massless triangle (cnickel) : {fi_tri_b.nickel_index}  →  loops = {fi_tri_b.loop_count}")
-print(f"  Massless bubble             : {fi_bubble.nickel_index}  →  loops = {fi_bubble.loop_count}")
-print(f"  Massive sunrise             : {fi_sunrise.nickel_index}  →  loops = {fi_sunrise.loop_count}")
+print(
+    f"  Massless bubble             : {fi_bubble.nickel_index}  →  loops = {fi_bubble.loop_count}"
+)
+print(
+    f"  Massive sunrise             : {fi_sunrise.nickel_index}  →  loops = {fi_sunrise.loop_count}"
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -166,8 +179,10 @@ gkz = fi_tri.gkz
 r, m_cols = gkz.a_matrix.shape
 
 sec("A-matrix")
-print(f"  Shape: {r} × {m_cols}  "
-      f"({fi_tri.loop_count + 1} rows = loops+1; {m_cols} cols = monomials of G)")
+print(
+    f"  Shape: {r} × {m_cols}  "
+    f"({fi_tri.loop_count + 1} rows = loops+1; {m_cols} cols = monomials of G)"
+)
 sp.pprint(gkz.a_matrix)
 print(f"  First row is the homogenisation row (all ones).")
 print(f"  Remaining rows give the exponent of each u_i in each monomial.")
@@ -206,7 +221,7 @@ for pt, coeff in np_tri.support:
     print(f"    u^{pt}  coeff = {coeff}")
 
 sec("Hull vertices, volume, Smith invariants  (via AConfiguration)")
-cfg_tri = triangle_a_config()   # convenience wrapper
+cfg_tri = triangle_a_config()  # convenience wrapper
 print(f"  Newton polytope vertices: {cfg_tri.newton_polytope_points}")
 print(f"  Number of vertices      : {len(cfg_tri.newton_polytope_points)}")
 print(f"  Ambient dimension       : {cfg_tri.ambient_dim}")
@@ -262,7 +277,8 @@ sec("Unimodular automorphism group")
 print(f"  |Aut(P)| = {aut.order}")
 print(f"  Each (U, t) satisfies:  U ∈ GL_n(ℤ),  |det U| = 1,  {{Uv + t}} = vertices")
 for k, (U, t) in enumerate(aut.maps[:3]):
-    print(f"\n  [{k}]  U ="); sp.pprint(U)
+    print(f"\n  [{k}]  U =")
+    sp.pprint(U)
     print(f"       t = {t.T.tolist()}")
 if aut.order > 3:
     print(f"\n  … ({aut.order - 3} further automorphisms)")
@@ -306,15 +322,18 @@ print(f"  Finite-index (|det| > 1): {len(nonuni)}")
 
 print(f"\n  First unimodular pair:")
 s0 = unimod[0]
-print(f"    M ="); sp.pprint(s0.linear_map)
+print(f"    M =")
+sp.pprint(s0.linear_map)
 print(f"    t = {s0.translation.T.tolist()[0]}")
 print(f"    column permutation P = {s0.column_permutation}")
 print(f"    Integral identity: I_A(β, z) = I_A(T·β, z_P)")
 
 sec("Using AConfiguration.symmetry_pairs  (standalone)")
 sp_cfg = cfg_tri.symmetry_pairs()
-print(f"  Same result via AConfiguration: {len(sp_cfg)} pairs "
-      f"({sum(s.is_unimodular for s in sp_cfg)} unimodular)")
+print(
+    f"  Same result via AConfiguration: {len(sp_cfg)} pairs "
+    f"({sum(s.is_unimodular for s in sp_cfg)} unimodular)"
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -360,7 +379,8 @@ fi_tri2 = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
 uni_self = fi_tri.is_unimodular_equivalent_to(fi_tri2)
 print(f"\n  Triangle (labelling A) ↔ Triangle (labelling B): {uni_self.equivalent}")
 if uni_self.witness_map is not None:
-    print(f"  Witness U ="); sp.pprint(uni_self.witness_map)
+    print(f"  Witness U =")
+    sp.pprint(uni_self.witness_map)
     print(f"  Translation t = {uni_self.translation.T.tolist() if uni_self.translation else None}")
 
 # Massless triangle vs massive triangle: non-equivalent.
@@ -374,8 +394,9 @@ print(f"  Weaker than unimodular; captures same combinatorial shape up to scalin
 
 # Same-topology diagrams.
 aff_self = fi_tri.is_affinely_equivalent_to(fi_tri2)
-print(f"\n  Massless triangle ↔ itself (rel): {aff_self.equivalent}, "
-      f"det = {aff_self.determinant}")
+print(
+    f"\n  Massless triangle ↔ itself (rel): {aff_self.equivalent}, " f"det = {aff_self.determinant}"
+)
 
 sec("Point-configuration equivalence  (stricter GKZ condition)")
 print(f"  Tests the same map on ALL A-columns, not just hull vertices.")
@@ -403,30 +424,34 @@ fi_triangle = finite_index_map(cfg_tri, cfg_tk)
 
 sec("Triangle LP → Triple-K  (hull vertices of each)")
 cfg_tk_verts = AConfiguration(
-    sp.Matrix([[1]*6] +
-              [[v[i] for v in cfg_tk.newton_polytope_points] for i in range(3)]),
+    sp.Matrix([[1] * 6] + [[v[i] for v in cfg_tk.newton_polytope_points] for i in range(3)]),
     is_homogenized=True,
 )
 cfg_tri_verts = AConfiguration(
-    sp.Matrix([[1]*6] +
-              [[v[i] for v in cfg_tri.newton_polytope_points] for i in range(3)]),
+    sp.Matrix([[1] * 6] + [[v[i] for v in cfg_tri.newton_polytope_points] for i in range(3)]),
     is_homogenized=True,
 )
 fi2 = cfg_tri_verts.is_affinely_equivalent_to(cfg_tk_verts)
 print(f"  Equivalent (polytope): {fi2.equivalent}")
-print(f"  det M = {fi2.determinant}   (ratio of normalised volumes: "
-      f"{cfg_tk.normalized_volume} / {cfg_tri.normalized_volume} = "
-      f"{cfg_tk.normalized_volume // cfg_tri.normalized_volume})")
+print(
+    f"  det M = {fi2.determinant}   (ratio of normalised volumes: "
+    f"{cfg_tk.normalized_volume} / {cfg_tri.normalized_volume} = "
+    f"{cfg_tk.normalized_volume // cfg_tri.normalized_volume})"
+)
 if fi2.witness_map is not None:
-    print(f"  M ="); sp.pprint(fi2.witness_map)
+    print(f"  M =")
+    sp.pprint(fi2.witness_map)
     print(f"  t = {fi2.translation.T.tolist() if fi2.translation else None}")
 
 sec("Full point-configuration finite-index map")
 fi_full = finite_index_map(cfg_tri, cfg_tk)
-print(f"  Found: {fi_full.found},  det = {fi_full.determinant},  "
-      f"unimodular: {fi_full.is_unimodular}")
+print(
+    f"  Found: {fi_full.found},  det = {fi_full.determinant},  "
+    f"unimodular: {fi_full.is_unimodular}"
+)
 if fi_full.found:
-    print(f"  M ="); sp.pprint(fi_full.witness_matrix)
+    print(f"  M =")
+    sp.pprint(fi_full.witness_matrix)
     print(f"  t = {fi_full.translation.T.tolist() if fi_full.translation else None}")
     print(f"  column permutation: {fi_full.column_permutation}")
 
@@ -441,7 +466,7 @@ print(f"  Given a matrix M, the pairing-matrix canonical form is the unique")
 print(f"  lexicographically maximal form under row and column permutations.")
 print(f"  Used to canonicalise Newton polytope support matrices.")
 
-A_tri = gkz.a_matrix     # the triangle LP A-matrix
+A_tri = gkz.a_matrix  # the triangle LP A-matrix
 pm = maximal_pairing_matrix(A_tri)
 
 sec("Triangle LP A-matrix")
@@ -454,6 +479,7 @@ print(f"  Symmetry vector    : {pm.symmetry_vector}")
 
 sec("Checking the canonical form is indeed maximal")
 from feynkit.normal_forms import is_canonical, symbolic_compare
+
 print(f"  is_canonical(PM_max) = {is_canonical(pm.PM_max)}")
 
 
@@ -528,22 +554,23 @@ hdr(15, "AConfiguration  — standalone GKZ inputs")
 
 sec("Standard dissertation configurations")
 configs = {
-    "triangle (4×6)"         : triangle_a_config(),
-    "triple-K (4×6)"         : triple_k_a_config(),
-    "4-simplex Δ₄ (5×5)"     : four_point_simplex_a_config(),
-    "banana₃ (4×4)"          : banana3_a_config(),
+    "triangle (4×6)": triangle_a_config(),
+    "triple-K (4×6)": triple_k_a_config(),
+    "4-simplex Δ₄ (5×5)": four_point_simplex_a_config(),
+    "banana₃ (4×4)": banana3_a_config(),
 }
 
-print(f"  {'Name':<26} {'shape':>8}  {'dim':>4}  {'verts':>5}  "
-      f"{'norm-vol':>9}  {'Smith'}")
+print(f"  {'Name':<26} {'shape':>8}  {'dim':>4}  {'verts':>5}  " f"{'norm-vol':>9}  {'Smith'}")
 print("  " + "─" * 62)
 for name, cfg in configs.items():
-    print(f"  {name:<26} {str(cfg.matrix.shape):>8}  "
-          f"{cfg.ambient_dim:>4}  {len(cfg.newton_polytope_points):>5}  "
-          f"{cfg.normalized_volume:>9}  {cfg.smith_invariants}")
+    print(
+        f"  {name:<26} {str(cfg.matrix.shape):>8}  "
+        f"{cfg.ambient_dim:>4}  {len(cfg.newton_polytope_points):>5}  "
+        f"{cfg.normalized_volume:>9}  {cfg.smith_invariants}"
+    )
 
 sec("AConfiguration equivalence methods")
-cfg_t  = triangle_a_config()
+cfg_t = triangle_a_config()
 cfg_tk = triple_k_a_config()
 
 print(f"\n  triangle.is_unimodular_equivalent_to(triangle)")
@@ -560,8 +587,9 @@ print(f"    equivalent = {r_pt.equivalent},  det M = {r_pt.determinant}")
 
 print(f"\n  triangle.finite_index_map_to(triple-K)")
 r_fi = cfg_t.finite_index_map_to(cfg_tk)
-print(f"    found = {r_fi.found},  det = {r_fi.determinant},  "
-      f"unimodular = {r_fi.is_unimodular}")
+print(
+    f"    found = {r_fi.found},  det = {r_fi.determinant},  " f"unimodular = {r_fi.is_unimodular}"
+)
 
 print(f"\n  triangle.automorphisms()")
 aut_t = cfg_t.automorphisms()
@@ -577,8 +605,7 @@ hdr(16, "Conformal artifacts  (BMS simplex · companion)")
 sec("massless_polygon_a_config(n)  — 1-loop n-gon")
 for n in [3, 4]:
     cfg = massless_polygon_a_config(n)
-    print(f"  n={n}: {cfg.matrix.shape}, dim={cfg.ambient_dim}, "
-          f"Smith={cfg.smith_invariants}")
+    print(f"  n={n}: {cfg.matrix.shape}, dim={cfg.ambient_dim}, " f"Smith={cfg.smith_invariants}")
 
 sec("bms_simplex_a_config(n)  — BMS n-point conformal integral")
 print(f"  G_n(u) = Σᵢ pᵢ² ∏_{{j≠i}} uⱼ  +  4 Σᵢ uᵢ² ∏_{{j≠i}} uⱼ")
@@ -586,18 +613,22 @@ print(f"  2n monomials (n lower + n upper), ambient ℝⁿ")
 print(f"  Smith [1,…,1,2] → even-parity sublattice (for all n)")
 for n in [3, 4]:
     cfg = bms_simplex_a_config(n)
-    print(f"  n={n}: {cfg.matrix.shape}, dim={cfg.ambient_dim}, "
-          f"norm-vol={cfg.normalized_volume}, Smith={cfg.smith_invariants}")
+    print(
+        f"  n={n}: {cfg.matrix.shape}, dim={cfg.ambient_dim}, "
+        f"norm-vol={cfg.normalized_volume}, Smith={cfg.smith_invariants}"
+    )
 
 sec("conformal_companion_a_config(n)  — finite-index companion to BMS_n")
 print(f"  G_n(u) = Σᵢ ∏_{{j≠i}} uⱼ  +  Σᵢ pᵢ² uᵢ")
 print(f"  Same lower monomials as BMS_n; upper monomials are the standard basis eᵢ")
 for n in [3, 4]:
     cfg_comp = conformal_companion_a_config(n)
-    cfg_bms  = bms_simplex_a_config(n)
+    cfg_bms = bms_simplex_a_config(n)
     fi_map = cfg_comp.finite_index_map_to(cfg_bms)
-    print(f"  n={n}: companion → BMS_n  found={fi_map.found}, "
-          f"det={fi_map.determinant if fi_map.found else '—'}")
+    print(
+        f"  n={n}: companion → BMS_n  found={fi_map.found}, "
+        f"det={fi_map.determinant if fi_map.found else '—'}"
+    )
 print(f"  (det=2 map exists for n=3; for n≥4 the map is broken by S_n → S_{{n-1}})")
 
 
@@ -614,7 +645,7 @@ tmp = pathlib.Path(tempfile.mktemp(suffix=".db"))
 
 sec("Store and retrieve integrals")
 db = FeynkitDatabase(str(tmp))
-db.store(fi_tri,    label="massless_triangle")
+db.store(fi_tri, label="massless_triangle")
 db.store(fi_bubble, label="massless_bubble")
 db.store(fi_sunrise, label="massive_sunrise")
 
@@ -629,8 +660,7 @@ sec("find_equivalent  — equivalence-based retrieval")
 fi_tri_m = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
 db.store(fi_tri_m, label="massive_triangle")
 matches = db.find_equivalent(fi_tri, relation="unimodular")
-print(f"  Integrals unimodular-equivalent to massless triangle: "
-      f"{[r.label for r in matches]}")
+print(f"  Integrals unimodular-equivalent to massless triangle: " f"{[r.label for r in matches]}")
 
 tmp.unlink(missing_ok=True)
 

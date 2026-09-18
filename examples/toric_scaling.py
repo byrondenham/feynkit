@@ -13,8 +13,8 @@ import sympy as sp
 from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.algebra import compute_toric_ideal_generators
 
-
 # ── helpers ──────────────────────────────────────────────────────────────────
+
 
 def row(label, fi):
     A = fi.gkz.a_matrix
@@ -27,9 +27,11 @@ def row(label, fi):
 
 def polygon(n, n_masses=0):
     nus = sp.symbols(f"nu1:{n + 1}", positive=True)
-    ms  = sp.symbols(f"m1:{n + 1}", nonnegative=True) if n_masses else []
+    ms = sp.symbols(f"m1:{n + 1}", nonnegative=True) if n_masses else []
+
     def mass(i):
         return ms[i] if i < n_masses else sp.Integer(0)
+
     if n == 2:
         edges = [
             Edge(idx=1, v1=1, v2=2, is_internal=True, mass=mass(0), nu=nus[0]),
@@ -40,34 +42,35 @@ def polygon(n, n_masses=0):
         g = Graph(internal_vertices=2, external_legs=2, edges=edges)
     else:
         internal = [
-            Edge(idx=i + 1, v1=(i % n) + 1, v2=((i + 1) % n) + 1,
-                 is_internal=True, mass=mass(i), nu=nus[i])
+            Edge(
+                idx=i + 1,
+                v1=(i % n) + 1,
+                v2=((i + 1) % n) + 1,
+                is_internal=True,
+                mass=mass(i),
+                nu=nus[i],
+            )
             for i in range(n)
         ]
         external = [
-            Edge(idx=n + 1 + i, v1=i + 1, v2=n + 1 + i, is_internal=False)
-            for i in range(n)
+            Edge(idx=n + 1 + i, v1=i + 1, v2=n + 1 + i, is_internal=False) for i in range(n)
         ]
-        g = Graph(internal_vertices=n, external_legs=n,
-                  edges=internal + external)
+        g = Graph(internal_vertices=n, external_legs=n, edges=internal + external)
     return FeynmanIntegral(g, propagator_exponents={i + 1: nus[i] for i in range(n)})
 
 
 def banana(n_props):
     """(n_props − 1)-loop banana: n_props parallel edges between 2 vertices."""
-    ms  = sp.symbols(f"m1:{n_props + 1}", nonnegative=True)
+    ms = sp.symbols(f"m1:{n_props + 1}", nonnegative=True)
     nus = sp.symbols(f"nu1:{n_props + 1}", positive=True)
     edges = [
-        Edge(idx=i + 1, v1=1, v2=2, is_internal=True, mass=ms[i], nu=nus[i])
-        for i in range(n_props)
+        Edge(idx=i + 1, v1=1, v2=2, is_internal=True, mass=ms[i], nu=nus[i]) for i in range(n_props)
     ] + [
         Edge(idx=n_props + 1, v1=1, v2=3, is_internal=False),
         Edge(idx=n_props + 2, v1=2, v2=4, is_internal=False),
     ]
     g = Graph(internal_vertices=2, external_legs=2, edges=edges)
-    return FeynmanIntegral(
-        g, propagator_exponents={i + 1: nus[i] for i in range(n_props)}
-    )
+    return FeynmanIntegral(g, propagator_exponents={i + 1: nus[i] for i in range(n_props)})
 
 
 # ── header ────────────────────────────────────────────────────────────────────
@@ -79,8 +82,15 @@ print("  " + "─" * 65)
 # ── series 1: massless polygons ───────────────────────────────────────────────
 
 print("\n  ── massless polygons ──────────────────────────────────────")
-poly_names = {2: "bubble", 3: "triangle", 4: "box",
-              5: "pentagon", 6: "hexagon", 7: "heptagon", 8: "octagon"}
+poly_names = {
+    2: "bubble",
+    3: "triangle",
+    4: "box",
+    5: "pentagon",
+    6: "hexagon",
+    7: "heptagon",
+    8: "octagon",
+}
 for n in range(2, 9):
     row(f"massless {poly_names[n]}  ({n} props)", polygon(n, 0))
 

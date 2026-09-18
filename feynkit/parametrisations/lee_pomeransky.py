@@ -6,7 +6,6 @@ which is particularly useful for finding critical points and dimensional
 recurrence relations.
 """
 
-
 import sympy as sp
 
 from ..core.constants import DEFAULT_EPSILON, DEFAULT_GAMMA_E, LEE_POMERANSKY_PARAM_PREFIX
@@ -56,7 +55,9 @@ class LeePomeranskyParametrisation(Parametrisation):
         u_polynomial: sp.Expr,
         f_polynomial: sp.Expr,
     ):
-        super().__init__(graph, dimension, loop_count, propagator_exponents, u_polynomial, f_polynomial)
+        super().__init__(
+            graph, dimension, loop_count, propagator_exponents, u_polynomial, f_polynomial
+        )
 
     @property
     def name(self) -> str:

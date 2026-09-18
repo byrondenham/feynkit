@@ -58,17 +58,20 @@ def describe(label: str, cfg: AConfiguration) -> None:
         print(f"    |Aut(P)|         : (skipped — N={cfg.n_points} too large)")
 
 
-def compare(label_a: str, cfg_a: AConfiguration,
-            label_b: str, cfg_b: AConfiguration) -> None:
+def compare(label_a: str, cfg_a: AConfiguration, label_b: str, cfg_b: AConfiguration) -> None:
     print(f"\n  {label_a}  vs  {label_b}")
 
     if cfg_a.ambient_dim != cfg_b.ambient_dim:
-        print(f"    ambient dims differ ({cfg_a.ambient_dim} vs {cfg_b.ambient_dim})"
-              "  — no direct comparison")
+        print(
+            f"    ambient dims differ ({cfg_a.ambient_dim} vs {cfg_b.ambient_dim})"
+            "  — no direct comparison"
+        )
         return
     if cfg_a.n_points != cfg_b.n_points:
-        print(f"    N differs ({cfg_a.n_points} vs {cfg_b.n_points})"
-              "  — no bijective map possible, not equivalent in any sense")
+        print(
+            f"    N differs ({cfg_a.n_points} vs {cfg_b.n_points})"
+            "  — no bijective map possible, not equivalent in any sense"
+        )
         return
 
     r_uni = cfg_a.is_unimodular_equivalent_to(cfg_b)
@@ -84,13 +87,17 @@ def compare(label_a: str, cfg_a: AConfiguration,
         fim_ab = finite_index_map(cfg_a, cfg_b)
         fim_ba = finite_index_map(cfg_b, cfg_a)
         if fim_ab.found:
-            print(f"    Finite-index map : {label_a} → {label_b}  "
-                  f"det={fim_ab.determinant}  unimodular={fim_ab.is_unimodular}")
+            print(
+                f"    Finite-index map : {label_a} → {label_b}  "
+                f"det={fim_ab.determinant}  unimodular={fim_ab.is_unimodular}"
+            )
             print(f"      M = {fim_ab.witness_matrix.tolist()}")
             print(f"      t = {[int(x) for x in fim_ab.translation]}")
         elif fim_ba.found:
-            print(f"    Finite-index map : {label_b} → {label_a}  "
-                  f"det={fim_ba.determinant}  unimodular={fim_ba.is_unimodular}")
+            print(
+                f"    Finite-index map : {label_b} → {label_a}  "
+                f"det={fim_ba.determinant}  unimodular={fim_ba.is_unimodular}"
+            )
             print(f"      M = {fim_ba.witness_matrix.tolist()}")
         else:
             print(f"    Finite-index map : not found in either direction")
@@ -109,16 +116,16 @@ triple-K (BMS 3-point conformal simplex) are the two known A-configurations
 that are rationally affinely equivalent but NOT unimodularly equivalent.
 """)
 
-tri   = triangle_a_config()           # C_3 LP = K_3 LP (from dissertation)
-tpk   = triple_k_a_config()           # BMS n=3 (from dissertation)
-bms3  = bms_simplex_a_config(3)       # must equal triple-K
-cn3   = massless_polygon_a_config(3)  # must equal triangle
-kn3   = complete_graph_a_config(3)    # must equal triangle (K_3=C_3)
+tri = triangle_a_config()  # C_3 LP = K_3 LP (from dissertation)
+tpk = triple_k_a_config()  # BMS n=3 (from dissertation)
+bms3 = bms_simplex_a_config(3)  # must equal triple-K
+cn3 = massless_polygon_a_config(3)  # must equal triangle
+kn3 = complete_graph_a_config(3)  # must equal triangle (K_3=C_3)
 
 assert tpk.smith_invariants == bms3.smith_invariants, "BMS_3 must match triple-K"
-assert tri.smith_invariants  == cn3.smith_invariants,  "C_3 must match triangle"
-assert tri.smith_invariants  == kn3.smith_invariants,  "K_3 must match triangle"
-assert tri.normalized_volume == cn3.normalized_volume,  "C_3 vol must match triangle"
+assert tri.smith_invariants == cn3.smith_invariants, "C_3 must match triangle"
+assert tri.smith_invariants == kn3.smith_invariants, "K_3 must match triangle"
+assert tri.normalized_volume == cn3.normalized_volume, "C_3 vol must match triangle"
 
 describe("C_3 LP (triangle, from feynkit graph)", cn3)
 describe("BMS n=3 (triple-K)", bms3)
@@ -143,9 +150,9 @@ The BMS 4-point simplex uses 4 LP variables (one per external momentum).
 Only C_4 lives in the same 4-dimensional ambient space as BMS_4.
 """)
 
-cn4  = massless_polygon_a_config(4)   # box, 4 LP vars
-bms4 = bms_simplex_a_config(4)         # BMS 4-point, 4 LP vars
-kn4  = complete_graph_a_config(4)      # K_4, 6 LP vars
+cn4 = massless_polygon_a_config(4)  # box, 4 LP vars
+bms4 = bms_simplex_a_config(4)  # BMS 4-point, 4 LP vars
+kn4 = complete_graph_a_config(4)  # K_4, 6 LP vars
 
 describe("C_4 LP (massless box, 1-loop)", cn4)
 describe("BMS n=4 (quadruple-K structure)", bms4)
@@ -164,7 +171,7 @@ compare("K_4 LP", kn4, "BMS n=4", bms4)
 
 print_section("n=5  (further check)")
 
-cn5  = massless_polygon_a_config(5)
+cn5 = massless_polygon_a_config(5)
 bms5 = bms_simplex_a_config(5)
 
 describe("C_5 LP (massless pentagon, 1-loop)", cn5)
@@ -181,12 +188,14 @@ compare("C_5 LP (pentagon)", cn5, "BMS n=5", bms5)
 
 print_section("Summary table")
 
-print(f"\n  {'n':>2}  {'config':<14}  {'N':>4}  {'dim':>4}  {'Smith':<16}  {'vol':>6}  {'|Aut|':>7}")
+print(
+    f"\n  {'n':>2}  {'config':<14}  {'N':>4}  {'dim':>4}  {'Smith':<16}  {'vol':>6}  {'|Aut|':>7}"
+)
 print(f"  {'─'*2}  {'─'*14}  {'─'*4}  {'─'*4}  {'─'*16}  {'─'*6}  {'─'*7}")
 
 rows = []
 for n in [3, 4, 5]:
-    cn  = massless_polygon_a_config(n)
+    cn = massless_polygon_a_config(n)
     bms = bms_simplex_a_config(n)
     rows.append((n, f"C_{n} LP", cn))
     rows.append((n, f"BMS n={n}", bms))
@@ -194,8 +203,10 @@ for n in [3, 4, 5]:
 for n, label, cfg in rows:
     smith_str = str(cfg.smith_invariants)
     aut_str = str(cfg.automorphisms().order) if cfg.n_points <= _AUT_THRESHOLD else "—"
-    print(f"  {n:>2}  {label:<14}  {cfg.n_points:>4}  {cfg.ambient_dim:>4}  "
-          f"{smith_str:<16}  {cfg.normalized_volume:>6}  {aut_str:>7}")
+    print(
+        f"  {n:>2}  {label:<14}  {cfg.n_points:>4}  {cfg.ambient_dim:>4}  "
+        f"{smith_str:<16}  {cfg.normalized_volume:>6}  {aut_str:>7}"
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────

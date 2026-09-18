@@ -6,7 +6,6 @@ integral in Lee-Pomeransky representation. The GKZ system provides a system of
 partial differential equations satisfied by the Feynman integral.
 """
 
-
 import sympy as sp
 
 from ..core.exceptions import MatrixError, PolynomialError

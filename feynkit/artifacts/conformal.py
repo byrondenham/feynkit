@@ -46,6 +46,7 @@ _ZERO = sp.Integer(0)
 
 # ── massless n-gon (C_n) ──────────────────────────────────────────────────────
 
+
 def massless_polygon_a_config(n: int) -> AConfiguration:
     """
     GKZ A-configuration of the massless 1-loop n-gon (n-cycle C_n).
@@ -79,6 +80,7 @@ def massless_polygon_a_config(n: int) -> AConfiguration:
 
 # ── BMS n-point conformal simplex ─────────────────────────────────────────────
 
+
 def _bms_g_polynomial(n: int) -> sp.Expr:
     """
     Derive the G polynomial for the n-Bessel conformal simplex integral via
@@ -111,7 +113,7 @@ def _bms_g_polynomial(n: int) -> sp.Expr:
     p_sq = [sp.Symbol(f"p_{i + 1}sq") for i in range(n)]
     prod_u = sp.Mul(*u)
     lower = sum(p_sq[i] * prod_u / u[i] for i in range(n))
-    upper = 4 * sum(u) * prod_u          # 4 (Σ uᵢ)(∏ uⱼ) = 4 Σ uᵢ² ∏_{j≠i} uⱼ
+    upper = 4 * sum(u) * prod_u  # 4 (Σ uᵢ)(∏ uⱼ) = 4 Σ uᵢ² ∏_{j≠i} uⱼ
     return sp.expand(lower + upper)
 
 
@@ -172,7 +174,7 @@ def bms_simplex_a_config(n: int) -> AConfiguration:
 
     # Extract exponent vectors from the monomial support of G
     poly = sp.Poly(G, *u)
-    monoms = sorted(poly.monoms())          # sorted for deterministic column order
+    monoms = sorted(poly.monoms())  # sorted for deterministic column order
 
     # Build homogenised A-matrix: first row all-ones, then one row per variable
     hom_row = [1] * len(monoms)
@@ -182,6 +184,7 @@ def bms_simplex_a_config(n: int) -> AConfiguration:
 
 
 # ── K_n complete-graph LP ─────────────────────────────────────────────────────
+
 
 def complete_graph_a_config(n: int) -> AConfiguration:
     """
@@ -225,6 +228,7 @@ def complete_graph_a_config(n: int) -> AConfiguration:
 
 
 # ── conformal companion ───────────────────────────────────────────────────────
+
 
 def conformal_companion_a_config(n: int) -> AConfiguration:
     """

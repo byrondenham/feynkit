@@ -124,7 +124,7 @@ def _calculate_symanzik_polynomials(
 
     f_0 = sp.Integer(0)
     n_ext = graph.external_legs
-    mu2 = graph.energy_scale ** 2
+    mu2 = graph.energy_scale**2
 
     for j in range(1, n_ext + 1):
         for k in range(j + 1, n_ext + 1):

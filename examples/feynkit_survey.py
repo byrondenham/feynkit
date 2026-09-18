@@ -72,7 +72,6 @@ from feynkit.algebra.toric import compute_toric_ideal_generators
 from feynkit.core.edge import Edge
 from feynkit.core.graph import Graph
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Output helpers
 # ─────────────────────────────────────────────────────────────────────────────

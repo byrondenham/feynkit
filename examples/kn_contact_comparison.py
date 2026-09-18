@@ -28,10 +28,10 @@ from feynkit.artifacts.conformal import complete_graph_a_config
 from feynkit.normal_forms._invariants import hull_vertex_indices
 from feynkit.normal_forms.affine_equivalence import is_affinely_equivalent
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def nvol(pts: np.ndarray) -> int | str:
     """Normalised lattice volume of conv(pts); pts is (n_pts × n_dim)."""
@@ -75,46 +75,55 @@ print("\nTriangle LP A-matrix (from feynkit K_3 pipeline):")
 sp.pprint(cfg_tri.matrix)
 
 print("\nExpected A_triangle (task specification):")
-sp.pprint(sp.Matrix([
-    [1, 1, 1, 1, 1, 1],
-    [0, 1, 1, 1, 0, 0],
-    [1, 0, 1, 0, 1, 0],
-    [1, 1, 0, 0, 0, 1],
-]))
+sp.pprint(
+    sp.Matrix(
+        [
+            [1, 1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 0, 0],
+            [1, 0, 1, 0, 1, 0],
+            [1, 1, 0, 0, 0, 1],
+        ]
+    )
+)
 
 # Both matrices have the same column set — feynkit uses a different edge
 # ordering convention, so the columns are permuted but the A-configuration
 # (hence the GKZ system and the Newton polytope) is identical.
 cols_fk = set(map(tuple, cfg_tri.matrix.T.tolist()))
-cols_ex = set(map(tuple, [
-    (1,0,1,1),(1,1,0,1),(1,1,1,0),(1,1,0,0),(1,0,1,0),(1,0,0,1)
-]))
+cols_ex = set(
+    map(tuple, [(1, 0, 1, 1), (1, 1, 0, 1), (1, 1, 1, 0), (1, 1, 0, 0), (1, 0, 1, 0), (1, 0, 0, 1)])
+)
 print(f"\nColumn sets identical (up to permutation): {cols_fk == cols_ex}")
 
 print("\nTriple-K (contact star n=3) A-matrix:")
 sp.pprint(cfg_star3.matrix)
 
-pts_tri  = cfg_tri.affine_points
-vi_tri   = hull_vertex_indices(pts_tri)
+pts_tri = cfg_tri.affine_points
+vi_tri = hull_vertex_indices(pts_tri)
 verts_tri = pts_tri[vi_tri]
-vol_tri  = nvol(verts_tri)
+vol_tri = nvol(verts_tri)
 
-pts_s3   = cfg_star3.affine_points
-vi_s3    = hull_vertex_indices(pts_s3)
+pts_s3 = cfg_star3.affine_points
+vi_s3 = hull_vertex_indices(pts_s3)
 verts_s3 = pts_s3[vi_s3]
-vol_s3   = nvol(verts_s3)
+vol_s3 = nvol(verts_s3)
 
-print(f"\nTriangle LP  : {cfg_tri.ambient_dim}D, {len(vi_tri)} verts, "
-      f"norm-vol={vol_tri}, Smith={cfg_tri.smith_invariants}")
-print(f"Triple-K star: {cfg_star3.ambient_dim}D, {len(vi_s3)} verts, "
-      f"norm-vol={vol_s3}, Smith={cfg_star3.smith_invariants}")
+print(
+    f"\nTriangle LP  : {cfg_tri.ambient_dim}D, {len(vi_tri)} verts, "
+    f"norm-vol={vol_tri}, Smith={cfg_tri.smith_invariants}"
+)
+print(
+    f"Triple-K star: {cfg_star3.ambient_dim}D, {len(vi_s3)} verts, "
+    f"norm-vol={vol_s3}, Smith={cfg_star3.smith_invariants}"
+)
 
 print("\nPolytope affine equivalence (hull vertices, brute-force):")
 res1 = is_affinely_equivalent(verts_tri.tolist(), verts_s3.tolist())
 print(f"  Equivalent : {res1.equivalent}")
 if res1.equivalent:
     print(f"  det(M)     = {res1.determinant}")
-    print(f"  M          ="); sp.pprint(res1.witness_map)
+    print(f"  M          =")
+    sp.pprint(res1.witness_map)
     print(f"  t          = {res1.translation.T.tolist() if res1.translation is not None else None}")
 
 print("\nPoint-config equivalence (all 6 A-columns vs. all 6 A-columns):")
@@ -137,9 +146,9 @@ print("=" * 70)
 # Build K_4 and verify invariants interactively.
 cfg4 = complete_graph_a_config(4)
 pts4 = cfg4.affine_points
-vi4  = hull_vertex_indices(pts4)
+vi4 = hull_vertex_indices(pts4)
 verts4 = pts4[vi4]
-vol4   = nvol(verts4)
+vol4 = nvol(verts4)
 
 print(f"\nK_4 (complete graph, C(4,2)=6 internal edges):")
 print(f"  A-matrix shape   : {cfg4.matrix.shape[0]} × {cfg4.matrix.shape[1]}")
@@ -186,12 +195,36 @@ print("STEP 3 — K_n LP vs. n-point contact star: dimensional comparison")
 print("=" * 70)
 
 kn_data = {
-    3: dict(ambient_dim=3, shape=(4, 6),  n_pts=6,   n_verts=6,   vol=vol_tri,
-            smith=cfg_tri.smith_invariants, verts=verts_tri, pts=pts_tri),
-    4: dict(ambient_dim=6, shape=(7, 31), n_pts=31,  n_verts=31,  vol=vol4,
-            smith=cfg4.smith_invariants,   verts=verts4,    pts=pts4),
-    5: dict(ambient_dim=10,shape=(11,235),n_pts=235, n_verts=235, vol=347112,
-            smith=cfg5.smith_invariants,   verts=None,      pts=None),
+    3: dict(
+        ambient_dim=3,
+        shape=(4, 6),
+        n_pts=6,
+        n_verts=6,
+        vol=vol_tri,
+        smith=cfg_tri.smith_invariants,
+        verts=verts_tri,
+        pts=pts_tri,
+    ),
+    4: dict(
+        ambient_dim=6,
+        shape=(7, 31),
+        n_pts=31,
+        n_verts=31,
+        vol=vol4,
+        smith=cfg4.smith_invariants,
+        verts=verts4,
+        pts=pts4,
+    ),
+    5: dict(
+        ambient_dim=10,
+        shape=(11, 235),
+        n_pts=235,
+        n_verts=235,
+        vol=347112,
+        smith=cfg5.smith_invariants,
+        verts=None,
+        pts=None,
+    ),
 }
 
 step3 = {}
@@ -199,28 +232,34 @@ step3 = {}
 for n in [3, 4, 5]:
     cfg_s = contact_star_a_config(n)
     pts_s = cfg_s.affine_points
-    vi_s  = hull_vertex_indices(pts_s)
+    vi_s = hull_vertex_indices(pts_s)
     verts_s = pts_s[vi_s]
-    vol_s   = nvol(verts_s)
+    vol_s = nvol(verts_s)
 
     d = kn_data[n]
     n_edges = n * (n - 1) // 2
 
     print(f"\n--- n = {n} ---")
-    print(f"  K_{n} LP     : A {n_edges+1}×{d['n_pts']}, "
-          f"ℝ^{d['ambient_dim']}, {d['n_verts']} verts, norm-vol={d['vol']}, "
-          f"Smith={d['smith']}")
-    print(f"  Contact star : A {n+1}×{2*n}, "
-          f"ℝ^{n}, {len(vi_s)} verts, norm-vol={vol_s}, "
-          f"Smith={cfg_s.smith_invariants}")
+    print(
+        f"  K_{n} LP     : A {n_edges+1}×{d['n_pts']}, "
+        f"ℝ^{d['ambient_dim']}, {d['n_verts']} verts, norm-vol={d['vol']}, "
+        f"Smith={d['smith']}"
+    )
+    print(
+        f"  Contact star : A {n+1}×{2*n}, "
+        f"ℝ^{n}, {len(vi_s)} verts, norm-vol={vol_s}, "
+        f"Smith={cfg_s.smith_invariants}"
+    )
 
-    lp_dim   = d["ambient_dim"]
+    lp_dim = d["ambient_dim"]
     star_dim = n
 
     if lp_dim != star_dim:
-        reason = (f"ambient dim mismatch: K_{n} LP lives in ℝ^{lp_dim} "
-                  f"[C({n},2)={n_edges} Schwinger params], "
-                  f"contact star lives in ℝ^{star_dim}")
+        reason = (
+            f"ambient dim mismatch: K_{n} LP lives in ℝ^{lp_dim} "
+            f"[C({n},2)={n_edges} Schwinger params], "
+            f"contact star lives in ℝ^{star_dim}"
+        )
         print(f"  ── OBSTRUCTION: {reason}")
         step3[n] = {"equivalent": False, "reason": reason}
     else:
@@ -260,27 +299,29 @@ faces x_1+x_2+x_3 = 1 and x_1+x_2+x_3 = 2 connected by three rectangles.
 step4 = {}
 
 for n in [3, 4, 5]:
-    pts_r   = -np.eye(n, dtype=int)        # n × n; rows = points
-    vi_r    = hull_vertex_indices(pts_r)
+    pts_r = -np.eye(n, dtype=int)  # n × n; rows = points
+    vi_r = hull_vertex_indices(pts_r)
     verts_r = pts_r[vi_r]
-    vol_r   = nvol(verts_r)
+    vol_r = nvol(verts_r)
     n_verts_r = len(vi_r)
 
     print(f"--- n = {n}: restricted = conv{{-e_i}} ⊂ ℝ^{n} ---")
     print(f"  Points   : {{-e_i for i=1..{n}}}  (all n={n} are extreme)")
     print(f"  Shape    : ({n}-1)-simplex, {n_verts_r} vertices, norm-vol = {vol_r}")
 
-    tri_dim    = 3
+    tri_dim = 3
     tri_nverts = 6
-    tri_vol    = vol_tri
+    tri_vol = vol_tri
 
     if n != tri_dim:
         reason = f"ambient dim ℝ^{n} ≠ ℝ^{tri_dim} (triangle LP)"
         print(f"  ── FIRST OBSTRUCTION: {reason}")
         step4[n] = {"equivalent": False, "reason": reason}
     elif n_verts_r != tri_nverts:
-        reason = (f"vertex count {n_verts_r} ≠ {tri_nverts}: "
-                  f"-I_3 simplex has 3 vertices, triangle LP has 6")
+        reason = (
+            f"vertex count {n_verts_r} ≠ {tri_nverts}: "
+            f"-I_3 simplex has 3 vertices, triangle LP has 6"
+        )
         print(f"  ── FIRST OBSTRUCTION: {reason}")
         step4[n] = {"equivalent": False, "reason": reason}
     elif vol_r != tri_vol:
@@ -315,19 +356,23 @@ Step 1 — n=3 sanity check:
   Point-config equiv   : {fi1.found},  det M = {fi1.determinant if fi1.found else "—"}
   ✓  |det M| = 2  as expected.""")
 
-print(f"""
+print(
+    f"""
 Step 2 — K_n LP invariants:
-  {'n':>2}  {'edges':>5}  {'A-shape':>8}  {'dim':>4}  {'monomials':>9}  {'verts':>5}  {'norm-vol':>12}  {'Smith'}""")
+  {'n':>2}  {'edges':>5}  {'A-shape':>8}  {'dim':>4}  {'monomials':>9}  {'verts':>5}  {'norm-vol':>12}  {'Smith'}"""
+)
 print("  " + "─" * 65)
 for n, label_vol, label_verts, smith_label in [
     (3, str(vol_tri), "6 (=monomials)", str(cfg_tri.smith_invariants)),
-    (4, str(vol4),    "31 (=monomials)", str(cfg4.smith_invariants)),
-    (5, "347112",     "235 (=monomials)", str(cfg5.smith_invariants)),
+    (4, str(vol4), "31 (=monomials)", str(cfg4.smith_invariants)),
+    (5, "347112", "235 (=monomials)", str(cfg5.smith_invariants)),
 ]:
-    ne = n*(n-1)//2
+    ne = n * (n - 1) // 2
     sh = f"{ne+1}×{kn_data[n]['n_pts']}"
-    print(f"  {n:>2}  {ne:>5}  {sh:>8}  {ne:>4}  {kn_data[n]['n_pts']:>9}  "
-          f"{kn_data[n]['n_verts']:>5}  {label_vol:>12}  {smith_label}")
+    print(
+        f"  {n:>2}  {ne:>5}  {sh:>8}  {ne:>4}  {kn_data[n]['n_pts']:>9}  "
+        f"{kn_data[n]['n_verts']:>5}  {label_vol:>12}  {smith_label}"
+    )
 
 print(f"""
 Step 3 — K_n LP vs. contact star (n-point):
@@ -335,7 +380,8 @@ Step 3 — K_n LP vs. contact star (n-point):
 print("  " + "─" * 62)
 for n in [3, 4, 5]:
     r = step3[n]
-    ld = kn_data[n]["ambient_dim"]; sd = n
+    ld = kn_data[n]["ambient_dim"]
+    sd = n
     if r["equivalent"]:
         obs = f"EQUIVALENT (det M = {r['det']})"
     else:

@@ -19,7 +19,6 @@ from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.artifacts.conformal import _bms_g_polynomial
 from feynkit.landau import LandauAnalysis, landau_analysis, landau_analysis_from_polynomial
 
-
 # ─── diagram constructors ────────────────────────────────────────────────────
 
 
@@ -52,8 +51,7 @@ def _massless_box() -> FeynmanIntegral:
     z = sp.Integer(0)
     nu = sp.symbols("nu1:5", positive=True)
     internal = [
-        Edge(idx=i + 1, v1=(i % 4) + 1, v2=((i + 1) % 4) + 1,
-             is_internal=True, mass=z, nu=nu[i])
+        Edge(idx=i + 1, v1=(i % 4) + 1, v2=((i + 1) % 4) + 1, is_internal=True, mass=z, nu=nu[i])
         for i in range(4)
     ]
     external = [Edge(idx=5 + i, v1=i + 1, v2=5 + i, is_internal=False) for i in range(4)]
@@ -125,8 +123,9 @@ def main() -> None:
 
     # ── 5. Massless box ──────────────────────────────────────────────────────
     print("\n  [Computing massless box — may take a moment...]")
-    _show("Massless box  [4 massless propagators, 4 external legs]",
-          landau_analysis(_massless_box()))
+    _show(
+        "Massless box  [4 massless propagators, 4 external legs]", landau_analysis(_massless_box())
+    )
 
     # ── 6. BMS_3 conformal simplex ───────────────────────────────────────────
     print("\n  ── Conformal family (BMS simplex, Bzowski–McFadden–Skenderis) ──")

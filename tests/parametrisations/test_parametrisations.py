@@ -48,9 +48,7 @@ class TestSchwingerParametrisation:
         assert result.measure is not None
         assert result.integrand is not None
 
-    def test_schwinger_parameters_named_correctly(
-        self, bubble_integral: FeynmanIntegral
-    ) -> None:
+    def test_schwinger_parameters_named_correctly(self, bubble_integral: FeynmanIntegral) -> None:
         param_names = [str(p) for p in bubble_integral.schwinger.parameters]
         assert "alpha_1" in param_names
         assert "alpha_2" in param_names

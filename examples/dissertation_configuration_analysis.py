@@ -39,8 +39,10 @@ def describe_config(name: str, cfg) -> None:
     pts = cfg.affine_points
     hull = cfg.newton_polytope_points
     print(f"\n{name}")
-    print(f"  A-matrix shape : {cfg.matrix.shape[0]}×{cfg.matrix.shape[1]}"
-          f"  (homogenized={cfg.is_homogenized})")
+    print(
+        f"  A-matrix shape : {cfg.matrix.shape[0]}×{cfg.matrix.shape[1]}"
+        f"  (homogenized={cfg.is_homogenized})"
+    )
     print(f"  Ambient dim    : {cfg.ambient_dim}")
     print(f"  # monomials    : {cfg.n_points}")
     print(f"  Affine dim     : {cfg.affine_dim}")
@@ -69,7 +71,7 @@ print_section("Configurations")
 tri = triangle_a_config()
 tpk = triple_k_a_config()
 ban = banana3_a_config()
-s4  = four_point_simplex_a_config()
+s4 = four_point_simplex_a_config()
 
 describe_config("Triangle (massless, 1-loop)", tri)
 describe_config("Triple-K (conformal 3-point)", tpk)
@@ -228,6 +230,7 @@ auts_tri = tri.automorphisms()
 auts_tpk = tpk.automorphisms()
 auts_ban = ban.automorphisms()
 
+
 def _group_name(order: int) -> str:
     return {1: "trivial", 2: "ℤ/2", 6: "S₃", 8: "D₄", 24: "S₄", 48: "B₃"}.get(order, "?")
 
@@ -242,7 +245,7 @@ print(f"\nBanana-3  : |Aut(P)| = {auts_ban.order}  ({_group_name(auts_ban.order)
 print(f"  Vertex orbits : {auts_ban.vertex_orbits}")
 
 # Derive the interpretation dynamically from the computed values.
-aut_same = (auts_tri.order == auts_tpk.order)
+aut_same = auts_tri.order == auts_tpk.order
 _aut_interp = (
     f"""
 Both Newton polytopes have |Aut(P)| = {auts_tri.order} = {_group_name(auts_tri.order)}.
@@ -265,8 +268,8 @@ abstract convex body.  What distinguishes them is purely their lattice embedding
     {{x+y+z ≡ 0 mod 2}} of index 2 in ℤ³ (Smith [1,1,2]).
 The Smith invariants capture this sublattice difference; |Aut(P)| alone does not.
 """
-    if aut_same else
-    f"""
+    if aut_same
+    else f"""
 Triangle |Aut(P)| = {auts_tri.order}, Triple-K |Aut(P)| = {auts_tpk.order}.
 These differ, confirming the two polytopes have different unimodular symmetry groups.
 """
@@ -287,7 +290,7 @@ print_section("Normalized Lattice Volume (GKZ Holonomic Rank)")
 vol_tri = tri.normalized_volume
 vol_tpk = tpk.normalized_volume
 vol_ban = ban.normalized_volume
-vol_s4  = s4.normalized_volume
+vol_s4 = s4.normalized_volume
 
 print(f"""
 The normalized lattice volume of the Newton polytope equals the holonomic rank
@@ -314,12 +317,12 @@ The two GKZ systems are isomorphic over ℚ and have the same holonomic rank.
 
 print_section("Summary")
 
-_snf_same   = (tri.smith_invariants == tpk.smith_invariants)
-_uni_same   = result_uni.equivalent
-_aff_same   = result_aff.equivalent
-_fim_det    = result_fim.determinant if result_fim.found else "—"
+_snf_same = tri.smith_invariants == tpk.smith_invariants
+_uni_same = result_uni.equivalent
+_aff_same = result_aff.equivalent
+_fim_det = result_fim.determinant if result_fim.found else "—"
 _aut_same_s = "YES" if aut_same else "NO"
-_vol_same   = (vol_tri == vol_tpk)
+_vol_same = vol_tri == vol_tpk
 
 print(f"""  Configuration pair: Triangle  vs  Triple-K
 

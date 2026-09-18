@@ -45,8 +45,7 @@ else:
 print("\n" + "=" * 80)
 print("INTERPRETATION")
 print("=" * 80)
-print(
-    """
+print("""
 The toric ideal generators represent polynomial relations among the
 monomial coefficients of the G polynomial. These relations correspond
 to integration-by-parts (IBP) identities for the Feynman integral.
@@ -54,5 +53,4 @@ to integration-by-parts (IBP) identities for the Feynman integral.
 If the ideal is trivial (no generators), then all monomial coefficients
 are algebraically independent, and the integral is a "master integral"
 that cannot be reduced further using IBP identities.
-"""
-)
+""")

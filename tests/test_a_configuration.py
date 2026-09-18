@@ -38,7 +38,6 @@ from feynkit.artifacts.dissertation import (
     triple_k_a_config,
 )
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ──────────────────────────────────────────────────────────────────────────────
@@ -319,10 +318,9 @@ class TestSymmetryPairs:
     def test_identity_always_present(self, triangle):
         pairs = symmetry_pairs(triangle)
         identity = [
-            p for p in pairs
-            if p.is_unimodular
-            and p.linear_map == sp.eye(3)
-            and p.translation == sp.zeros(3, 1)
+            p
+            for p in pairs
+            if p.is_unimodular and p.linear_map == sp.eye(3) and p.translation == sp.zeros(3, 1)
         ]
         assert len(identity) == 1
 
@@ -350,8 +348,7 @@ class TestSymmetryPairs:
             for j, k in enumerate(pair.column_permutation):
                 Pi[k, j] = 1
             assert T * A == A * Pi, (
-                f"T·A ≠ A·Π_P for det={pair.determinant}, "
-                f"perm={pair.column_permutation}"
+                f"T·A ≠ A·Π_P for det={pair.determinant}, " f"perm={pair.column_permutation}"
             )
 
     def test_image_points_within_config(self, triangle):
@@ -404,8 +401,9 @@ class TestSymmetryPairs:
     def test_transform_beta_identity(self, triangle):
         """Identity pair maps β to itself."""
         pairs = symmetry_pairs(triangle)
-        identity = next(p for p in pairs if p.linear_map == sp.eye(3)
-                        and p.translation == sp.zeros(3, 1))
+        identity = next(
+            p for p in pairs if p.linear_map == sp.eye(3) and p.translation == sp.zeros(3, 1)
+        )
         beta = [sp.Symbol("b0"), sp.Symbol("b1"), sp.Symbol("b2"), sp.Symbol("b3")]
         result = identity.transform_beta(beta)
         assert result == beta
@@ -417,10 +415,7 @@ class TestSymmetryPairs:
 
     def test_banana3_has_identity(self, banana3):
         pairs = symmetry_pairs(banana3)
-        assert any(
-            p.is_unimodular and p.linear_map == sp.eye(3)
-            for p in pairs
-        )
+        assert any(p.is_unimodular and p.linear_map == sp.eye(3) for p in pairs)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -487,6 +482,7 @@ class TestConformalArtifacts:
     def test_bms_g_polynomial_has_correct_monomials(self):
         """G polynomial derivation gives exactly 2n monomials with correct degrees."""
         import sympy as sp
+
         for n in [2, 3, 4, 5]:
             G = _bms_g_polynomial(n)
             u = [sp.Symbol(f"u_{i + 1}") for i in range(n)]
@@ -575,6 +571,7 @@ class TestConformalArtifacts:
     def test_companion_n3_finite_index_map_witness(self):
         """The witness matrix for companion(3) → BMS_3 maps every column correctly."""
         import numpy as np
+
         comp3 = conformal_companion_a_config(3)
         bms3 = bms_simplex_a_config(3)
         fim = finite_index_map(comp3, bms3)
@@ -583,8 +580,9 @@ class TestConformalArtifacts:
         # Verify: for each source column v, M·v + t lands in BMS_3 columns.
         M = np.array([[int(fim.witness_matrix[r, c]) for c in range(3)] for r in range(3)])
         t = np.array([int(x) for x in fim.translation])
-        bms_cols = {tuple(int(bms3.matrix[r, j]) for r in range(1, 4))
-                    for j in range(bms3.n_points)}
+        bms_cols = {
+            tuple(int(bms3.matrix[r, j]) for r in range(1, 4)) for j in range(bms3.n_points)
+        }
         for j in range(comp3.n_points):
             v = np.array([int(comp3.matrix[r, j]) for r in range(1, 4)])
             mapped = tuple((M @ v + t).tolist())
@@ -596,8 +594,9 @@ class TestConformalArtifacts:
             comp = conformal_companion_a_config(n)
             assert comp.n_points == 2 * n
             assert comp.ambient_dim == n
-            cols = [tuple(int(comp.matrix[r, j]) for r in range(1, n + 1))
-                    for j in range(comp.n_points)]
+            cols = [
+                tuple(int(comp.matrix[r, j]) for r in range(1, n + 1)) for j in range(comp.n_points)
+            ]
             lower = [c for c in cols if sum(c) == n - 1]
             upper = [c for c in cols if sum(c) == 1]
             assert len(lower) == n, f"n={n}: expected {n} lower monomials, got {len(lower)}"
@@ -613,9 +612,9 @@ class TestConformalArtifacts:
         expected = {3: [1, 1, 1], 4: [1, 1, 1, 2], 5: [1, 1, 1, 1, 3]}
         for n, smith in expected.items():
             comp = conformal_companion_a_config(n)
-            assert comp.smith_invariants == smith, (
-                f"n={n}: Smith={comp.smith_invariants}, expected {smith}"
-            )
+            assert (
+                comp.smith_invariants == smith
+            ), f"n={n}: Smith={comp.smith_invariants}, expected {smith}"
 
     def test_companion_raises_for_n_lt_3(self):
         with pytest.raises(ValueError):

@@ -12,7 +12,9 @@ from typing import Any
 import sympy as sp
 
 
-def _build_uf(n_vertices: int, edge_subset: tuple[int, ...], edge_pairs: list[tuple[int, int]]) -> tuple[list[int] | None, int]:
+def _build_uf(
+    n_vertices: int, edge_subset: tuple[int, ...], edge_pairs: list[tuple[int, int]]
+) -> tuple[list[int] | None, int]:
     """
     Run union-find over the given edge subset.
 
@@ -116,7 +118,7 @@ def gkz_exponent_vectors(
     # F₀ monomials: complement of each separating 2-forest, per momentum pair
     ext_legs = sorted(leg_to_vertex)
     for ji, j in enumerate(ext_legs):
-        for k in ext_legs[ji + 1:]:
+        for k in ext_legs[ji + 1 :]:
             p_jk = momentum_products.get((j, k)) or momentum_products.get((k, j))
             if p_jk is None or p_jk == 0:
                 continue
@@ -128,9 +130,7 @@ def gkz_exponent_vectors(
                 _add(tuple(0 if i in forest_set else 1 for i in range(n)))
 
     # F_mass monomials: a_k * (U monomial for T), for each tree T and massive edge k
-    mass_edge_indices = [
-        i for i, m in enumerate(internal_edge_masses) if m != 0
-    ]
+    mass_edge_indices = [i for i, m in enumerate(internal_edge_masses) if m != 0]
     if mass_edge_indices:
         for tree in _spanning_trees(n_vertices, edge_pairs):
             tree_set = set(tree)

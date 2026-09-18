@@ -28,7 +28,7 @@ import sympy as sp
 
 from feynkit import FeynmanIntegral
 
-SEP  = "─" * 72
+SEP = "─" * 72
 SEP2 = "━" * 72
 
 
@@ -43,10 +43,19 @@ def print_section(title: str) -> None:
 # Helper
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _group_name(order: int) -> str:
     return {
-        1: "trivial", 2: "ℤ/2", 3: "ℤ/3", 4: "V₄", 6: "S₃",
-        8: "eightfold (₂F₁)", 12: "A₄", 24: "S₄", 48: "B₃", 120: "S₅",
+        1: "trivial",
+        2: "ℤ/2",
+        3: "ℤ/3",
+        4: "V₄",
+        6: "S₃",
+        8: "eightfold (₂F₁)",
+        12: "A₄",
+        24: "S₄",
+        48: "B₃",
+        120: "S₅",
     }.get(order, f"order {order}")
 
 
@@ -58,7 +67,7 @@ print_section("One-mass bubble  —  8 symmetry pairs = eightfold ₂F₁ symmet
 
 fi_1m = FeynmanIntegral.from_cnickel("11e|e|:nz")
 pairs_1m = fi_1m.symmetry_pairs
-beta_1m  = fi_1m.gkz.beta_parameters
+beta_1m = fi_1m.gkz.beta_parameters
 
 print(f"""
 The one-mass bubble has G with {fi_1m.newton_polytope.a_matrix.cols} monomials in ℝ².
@@ -99,7 +108,7 @@ print_section("Massless triangle  —  48 symmetry pairs, B₃ (octahedral group
 
 fi_tri = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
 pairs_tri = fi_tri.symmetry_pairs
-beta_tri  = fi_tri.gkz.beta_parameters
+beta_tri = fi_tri.gkz.beta_parameters
 
 print(f"""
 Massless triangle: G has {fi_tri.newton_polytope.a_matrix.cols} monomials in ℝ³.
@@ -123,7 +132,7 @@ print(f"  {'#':<4} {'det':>4}  {'M (rows)':<42}  t")
 print(f"  {'─'*4}  {'─'*4}  {'─'*42}  {'─'*16}")
 for i, p in enumerate(pairs_tri[:5]):
     M_rows = "; ".join(str(row) for row in p.linear_map.tolist())
-    t_str  = str([int(p.translation[k, 0]) for k in range(p.translation.rows)])
+    t_str = str([int(p.translation[k, 0]) for k in range(p.translation.rows)])
     print(f"  [{i}]  {p.determinant:>4}  [{M_rows}]  {t_str}")
 
 # Show the T·A = A·Π_P check for one pair
@@ -133,7 +142,7 @@ N = A.cols
 Pi = sp.zeros(N, N)
 for j, k in enumerate(p_sample.column_permutation):
     Pi[k, j] = 1
-ta_eq_ap = (p_sample.homogenized_map * A == A * Pi)
+ta_eq_ap = p_sample.homogenized_map * A == A * Pi
 print(f"\n  Verification T·A = A·Π_P for pair [7]: {ta_eq_ap}")
 
 
@@ -145,7 +154,7 @@ print_section("β transformation: I_A(β, z) = I_A(T β, z_P)")
 
 fi = FeynmanIntegral.from_cnickel("11e|e|:nz")
 pairs = fi.symmetry_pairs
-beta  = fi.gkz.beta_parameters
+beta = fi.gkz.beta_parameters
 D, nu1, nu2 = sp.Symbol("D"), sp.Symbol("nu_1"), sp.Symbol("nu_2")
 
 print(f"""
@@ -159,7 +168,7 @@ integrals.
 """)
 
 for i, p in enumerate(pairs):
-    tb  = p.transform_beta(beta)
+    tb = p.transform_beta(beta)
     perm = list(p.column_permutation)
     print(f"  [{i}]  I(β, z) = I({tb},  z_P={perm})")
 
@@ -171,17 +180,17 @@ for i, p in enumerate(pairs):
 print_section("Survey: symmetry pair counts for standard diagrams")
 
 DIAGRAMS = [
-    ("Massless bubble",      "11e|e|:zz",         "S₃: 3-simplex symmetry"),
-    ("One-mass bubble",      "11e|e|:nz",         "eightfold ₂F₁ symmetry (de la Cruz 2024)"),
-    ("Massive bubble",       "11e|e|:nn",         "ℤ/2: propagator exchange"),
-    ("Massless triangle",    "12e|2e|e|:zzz",     "B₃: cross-polytope / octahedral symmetry"),
-    ("One-mass triangle",    "12e|2e|e|:nzz",     "S₃: residual permutation symmetry"),
-    ("Two-mass triangle",    "12e|2e|e|:nnz",     "V₄: exchange of massive or massless legs"),
-    ("All-mass triangle",    "12e|2e|e|:nnn",     "S₃: full propagator permutation"),
-    ("Massless box",         "12e|3e|3e|e|:zzzz", "S₅: 10 = C(5,2) monomial structure"),
-    ("One-mass box",         "12e|3e|3e|e|:nzzz", "S₄: symmetry breaking by one mass"),
-    ("Massless 3-banana",    "111e|e|:zzz",       "S₄: 3-banana is a tetrahedron in ℝ³"),
-    ("Massless 4-banana",    "1111e|e|:zzzz",     "S₅: 4-banana is a 4-simplex in ℝ⁴"),
+    ("Massless bubble", "11e|e|:zz", "S₃: 3-simplex symmetry"),
+    ("One-mass bubble", "11e|e|:nz", "eightfold ₂F₁ symmetry (de la Cruz 2024)"),
+    ("Massive bubble", "11e|e|:nn", "ℤ/2: propagator exchange"),
+    ("Massless triangle", "12e|2e|e|:zzz", "B₃: cross-polytope / octahedral symmetry"),
+    ("One-mass triangle", "12e|2e|e|:nzz", "S₃: residual permutation symmetry"),
+    ("Two-mass triangle", "12e|2e|e|:nnz", "V₄: exchange of massive or massless legs"),
+    ("All-mass triangle", "12e|2e|e|:nnn", "S₃: full propagator permutation"),
+    ("Massless box", "12e|3e|3e|e|:zzzz", "S₅: 10 = C(5,2) monomial structure"),
+    ("One-mass box", "12e|3e|3e|e|:nzzz", "S₄: symmetry breaking by one mass"),
+    ("Massless 3-banana", "111e|e|:zzz", "S₄: 3-banana is a tetrahedron in ℝ³"),
+    ("Massless 4-banana", "1111e|e|:zzzz", "S₅: 4-banana is a 4-simplex in ℝ⁴"),
 ]
 
 print(f"\n  {'Diagram':<22} {'N':>4} {'n':>3} {'pairs':>7} {'uni':>5} {'dets':>14}  Interpretation")
@@ -189,14 +198,14 @@ print(f"  {'─'*22}  {'─'*4}  {'─'*3}  {'─'*7}  {'─'*5}  {'─'*14}  {'
 
 for label, cn, interp in DIAGRAMS:
     try:
-        fi   = FeynmanIntegral.from_cnickel(cn)
-        ps   = fi.symmetry_pairs
-        cfg  = fi.gkz.a_matrix
-        N    = cfg.cols
-        n    = cfg.rows - 1  # ambient dimension (drop homogenization row)
+        fi = FeynmanIntegral.from_cnickel(cn)
+        ps = fi.symmetry_pairs
+        cfg = fi.gkz.a_matrix
+        N = cfg.cols
+        n = cfg.rows - 1  # ambient dimension (drop homogenization row)
         n_all = len(ps)
         n_uni = sum(1 for p in ps if p.is_unimodular)
-        dets  = sorted(set(p.determinant for p in ps))
+        dets = sorted(set(p.determinant for p in ps))
         dets_str = str(dets) if len(dets) <= 3 else f"[{min(dets)}..{max(dets)}]"
         print(f"  {label:<22}  {N:>4}  {n:>3}  {n_all:>7}  {n_uni:>5}  {dets_str:>14}  {interp}")
     except Exception as exc:
@@ -240,10 +249,10 @@ tri = triangle_a_config()
 tpk = triple_k_a_config()
 
 pairs_tri2 = sp_fn(tri)
-pairs_tpk  = sp_fn(tpk)
+pairs_tpk = sp_fn(tpk)
 
 uni_tri2 = [p for p in pairs_tri2 if p.is_unimodular]
-uni_tpk  = [p for p in pairs_tpk  if p.is_unimodular]
+uni_tpk = [p for p in pairs_tpk if p.is_unimodular]
 
 print(f"""
 Both the triangle and triple-K Newton polytopes are cross-polytopes in ℝ³

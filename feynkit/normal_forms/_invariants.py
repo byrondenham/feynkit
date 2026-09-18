@@ -18,7 +18,6 @@ import numpy as np
 import sympy as sp
 from scipy.spatial import ConvexHull, QhullError
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Coercion / hull
 # ──────────────────────────────────────────────────────────────────────────────

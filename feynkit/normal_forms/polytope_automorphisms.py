@@ -89,8 +89,7 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
 
     if n_vert == 0:
         return PolytopeAutomorphisms(
-            maps=[(sp.ImmutableMatrix(sp.eye(n_dim)),
-                   sp.ImmutableMatrix(sp.zeros(n_dim, 1)))],
+            maps=[(sp.ImmutableMatrix(sp.eye(n_dim)), sp.ImmutableMatrix(sp.zeros(n_dim, 1)))],
             order=1,
             vertex_permutations=[[]],
             vertex_orbits=[],
@@ -98,8 +97,7 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
 
     if n_vert == 1:
         return PolytopeAutomorphisms(
-            maps=[(sp.ImmutableMatrix(sp.eye(n_dim)),
-                   sp.ImmutableMatrix(sp.zeros(n_dim, 1)))],
+            maps=[(sp.ImmutableMatrix(sp.eye(n_dim)), sp.ImmutableMatrix(sp.zeros(n_dim, 1)))],
             order=1,
             vertex_permutations=[[0]],
             vertex_orbits=[[0]],
@@ -148,10 +146,7 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
 
         v_0_image = V_arr[anchor_idx]
         deltas_b = (V_arr - v_0_image).astype(np.int64)
-        delta_to_b_idx = {
-            tuple(int(x) for x in row): i
-            for i, row in enumerate(deltas_b.tolist())
-        }
+        delta_to_b_idx = {tuple(int(x) for x in row): i for i, row in enumerate(deltas_b.tolist())}
 
         others = [j for j in range(n_vert) if j != anchor_idx]
 
@@ -206,10 +201,12 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
                 Z_int = v_0_image.astype(np.int64) - U_int @ v_0.astype(np.int64)
 
                 seen_vperms.add(vperm)
-                found_maps.append((
-                    sp.ImmutableMatrix(U_int.tolist()),
-                    sp.ImmutableMatrix(Z_int.reshape(-1, 1).tolist()),
-                ))
+                found_maps.append(
+                    (
+                        sp.ImmutableMatrix(U_int.tolist()),
+                        sp.ImmutableMatrix(Z_int.reshape(-1, 1).tolist()),
+                    )
+                )
                 found_vperms.append(list(vperm))
 
     if not found_maps:
@@ -265,9 +262,7 @@ def compute_graph_automorphisms(graph: "Graph") -> list[list[int]]:
         new_label = {old: new for new, old in enumerate(perm, start=1)}
         result = []
         for old_v in perm:
-            relabelled = sorted(
-                (new_label[nb], mc) for nb, mc in adj.get(old_v, [])
-            )
+            relabelled = sorted((new_label[nb], mc) for nb, mc in adj.get(old_v, []))
             result.append((ext_deg.get(old_v, 0), tuple(relabelled)))
         return result
 
@@ -314,9 +309,7 @@ def coefficient_preserving_indices(
         Index 0 (identity) is always included.
     """
     support = fi.newton_polytope.support  # list of (exponent_tuple, coeff)
-    coeff_map: dict[tuple[int, ...], sp.Expr] = {
-        exp: coeff for exp, coeff in support
-    }
+    coeff_map: dict[tuple[int, ...], sp.Expr] = {exp: coeff for exp, coeff in support}
 
     result = []
     for k, (U, t) in enumerate(auts.maps):

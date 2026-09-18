@@ -51,7 +51,9 @@ class FeynmanParametrisation(Parametrisation):
         u_polynomial: sp.Expr,
         f_polynomial: sp.Expr,
     ):
-        super().__init__(graph, dimension, loop_count, propagator_exponents, u_polynomial, f_polynomial)
+        super().__init__(
+            graph, dimension, loop_count, propagator_exponents, u_polynomial, f_polynomial
+        )
 
     @property
     def name(self) -> str:
@@ -121,9 +123,7 @@ class FeynmanParametrisation(Parametrisation):
             u_exponent = nu_sum - (loop_order + 1) * self.dimension / 2
             f_exponent = nu_sum - loop_order * self.dimension / 2
 
-            integrand = sp.simplify(
-                self.u_polynomial**u_exponent / self.f_polynomial**f_exponent
-            )
+            integrand = sp.simplify(self.u_polynomial**u_exponent / self.f_polynomial**f_exponent)
 
             # === Constraints ===
             # Simplex constraint: sum_i a_i = 1, all a_i >= 0

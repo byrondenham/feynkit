@@ -42,8 +42,8 @@ import sympy as sp
 
 from feynkit import Edge, FeynkitDatabase, FeynmanIntegral, Graph
 
-
 # ── diagram constructors ──────────────────────────────────────────────────────
+
 
 def _polygon(n: int, mass_set: frozenset[int], db: FeynkitDatabase) -> FeynmanIntegral:
     """
@@ -52,7 +52,7 @@ def _polygon(n: int, mass_set: frozenset[int], db: FeynkitDatabase) -> FeynmanIn
     combinatorial placement, not on individual mass values.
     """
     nus = sp.symbols(f"nu1:{n + 1}", positive=True)
-    m   = sp.Symbol("m", nonnegative=True)
+    m = sp.Symbol("m", nonnegative=True)
 
     def mass(i: int) -> sp.Expr:
         return m if i in mass_set else sp.Integer(0)
@@ -67,13 +67,18 @@ def _polygon(n: int, mass_set: frozenset[int], db: FeynkitDatabase) -> FeynmanIn
         g = Graph(internal_vertices=2, external_legs=2, edges=edges)
     else:
         internal = [
-            Edge(idx=i + 1, v1=(i % n) + 1, v2=((i + 1) % n) + 1,
-                 is_internal=True, mass=mass(i), nu=nus[i])
+            Edge(
+                idx=i + 1,
+                v1=(i % n) + 1,
+                v2=((i + 1) % n) + 1,
+                is_internal=True,
+                mass=mass(i),
+                nu=nus[i],
+            )
             for i in range(n)
         ]
         external = [
-            Edge(idx=n + 1 + i, v1=i + 1, v2=n + 1 + i, is_internal=False)
-            for i in range(n)
+            Edge(idx=n + 1 + i, v1=i + 1, v2=n + 1 + i, is_internal=False) for i in range(n)
         ]
         g = Graph(internal_vertices=n, external_legs=n, edges=internal + external)
 
@@ -87,7 +92,7 @@ def _polygon(n: int, mass_set: frozenset[int], db: FeynkitDatabase) -> FeynmanIn
 def _banana(n_props: int, *, massive: bool, db: FeynkitDatabase) -> FeynmanIntegral:
     """Banana / sunrise: n_props parallel propagators, (n_props-1)-loop."""
     nus = sp.symbols(f"nu1:{n_props + 1}", positive=True)
-    ms  = sp.symbols(f"m1:{n_props + 1}", nonnegative=True)
+    ms = sp.symbols(f"m1:{n_props + 1}", nonnegative=True)
 
     def mass(i: int) -> sp.Expr:
         return ms[i] if massive else sp.Integer(0)
@@ -153,22 +158,24 @@ def build_families(db: FeynkitDatabase) -> list[tuple[str, list[tuple[str, Feynm
             families.append((family_title, items))
 
     # ── Bananas ───────────────────────────────────────────────────────────────
-    families.append((
-        "massless banana  n = 3 … 7  (massless bubble already in polygons)",
-        [
-            (f"massless banana  {n} props  ({n-1}-loop)",
-             _banana(n, massive=False, db=db))
-            for n in range(3, 8)
-        ],
-    ))
-    families.append((
-        "massive banana  n = 2 … 6",
-        [
-            (f"massive banana  {n} props  ({n-1}-loop)",
-             _banana(n, massive=True, db=db))
-            for n in range(2, 7)
-        ],
-    ))
+    families.append(
+        (
+            "massless banana  n = 3 … 7  (massless bubble already in polygons)",
+            [
+                (f"massless banana  {n} props  ({n-1}-loop)", _banana(n, massive=False, db=db))
+                for n in range(3, 8)
+            ],
+        )
+    )
+    families.append(
+        (
+            "massive banana  n = 2 … 6",
+            [
+                (f"massive banana  {n} props  ({n-1}-loop)", _banana(n, massive=True, db=db))
+                for n in range(2, 7)
+            ],
+        )
+    )
 
     return families
 
@@ -201,6 +208,7 @@ def _row_stored(idx: int, total: int, label: str, rec, elapsed: float) -> None:
 
 
 # ── equivalence analysis ──────────────────────────────────────────────────────
+
 
 def equivalence_analysis(db: FeynkitDatabase) -> None:
     """
@@ -257,6 +265,7 @@ def equivalence_analysis(db: FeynkitDatabase) -> None:
 
 # ── main ──────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     db_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("feynkit_equiv_survey.db")
 
@@ -291,7 +300,7 @@ def main() -> None:
                     _row_cached(global_idx, total, label, rec)
                     continue
 
-                t0  = time.perf_counter()
+                t0 = time.perf_counter()
                 rec = db.store(fi, label=label)
                 label_cache[label] = rec
                 _row_stored(global_idx, total, label, rec, time.perf_counter() - t0)

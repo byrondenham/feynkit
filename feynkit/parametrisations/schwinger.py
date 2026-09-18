@@ -55,7 +55,9 @@ class SchwingerParametrisation(Parametrisation):
         u_polynomial: sp.Expr,
         f_polynomial: sp.Expr,
     ):
-        super().__init__(graph, dimension, loop_count, propagator_exponents, u_polynomial, f_polynomial)
+        super().__init__(
+            graph, dimension, loop_count, propagator_exponents, u_polynomial, f_polynomial
+        )
 
     @property
     def name(self) -> str:
@@ -154,7 +156,9 @@ class SchwingerParametrisation(Parametrisation):
         except Exception as e:
             raise ComputationError(f"Failed to compute Schwinger parametrisation: {e}") from e
 
-    def dehomogenised_symanzik_polynomials(self) -> tuple[tuple[sp.Expr, sp.Expr], list[sp.Symbols]]:
+    def dehomogenised_symanzik_polynomials(
+        self,
+    ) -> tuple[tuple[sp.Expr, sp.Expr], list[sp.Symbols]]:
         """
         Apply the substitution needed to obtain the dehomogenised Symanzik polynomials. This can be used to bring the Schwinger parametrisation into the form of a GKZ integral. Specifically, the substitution is {α_1, ..., α_N} -> {tu_1, ..., tu_{N-1}, t}, based on work from https://arxiv.org/abs/2609.16107v1.
 
@@ -168,7 +172,10 @@ class SchwingerParametrisation(Parametrisation):
         """
 
         t = sp.symbols("t")
-        alpha = [sp.Symbol(f"{ALPHA_PARAM_PREFIX}_{e.idx}", nonnegative=True, real=True) for e in self.internal_edges]
+        alpha = [
+            sp.Symbol(f"{ALPHA_PARAM_PREFIX}_{e.idx}", nonnegative=True, real=True)
+            for e in self.internal_edges
+        ]
         u = [sp.Symbol(f"{u}_{e.idx}", nonnegative=True, real=True) for e in self.internal_edges]
 
         new_vars = tuple(t * ui for ui in new_vars)
@@ -188,7 +195,7 @@ class SchwingerParametrisation(Parametrisation):
         A-matrix
             The \mathcal{A}-matrix of the GKZ integral. Because the integral consists of a product of two functions, the dehomogenised Symanzik polynomials Ũ and F̃, the \mathcal{A}-matrix will necessarily be of the form::
 
-            1 ... 1 | 0 ... 0 
+            1 ... 1 | 0 ... 0
             0 ... 0 | 1 ... 1
             -----------------
               A_1   |   A_1
@@ -202,13 +209,13 @@ class SchwingerParametrisation(Parametrisation):
         _, n = A_1.shape
         _, N = A_2.shape
 
-        head = np.zeros((2, (n + N)), dtype = int)
+        head = np.zeros((2, (n + N)), dtype=int)
 
-        for i in range(2):          
-                  for j in range((n+N)):
-        
-                       if ((i == 0) & (j < n)) or ((i == 1) & (j >= n)):
-        
-                            head[i][j] = 1
-        
+        for i in range(2):
+            for j in range((n + N)):
+
+                if ((i == 0) & (j < n)) or ((i == 1) & (j >= n)):
+
+                    head[i][j] = 1
+
         return sp.Matrix(np.r_[head, np.c_[A_1, A_2]])

@@ -34,8 +34,7 @@ _MASSLESS_CODES: frozenset[str] = frozenset(("0", "z"))
 # Range: digits 1–9 and lowercase letters a–y, excluding the reserved codes
 # 'n' (unique non-zero) and 's' (special shared).
 _LABELED_CODES: frozenset[str] = frozenset(
-    [str(d) for d in range(1, 10)]
-    + [c for c in "abcdefghijklmnopqrstuvwxy" if c not in ("n", "s")]
+    [str(d) for d in range(1, 10)] + [c for c in "abcdefghijklmnopqrstuvwxy" if c not in ("n", "s")]
 )
 
 _ALL_VALID_CODES: frozenset[str] = _MASSLESS_CODES | {"n", "s"} | _LABELED_CODES
@@ -421,9 +420,7 @@ class Graph:
             new_label = {v: i for i, v in enumerate(perm)}
             parts = []
             for i in range(V):
-                entry, _ = self._nickel_entry_and_colors(
-                    i, perm[i], new_label, adj, ext_deg
-                )
+                entry, _ = self._nickel_entry_and_colors(i, perm[i], new_label, adj, ext_deg)
                 parts.append(entry)
             s = "|".join(parts) + "|"
             if best is None or s < best:
@@ -467,9 +464,7 @@ class Graph:
             parts = []
             all_colors: list[str] = []
             for i in range(V):
-                entry, colors = self._nickel_entry_and_colors(
-                    i, perm[i], new_label, adj, ext_deg
-                )
+                entry, colors = self._nickel_entry_and_colors(i, perm[i], new_label, adj, ext_deg)
                 parts.append(entry)
                 all_colors.extend(colors)
             nickel = "|".join(parts) + "|"
@@ -531,9 +526,7 @@ class Graph:
                 # Extract only the colors that sit at digit (internal-edge) positions.
                 topo_chars = topology.rstrip("|").replace("|", "")
                 color_chars = color_part.rstrip("|").replace("|", "")
-                mass_str = "".join(
-                    cc for tc, cc in zip(topo_chars, color_chars) if tc.isdigit()
-                )
+                mass_str = "".join(cc for tc, cc in zip(topo_chars, color_chars) if tc.isdigit())
             else:
                 mass_str = color_part
         else:
@@ -568,9 +561,7 @@ class Graph:
                         else:
                             mc = "z"
                         if mc not in _ALL_VALID_CODES:
-                            raise ValueError(
-                                f"Unknown mass code {mc!r} in {cnickel!r}"
-                            )
+                            raise ValueError(f"Unknown mass code {mc!r} in {cnickel!r}")
                         mass_idx += 1
                         mass = _mass_from_code(mc, edge_idx, MASS_ASSUMPTIONS)
                         internal_edges.append(
@@ -585,8 +576,7 @@ class Graph:
                         edge_idx += 1
                 elif ch != "e":
                     raise ValueError(
-                        f"Unexpected character {ch!r} in entry {i} "
-                        f"of topology {topology!r}"
+                        f"Unexpected character {ch!r} in entry {i} " f"of topology {topology!r}"
                     )
 
         if mass_str and mass_idx != len(mass_str):

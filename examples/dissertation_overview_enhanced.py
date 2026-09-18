@@ -67,10 +67,16 @@ import sympy as sp
 import numpy as np
 
 from feynkit import (
-    Edge, FeynmanIntegral, Graph,
-    PolytopeEquivalence, PolytopeAutomorphisms,
-    AConfiguration, FiniteIndexResult,
-    finite_index_map, intrinsic_lattice_model, symmetry_pairs,
+    Edge,
+    FeynmanIntegral,
+    Graph,
+    PolytopeEquivalence,
+    PolytopeAutomorphisms,
+    AConfiguration,
+    FiniteIndexResult,
+    finite_index_map,
+    intrinsic_lattice_model,
+    symmetry_pairs,
     landau_analysis,
     FeynkitDatabase,
 )
@@ -80,22 +86,25 @@ from feynkit.artifacts.conformal import (
     massless_polygon_a_config,
 )
 from feynkit.artifacts.dissertation import (
-    triangle_a_config, triple_k_a_config,
-    four_point_simplex_a_config, banana3_a_config,
+    triangle_a_config,
+    triple_k_a_config,
+    four_point_simplex_a_config,
+    banana3_a_config,
 )
 from feynkit.normal_forms import (
-    is_unimodular_equivalent, is_affinely_equivalent,
+    is_unimodular_equivalent,
+    is_affinely_equivalent,
     is_point_config_equivalent,
     maximal_pairing_matrix,
     is_canonical,
 )
 from feynkit.normal_forms._invariants import hull_vertex_indices
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Formatting helpers
 # ─────────────────────────────────────────────────────────────────────────────
 W = 72
+
 
 def hdr(n: int | str, title: str) -> None:
     """Top-level section header."""
@@ -128,33 +137,33 @@ def check(label: str, condition: bool) -> bool:
 m0 = sp.Integer(0)
 nu1, nu2, nu3 = sp.symbols("nu1 nu2 nu3", positive=True)
 D_sym = sp.Symbol("D", positive=True)
-eps   = sp.Symbol("epsilon")
+eps = sp.Symbol("epsilon")
 
 # Massless 1-loop triangle — primary working example (manual construction)
 triangle_edges = [
-    Edge(idx=1, v1=1, v2=2, is_internal=True,  mass=m0, nu=nu1),
-    Edge(idx=2, v1=2, v2=3, is_internal=True,  mass=m0, nu=nu2),
-    Edge(idx=3, v1=3, v2=1, is_internal=True,  mass=m0, nu=nu3),
+    Edge(idx=1, v1=1, v2=2, is_internal=True, mass=m0, nu=nu1),
+    Edge(idx=2, v1=2, v2=3, is_internal=True, mass=m0, nu=nu2),
+    Edge(idx=3, v1=3, v2=1, is_internal=True, mass=m0, nu=nu3),
     Edge(idx=4, v1=1, v2=4, is_internal=False),
     Edge(idx=5, v1=2, v2=5, is_internal=False),
     Edge(idx=6, v1=3, v2=6, is_internal=False),
 ]
-g_tri  = Graph(internal_vertices=3, external_legs=3, edges=triangle_edges)
+g_tri = Graph(internal_vertices=3, external_legs=3, edges=triangle_edges)
 fi_tri = FeynmanIntegral(
     g_tri,
     propagator_exponents={1: nu1, 2: nu2, 3: nu3},
 )
 
 # Massless bubble and massive sunrise via compact cnickel notation
-fi_bubble  = FeynmanIntegral.from_cnickel("11e|e|:zz")
+fi_bubble = FeynmanIntegral.from_cnickel("11e|e|:zz")
 fi_sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
 
 # Pre-compute frequently accessed objects for clarity
 gkz_tri = fi_tri.gkz
-sym_tri  = fi_tri.symanzik
-cfg_tri  = triangle_a_config()
-la_tri   = landau_analysis(fi_tri)
-sp_list  = fi_tri.symmetry_pairs
+sym_tri = fi_tri.symanzik
+cfg_tri = triangle_a_config()
+la_tri = landau_analysis(fi_tri)
+sp_list = fi_tri.symmetry_pairs
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -224,22 +233,24 @@ sec("Nickel / cnickel constructors — compact notation for all three diagrams")
 note(
     "The colored Nickel (cnickel) string encodes the graph topology and mass "
     "pattern compactly: 'z' = massless edge, 'n' = massive edge (generic mass).",
-    4
+    4,
 )
 fi_tri_b = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
 for label, fi, nick in [
     ("Massless triangle", fi_tri_b, "12e|2e|e|:zzz"),
-    ("Massless bubble",   fi_bubble, "11e|e|:zz"),
-    ("Massive sunrise",   fi_sunrise, "111e|e|:nnn"),
+    ("Massless bubble", fi_bubble, "11e|e|:zz"),
+    ("Massive sunrise", fi_sunrise, "111e|e|:nnn"),
 ]:
     print(f"  {label:<22} [{nick}]  →  Nickel={fi.nickel_index:<14} L={fi.loop_count}")
 
 sec("Topological comparison")
 print(f"  {'Diagram':<22} {'E':>3}  {'V':>3}  {'L':>3}  {'N_ext':>6}")
 print("  " + "─" * 42)
-for label, fi in [("Massless bubble",   fi_bubble),
-                   ("Massless triangle", fi_tri),
-                   ("Massive sunrise",   fi_sunrise)]:
+for label, fi in [
+    ("Massless bubble", fi_bubble),
+    ("Massless triangle", fi_tri),
+    ("Massive sunrise", fi_sunrise),
+]:
     g = fi.graph
     E = len(g.get_internal_edges())
     V = g.internal_vertices
@@ -251,7 +262,7 @@ note(
     "contribute independent integration variables.  The dimension of the "
     "Lee–Pomeransky domain R_{>0}^E scales as E, giving a 3D integral for the "
     "triangle and a 3D integral for the sunrise (different topology, same E).",
-    4
+    4,
 )
 
 
@@ -276,7 +287,7 @@ note(
     "Each monomial a_i corresponds to the unique spanning tree that omits "
     "propagator i.  For the triangle (K₃), exactly three spanning trees exist "
     "— one per internal edge — so U is a sum of three linear monomials.",
-    4
+    4,
 )
 
 sec("Triangle: F — second Symanzik polynomial (kinematics + masses)")
@@ -287,7 +298,7 @@ note(
     "momentum p_{ij}^2 flowing across the cut that separates the i-forest "
     "from the j-forest, divided by 2μ².  Since the triangle is massless, "
     "F contains only Mandelstam invariants s_{12}, s_{13}, s_{23}.",
-    4
+    4,
 )
 
 sec("Triangle: G = U + F in Lee–Pomeransky u-variables")
@@ -298,11 +309,11 @@ note(
     "G(u) has 6 monomials, one per column of the 4×6 A-matrix.  The GKZ "
     "integral I_A = ∫_{R_{>0}^3} u^β · G(u)^{-β₀} du is absolutely convergent "
     "for Re β_r > 0 and β₀ = (L·D)/2 − Σν_i.",
-    4
+    4,
 )
 
 sec("Comparison: bubble and sunrise")
-for label, fi in [("Bubble",  fi_bubble), ("Sunrise", fi_sunrise)]:
+for label, fi in [("Bubble", fi_bubble), ("Sunrise", fi_sunrise)]:
     s = fi.symanzik
     print(f"\n  ── {label}")
     print(f"  U = {s.u}")
@@ -314,7 +325,7 @@ note(
     "simplest integrals whose Picard–Fuchs system is of elliptic type, "
     "emerging from the Calabi–Yau interpretation of its Newton polytope "
     "(Weinzierl 2022, Sec. 10).",
-    4
+    4,
 )
 
 
@@ -338,7 +349,7 @@ note(
     "The Schwinger α-variables arise from the Gaussian integral trick for each "
     "propagator.  Convergence requires Re(ν_i) > 0 and Re(β₀) > 0.  "
     "Analytically continued in D and ν_i via Γ-function factors in the prefactor.",
-    4
+    4,
 )
 
 sec("Feynman parametrisation  (simplex Σx_i = 1)")
@@ -351,7 +362,7 @@ note(
     "resulting integral over a compact (E−1)-simplex is finite for generic "
     "kinematics away from Landau surfaces.  The familiar F/U^{D/2} integrand "
     "makes the mass-dimension and analytic structure transparent.",
-    4
+    4,
 )
 
 sec("Lee–Pomeransky parametrisation  (u ∈ R_{>0}^E, no constraint)")
@@ -365,7 +376,7 @@ note(
     "the integrand is a torus-equivariant power of a single polynomial, matching "
     "exactly the Euler–Mellin integral that defines I_A(β, z).  The prefactor "
     "contains an extra Γ(D/2)/Γ(D − Σν_i) factor relative to the Schwinger form.",
-    4
+    4,
 )
 
 
@@ -388,8 +399,10 @@ gkz = fi_tri.gkz
 r_rows, m_cols = gkz.a_matrix.shape
 
 sec("A-matrix  (rows = L+1; columns = monomials of G)")
-print(f"  Shape: {r_rows} × {m_cols}   ({fi_tri.loop_count+1} rows = L+1;  "
-      f"{m_cols} columns = monomials of G)")
+print(
+    f"  Shape: {r_rows} × {m_cols}   ({fi_tri.loop_count+1} rows = L+1;  "
+    f"{m_cols} columns = monomials of G)"
+)
 print(f"  Row 0  : homogenisation row (all 1s) — encodes overall Euler scaling")
 print(f"  Rows 1…{r_rows-1}: exponent of u_i in each monomial of G")
 sp.pprint(gkz.a_matrix)
@@ -398,7 +411,7 @@ note(
     "exponent vector (in the affine hyperplane Σx_0 = 1) of one monomial of G.  "
     "Reading the columns as integer vectors in Z^{L+1}, the convex hull "
     "Conv(a_1,…,a_m) is the Newton polytope Δ_G.",
-    4
+    4,
 )
 
 sec("β-parameters  (encode spacetime dimension D and propagator exponents ν_i)")
@@ -411,7 +424,7 @@ note(
     "holonomic rank is still vol(Δ_G) but logarithmic series may appear.  "
     "The ε-expansion in dimensional regularisation D = 4 − 2ε is the expansion "
     "of I_A around the resonant point β₀(ε=0).",
-    4
+    4,
 )
 
 sec("Euler differential operators  Ê_r · I_A = β_r · I_A")
@@ -422,11 +435,11 @@ note(
     "The four Euler equations correspond to the four rows of A.  Row 0 gives "
     "the overall Euler identity Σ_j z_j ∂_j Φ = β₀ Φ; rows 1–3 give "
     "the individual torus-weight conditions for each LP variable u_i.",
-    4
+    4,
 )
 
 sec("GKZ data for bubble and sunrise")
-for label, fi_x in [("Bubble",  fi_bubble), ("Sunrise", fi_sunrise)]:
+for label, fi_x in [("Bubble", fi_bubble), ("Sunrise", fi_sunrise)]:
     gkz_x = fi_x.gkz
     print(f"  {label}")
     print(f"    A-matrix: {gkz_x.a_matrix.shape}   β = {gkz_x.beta_parameters}")
@@ -458,7 +471,7 @@ note(
     "dependence; the 'lower' monomials (from U, degree 1 in u) are purely "
     "topological.  The distinction between upper and lower monomials controls "
     "which triangulations are relevant for the ε-expansion.",
-    4
+    4,
 )
 
 sec("Convex hull — vertices and combinatorial data")
@@ -472,7 +485,7 @@ note(
     "is a general feature of 1-loop massless polygons.  The normalised volume "
     "vol = 4 counts the number of maximal simplices in any unimodular "
     "triangulation of Δ_G (Klausen 2020, Theorem 3.2).",
-    4
+    4,
 )
 
 sec("Smith invariants — lattice embedding")
@@ -483,20 +496,24 @@ note(
     "embedding with no sublattice factor.  Consequence: for any integer β, "
     "the GKZ system admits purely logarithm-free Γ-series solutions (no "
     "half-integer shifts required).  Compare with triple-K: Smith = [1,1,2].",
-    4
+    4,
 )
 
 sec("Newton polytope comparison across all three diagrams")
 print(f"  {'Diagram':<22} {'A shape':>8}  {'|V|':>4}  {'vol':>5}  {'Smith'}")
 print("  " + "─" * 60)
-for label, fi_x in [("Massless bubble",   fi_bubble),
-                     ("Massless triangle", fi_tri),
-                     ("Massive sunrise",   fi_sunrise)]:
+for label, fi_x in [
+    ("Massless bubble", fi_bubble),
+    ("Massless triangle", fi_tri),
+    ("Massive sunrise", fi_sunrise),
+]:
     cfg_x = AConfiguration(fi_x.gkz.a_matrix)
-    print(f"  {label:<22} {str(fi_x.gkz.a_matrix.shape):>8}  "
-          f"{len(cfg_x.newton_polytope_points):>4}  "
-          f"{cfg_x.normalized_volume:>5}  "
-          f"{cfg_x.smith_invariants}")
+    print(
+        f"  {label:<22} {str(fi_x.gkz.a_matrix.shape):>8}  "
+        f"{len(cfg_x.newton_polytope_points):>4}  "
+        f"{cfg_x.normalized_volume:>5}  "
+        f"{cfg_x.smith_invariants}"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -518,13 +535,15 @@ note(
 sec("Rank verification — all standard diagrams")
 print(f"  {'Diagram':<22} {'vol(Δ)':>8}  {'rank':>6}  {'agree?':>7}")
 print("  " + "─" * 46)
-for label, fi_x in [("Massless bubble",   fi_bubble),
-                     ("Massless triangle", fi_tri),
-                     ("Massive sunrise",   fi_sunrise)]:
+for label, fi_x in [
+    ("Massless bubble", fi_bubble),
+    ("Massless triangle", fi_tri),
+    ("Massive sunrise", fi_sunrise),
+]:
     cfg_x = AConfiguration(fi_x.gkz.a_matrix)
-    vol  = cfg_x.normalized_volume
+    vol = cfg_x.normalized_volume
     rank = fi_x.holonomic_rank
-    ok   = (vol == rank)
+    ok = vol == rank
     print(f"  {label:<22} {vol:>8}  {rank:>6}  {'✓' if ok else '✗':>7}")
 
 note(
@@ -533,7 +552,7 @@ note(
     "(2020), indexed by the simplices of any regular unimodular triangulation "
     "of the Newton polytope.  The bubble has rank 1 (single master), "
     "consistent with its trivial toric ideal (no IBP reduction relations).",
-    4
+    4,
 )
 
 sec("Physical master-integral count vs mathematical rank")
@@ -542,7 +561,7 @@ note(
     "dimension D = 4 − 2ε — the rank may increase by logarithmic extensions.  "
     "feynkit computes the generic rank; extensions for resonant β are handled "
     "separately by the ε-expansion module (beyond the scope of this overview).",
-    4
+    4,
 )
 
 
@@ -572,13 +591,13 @@ note(
     "integral (two raised indices) to a combination of lower-index integrals.  "
     "For the triangle, the two generators reflect the rank-2 kernel of A "
     "over Q: m − rank = 6 − 4 = 2.",
-    4
+    4,
 )
 
 sec("Consistency check: dim ker A = number of toric generators")
-A_np   = np.array(gkz.a_matrix.tolist(), dtype=float)
+A_np = np.array(gkz.a_matrix.tolist(), dtype=float)
 ker_dim = A_np.shape[1] - int(np.linalg.matrix_rank(A_np))
-n_gen   = len(ti.generators)
+n_gen = len(ti.generators)
 print(f"  m         = {A_np.shape[1]}  (number of monomials)")
 print(f"  rank(A)   = {int(np.linalg.matrix_rank(A_np))}")
 print(f"  dim ker A = {ker_dim}")
@@ -586,7 +605,7 @@ print(f"  # toric generators = {n_gen}   {'✓  (= dim ker A)' if ker_dim == n_g
 
 sec("Bubble — trivial toric ideal (single master integral)")
 ti_b = fi_bubble.toric_ideal
-A_b  = np.array(fi_bubble.gkz.a_matrix.tolist(), dtype=float)
+A_b = np.array(fi_bubble.gkz.a_matrix.tolist(), dtype=float)
 ker_b = A_b.shape[1] - int(np.linalg.matrix_rank(A_b))
 print(f"  Generators: {len(ti_b.generators)}   (dim ker A_bubble = {ker_b})")
 note(
@@ -594,7 +613,7 @@ note(
     "are no IBP relations and the integral itself is the unique master. "
     "Physically: the bubble has a single scalar topology with no propagator "
     "reduction freedom (beyond scalar reduction by d-dimensional algebra).",
-    4
+    4,
 )
 
 
@@ -622,7 +641,7 @@ note(
     f"LP monomials u_i ↔ degree-2 monomial s_{{jk}} u_i u_j) combined with "
     f"the S₃ permutation of the three legs.  This is the automorphism group of "
     f"the complete bipartite graph K_{{3,3}} acting on its 6 edges.",
-    4
+    4,
 )
 
 sec("Vertex orbits under Aut(P)")
@@ -634,7 +653,7 @@ note(
     "the symmetry group.  Geometrically, the Newton polytope of the massless "
     "triangle is an octahedron: any vertex can be mapped to any other by a "
     "unimodular automorphism.",
-    4
+    4,
 )
 
 sec("First three automorphism generators  (U matrices and translations t)")
@@ -654,7 +673,7 @@ note(
     f"dihedral group D₃ of order 6, accounting for {len(g_aut)} of the {aut.order} "
     "polytope automorphisms.  The remaining automorphisms arise from the "
     "LP-variable parity reflections (u_i ↔ u_j u_k) not visible at graph level.",
-    4
+    4,
 )
 
 
@@ -684,7 +703,7 @@ note(
     "polytope automorphism produces a valid integral identity.  The "
     "non-unimodular pairs generalise the classical Pfaff, Euler, and Kummer "
     "transformations of ₂F₁ to the multivariate GKZ setting.",
-    4
+    4,
 )
 
 sec("First unimodular symmetry pair — explicit identity")
@@ -699,13 +718,15 @@ note(
     "acts on the LP exponent space; together they define the variable change "
     "that relates the two evaluations of I_A.  For the identity automorphism "
     "(M = I, t = 0), the identity is trivial.",
-    4
+    4,
 )
 
 sec("Using AConfiguration.symmetry_pairs — standalone computation")
 sp_cfg = cfg_tri.symmetry_pairs()
-print(f"  Same result via AConfiguration: {len(sp_cfg)} pairs  "
-      f"({sum(s.is_unimodular for s in sp_cfg)} unimodular)")
+print(
+    f"  Same result via AConfiguration: {len(sp_cfg)} pairs  "
+    f"({sum(s.is_unimodular for s in sp_cfg)} unimodular)"
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -734,7 +755,7 @@ note(
     "All Smith invariants = 1 confirms that the columns of A generate exactly "
     "Z^3 — a primitive lattice embedding.  The intrinsic rank equals the "
     "affine dimension of P (= 3 for the triangle).",
-    4
+    4,
 )
 
 sec("Triple-K — Smith invariants reveal sublattice structure")
@@ -747,7 +768,7 @@ note(
     "This is the geometric origin of the half-integer constraint on the "
     "conformal scaling dimensions σ_i in triple-K integrals: only even-parity "
     "combinations of ν_i are accessible without a finite-index lift.",
-    4
+    4,
 )
 
 
@@ -767,26 +788,33 @@ note(
     "point-configuration equivalence ⇒ the GKZ A-matrices are lattice-equivalent."
 )
 
-cfg_t  = triangle_a_config()
+cfg_t = triangle_a_config()
 cfg_tk = triple_k_a_config()
 
 sec("Unimodular equivalence tests")
-fi_tri2  = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+fi_tri2 = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
 fi_tri_m = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
 
 r_self = fi_tri.is_unimodular_equivalent_to(fi_tri2)
 r_mass = fi_tri.is_unimodular_equivalent_to(fi_tri_m)
-print(f"  Triangle  ↔  Triangle (relabelled)   : {r_self.equivalent}  "
-      f"{'(same topology → unimodular)' if r_self.equivalent else ''}")
+print(
+    f"  Triangle  ↔  Triangle (relabelled)   : {r_self.equivalent}  "
+    f"{'(same topology → unimodular)' if r_self.equivalent else ''}"
+)
 if r_self.equivalent and r_self.witness_map is not None:
-    print(f"    Witness U ="); sp.pprint(r_self.witness_map)
-print(f"  Triangle  ↔  Massive triangle        : {r_mass.equivalent}  "
-      f"{'← masses change Newton polytope' if not r_mass.equivalent else ''}")
+    print(f"    Witness U =")
+    sp.pprint(r_self.witness_map)
+print(
+    f"  Triangle  ↔  Massive triangle        : {r_mass.equivalent}  "
+    f"{'← masses change Newton polytope' if not r_mass.equivalent else ''}"
+)
 
 sec("Affine equivalence (hull vertices, rational maps)")
 r_aff_self = fi_tri.is_affinely_equivalent_to(fi_tri2)
-print(f"  Triangle ↔ Triangle (relabelled): equivalent={r_aff_self.equivalent}, "
-      f"det={r_aff_self.determinant}")
+print(
+    f"  Triangle ↔ Triangle (relabelled): equivalent={r_aff_self.equivalent}, "
+    f"det={r_aff_self.determinant}"
+)
 
 sec("Point-configuration equivalence (all columns — GKZ condition)")
 pts_a = cfg_t.affine_points
@@ -804,7 +832,7 @@ note(
     "the triple-K polytope (with its even-parity sublattice) and the triangle "
     "polytope are related by a non-unimodular lattice map — they share the same "
     "combinatorial structure but live in differently embedded sublattices.",
-    4
+    4,
 )
 
 
@@ -849,7 +877,7 @@ note(
     "sublattice of index 2 inside the triangle's lattice.  This is why the "
     "holonomic ranks agree (both 4) but the Smith invariants differ "
     "([1,1,1] vs [1,1,2]).",
-    4
+    4,
 )
 
 
@@ -886,7 +914,7 @@ note(
     "of P.  For highly symmetric polytopes like the triangle, this information "
     "substantially prunes the search tree in the Grinis–Kasprzyk algorithm, "
     "making it far more efficient than PALP on factorial-size symmetry groups.",
-    4
+    4,
 )
 
 sec("Hull vertex ordering (indices into A-columns)")
@@ -896,7 +924,7 @@ note(
     "Identifying which columns of A are hull vertices restricts the "
     "pairing-matrix algorithm to the combinatorially essential data, "
     "avoiding redundant work on interior lattice points.",
-    4
+    4,
 )
 
 
@@ -914,7 +942,7 @@ note(
     "diagram.  feynkit computes these via landau_analysis()."
 )
 
-la_tri    = landau_analysis(fi_tri)
+la_tri = landau_analysis(fi_tri)
 la_bubble = landau_analysis(fi_bubble)
 la_sunris = landau_analysis(fi_sunrise)
 
@@ -929,7 +957,7 @@ note(
     "internal momentum becomes soft.  For the massless triangle these are "
     "purely collinear singularities (no genuine particle-production thresholds), "
     "consistent with the absence of mass scales in G.",
-    4
+    4,
 )
 
 sec("Bubble — Landau surfaces")
@@ -940,7 +968,7 @@ note(
     "alone; the familiar threshold p² = 0 (massless) or p² = 4m² (massive) "
     "is a normal-crossing singularity in U that lies outside the strict edge "
     "part of E_A.",
-    4
+    4,
 )
 
 sec("Massive sunrise — Landau surfaces")
@@ -953,7 +981,7 @@ note(
     "curve discriminant).  For equal masses m₁=m₂=m₃=m these reduce to "
     "the known normal threshold (m₁+m₂+m₃)² = s and the pseudo-threshold "
     "(m₁−m₂−m₃)² = s (Weinzierl 2022, Sec. 9.3).",
-    4
+    4,
 )
 
 
@@ -981,7 +1009,7 @@ note(
     "With ν₁=ν₂=ν₃=ν the integral gains an extra S₃ permutation symmetry "
     "acting on the three propagators.  The β-vector β = [-D/2+3ν, ν, ν, ν] "
     "is itself symmetric, enlarging the effective automorphism orbit.",
-    4
+    4,
 )
 
 sec("D = 4 specialisation  (physical four-dimensional limit)")
@@ -990,7 +1018,7 @@ print(f"  β₀ = {fi_4d.gkz.beta_parameters[0]}")
 print(f"  βₖ = {fi_4d.gkz.beta_parameters[1]}")
 
 sec("Dimensional regularisation  D = 4 − 2ε")
-fi_dreg = fi_tri.with_(dimension=4 - 2*eps)
+fi_dreg = fi_tri.with_(dimension=4 - 2 * eps)
 print(f"  β₀ = {fi_dreg.gkz.beta_parameters[0]}")
 note(
     "In dim-reg, β₀ = ν₁+ν₂+ν₃−2+2ε.  At ε = 0 this hits an integer "
@@ -998,7 +1026,7 @@ note(
     "logarithms that are controlled by the irregular (resonant) extensions of "
     "the GKZ D-module.  feynkit provides ε-expansion coefficients via the "
     "resonance module (see the ε-expansion section of the dissertation).",
-    4
+    4,
 )
 
 sec("D = 2 specialisation  (dimensional reduction to 2D)")
@@ -1008,7 +1036,7 @@ note(
     "In two dimensions the triangle integral is conformally invariant, and "
     "the GKZ system reduces to a known rank-4 system whose solutions are "
     "expressible in terms of Gauss ₂F₁ functions.",
-    4
+    4,
 )
 
 
@@ -1026,30 +1054,34 @@ note(
 
 configs_all = {
     "triangle  (1L, 3pt massless)": triangle_a_config(),
-    "triple-K  (CFT 3-point)":      triple_k_a_config(),
-    "4-simplex Δ₄  (4-point)":      four_point_simplex_a_config(),
-    "banana₃   (3-edge banana)":    banana3_a_config(),
+    "triple-K  (CFT 3-point)": triple_k_a_config(),
+    "4-simplex Δ₄  (4-point)": four_point_simplex_a_config(),
+    "banana₃   (3-edge banana)": banana3_a_config(),
 }
 
 sec("Invariant comparison table")
-print(f"  {'Config':<30} {'A shape':>8}  {'dim':>4}  "
-      f"{'|V|':>4}  {'vol':>5}  {'Smith':<18}  {'|Aut|':>6}")
+print(
+    f"  {'Config':<30} {'A shape':>8}  {'dim':>4}  "
+    f"{'|V|':>4}  {'vol':>5}  {'Smith':<18}  {'|Aut|':>6}"
+)
 print("  " + "─" * 80)
 for name, cfg_x in configs_all.items():
     aut_x = cfg_x.automorphisms()
-    print(f"  {name:<30} {str(cfg_x.matrix.shape):>8}  "
-          f"{cfg_x.ambient_dim:>4}  "
-          f"{len(cfg_x.newton_polytope_points):>4}  "
-          f"{cfg_x.normalized_volume:>5}  "
-          f"{str(list(cfg_x.smith_invariants)):<18}  "
-          f"{aut_x.order:>6}")
+    print(
+        f"  {name:<30} {str(cfg_x.matrix.shape):>8}  "
+        f"{cfg_x.ambient_dim:>4}  "
+        f"{len(cfg_x.newton_polytope_points):>4}  "
+        f"{cfg_x.normalized_volume:>5}  "
+        f"{str(list(cfg_x.smith_invariants)):<18}  "
+        f"{aut_x.order:>6}"
+    )
 note(
     "The banana₃ configuration (3 parallel edges connecting 2 vertices) has "
     "vol = 1 (single master integral).  The 4-simplex Δ₄ is the standard simplex "
     "with 5 vertices; its A-matrix is square (5×5), making it the simplest "
     "example where the toric ideal is empty.  triple-K has Smith=[1,1,2] "
     "while the triangle has Smith=[1,1,1], reflecting their finite-index relationship.",
-    4
+    4,
 )
 
 sec("Unimodular equivalence matrix")
@@ -1069,7 +1101,7 @@ note(
     "No two distinct standard configurations are unimodularly equivalent: each "
     "represents a genuinely different GKZ system.  However, as shown in §12, "
     "the triangle and triple-K ARE affinely equivalent (det = 2 map).",
-    4
+    4,
 )
 
 
@@ -1094,9 +1126,11 @@ print("  " + "─" * 42)
 for n in [3, 4, 5]:
     try:
         cfg_x = massless_polygon_a_config(n)
-        print(f"  {n:>3}  {str(cfg_x.matrix.shape):>8}  "
-              f"{cfg_x.ambient_dim:>4}  {cfg_x.normalized_volume:>5}  "
-              f"{cfg_x.smith_invariants}")
+        print(
+            f"  {n:>3}  {str(cfg_x.matrix.shape):>8}  "
+            f"{cfg_x.ambient_dim:>4}  {cfg_x.normalized_volume:>5}  "
+            f"{cfg_x.smith_invariants}"
+        )
     except Exception:
         print(f"  n={n}: not available")
 
@@ -1110,10 +1144,12 @@ print("  " + "─" * 52)
 for n in [3, 4]:
     cfg_x = bms_simplex_a_config(n)
     aut_x = cfg_x.automorphisms()
-    print(f"  {n:>3}  {str(cfg_x.matrix.shape):>8}  "
-          f"{cfg_x.normalized_volume:>5}  "
-          f"{str(list(cfg_x.smith_invariants)):<18}  "
-          f"{aut_x.order}")
+    print(
+        f"  {n:>3}  {str(cfg_x.matrix.shape):>8}  "
+        f"{cfg_x.normalized_volume:>5}  "
+        f"{str(list(cfg_x.smith_invariants)):<18}  "
+        f"{aut_x.order}"
+    )
 
 sec("Conformal companion  conformal_companion_a_config(n)  — C_n → BMS_n map")
 print(f"  G_n^comp(u) = Σᵢ ∏_{{j≠i}} u_j  +  Σᵢ pᵢ²·u_i")
@@ -1121,16 +1157,16 @@ print(f"  Same lower monomials as BMS_n; upper monomials = standard basis e_i")
 print()
 for n in [3, 4]:
     cfg_comp = conformal_companion_a_config(n)
-    cfg_bms  = bms_simplex_a_config(n)
-    fi_m     = cfg_comp.finite_index_map_to(cfg_bms)
-    det_str  = str(fi_m.determinant) if fi_m.found else "—"
+    cfg_bms = bms_simplex_a_config(n)
+    fi_m = cfg_comp.finite_index_map_to(cfg_bms)
+    det_str = str(fi_m.determinant) if fi_m.found else "—"
     print(f"  n={n}:  C_{n} → BMS_{n}   found={fi_m.found},  det={det_str}")
 note(
     "For n=3: the det=2 map C₃ → BMS₃ is the geometric origin of the ν → ν+1/2 "
     "half-integer shift in triple-K reduction formulas.  For n≥4 the map fails "
     "because fixing one external leg reduces S_n → S_{n-1}, breaking the lattice "
     "identification between the companion and BMS polytopes.",
-    4
+    4,
 )
 
 
@@ -1148,15 +1184,15 @@ note(
     "and Caloro (2024)."
 )
 
-cfg_bms3  = bms_simplex_a_config(3)
+cfg_bms3 = bms_simplex_a_config(3)
 cfg_comp3 = conformal_companion_a_config(3)
 cfg_tri_x = triangle_a_config()
-cfg_tk_x  = triple_k_a_config()
+cfg_tk_x = triple_k_a_config()
 
 chain = [
-    ("companion₃", "BMS₃",    cfg_comp3, cfg_bms3),
-    ("BMS₃",       "triple-K", cfg_bms3,  cfg_tk_x),
-    ("triple-K",   "triangle", cfg_tk_x,  cfg_tri_x),
+    ("companion₃", "BMS₃", cfg_comp3, cfg_bms3),
+    ("BMS₃", "triple-K", cfg_bms3, cfg_tk_x),
+    ("triple-K", "triangle", cfg_tk_x, cfg_tri_x),
 ]
 
 sec("Equivalence table along the chain")
@@ -1166,12 +1202,18 @@ for src, tgt, cfg_a, cfg_b in chain:
     r_u = cfg_a.is_unimodular_equivalent_to(cfg_b)
     r_a = cfg_a.is_affinely_equivalent_to(cfg_b)
     r_p = cfg_a.is_point_config_equivalent_to(cfg_b)
-    det_str = str(r_a.determinant) if r_a.equivalent else ("—" if not r_p.equivalent else str(r_p.determinant))
-    print(f"  {src:<14} → {tgt:<14}  "
-          f"{'✓' if r_u.equivalent else '✗':>11}  "
-          f"{'✓' if r_a.equivalent else '✗':>8}  "
-          f"{'✓' if r_p.equivalent else '✗':>8}  "
-          f"{det_str:>5}")
+    det_str = (
+        str(r_a.determinant)
+        if r_a.equivalent
+        else ("—" if not r_p.equivalent else str(r_p.determinant))
+    )
+    print(
+        f"  {src:<14} → {tgt:<14}  "
+        f"{'✓' if r_u.equivalent else '✗':>11}  "
+        f"{'✓' if r_a.equivalent else '✗':>8}  "
+        f"{'✓' if r_p.equivalent else '✗':>8}  "
+        f"{det_str:>5}"
+    )
 
 note(
     "The chain C₃ → BMS₃ → triple-K → triangle captures the full conformal "
@@ -1181,7 +1223,7 @@ note(
     "parity projection onto even conformal dimensions.  The equality of "
     "holonomic ranks (both 4) means the same number of master integrals "
     "span both families; only the lattice of allowed β-values differs.",
-    4
+    4,
 )
 
 sec("Summary of finite-index maps in the chain")
@@ -1204,73 +1246,69 @@ note(
 all_ok = True
 
 sec("Group 1: Holonomic rank = normalised volume")
-for label, fi_x in [("bubble",   fi_bubble),
-                     ("triangle", fi_tri),
-                     ("sunrise",  fi_sunrise)]:
+for label, fi_x in [("bubble", fi_bubble), ("triangle", fi_tri), ("sunrise", fi_sunrise)]:
     cfg_x = AConfiguration(fi_x.gkz.a_matrix)
     ok = check(
-        f"vol(Δ) = holonomic_rank  [{label}]",
-        cfg_x.normalized_volume == fi_x.holonomic_rank
+        f"vol(Δ) = holonomic_rank  [{label}]", cfg_x.normalized_volume == fi_x.holonomic_rank
     )
     all_ok &= ok
 
 sec("Group 2: Smith invariants match literature values")
 smith_expected = {
-    "triangle":  ([1, 1, 1],    triangle_a_config),
-    "triple-K":  ([1, 1, 2],    triple_k_a_config),
-    "BMS₃":      ([1, 1, 2],    lambda: bms_simplex_a_config(3)),
+    "triangle": ([1, 1, 1], triangle_a_config),
+    "triple-K": ([1, 1, 2], triple_k_a_config),
+    "BMS₃": ([1, 1, 2], lambda: bms_simplex_a_config(3)),
     "4-simplex": ([1, 1, 1, 1], four_point_simplex_a_config),
-    "banana₃":   ([1, 1, 1],    banana3_a_config),
-    "companion₃":([1, 1, 1],    lambda: conformal_companion_a_config(3)),
+    "banana₃": ([1, 1, 1], banana3_a_config),
+    "companion₃": ([1, 1, 1], lambda: conformal_companion_a_config(3)),
 }
 for label, (expected, factory) in smith_expected.items():
     cfg_x = factory()
-    ok = check(
-        f"Smith {expected}  [{label}]",
-        list(cfg_x.smith_invariants) == expected
-    )
+    ok = check(f"Smith {expected}  [{label}]", list(cfg_x.smith_invariants) == expected)
     all_ok &= ok
 
 sec("Group 3: Automorphism group orders")
-ok = check("|Aut(triangle)| = 48",      cfg_tri.automorphisms().order == 48)
+ok = check("|Aut(triangle)| = 48", cfg_tri.automorphisms().order == 48)
 all_ok &= ok
 
 sec("Group 4: Finite-index map invariants")
 r_fi_tk = triangle_a_config().finite_index_map_to(triple_k_a_config())
-ok = check("triangle → triple-K  found = True",   r_fi_tk.found)
+ok = check("triangle → triple-K  found = True", r_fi_tk.found)
 all_ok &= ok
-ok = check("triangle → triple-K  det = 2",        r_fi_tk.found and r_fi_tk.determinant == 2)
+ok = check("triangle → triple-K  det = 2", r_fi_tk.found and r_fi_tk.determinant == 2)
 all_ok &= ok
 
 r_fi_c3 = conformal_companion_a_config(3).finite_index_map_to(bms_simplex_a_config(3))
-ok = check("companion₃ → BMS₃  det = 2",           r_fi_c3.found and r_fi_c3.determinant == 2)
+ok = check("companion₃ → BMS₃  det = 2", r_fi_c3.found and r_fi_c3.determinant == 2)
 all_ok &= ok
 
 sec("Group 5: Toric ideal dimension = dim ker A")
-A_arr  = np.array(gkz_tri.a_matrix.tolist(), dtype=float)
-ker_d  = int(A_arr.shape[1] - np.linalg.matrix_rank(A_arr))
-ok = check(f"dim ker A = # toric generators  [triangle, expected {ker_d}]",
-           len(fi_tri.toric_ideal.generators) == ker_d)
+A_arr = np.array(gkz_tri.a_matrix.tolist(), dtype=float)
+ker_d = int(A_arr.shape[1] - np.linalg.matrix_rank(A_arr))
+ok = check(
+    f"dim ker A = # toric generators  [triangle, expected {ker_d}]",
+    len(fi_tri.toric_ideal.generators) == ker_d,
+)
 all_ok &= ok
-ok = check("Bubble: # toric generators = 0",
-           len(fi_bubble.toric_ideal.generators) == 0)
+ok = check("Bubble: # toric generators = 0", len(fi_bubble.toric_ideal.generators) == 0)
 all_ok &= ok
 
 sec("Group 6: Triangle ↔ massive triangle NOT unimodular-equivalent")
 r_nm = fi_tri.is_unimodular_equivalent_to(FeynmanIntegral.from_cnickel("12e|2e|e|:nnn"))
-ok = check("Massless ≁ Massive triangle (different polytopes)",
-           not r_nm.equivalent)
+ok = check("Massless ≁ Massive triangle (different polytopes)", not r_nm.equivalent)
 all_ok &= ok
 
 sec("Group 7: Pairing matrix is canonical")
 pm_check = maximal_pairing_matrix(gkz_tri.a_matrix)
-ok = check("PM_max of triangle is canonical",  is_canonical(pm_check.PM_max))
+ok = check("PM_max of triangle is canonical", is_canonical(pm_check.PM_max))
 all_ok &= ok
 
 sec("Group 8: Orbit structure")
 aut_tri = fi_tri.polytope_automorphisms
-ok = check("Triangle polytope has exactly 1 vertex orbit  (all 6 vertices equivalent)",
-           len(aut_tri.vertex_orbits) == 1)
+ok = check(
+    "Triangle polytope has exactly 1 vertex orbit  (all 6 vertices equivalent)",
+    len(aut_tri.vertex_orbits) == 1,
+)
 all_ok &= ok
 
 print(f"\n{'='*W}")
@@ -1298,11 +1336,11 @@ tmp = pathlib.Path(tempfile.mktemp(suffix=".db"))
 
 sec("Store standard integrals")
 db = FeynkitDatabase(str(tmp))
-db.store(fi_tri,    label="massless_triangle")
+db.store(fi_tri, label="massless_triangle")
 db.store(fi_bubble, label="massless_bubble")
 db.store(fi_sunrise, label="massive_sunrise")
 fi_tri_m = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
-db.store(fi_tri_m,   label="massive_triangle")
+db.store(fi_tri_m, label="massive_triangle")
 
 print(db.summary())
 print(f"  Summary: 4 integrals stored, indexed by (A shape, vol, Smith)")
@@ -1321,7 +1359,7 @@ note(
     "(adding masses changes F and hence the Newton polytope Δ_G).  "
     "Only integrals with identical GKZ polytopes — including mass patterns — "
     "are retrieved by unimodular equivalence.",
-    4
+    4,
 )
 
 tmp.unlink(missing_ok=True)
@@ -1370,15 +1408,15 @@ note(
 
 all_entries = [
     # (display label,           fi or None,  cfg,                         literature ref)
-    ("massless bubble",         fi_bubble,   AConfiguration(fi_bubble.gkz.a_matrix),  "dC19 Table 1"),
-    ("massless triangle (K₃)",  fi_tri,      triangle_a_config(),                      "dC19, Kl20"),
-    ("massive sunrise",         fi_sunrise,  AConfiguration(fi_sunrise.gkz.a_matrix), "dC19 Table 2"),
-    ("triple-K  (CFT 3pt)",     None,        triple_k_a_config(),                     "BMS21 §3"),
-    ("4-simplex Δ₄  (4pt)",     None,        four_point_simplex_a_config(),            "dC24 Table 2"),
-    ("banana₃",                 None,        banana3_a_config(),                       "dC24"),
-    ("BMS₃ simplex",            None,        bms_simplex_a_config(3),                  "BMS21 §4"),
-    ("BMS₄ simplex",            None,        bms_simplex_a_config(4),                  "BMS21 §4"),
-    ("conformal companion₃",    None,        conformal_companion_a_config(3),          "Cal24"),
+    ("massless bubble", fi_bubble, AConfiguration(fi_bubble.gkz.a_matrix), "dC19 Table 1"),
+    ("massless triangle (K₃)", fi_tri, triangle_a_config(), "dC19, Kl20"),
+    ("massive sunrise", fi_sunrise, AConfiguration(fi_sunrise.gkz.a_matrix), "dC19 Table 2"),
+    ("triple-K  (CFT 3pt)", None, triple_k_a_config(), "BMS21 §3"),
+    ("4-simplex Δ₄  (4pt)", None, four_point_simplex_a_config(), "dC24 Table 2"),
+    ("banana₃", None, banana3_a_config(), "dC24"),
+    ("BMS₃ simplex", None, bms_simplex_a_config(3), "BMS21 §4"),
+    ("BMS₄ simplex", None, bms_simplex_a_config(4), "BMS21 §4"),
+    ("conformal companion₃", None, conformal_companion_a_config(3), "Cal24"),
 ]
 
 print(f"""
@@ -1386,16 +1424,18 @@ print(f"""
   {'─'*100}""")
 
 for label, fi_x, cfg_x, ref in all_entries:
-    aut_x   = cfg_x.automorphisms()
+    aut_x = cfg_x.automorphisms()
     ibp_cnt = len(fi_x.toric_ideal.generators) if fi_x is not None else "—"
-    print(f"  {label:<28}  {str(cfg_x.matrix.shape):>8}  "
-          f"{cfg_x.ambient_dim:>3}  "
-          f"{len(cfg_x.newton_polytope_points):>4}  "
-          f"{cfg_x.normalized_volume:>4}  "
-          f"{str(list(cfg_x.smith_invariants)):<18}  "
-          f"{aut_x.order:>6}  "
-          f"{str(ibp_cnt):>5}  "
-          f"{ref}")
+    print(
+        f"  {label:<28}  {str(cfg_x.matrix.shape):>8}  "
+        f"{cfg_x.ambient_dim:>3}  "
+        f"{len(cfg_x.newton_polytope_points):>4}  "
+        f"{cfg_x.normalized_volume:>4}  "
+        f"{str(list(cfg_x.smith_invariants)):<18}  "
+        f"{aut_x.order:>6}  "
+        f"{str(ibp_cnt):>5}  "
+        f"{ref}"
+    )
 
 print(f"""
   Abbreviations:

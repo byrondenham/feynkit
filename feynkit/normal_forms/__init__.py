@@ -4,7 +4,7 @@ Normal forms and polytope-equivalence utilities.
 The two equivalence verbs are :func:`is_unimodular_equivalent` (Liu–Cai,
 the natural relation for lattice polytopes / GKZ systems) and
 :func:`is_affinely_equivalent` (the broader relation over the rationals,
-backed by a brute-force search or by Sage).
+backed by a brute-force search).
 
 The pairing-matrix canonicalisation (Grinis–Kasprzyk-style) is exposed as
 :func:`maximal_pairing_matrix` together with :func:`is_canonical`.

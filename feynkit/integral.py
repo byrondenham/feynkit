@@ -32,7 +32,7 @@ Examples
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import sympy as sp
 
@@ -543,24 +543,17 @@ class FeynmanIntegral:
             other.newton_polytope.points,
         )
 
-    def is_affinely_equivalent_to(
-        self,
-        other: FeynmanIntegral,
-        *,
-        method: Literal["brute_force", "sage"] = "brute_force",
-    ) -> PolytopeEquivalence:
+    def is_affinely_equivalent_to(self, other: FeynmanIntegral) -> PolytopeEquivalence:
         """
         Test whether two integrals' Newton polytopes are equivalent under an
-        affine map over the rationals (broader than unimodular). The
-        brute-force backend is exact but slow on larger polytopes; the Sage
-        backend is opt-in.
+        affine map over the rationals (broader than unimodular). The search
+        is exact but slow on larger polytopes.
         """
         from .normal_forms.affine_equivalence import is_affinely_equivalent
 
         return is_affinely_equivalent(
             self.newton_polytope.points,
             other.newton_polytope.points,
-            method=method,
         )
 
     def __repr__(self) -> str:

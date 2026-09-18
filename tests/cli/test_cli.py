@@ -34,7 +34,9 @@ class TestSingleDiagram:
         out = _run(capsys, tmp_path, "11e|e|", "-s")
         assert "11e|e|:zz" in out
 
-    def test_creates_database_file(self, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    def test_creates_database_file(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
         _run(capsys, tmp_path, "11e|e|:zz", "-t")
         assert (tmp_path / "cli.db").exists()
 

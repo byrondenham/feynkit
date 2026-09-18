@@ -40,6 +40,8 @@ Examples
 
 from .groebner import (
     compute_groebner_basis,
+    ideal_quotient,
+    intersect_ideals,
     is_in_ideal,
     reduce_polynomial,
 )
@@ -50,7 +52,7 @@ from .monomial_change import (
     transform_exponent_vector,
     transform_support,
 )
-from .syzygy import trivial_syzygy
+from .syzygy import compute_syzygy_module, trivial_syzygy
 from .toric import (
     compute_toric_ideal_generators,
     count_generators,
@@ -68,6 +70,8 @@ __all__ = [
     "compute_groebner_basis",
     "reduce_polynomial",
     "is_in_ideal",
+    "intersect_ideals",
+    "ideal_quotient",
     # Monomial changes
     "monomial_substitution_from_affine",
     "overall_monomial_factor",
@@ -75,5 +79,6 @@ __all__ = [
     "transform_exponent_vector",
     "transform_support",
     # Syzygies
+    "compute_syzygy_module",
     "trivial_syzygy",
 ]

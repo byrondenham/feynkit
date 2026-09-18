@@ -32,15 +32,3 @@ class TestAffineEquivalence:
         points_a = Matrix([[0, 0], [1, 0], [0, 1]])
         points_b = Matrix([[2, 1], [2, 3], [4, 1]])
         assert is_affinely_equivalent(points_a, points_b).equivalent is True
-
-    def test_sage_backend_is_lazy_and_clear(self) -> None:
-        points = Matrix([[0, 0], [1, 0], [0, 1]])
-        # Default brute-force backend works.
-        assert is_affinely_equivalent(points, points).equivalent is True
-        try:
-            is_affinely_equivalent(points, points, method="sage")
-        except ImportError as exc:
-            assert "Sage backend requested" in str(exc)
-        else:
-            # Sage may genuinely be installed; if so this branch is taken.
-            pass

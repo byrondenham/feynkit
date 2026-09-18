@@ -343,7 +343,7 @@ print(f"""
   tetrahedron/K4 (A: {tet.gkz.a_matrix.shape}) have Newton polytopes
   with {len(dbox.newton_polytope.points)} and {len(tet.newton_polytope.points)} monomials
   respectively — too large for the brute-force affine equivalence backend.
-  Use the 'sage' backend or specialised software for those comparisons.
+  Use specialised software for those comparisons.
 """)
 
 print("=" * W)

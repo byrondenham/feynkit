@@ -8,8 +8,7 @@ This module exposes two complementary verbs:
   unimodularly-isomorphic lattice polytopes, and returns a witness
   ``U ∈ GL_n(ℤ)`` and an integer translation when one exists.
 - :func:`is_affinely_equivalent` — broader equivalence over the rationals.
-  Uses brute-force search over affine bases (the existing implementation),
-  with an optional Sage backend.
+  Uses brute-force search over affine bases.
 
 Both return a :class:`feynkit.PolytopeEquivalence` carrying the verdict, a
 witness map (when known), and a vertex correspondence (when known).
@@ -19,18 +18,13 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from itertools import combinations, permutations
-from types import ModuleType
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 import sympy as sp
 
 from ..types import PolytopeEquivalence
 from . import _invariants
-
-BackendName = Literal["auto", "sympy", "sage"]
-AffineMethod = Literal["brute_force", "sage"]
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Public API: Liu–Cai unimodular equivalence
@@ -377,8 +371,6 @@ def _lift_correspondence(
 def is_affinely_equivalent(
     points_a: object,
     points_b: object,
-    *,
-    method: AffineMethod = "brute_force",
 ) -> PolytopeEquivalence:
     """
     Decide whether two **Newton polytopes** are affinely equivalent over the
@@ -395,9 +387,6 @@ def is_affinely_equivalent(
     points_a, points_b
         Point configurations as ``n_pts × dim`` arrays (rows = points).
         Accepts numpy arrays, sympy matrices, or nested lists.
-    method
-        ``"brute_force"`` uses the exact SymPy backend.  ``"sage"`` opts in
-        to the optional Sage backend if available.
 
     Returns
     -------
@@ -405,16 +394,6 @@ def is_affinely_equivalent(
         ``relation="affine_polytope"``.  On success: ``witness_map=M``,
         ``translation=t``, ``determinant=det(M)``.  On failure: all ``None``.
     """
-    if method == "sage":
-        backend_module = _resolve_backend("sage")
-        assert backend_module is not None
-        pts_a_np = _invariants.to_integer_points(points_a)
-        pts_b_np = _invariants.to_integer_points(points_b)
-        V_a = pts_a_np[_invariants.hull_vertex_indices(pts_a_np)]
-        V_b = pts_b_np[_invariants.hull_vertex_indices(pts_b_np)]
-        eq = bool(backend_module.compare_point_configurations(V_a, V_b))
-        return PolytopeEquivalence(equivalent=eq, relation="affine_polytope")
-
     pts_a_np = _invariants.to_integer_points(points_a)
     pts_b_np = _invariants.to_integer_points(points_b)
     V_a = pts_a_np[_invariants.hull_vertex_indices(pts_a_np)]
@@ -438,8 +417,6 @@ def is_affinely_equivalent(
 def is_point_config_equivalent(
     points_a: object,
     points_b: object,
-    *,
-    method: AffineMethod = "brute_force",  # noqa: ARG001 — only the SymPy backend exists so far
 ) -> PolytopeEquivalence:
     """
     Decide whether two **full point configurations** are affinely equivalent:
@@ -456,9 +433,6 @@ def is_point_config_equivalent(
     points_a, points_b
         All affine points (rows = points) of the two A-matrices, with the
         homogenisation row stripped.  Size of the point sets must match.
-    method
-        ``"brute_force"`` uses the exact SymPy backend.
-
     Returns
     -------
     PolytopeEquivalence
@@ -606,14 +580,3 @@ def _find_affine_witness(
                     det = M.det()
                     return M, t, det
     return None
-
-
-def _resolve_backend(backend: BackendName) -> ModuleType | None:
-    if backend in ("auto", "sympy"):
-        return None
-    if backend != "sage":
-        raise ValueError("backend must be one of: 'auto', 'sympy', 'sage'")
-
-    from . import _sage_backend
-
-    return _sage_backend

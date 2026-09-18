@@ -27,19 +27,25 @@ def massless_triangle() -> FeynmanIntegral:
 
 
 class TestDehomogenisedSymanzikPolynomials:
-    def test_returns_one_variable_fewer_than_propagators(self, massless_triangle: FeynmanIntegral) -> None:
+    def test_returns_one_variable_fewer_than_propagators(
+        self, massless_triangle: FeynmanIntegral
+    ) -> None:
         _, new_vars = _schwinger(massless_triangle).dehomogenised_symanzik_polynomials()
         assert len(new_vars) == 2
         assert all(isinstance(v, sp.Symbol) for v in new_vars)
 
-    def test_bubble_polynomials_set_last_parameter_to_one(self, massless_bubble: FeynmanIntegral) -> None:
+    def test_bubble_polynomials_set_last_parameter_to_one(
+        self, massless_bubble: FeynmanIntegral
+    ) -> None:
         (u_tilde, f_tilde), (u1,) = _schwinger(massless_bubble).dehomogenised_symanzik_polynomials()
         sym = massless_bubble.symanzik
         a1, a2 = sym.schwinger_parameters
         assert sp.expand(u_tilde - sym.u.subs({a1: u1, a2: 1})) == 0
         assert sp.expand(f_tilde - sym.f.subs({a1: u1, a2: 1})) == 0
 
-    def test_polynomials_contain_only_new_variables(self, massless_triangle: FeynmanIntegral) -> None:
+    def test_polynomials_contain_only_new_variables(
+        self, massless_triangle: FeynmanIntegral
+    ) -> None:
         sch = _schwinger(massless_triangle)
         (u_tilde, f_tilde), new_vars = sch.dehomogenised_symanzik_polynomials()
         old = set(massless_triangle.symanzik.schwinger_parameters)
@@ -47,7 +53,9 @@ class TestDehomogenisedSymanzikPolynomials:
         assert not (f_tilde.free_symbols & old)
         assert set(new_vars) <= u_tilde.free_symbols | f_tilde.free_symbols
 
-    def test_homogeneity_recovers_original_polynomials(self, massless_triangle: FeynmanIntegral) -> None:
+    def test_homogeneity_recovers_original_polynomials(
+        self, massless_triangle: FeynmanIntegral
+    ) -> None:
         """U(t u_1, ..., t u_{N-1}, t) = t^L Ũ(u) and F(...) = t^{L+1} F̃(u)."""
         sch = _schwinger(massless_triangle)
         (u_tilde, f_tilde), new_vars = sch.dehomogenised_symanzik_polynomials()

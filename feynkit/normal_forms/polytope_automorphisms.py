@@ -36,7 +36,9 @@ coefficient_preserving_indices(fi, auts) -> list[int]
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from itertools import combinations, permutations, product as _prod
+from collections.abc import Iterator
+from itertools import combinations, permutations
+from itertools import product as _prod
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -46,6 +48,7 @@ from ..types import PolytopeAutomorphisms
 from . import _invariants
 
 if TYPE_CHECKING:
+    from ..core.edge import Edge
     from ..core.graph import Graph
     from ..integral import FeynmanIntegral
 
@@ -121,7 +124,6 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
     W_a = sp.Matrix(deltas_a[basis_indices].T.tolist())
     if W_a.det() == 0:
         return _identity_only(V_arr, n_dim)
-    W_a_inv = W_a.inv()
 
     basis_label_multiset = sorted(labels[k] for k in basis_indices)
     basis_label_seq = [labels[k] for k in basis_indices]
@@ -183,11 +185,11 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
                 valid = True
                 for i in range(n_vert):
                     key = tuple(int(x) for x in mapped[:, i])
-                    j = delta_to_b_idx.get(key)
-                    if j is None:
+                    j_opt = delta_to_b_idx.get(key)
+                    if j_opt is None:
                         valid = False
                         break
-                    vertex_map[i] = j
+                    vertex_map[i] = j_opt
                 if not valid:
                     continue
 
@@ -226,7 +228,7 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def compute_graph_automorphisms(graph: "Graph") -> list[list[int]]:
+def compute_graph_automorphisms(graph: Graph) -> list[list[int]]:
     """
     All vertex permutations of the Feynman graph that preserve topology and
     mass coloring.
@@ -245,7 +247,7 @@ def compute_graph_automorphisms(graph: "Graph") -> list[list[int]]:
     internal = graph.get_internal_edges()
     external = graph.get_external_edges()
 
-    def _mass_char(e):
+    def _mass_char(e: Edge) -> str:
         return "z" if (e.mass is not None and e.mass == sp.Integer(0)) else "n"
 
     adj: dict[int, list[tuple[int, str]]] = defaultdict(list)
@@ -282,7 +284,7 @@ def compute_graph_automorphisms(graph: "Graph") -> list[list[int]]:
 
 
 def coefficient_preserving_indices(
-    fi: "FeynmanIntegral",
+    fi: FeynmanIntegral,
     auts: PolytopeAutomorphisms,
 ) -> list[int]:
     """
@@ -309,7 +311,7 @@ def coefficient_preserving_indices(
         Index 0 (identity) is always included.
     """
     support = fi.newton_polytope.support  # list of (exponent_tuple, coeff)
-    coeff_map: dict[tuple[int, ...], sp.Expr] = {exp: coeff for exp, coeff in support}
+    coeff_map: dict[tuple[int, ...], sp.Expr] = dict(support)
 
     result = []
     for k, (U, t) in enumerate(auts.maps):
@@ -385,7 +387,7 @@ def _label_preserving_orderings(
     combo: tuple[int, ...],
     labels: list[int],
     basis_label_seq: list[int],
-):
+) -> Iterator[tuple[int, ...]]:
     """Yield all orderings of ``combo`` consistent with ``basis_label_seq``."""
     label_to_entries: dict[int, list[int]] = defaultdict(list)
     for j in combo:
@@ -406,12 +408,12 @@ def _label_preserving_orderings(
         for ell in sorted(label_to_positions)
     ]
 
-    result: list[int | None] = [None] * len(combo)
+    result: list[int] = [-1] * len(combo)
     for group_perms in _prod(*[perms for _, perms in groups]):
         for (positions, _), assigned in zip(groups, group_perms):
             for pos, entry in zip(positions, assigned):
                 result[pos] = entry
-        yield tuple(result)  # type: ignore[misc]
+        yield tuple(result)
 
 
 def _verify_witness(
@@ -456,10 +458,10 @@ def _compute_orbits(n_vert: int, vperms: list[list[int]]) -> list[list[int]]:
 
 def _identity_only(V_arr: np.ndarray, n_dim: int) -> PolytopeAutomorphisms:
     n_vert = V_arr.shape[0]
-    I = sp.ImmutableMatrix(sp.eye(n_dim))
-    Z = sp.ImmutableMatrix(sp.zeros(n_dim, 1))
+    ident = sp.ImmutableMatrix(sp.eye(n_dim))
+    zero = sp.ImmutableMatrix(sp.zeros(n_dim, 1))
     return PolytopeAutomorphisms(
-        maps=[(I, Z)],
+        maps=[(ident, zero)],
         order=1,
         vertex_permutations=[list(range(n_vert))],
         vertex_orbits=[[i] for i in range(n_vert)],

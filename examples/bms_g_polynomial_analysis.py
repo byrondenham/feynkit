@@ -9,8 +9,8 @@ Run with:
     uv run python examples/bms_g_polynomial_analysis.py
 """
 
-import sympy as sp
 import numpy as np
+import sympy as sp
 
 from feynkit import AConfiguration, bms_simplex_a_config, massless_polygon_a_config
 from feynkit.a_configuration import finite_index_map
@@ -183,14 +183,14 @@ for n in [4, 5]:
     bms = bms_simplex_a_config(n)
     print(f"\n  n={n}:  C_{n} LP has N={cn.n_points}, BMS_{n} has N={bms.n_points}")
     if cn.n_points != bms.n_points:
-        print(f"    N differs — no bijective map possible, skipping finite_index_map")
+        print("    N differs — no bijective map possible, skipping finite_index_map")
     else:
         fim_ab = finite_index_map(cn, bms)
         fim_ba = finite_index_map(bms, cn)
         if fim_ab.found or fim_ba.found:
-            print(f"    Finite-index map found (unexpected)")
+            print("    Finite-index map found (unexpected)")
         else:
-            print(f"    No finite-index map in either direction (as expected)")
+            print("    No finite-index map in either direction (as expected)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

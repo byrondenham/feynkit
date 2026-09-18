@@ -6,6 +6,7 @@ Used to compute Symanzik polynomials without symbolic matrix determinants.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from itertools import combinations
 from typing import Any
 
@@ -23,24 +24,28 @@ def _build_uf(
     """
     parent = list(range(n_vertices))
 
-    def find(x: int) -> int:
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
     for i in edge_subset:
         u, v = edge_pairs[i]
-        ru, rv = find(u), find(v)
+        ru, rv = _find(parent, u), _find(parent, v)
         if ru == rv:
             return None, 0
         parent[ru] = rv
 
-    roots = len({find(i) for i in range(n_vertices)})
+    roots = len({_find(parent, i) for i in range(n_vertices)})
     return parent, roots
 
 
-def _spanning_trees(n_vertices: int, edge_pairs: list[tuple[int, int]]):
+def _find(parent: list[int], x: int) -> int:
+    """Union-find root lookup with path halving."""
+    while parent[x] != x:
+        parent[x] = parent[parent[x]]
+        x = parent[x]
+    return x
+
+
+def _spanning_trees(
+    n_vertices: int, edge_pairs: list[tuple[int, int]]
+) -> Iterator[tuple[int, ...]]:
     """Yield edge-index tuples for every spanning tree of the graph."""
     n_edges = len(edge_pairs)
     for subset in combinations(range(n_edges), n_vertices - 1):
@@ -54,7 +59,7 @@ def _separating_2forests(
     edge_pairs: list[tuple[int, int]],
     v1: int,
     v2: int,
-):
+) -> Iterator[tuple[int, ...]]:
     """
     Yield edge-index tuples for every spanning 2-forest in which v1 and v2
     are in different components.
@@ -64,14 +69,7 @@ def _separating_2forests(
         parent, n_comp = _build_uf(n_vertices, subset, edge_pairs)
         if parent is None or n_comp != 2:
             continue
-
-        def find(x: int) -> int:
-            while parent[x] != x:
-                parent[x] = parent[parent[x]]
-                x = parent[x]
-            return x
-
-        if find(v1) != find(v2):
+        if _find(parent, v1) != _find(parent, v2):
             yield subset
 
 

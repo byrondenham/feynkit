@@ -11,7 +11,8 @@ labels, or the label-preserving automorphism group.
 
 from __future__ import annotations
 
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
+from typing import Any, cast
 
 import networkx as nx
 import numpy as np
@@ -36,7 +37,7 @@ def to_integer_points(points: object) -> np.ndarray:
     elif isinstance(points, sp.Matrix):
         arr = np.array(points.tolist(), dtype=object)
     else:
-        arr = np.array(list(points), dtype=object)
+        arr = np.array(list(cast(Iterable[Any], points)), dtype=object)
 
     if arr.ndim != 2:
         raise ValueError(f"Point configuration must be 2-dimensional; got shape {arr.shape}")

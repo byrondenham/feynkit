@@ -32,6 +32,7 @@ Run with:
 """
 
 import sys
+from itertools import product
 
 import numpy as np
 import sympy as sp
@@ -172,9 +173,8 @@ bms4_cols_np = np.array(
 
 # Generate all 4-tuples from {-1,0,1} with even sum (41 per column)
 def even_sum_cols() -> list[tuple]:
-    from itertools import product as ip
 
-    return [t for t in ip((-1, 0, 1), repeat=4) if sum(t) % 2 == 0]
+    return [t for t in product((-1, 0, 1), repeat=4) if sum(t) % 2 == 0]
 
 
 even_cols = even_sum_cols()
@@ -182,7 +182,6 @@ print(f"  Even-sum columns from {{-1,0,1}}: {len(even_cols)} per column")
 
 # Build all matrices with 4 such columns: 41^4 ≈ 2.8M
 # Use numpy batch computation
-from itertools import product as ip
 
 # batch size for det computation
 BATCH = 50_000
@@ -208,7 +207,7 @@ for c1 in even_cols:
 # Full count:
 n_mats = len(even_cols) ** 4
 print(f"  Total matrices to check: {n_mats:,}")
-print(f"  Running batched det filter...", flush=True)
+print("  Running batched det filter...", flush=True)
 
 found_companions = []
 

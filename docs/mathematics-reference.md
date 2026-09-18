@@ -37,7 +37,7 @@ SymPy symbols with names `a_{e.idx}` (prefix `"a"`, non-negative, real); the ful
 
 ### 1.3 Vertex Indexing Convention
 
-Internal vertices: $1, \ldots, V$ (stored in `edge.v1`, `edge.v2` for internal edges).  
+Internal vertices: $1, \ldots, V$ (stored in `edge.v1`, `edge.v2` for internal edges).
 External vertices: $V+1, \ldots, V+n$ (stored in `edge.v2` for external legs; $\text{leg number} = v_2 - V$).
 
 ### 1.4 CNickel Notation
@@ -136,9 +136,9 @@ $$\boxed{I_\Gamma \;=\; \frac{e^{L\varepsilon\gamma_E}}{\prod_e \Gamma(\nu_e)}
 \int_0^\infty \prod_e \left(d\alpha_e\,\alpha_e^{\nu_e-1}\right)
 U(\alpha)^{-D/2}\,\exp\!\left(-\frac{F(\alpha)}{U(\alpha)}\right).}$$
 
-**Prefactor:** $e^{L\varepsilon\gamma_E}/\prod_e \Gamma(\nu_e)$.  
-**Measure:** $\prod_e \alpha_e^{\nu_e-1}$.  
-**Integrand:** $U^{-D/2}\exp(-F/U)$.  
+**Prefactor:** $e^{L\varepsilon\gamma_E}/\prod_e \Gamma(\nu_e)$.
+**Measure:** $\prod_e \alpha_e^{\nu_e-1}$.
+**Integrand:** $U^{-D/2}\exp(-F/U)$.
 **Domain:** $\alpha_e \in (0,\infty)$ for all $e$.
 
 In the code: `ParametrisationResult.prefactor`, `.measure`, `.integrand`; parameter symbols `a_{e.idx}`.
@@ -153,8 +153,8 @@ $$\boxed{I_\Gamma \;=\; \frac{e^{L\varepsilon\gamma_E}\,\Gamma\!\left(\Sigma\nu 
 
 where $\Sigma\nu = \sum_e \nu_e$.
 
-**Domain:** Standard simplex $\Sigma = \{x_e \geq 0,\;\sum x_e = 1\}$.  
-**Prefactor:** $e^{L\varepsilon\gamma_E}\,\Gamma(\Sigma\nu - LD/2) / \prod_e\Gamma(\nu_e)$.  
+**Domain:** Standard simplex $\Sigma = \{x_e \geq 0,\;\sum x_e = 1\}$.
+**Prefactor:** $e^{L\varepsilon\gamma_E}\,\Gamma(\Sigma\nu - LD/2) / \prod_e\Gamma(\nu_e)$.
 **Exponents:** $U^{\Sigma\nu - (L+1)D/2}$, $F^{-(\Sigma\nu - LD/2)}$.
 
 ### 3.3 Lee-Pomeransky Parametrisation
@@ -164,9 +164,9 @@ where $\Sigma\nu = \sum_e \nu_e$.
 $$\boxed{I_\Gamma \;=\; \frac{e^{L\varepsilon\gamma_E}\,\Gamma(D/2)}{\Gamma\!\left((L+1)\tfrac{D}{2} - \Sigma\nu\right)\prod_e \Gamma(\nu_e)}
 \int_0^\infty \prod_e \left(d u_e\,u_e^{\nu_e-1}\right) G(u)^{-D/2}.}$$
 
-**Prefactor:** $e^{L\varepsilon\gamma_E}\,\Gamma(D/2) / \bigl[\Gamma((L+1)D/2 - \Sigma\nu)\prod_e\Gamma(\nu_e)\bigr]$.  
-**Measure:** $\prod_e u_e^{\nu_e-1}$.  
-**Integrand:** $G(u)^{-D/2}$.  
+**Prefactor:** $e^{L\varepsilon\gamma_E}\,\Gamma(D/2) / \bigl[\Gamma((L+1)D/2 - \Sigma\nu)\prod_e\Gamma(\nu_e)\bigr]$.
+**Measure:** $\prod_e u_e^{\nu_e-1}$.
+**Integrand:** $G(u)^{-D/2}$.
 **Domain:** $u_e \in (0,\infty)$.
 
 The simplification to a single polynomial $G$ is the key advantage: it packages all analytic structure

@@ -27,7 +27,6 @@ Examples
 from __future__ import annotations
 
 import argparse
-import sys
 import time
 from pathlib import Path
 
@@ -82,10 +81,7 @@ def _fmt_euler(eq: sp.Eq) -> str:
     phi_atoms = [
         a for a in sp.preorder_traversal(eq.rhs) if isinstance(a, sp.core.function.AppliedUndef)
     ]
-    if phi_atoms:
-        beta = sp.expand(eq.rhs / phi_atoms[0])
-    else:
-        beta = eq.rhs
+    beta = sp.expand(eq.rhs / phi_atoms[0]) if phi_atoms else eq.rhs
 
     return " + ".join(lhs_parts) + "  =  " + str(beta)
 
@@ -96,7 +92,7 @@ def _fmt_euler(eq: sp.Eq) -> str:
 
 
 def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
-    from feynkit import FeynmanIntegral, FeynkitDatabase
+    from feynkit import FeynkitDatabase, FeynmanIntegral
     from feynkit.a_configuration import AConfiguration
 
     show_all = len(sections) == 0
@@ -223,15 +219,15 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
 
 
 def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
-    from feynkit import FeynmanIntegral, FeynkitDatabase
-    from feynkit.a_configuration import AConfiguration, finite_index_map, FiniteIndexResult
+    from feynkit import FeynkitDatabase, FeynmanIntegral
+    from feynkit.a_configuration import AConfiguration, FiniteIndexResult, finite_index_map
 
     t0 = time.time()
     fi1 = FeynmanIntegral.from_cnickel(cn1)
     fi2 = FeynmanIntegral.from_cnickel(cn2)
     db = FeynkitDatabase(db_path)
 
-    _header(f"Equivalence analysis")
+    _header("Equivalence analysis")
     print(f"  A  =  {fi1.cnickel}")
     print(f"  B  =  {fi2.cnickel}")
 
@@ -349,7 +345,7 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
             T_rows.append([t_vals[i]] + [M[i, j] for j in range(n)])
         T_hom = sp.Matrix(T_rows)
         transformed = list(T_hom * sp.Matrix(beta1))
-        print(f"  GKZ identity  I_A(β, z) = I_A(T·β, z_P):")
+        print("  GKZ identity  I_A(β, z) = I_A(T·β, z_P):")
         print(f"    β    =  {beta1}")
         print(f"    T·β  =  {[str(x) for x in transformed]}")
 
@@ -441,19 +437,11 @@ examples:
     db_path = Path(args.db)
 
     if len(args.diagrams) == 1:
-        sections: set[str] = set()
-        if args.symanzik:
-            sections.add("symanzik")
-        if args.params:
-            sections.add("params")
-        if args.gkz:
-            sections.add("gkz")
-        if args.toric:
-            sections.add("toric")
-        if args.newton:
-            sections.add("newton")
-        if args.symmetries:
-            sections.add("symmetries")
+        sections = {
+            name
+            for name in ("symanzik", "params", "gkz", "toric", "newton", "symmetries")
+            if getattr(args, name)
+        }
         analyse_one(args.diagrams[0], db_path, sections)
     else:
         analyse_pair(args.diagrams[0], args.diagrams[1], db_path)

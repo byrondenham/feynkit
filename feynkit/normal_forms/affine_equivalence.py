@@ -17,8 +17,10 @@ witness map (when known), and a vertex correspondence (when known).
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from itertools import combinations, permutations
-from typing import Iterable, Iterator, Literal
+from types import ModuleType
+from typing import Any, Literal
 
 import numpy as np
 import sympy as sp
@@ -66,12 +68,12 @@ def is_unimodular_equivalent(
 
     1. Restrict each point set to its convex-hull vertices.
     2. Build the labelled vertex/edge graph $\\mathcal{GW}(P)$ with
-       node label ``ℓ(v) = det(A_v)`` (Liu–Cai, Definition 5.2) and edge
-       weight ``ℓ(u) + ℓ(v)``.
+       node label ``lab(v) = det(A_v)`` (Liu–Cai, Definition 5.2) and edge
+       weight ``lab(u) + lab(v)``.
     3. Compute one MST of $\\mathcal{GW}(P)$ and all MSTs of
        $\\mathcal{GW}(P')$.
     4. For each label-preserving tree isomorphism ``φ`` and each
-       ``χ ∈ Aut_ℓ(T)``, build the candidate vertex map ``φ ∘ χ`` and try
+       ``χ ∈ Aut_lab(T)``, build the candidate vertex map ``φ ∘ χ`` and try
        to solve for ``U ∈ GL_n(ℤ)`` and the integer translation ``Z``.
 
     See Also
@@ -179,8 +181,8 @@ def _label_preserving_orderings(
 
     Liu–Cai labels are unimodular invariants, so any valid witness map must
     preserve them.  Restricting to label-preserving orderings reduces the
-    search space from ``n_dim!`` to ``∏_ℓ (count_ℓ)!`` where ``count_ℓ`` is
-    the multiplicity of label ``ℓ`` in the basis — typically a small constant.
+    search space from ``n_dim!`` to ``∏_lab (count_lab)!`` where ``count_lab`` is
+    the multiplicity of label ``lab`` in the basis — typically a small constant.
     """
     from collections import defaultdict
     from itertools import product as _prod
@@ -192,39 +194,39 @@ def _label_preserving_orderings(
 
     # Group basis positions by required label.
     label_to_positions: dict[int, list[int]] = defaultdict(list)
-    for k, ℓ in enumerate(basis_label_seq):
-        label_to_positions[ℓ].append(k)
+    for k, lab in enumerate(basis_label_seq):
+        label_to_positions[lab].append(k)
 
     # Check structural compatibility.
     if set(label_to_entries) != set(label_to_positions):
         return
-    for ℓ in label_to_positions:
-        if len(label_to_entries[ℓ]) != len(label_to_positions[ℓ]):
+    for lab in label_to_positions:
+        if len(label_to_entries[lab]) != len(label_to_positions[lab]):
             return
 
     # For each label group, generate all permutations of that group's entries.
     # Then take the Cartesian product across groups to form full orderings.
     groups = [
-        (label_to_positions[ℓ], list(permutations(label_to_entries[ℓ])))
-        for ℓ in sorted(label_to_positions)
+        (label_to_positions[lab], list(permutations(label_to_entries[lab])))
+        for lab in sorted(label_to_positions)
     ]
 
-    result = [None] * len(combo)
+    result: list[int] = [-1] * len(combo)
     for group_perms in _prod(*[perms for _, perms in groups]):
         for (positions, _), assigned in zip(groups, group_perms):
             for pos, entry in zip(positions, assigned):
                 result[pos] = entry
-        yield tuple(result)  # type: ignore[misc]
+        yield tuple(result)
 
 
 def _direct_basis_search(
     V_a: np.ndarray,
     V_b: np.ndarray,
-    GW_a,
-    GW_b,
+    GW_a: Any,  # networkx.Graph with integer 'label' node attributes
+    GW_b: Any,
     deltas_a: np.ndarray,
     basis_indices: list[int],
-    W_a: sp.Matrix,
+    W_a: sp.Matrix,  # noqa: ARG001 — kept for call-site symmetry with W_a_inv
     W_a_inv: sp.Matrix,
     idx_a: np.ndarray,
     idx_b: np.ndarray,
@@ -243,7 +245,7 @@ def _direct_basis_search(
          only flip the sign, so all orderings share the same |det|).
       3. Label-preserving orderings only: instead of all n_dim! column
          permutations, only those where the k-th column label matches the
-         required label for that basis position — typically ∏_ℓ (count_ℓ)!
+         required label for that basis position — typically ∏_lab (count_lab)!
          orderings rather than n_dim!.
 
     Candidates passing all three filters are verified with numpy integer
@@ -355,7 +357,7 @@ def _verify_unimodular_witness(
 
 
 def _lift_correspondence(
-    hull_idx_a: np.ndarray,
+    hull_idx_a: np.ndarray,  # noqa: ARG001 — source indices are implicit in the correspondence order
     hull_idx_b: np.ndarray,
     hull_correspondence: list[int],
 ) -> list[int]:
@@ -405,6 +407,7 @@ def is_affinely_equivalent(
     """
     if method == "sage":
         backend_module = _resolve_backend("sage")
+        assert backend_module is not None
         pts_a_np = _invariants.to_integer_points(points_a)
         pts_b_np = _invariants.to_integer_points(points_b)
         V_a = pts_a_np[_invariants.hull_vertex_indices(pts_a_np)]
@@ -436,7 +439,7 @@ def is_point_config_equivalent(
     points_a: object,
     points_b: object,
     *,
-    method: AffineMethod = "brute_force",
+    method: AffineMethod = "brute_force",  # noqa: ARG001 — only the SymPy backend exists so far
 ) -> PolytopeEquivalence:
     """
     Decide whether two **full point configurations** are affinely equivalent:
@@ -495,7 +498,7 @@ def _affine_rank(points: sp.Matrix) -> int:
         return 0
     base = points[0, :]
     deltas = [points[i, :] - base for i in range(1, points.rows)]
-    return sp.Matrix(deltas).rank()
+    return int(sp.Matrix(deltas).rank())
 
 
 def _affine_basis_indices(points: sp.Matrix, rank: int) -> list[tuple[int, ...]]:
@@ -517,7 +520,7 @@ def _solve_affine_map(source_basis: sp.Matrix, target_basis: sp.Matrix) -> sp.Ma
     variables = sp.symbols(f"w0:{dim * (dim + 1)}")
     affine_map = sp.Matrix(dim + 1, dim, variables)
 
-    equations = []
+    equations: list[sp.Expr] = []
     for i in range(source_basis.rows):
         x = source_basis.row(i)
         y = target_basis.row(i)
@@ -529,7 +532,7 @@ def _solve_affine_map(source_basis: sp.Matrix, target_basis: sp.Matrix) -> sp.Ma
         return None
 
     solved = next(iter(solution))
-    concrete = [value.subs({symbol: 0 for symbol in value.free_symbols}) for value in solved]
+    concrete = [value.subs(dict.fromkeys(value.free_symbols, 0)) for value in solved]
     return sp.Matrix(dim + 1, dim, concrete)
 
 
@@ -546,15 +549,15 @@ def _point_key(point: list[sp.Expr]) -> tuple[tuple, ...]:
 def _same_point_multiset(points_a: sp.Matrix, points_b: sp.Matrix) -> bool:
     if points_a.shape != points_b.shape:
         return False
-    keys_a = sorted((_point_key(row) for row in points_a.tolist()))
-    keys_b = sorted((_point_key(row) for row in points_b.tolist()))
+    keys_a = sorted(_point_key(row) for row in points_a.tolist())
+    keys_b = sorted(_point_key(row) for row in points_b.tolist())
     return keys_a == keys_b
 
 
 def _find_affine_witness(
     points_a: sp.Matrix,
     points_b: sp.Matrix,
-) -> "tuple[sp.Matrix, sp.Matrix, sp.Expr] | None":
+) -> tuple[sp.Matrix, sp.Matrix, sp.Expr] | None:
     """
     Return ``(M, t, det(M))`` of the first affine map ``v ↦ M·v + t`` sending
     the multiset ``points_a`` onto ``points_b``, or ``None`` if none exists.
@@ -605,7 +608,7 @@ def _find_affine_witness(
     return None
 
 
-def _resolve_backend(backend: BackendName):
+def _resolve_backend(backend: BackendName) -> ModuleType | None:
     if backend in ("auto", "sympy"):
         return None
     if backend != "sage":

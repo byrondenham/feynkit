@@ -5,14 +5,20 @@ The Schwinger parametrisation uses parameters alpha_i in [0, infty) for each pro
 transforming the Feynman integral into an integral over Schwinger parameters.
 """
 
-import sympy as sp
-import numpy as np
+from __future__ import annotations
 
-from ..core.constants import ALPHA_PARAM_PREFIX, DEFAULT_EPSILON, DEFAULT_GAMMA_E
+import sympy as sp
+
+from ..core.constants import (
+    ALPHA_PARAM_PREFIX,
+    DEFAULT_EPSILON,
+    DEFAULT_GAMMA_E,
+    LEE_POMERANSKY_PARAM_PREFIX,
+)
 from ..core.exceptions import ComputationError
 from ..core.graph import Graph
-from .base import Parametrisation, ParametrisationResult
 from ..systems.gkz import construct_gkz_matrix
+from .base import Parametrisation, ParametrisationResult
 
 
 class SchwingerParametrisation(Parametrisation):
@@ -158,64 +164,65 @@ class SchwingerParametrisation(Parametrisation):
 
     def dehomogenised_symanzik_polynomials(
         self,
-    ) -> tuple[tuple[sp.Expr, sp.Expr], list[sp.Symbols]]:
+    ) -> tuple[tuple[sp.Expr, sp.Expr], list[sp.Symbol]]:
         """
-        Apply the substitution needed to obtain the dehomogenised Symanzik polynomials. This can be used to bring the Schwinger parametrisation into the form of a GKZ integral. Specifically, the substitution is {α_1, ..., α_N} -> {tu_1, ..., tu_{N-1}, t}, based on work from https://arxiv.org/abs/2609.16107v1.
+        Dehomogenise the Symanzik polynomials for the GKZ form of the Schwinger integral.
+
+        The substitution {α_1, …, α_N} → {t·u_1, …, t·u_{N-1}, t} factors the
+        homogeneous Symanzik polynomials as U(α) = t^L Ũ(u) and
+        F(α) = t^{L+1} F̃(u), which brings the Schwinger representation into the
+        form of a GKZ integral (see https://arxiv.org/abs/2609.16107).  Because
+        U and F are homogeneous, Ũ and F̃ are simply U and F with α_N = 1 and
+        α_i = u_i for i < N.
 
         Returns
-        ---
+        -------
         tuple[sp.Expr, sp.Expr]
-            Dehomomgenised Symanzik polynomials Ũ and F̃ in the new variables
-
-        list[sp.Symbols]
-            List of the new variables {u_i}
+            Dehomogenised Symanzik polynomials Ũ and F̃ in the new variables.
+        list[sp.Symbol]
+            The new variables u_1, …, u_{N-1}.
         """
-
-        t = sp.symbols("t")
-        alpha = [
-            sp.Symbol(f"{ALPHA_PARAM_PREFIX}_{e.idx}", nonnegative=True, real=True)
-            for e in self.internal_edges
+        internal_edges = self.graph.get_internal_edges()
+        new_vars = [
+            sp.Symbol(f"{LEE_POMERANSKY_PARAM_PREFIX}_{e.idx}", nonnegative=True, real=True)
+            for e in internal_edges[:-1]
         ]
-        u = [sp.Symbol(f"{u}_{e.idx}", nonnegative=True, real=True) for e in self.internal_edges]
+        substitution: dict[sp.Symbol, sp.Expr] = {
+            self.graph.schwinger_parameters[e.idx]: v for e, v in zip(internal_edges, new_vars)
+        }
+        substitution[self.graph.schwinger_parameters[internal_edges[-1].idx]] = sp.Integer(1)
 
-        new_vars = tuple(t * ui for ui in new_vars)
-        substitution = dict(zip(alpha, new_vars))
-
-        u_tilde_polynomial = self.u_polynomial.subs(substitution)
-        f_tilde_polynomial = self.f_polynomial.subs(substitution)
-
-        return [u_tilde_polynomial, f_tilde_polynomial], u
+        u_tilde = sp.expand(self.u_polynomial.subs(substitution))
+        f_tilde = sp.expand(self.f_polynomial.subs(substitution))
+        return (u_tilde, f_tilde), new_vars
 
     def get_A_matrix(self) -> sp.Matrix:
-        """
-        Get the \mathcal{A}-matrix of the GKZ integral obtained when manipulating the Schwinger representation into the form of an A-hypergeometric function. See https://arxiv.org/abs/2609.16107v1 for a full treatment.
+        r"""
+        GKZ A-matrix of the Schwinger representation written as an A-hypergeometric integral.
 
-        Returns:
-        ---
-        A-matrix
-            The \mathcal{A}-matrix of the GKZ integral. Because the integral consists of a product of two functions, the dehomogenised Symanzik polynomials Ũ and F̃, the \mathcal{A}-matrix will necessarily be of the form::
+        The integrand is a product of two polynomials, the dehomogenised
+        Symanzik polynomials Ũ and F̃, so the A-matrix has the block form::
 
             1 ... 1 | 0 ... 0
             0 ... 0 | 1 ... 1
             -----------------
-              A_1   |   A_1
+              A_U   |   A_F
+
+        where A_U and A_F are the exponent matrices of the monomials of Ũ and
+        F̃ (without their own homogenising rows).  See
+        https://arxiv.org/abs/2609.16107 for a full treatment.
+
+        Returns
+        -------
+        sp.Matrix
+            Integer matrix of shape (N + 1) × (n + m) for N propagators, n
+            monomials in Ũ and m monomials in F̃.
         """
+        (u_tilde, f_tilde), new_vars = self.dehomogenised_symanzik_polynomials()
 
-        [u_tilde_polynomial, f_tilde_polynomial], u = self.dehomogenised_symanzik_polynomials(self)
+        a_u = construct_gkz_matrix(u_tilde, new_vars)[1:, :]
+        a_f = construct_gkz_matrix(f_tilde, new_vars)[1:, :]
+        n, m = a_u.cols, a_f.cols
 
-        A_1 = construct_gkz_matrix(u_tilde_polynomial, u)
-        A_2 = construct_gkz_matrix(f_tilde_polynomial, u)
-
-        _, n = A_1.shape
-        _, N = A_2.shape
-
-        head = np.zeros((2, (n + N)), dtype=int)
-
-        for i in range(2):
-            for j in range((n + N)):
-
-                if ((i == 0) & (j < n)) or ((i == 1) & (j >= n)):
-
-                    head[i][j] = 1
-
-        return sp.Matrix(np.r_[head, np.c_[A_1, A_2]])
+        head = sp.Matrix([[1] * n + [0] * m, [0] * n + [1] * m])
+        return sp.Matrix.vstack(head, sp.Matrix.hstack(a_u, a_f))

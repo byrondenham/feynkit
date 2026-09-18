@@ -11,7 +11,7 @@ also produce them — e.g. the polytope-equivalence verbs in
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 import sympy as sp
 
@@ -164,7 +164,7 @@ class PolytopeEquivalence:
 
     equivalent: bool
     relation: Literal["unimodular", "affine_polytope", "affine_point_config"]
-    witness_map: Optional[sp.Matrix] = None
-    translation: Optional[sp.Matrix] = None
-    determinant: Optional[sp.Expr] = None
-    vertex_correspondence: Optional[list[int]] = None
+    witness_map: sp.Matrix | None = None
+    translation: sp.Matrix | None = None
+    determinant: sp.Expr | None = None
+    vertex_correspondence: list[int] | None = None

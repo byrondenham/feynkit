@@ -52,23 +52,22 @@ from __future__ import annotations
 
 import sys
 import time
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import sympy as sp
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from feynkit import FeynmanIntegral, FeynkitDatabase
-from feynkit.a_configuration import AConfiguration, finite_index_map, FiniteIndexResult
-from feynkit.artifacts.conformal import (
-    massless_polygon_a_config,
-    bms_simplex_a_config,
-    conformal_companion_a_config,
-    complete_graph_a_config,
-)
+from feynkit import FeynkitDatabase, FeynmanIntegral
+from feynkit.a_configuration import AConfiguration, FiniteIndexResult, finite_index_map
 from feynkit.algebra.toric import compute_toric_ideal_generators
+from feynkit.artifacts.conformal import (
+    bms_simplex_a_config,
+    complete_graph_a_config,
+    conformal_companion_a_config,
+)
 from feynkit.core.edge import Edge
 from feynkit.core.graph import Graph
 
@@ -290,7 +289,7 @@ def _print_diagram(r: DiagramRecord) -> None:
         _emit()
 
     _emit(f"  GKZ A-matrix  ({r.a_matrix.rows} × {r.a_matrix.cols})")
-    _emit(f"  [Rows = lattice coordinates; columns = monomials of G]")
+    _emit("  [Rows = lattice coordinates; columns = monomials of G]")
     _print_matrix(r.a_matrix)
     _emit()
 
@@ -300,7 +299,7 @@ def _print_diagram(r: DiagramRecord) -> None:
         _emit()
 
     if r.euler_eqs:
-        _emit(f"  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:")
+        _emit("  Euler equations  [Σ_j A_rj z_j ∂_j Φ = β_r Φ,  one per A-row]:")
         for i, eq in enumerate(r.euler_eqs):
             _emit(f"    [{i}]  {eq}")
         _emit()
@@ -313,7 +312,7 @@ def _print_diagram(r: DiagramRecord) -> None:
         _emit("  Toric ideal : trivial  (no IBP relations)")
     _emit()
 
-    _emit(f"  Newton polytope:")
+    _emit("  Newton polytope:")
     _emit(f"    Monomials (A-columns)          : {r.n_pts}")
     _emit(f"    Hull vertices                  : {r.n_verts}")
     _emit(f"    Ambient dimension              : {r.ambient_dim}")
@@ -533,9 +532,6 @@ def main() -> None:
             results = _check_pair(r1, r2)
             all_equiv.extend(er for er in results if er.equivalent)
 
-            pos = [er for er in results if er.equivalent]
-            neg = [er for er in results if not er.equivalent]
-
             _emit(f"  {r1.label}  ↔  {r2.label}")
             for er in results:
                 status = "✓" if er.equivalent else "✗"
@@ -607,7 +603,7 @@ def main() -> None:
             _emit("  GKZ integral identity  I_A(β, z) = I_A(T·β, z_P):")
             _emit(f"    β      =  {src_rec.beta}")
             _emit(f"    T·β    =  {[str(x) for x in transformed]}")
-            _emit(f"  [T·β gives the β-parameters of the target integral]")
+            _emit("  [T·β gives the β-parameters of the target integral]")
             _emit()
 
     # ── Pattern analysis ─────────────────────────────────────────────────────

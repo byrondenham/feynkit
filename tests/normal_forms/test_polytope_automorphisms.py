@@ -19,7 +19,6 @@ Graph automorphisms (vertex permutations only — edge permutations not counted)
 
 from __future__ import annotations
 
-import pytest
 import sympy as sp
 
 from feynkit import FeynmanIntegral, PolytopeAutomorphisms
@@ -52,9 +51,9 @@ class TestReturnType:
         for cnickel in ["11e|e|:zz", "12e|2e|e|:zzz", "12e|2e|e|:nzz"]:
             auts = compute_polytope_automorphisms(_points(cnickel))
             n_dim = len(auts.maps[0][1])
-            I = sp.ImmutableMatrix(sp.eye(n_dim))
-            Z = sp.ImmutableMatrix(sp.zeros(n_dim, 1))
-            assert (I, Z) in auts.maps, f"Identity missing for {cnickel}"
+            ident = sp.ImmutableMatrix(sp.eye(n_dim))
+            zero = sp.ImmutableMatrix(sp.zeros(n_dim, 1))
+            assert (ident, zero) in auts.maps, f"Identity missing for {cnickel}"
 
     def test_order_equals_maps_length(self):
         for cnickel in ["11e|e|:zz", "12e|2e|e|:zzz"]:
@@ -114,10 +113,8 @@ class TestGroupOrders:
 
 class TestWitnessValidity:
     def _check_maps(self, cnickel: str):
-        import numpy as np
 
         pts = _points(cnickel)
-        pts_arr = [[*p] for p in pts]
         auts = compute_polytope_automorphisms(pts)
         pt_set = set(pts)
         for U, t in auts.maps:

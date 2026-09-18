@@ -347,7 +347,7 @@ class TestSymmetryPairs:
             Pi = sp.zeros(N, N)
             for j, k in enumerate(pair.column_permutation):
                 Pi[k, j] = 1
-            assert T * A == A * Pi, (
+            assert A * Pi == T * A, (
                 f"T·A ≠ A·Π_P for det={pair.determinant}, " f"perm={pair.column_permutation}"
             )
 
@@ -570,8 +570,6 @@ class TestConformalArtifacts:
 
     def test_companion_n3_finite_index_map_witness(self):
         """The witness matrix for companion(3) → BMS_3 maps every column correctly."""
-        import numpy as np
-
         comp3 = conformal_companion_a_config(3)
         bms3 = bms_simplex_a_config(3)
         fim = finite_index_map(comp3, bms3)

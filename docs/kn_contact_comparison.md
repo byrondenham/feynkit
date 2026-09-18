@@ -1,6 +1,6 @@
 # K_n LP vs. contact star: Newton polytope comparison
 
-**Date:** 2026-05-04  
+**Date:** 2026-05-04
 **Script:** `examples/kn_contact_comparison.py`
 
 ## Setup

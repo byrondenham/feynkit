@@ -36,7 +36,6 @@ def print_section(title: str) -> None:
 
 
 def describe_config(name: str, cfg) -> None:
-    pts = cfg.affine_points
     hull = cfg.newton_polytope_points
     print(f"\n{name}")
     print(
@@ -95,11 +94,11 @@ invariants agree.  Different invariants prove non-unimodular equivalence.
 """)
 
 print(f"  Triangle : Smith invariants = {tri.smith_invariants}")
-print(f"             → spans the full lattice ℤ³  (all invariants = 1)")
+print("             → spans the full lattice ℤ³  (all invariants = 1)")
 print()
 print(f"  Triple-K : Smith invariants = {tpk.smith_invariants}")
-print(f"             → spans the even-sum sublattice  (last invariant = 2)")
-print(f"             → index 2 in ℤ³ : only points with x+y+z ≡ 0 (mod 2)")
+print("             → spans the even-sum sublattice  (last invariant = 2)")
+print("             → index 2 in ℤ³ : only points with x+y+z ≡ 0 (mod 2)")
 print()
 print("  Smith invariants DIFFER → triangle and triple-K are NOT unimodularly equivalent.")
 
@@ -152,12 +151,12 @@ Interpretation:
 print_section("Finite-Index Lattice Map")
 
 result_fim = finite_index_map(tri, tpk)
-print(f"\nfinite_index_map(triangle → triple-K)")
+print("\nfinite_index_map(triangle → triple-K)")
 print(f"  found           : {result_fim.found}")
 print(f"  determinant     : {result_fim.determinant}")
 print(f"  is_unimodular   : {result_fim.is_unimodular}")
 if result_fim.witness_matrix is not None:
-    print(f"  witness M       :")
+    print("  witness M       :")
     M = result_fim.witness_matrix
     for row in M.tolist():
         print(f"                    {row}")

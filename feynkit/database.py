@@ -24,7 +24,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import sympy as sp
 
@@ -187,7 +187,7 @@ class FeynkitDatabase:
         is_bin = bool(row["is_binomial"]) if row["is_binomial"] is not None else None
         keys = row.keys()
 
-        def _opt(col: str):
+        def _opt(col: str) -> Any:
             return row[col] if col in keys else None
 
         raw_orbits = _opt("vertex_orbits")
@@ -221,14 +221,14 @@ class FeynkitDatabase:
         """Return cached toric generators for these Newton points, or None."""
         fp = self._fingerprint(points)
         row = self._conn.execute(
-            "SELECT toric_gens FROM integrals WHERE fingerprint=?", (fp,)
+            "SELECT toric_gens, n_toric_gens FROM integrals WHERE fingerprint=?", (fp,)
         ).fetchone()
         if row is None or row["n_toric_gens"] is None:
             return None
         return self._deser_exprs(row["toric_gens"])
 
     @staticmethod
-    def _compute_automorphism_data(fi: "FeynmanIntegral") -> tuple[int, int, int, str]:
+    def _compute_automorphism_data(fi: FeynmanIntegral) -> tuple[int, int, int, str]:
         """Return (poly_aut_order, graph_aut_order, coeff_pres_order, vertex_orbits_json)."""
         from .normal_forms.polytope_automorphisms import (
             coefficient_preserving_indices,
@@ -248,7 +248,7 @@ class FeynkitDatabase:
 
     def _store_toric(
         self,
-        fi: "FeynmanIntegral",
+        fi: FeynmanIntegral,
         generators: list[sp.Expr],
     ) -> None:
         """
@@ -301,7 +301,7 @@ class FeynkitDatabase:
 
     def store(
         self,
-        fi: "FeynmanIntegral",
+        fi: FeynmanIntegral,
         *,
         label: str | None = None,
         compute_automorphisms: bool = False,
@@ -391,7 +391,7 @@ class FeynkitDatabase:
         row = self._conn.execute("SELECT * FROM integrals WHERE fingerprint=?", (fp,)).fetchone()
         return self._to_record(row)
 
-    def lookup(self, fi: "FeynmanIntegral") -> IntegralRecord | None:
+    def lookup(self, fi: FeynmanIntegral) -> IntegralRecord | None:
         """Return the stored record for fi, or None if not present."""
         fp = self._fingerprint(fi.newton_polytope.points)
         row = self._conn.execute("SELECT * FROM integrals WHERE fingerprint=?", (fp,)).fetchone()
@@ -399,14 +399,14 @@ class FeynkitDatabase:
 
     def find_equivalent(
         self,
-        fi: "FeynmanIntegral",
+        fi: FeynmanIntegral,
         *,
         relation: str = "unimodular",
     ) -> list[IntegralRecord]:
         """
         Find all stored integrals whose Newton polytope is equivalent to fi's.
 
-        Candidates are pre-filtered by ``(n_rows, n_cols, n_toric_gens)``
+        Candidates are pre-filtered by ``(n_rows, n_cols)``
         before running the full equivalence test.  Results are cached in the
         ``equivalences`` table so repeat queries are instant.
 
@@ -424,7 +424,6 @@ class FeynkitDatabase:
 
         pts_q = fi.newton_polytope.points
         fp_q = self._fingerprint(pts_q)
-        n_gens = len(fi.toric_ideal.generators)
         A = fi.gkz.a_matrix
 
         candidates = self._conn.execute(
@@ -626,7 +625,7 @@ class FeynkitDatabase:
     def close(self) -> None:
         self._conn.close()
 
-    def __enter__(self) -> "FeynkitDatabase":
+    def __enter__(self) -> FeynkitDatabase:
         return self
 
     def __exit__(self, *_: object) -> None:

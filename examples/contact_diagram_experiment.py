@@ -28,7 +28,7 @@ import sympy as sp
 
 sys.path.insert(0, "/home/byron/docs/ph32048/feynkit")
 
-from feynkit.a_configuration import AConfiguration, FiniteIndexResult, finite_index_map
+from feynkit.a_configuration import AConfiguration, finite_index_map
 from feynkit.artifacts.conformal import bms_simplex_a_config
 from feynkit.normal_forms._invariants import hull_vertex_indices
 from feynkit.normal_forms.affine_equivalence import is_affinely_equivalent
@@ -106,7 +106,7 @@ def describe(cfg: AConfiguration, label: str) -> dict:
     print(f"  Interior lattice points  : {n_interior}")
     print(f"  Normalised volume        : {vol}")
     print(f"  Smith invariants of A    : {smith}")
-    print(f"  Vertex matrix (rows):")
+    print("  Vertex matrix (rows):")
     for row in verts.tolist():
         print(f"    {row}")
 
@@ -263,7 +263,7 @@ def main() -> None:
         cdiag = contact_a_config(n)
 
         d_bms = describe(bms, f"BMS_{n} simplex (bms_simplex_a_config)")
-        d_cd = describe(cdiag, f"Contact diagram (A=[1|1; -I|I])")
+        d_cd = describe(cdiag, "Contact diagram (A=[1|1; -I|I])")
 
         polytope_res = polytope_equivalence(d_bms, d_cd, f"BMS_{n} vs Contact_{n}")
         point_res = point_config_equivalence(d_bms, d_cd, f"BMS_{n} vs Contact_{n}")

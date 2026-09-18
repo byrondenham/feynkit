@@ -55,8 +55,8 @@ def nvol(pts: np.ndarray) -> int | str:
 def contact_star_a_config(n: int) -> AConfiguration:
     """Build [[1…1|1…1], [-I_n|I_n]] as an AConfiguration."""
     top = [[1] * (2 * n)]
-    I = np.eye(n, dtype=int)
-    rows = top + [list(-I[i]) + list(I[i]) for i in range(n)]
+    ident = np.eye(n, dtype=int)
+    rows = top + [list(-ident[i]) + list(ident[i]) for i in range(n)]
     return AConfiguration(sp.Matrix(rows), is_homogenized=True)
 
 
@@ -122,7 +122,7 @@ res1 = is_affinely_equivalent(verts_tri.tolist(), verts_s3.tolist())
 print(f"  Equivalent : {res1.equivalent}")
 if res1.equivalent:
     print(f"  det(M)     = {res1.determinant}")
-    print(f"  M          =")
+    print("  M          =")
     sp.pprint(res1.witness_map)
     print(f"  t          = {res1.translation.T.tolist() if res1.translation is not None else None}")
 
@@ -150,38 +150,38 @@ vi4 = hull_vertex_indices(pts4)
 verts4 = pts4[vi4]
 vol4 = nvol(verts4)
 
-print(f"\nK_4 (complete graph, C(4,2)=6 internal edges):")
+print("\nK_4 (complete graph, C(4,2)=6 internal edges):")
 print(f"  A-matrix shape   : {cfg4.matrix.shape[0]} × {cfg4.matrix.shape[1]}")
 print(f"  Ambient dim      : {cfg4.ambient_dim}  [= C(4,2) = 6 Schwinger parameters]")
 print(f"  Monomials        : {cfg4.n_points}")
 print(f"  Hull vertices    : {len(vi4)}  [all {cfg4.n_points} monomials are extreme points]")
 print(f"  Normalised vol   : {vol4}")
 print(f"  Smith invariants : {cfg4.smith_invariants}")
-print(f"\n  First 6 columns of K_4 A-matrix (representative):")
+print("\n  First 6 columns of K_4 A-matrix (representative):")
 sp.pprint(cfg4.matrix[:, :6])
 print(f"  ... ({cfg4.n_points - 6} more columns with all-zero/one entries)")
 
 # K_5: build the A-matrix (takes ~16s) but skip the hull/volume computation
 # which requires a convex hull in ℝ^{10} over 235 points (~several minutes).
 # Invariants pre-established in background run; see source note.
-print(f"\nK_5 (complete graph, C(5,2)=10 internal edges):")
+print("\nK_5 (complete graph, C(5,2)=10 internal edges):")
 print("  [Building A-matrix — this takes ~16s…]")
 cfg5 = complete_graph_a_config(5)
 print(f"  A-matrix shape   : {cfg5.matrix.shape[0]} × {cfg5.matrix.shape[1]}")
 print(f"  Ambient dim      : {cfg5.ambient_dim}  [= C(5,2) = 10 Schwinger parameters]")
 print(f"  Monomials        : {cfg5.n_points}")
-print(f"  Hull vertices    : 235  [pre-established: all monomials are extreme]")
-print(f"  Normalised vol   : 347112  [pre-established]")
+print("  Hull vertices    : 235  [pre-established: all monomials are extreme]")
+print("  Normalised vol   : 347112  [pre-established]")
 print(f"  Smith invariants : {cfg5.smith_invariants}")
-print(f"\n  First 6 columns of K_5 A-matrix (representative):")
+print("\n  First 6 columns of K_5 A-matrix (representative):")
 sp.pprint(cfg5.matrix[:, :6])
 print(f"  ... ({cfg5.n_points - 6} more columns with all-zero/one entries)")
 
-print(f"""
+print("""
 Observation: the LP Schwinger-parameter space grows as C(n,2):
   K_3  →  3 Schwinger params  (ambient ℝ^3)
   K_4  →  6 Schwinger params  (ambient ℝ^6)
-  K_5  → 10 Schwinger params  (ambient ℝ^{{10}})
+  K_5  → 10 Schwinger params  (ambient ℝ^{10})
 The contact star for n external legs always lives in ℝ^n.
 For n ≥ 4, C(n,2) > n, so the two objects live in different ambient spaces.""")
 
@@ -195,36 +195,36 @@ print("STEP 3 — K_n LP vs. n-point contact star: dimensional comparison")
 print("=" * 70)
 
 kn_data = {
-    3: dict(
-        ambient_dim=3,
-        shape=(4, 6),
-        n_pts=6,
-        n_verts=6,
-        vol=vol_tri,
-        smith=cfg_tri.smith_invariants,
-        verts=verts_tri,
-        pts=pts_tri,
-    ),
-    4: dict(
-        ambient_dim=6,
-        shape=(7, 31),
-        n_pts=31,
-        n_verts=31,
-        vol=vol4,
-        smith=cfg4.smith_invariants,
-        verts=verts4,
-        pts=pts4,
-    ),
-    5: dict(
-        ambient_dim=10,
-        shape=(11, 235),
-        n_pts=235,
-        n_verts=235,
-        vol=347112,
-        smith=cfg5.smith_invariants,
-        verts=None,
-        pts=None,
-    ),
+    3: {
+        "ambient_dim": 3,
+        "shape": (4, 6),
+        "n_pts": 6,
+        "n_verts": 6,
+        "vol": vol_tri,
+        "smith": cfg_tri.smith_invariants,
+        "verts": verts_tri,
+        "pts": pts_tri,
+    },
+    4: {
+        "ambient_dim": 6,
+        "shape": (7, 31),
+        "n_pts": 31,
+        "n_verts": 31,
+        "vol": vol4,
+        "smith": cfg4.smith_invariants,
+        "verts": verts4,
+        "pts": pts4,
+    },
+    5: {
+        "ambient_dim": 10,
+        "shape": (11, 235),
+        "n_pts": 235,
+        "n_verts": 235,
+        "vol": 347112,
+        "smith": cfg5.smith_invariants,
+        "verts": None,
+        "pts": None,
+    },
 }
 
 step3 = {}
@@ -271,7 +271,7 @@ for n in [3, 4, 5]:
             print(f"  EQUIVALENT,  det M = {res.determinant}")
         else:
             step3[n] = {"equivalent": False, "reason": "no_map_found"}
-            print(f"  NOT EQUIVALENT")
+            print("  NOT EQUIVALENT")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -329,14 +329,14 @@ for n in [3, 4, 5]:
         print(f"  ── FIRST OBSTRUCTION: {reason}")
         step4[n] = {"equivalent": False, "reason": reason}
     else:
-        print(f"  Invariants match; running equivalence test…")
+        print("  Invariants match; running equivalence test…")
         res = is_affinely_equivalent(verts_tri.tolist(), verts_r.tolist())
         if res.equivalent:
             step4[n] = {"equivalent": True, "det": res.determinant}
             print(f"  EQUIVALENT,  det M = {res.determinant}")
         else:
             step4[n] = {"equivalent": False, "reason": "no_map_found"}
-            print(f"  NOT EQUIVALENT")
+            print("  NOT EQUIVALENT")
     print()
 
 
@@ -362,7 +362,7 @@ Step 2 — K_n LP invariants:
   {'n':>2}  {'edges':>5}  {'A-shape':>8}  {'dim':>4}  {'monomials':>9}  {'verts':>5}  {'norm-vol':>12}  {'Smith'}"""
 )
 print("  " + "─" * 65)
-for n, label_vol, label_verts, smith_label in [
+for n, label_vol, _label_verts, smith_label in [
     (3, str(vol_tri), "6 (=monomials)", str(cfg_tri.smith_invariants)),
     (4, str(vol4), "31 (=monomials)", str(cfg4.smith_invariants)),
     (5, "347112", "235 (=monomials)", str(cfg5.smith_invariants)),
@@ -382,10 +382,7 @@ for n in [3, 4, 5]:
     r = step3[n]
     ld = kn_data[n]["ambient_dim"]
     sd = n
-    if r["equivalent"]:
-        obs = f"EQUIVALENT (det M = {r['det']})"
-    else:
-        obs = r["reason"]
+    obs = f"EQUIVALENT (det M = {r['det']})" if r["equivalent"] else r["reason"]
     print(f"  {n:>2}  {ld:>6}  {sd:>8}  {obs}")
 
 print(f"""
@@ -399,12 +396,12 @@ for n in [3, 4, 5]:
     obs = f"EQUIVALENT (det={r['det']})" if r["equivalent"] else r["reason"]
     print(f"  {n:>2}  {desc:>30}  {obs}")
 
-print(f"""
+print("""
 Conclusion:
-  The triangle LP Newton polytope does NOT reappear at any n ∈ {{3,4,5}}
+  The triangle LP Newton polytope does NOT reappear at any n ∈ {3,4,5}
   after the cross-ratio restriction to the -I_n block.
 
-  For n = 3: same ambient space ℝ^3, but the restricted set {{-e_1,-e_2,-e_3}}
+  For n = 3: same ambient space ℝ^3, but the restricted set {-e_1,-e_2,-e_3}
              is a 2-simplex (3 vertices), while the triangle LP polytope is a
              triangular prism (6 vertices = two stacked triangles, the U-monomials
              at degree 2 and the F-monomials at degree 1).  Vertex-count
@@ -416,5 +413,5 @@ Conclusion:
   Moreover, the K_n LP A-matrix itself is not comparable to the contact star
   for n ≥ 4: the Schwinger parameter space is C(n,2)-dimensional (not n-dimensional),
   so no direct affine map between the LP and contact-star Newton polytopes exists
-  for n = 4 (ℝ^6 vs ℝ^4) or n = 5 (ℝ^{{10}} vs ℝ^5).
+  for n = 4 (ℝ^6 vs ℝ^4) or n = 5 (ℝ^{10} vs ℝ^5).
 """)

@@ -71,7 +71,7 @@ def _mass_code_from_expr(mass: sp.Expr) -> str:
                 return "s"
             # Letter labels 'a'-'y' (excl. 'n','s') round-trip unambiguously.
             if c.isalpha() and c.islower() and c not in ("n", "s"):
-                return c
+                return str(c)
     return "n"
 
 
@@ -324,7 +324,7 @@ class Graph:
                     used_letters.add(code)
 
         # Second pass: unlabeled shared masses get fresh letters (sorted for stability).
-        _LETTER_POOL = [c for c in "abcdefghijklmopqrtuvwxy"]  # a-y, excl. n,s
+        _LETTER_POOL = list("abcdefghijklmopqrtuvwxy")  # a-y, excl. n,s
         available = [c for c in _LETTER_POOL if c not in used_letters]
         unlabeled_shared = sorted(
             (m for m, cnt in mass_count.items() if cnt > 1 and m not in mass_code_map),
@@ -477,7 +477,7 @@ class Graph:
         return f"{best[0]}:{best[1]}"
 
     @classmethod
-    def from_cnickel(cls, cnickel: str) -> "Graph":
+    def from_cnickel(cls, cnickel: str) -> Graph:
         """
         Construct a :class:`Graph` from a CNickel string.
 
@@ -556,10 +556,7 @@ class Graph:
                             f"in entry {i} of {cnickel!r}"
                         )
                     if j >= i:
-                        if mass_idx < len(mass_str):
-                            mc = mass_str[mass_idx]
-                        else:
-                            mc = "z"
+                        mc = mass_str[mass_idx] if mass_idx < len(mass_str) else "z"
                         if mc not in _ALL_VALID_CODES:
                             raise ValueError(f"Unknown mass code {mc!r} in {cnickel!r}")
                         mass_idx += 1
@@ -609,7 +606,7 @@ class Graph:
         )
 
     @classmethod
-    def from_nickel(cls, nickel: str) -> "Graph":
+    def from_nickel(cls, nickel: str) -> Graph:
         """
         Construct a massless :class:`Graph` from a bare Nickel topology string.
 

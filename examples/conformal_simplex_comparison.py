@@ -21,8 +21,6 @@ Run with:
     uv run python examples/conformal_simplex_comparison.py
 """
 
-import sympy as sp
-
 from feynkit import (
     AConfiguration,
     bms_simplex_a_config,
@@ -100,7 +98,7 @@ def compare(label_a: str, cfg_a: AConfiguration, label_b: str, cfg_b: AConfigura
             )
             print(f"      M = {fim_ba.witness_matrix.tolist()}")
         else:
-            print(f"    Finite-index map : not found in either direction")
+            print("    Finite-index map : not found in either direction")
 
 
 # ──────────────────────────────────────────────────────────────────────────────

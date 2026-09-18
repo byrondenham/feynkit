@@ -11,12 +11,12 @@ public API.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import sympy as sp
 
 try:
-    from sageall import Matrix as SageMatrix  # type: ignore[import-not-found]
+    from sageall import Matrix as SageMatrix
 except ImportError as exc:  # pragma: no cover - depends on optional dependency
     _SAGE_IMPORT_ERROR: ImportError | None = exc
     SageMatrix = None
@@ -42,9 +42,7 @@ def compare_point_configurations(
     SageMatrix(sp.Matrix(points_b).tolist())
 
     # Until a native Sage implementation is wired up, fall back to the
-    # brute-force sympy backend through the new public API.
-    from .affine_equivalence import _coerce_sympy_points, _compare_point_configurations_sympy
+    # brute-force sympy backend through the public API.
+    from .affine_equivalence import is_point_config_equivalent
 
-    pts_a = _coerce_sympy_points(points_a)
-    pts_b = _coerce_sympy_points(points_b)
-    return _compare_point_configurations_sympy(pts_a, pts_b, ordered=False)
+    return bool(is_point_config_equivalent(points_a, points_b).equivalent)

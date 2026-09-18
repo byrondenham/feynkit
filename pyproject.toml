@@ -7,7 +7,7 @@ name = "feynkit"
 version = "0.1.0"
 description = "A comprehensive toolkit for symbolic Feynman integral computations"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Byron Denham", email = "bd567@bath.ac.uk"}
@@ -29,10 +29,11 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 dependencies = [
@@ -44,14 +45,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
-    "black>=23.7.0",
-    "ruff>=0.0.285",
-    "mypy>=1.5.0",
-    "pre-commit>=3.3.0",
-]
 docs = [
     "sphinx>=7.1.0",
     "sphinx-rtd-theme>=1.3.0",
@@ -88,7 +81,7 @@ addopts = [
 
 [tool.black]
 line-length = 100
-target-version = ["py39", "py310", "py311", "py312"]
+target-version = ["py310", "py311", "py312", "py313"]
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -101,7 +94,9 @@ extend-exclude = '''
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
+
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
@@ -117,14 +112,15 @@ ignore = [
     "E501",  # line too long (handled by black)
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex (we'll handle this case by case)
+    "B905",  # zip() without strict= (py310+); lengths are guaranteed by construction
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]
 "tests/**/*.py" = ["ARG", "S101"]
+"examples/**/*.py" = ["E402"]  # scripts adjust sys.path before importing feynkit
 
 [tool.mypy]
-python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -142,9 +138,6 @@ ignore_missing_imports = true
 module = "scipy.*"
 ignore_missing_imports = true
 
-[[tool.mypy.overrides]]
-module = "matplotlib.*"
-ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["feynkit"]
@@ -168,4 +161,8 @@ exclude_lines = [
 dev = [
     "pytest>=8.4.2",
     "pytest-cov>=7.1.0",
+    "black>=26.0",
+    "ruff>=0.16",
+    "mypy>=2.0",
+    "pre-commit>=4.0",
 ]

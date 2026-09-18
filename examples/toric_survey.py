@@ -18,7 +18,6 @@ from __future__ import annotations
 import sys
 import time
 from collections import defaultdict
-from itertools import combinations
 from pathlib import Path
 
 import sympy as sp
@@ -202,7 +201,6 @@ def equivalence_analysis(db: FeynkitDatabase) -> None:
 
     # union-find over fingerprints
     parent: dict[str, str] = {r.fingerprint: r.fingerprint for r in records}
-    fp_to_rec: dict[str, object] = {r.fingerprint: r for r in records}
 
     def find(fp: str) -> str:
         while parent[fp] != fp:

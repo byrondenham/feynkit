@@ -5,8 +5,6 @@ Provides functions to generate TikZ/LaTeX code for visualising geometric
 structures associated with Feynman integrals.
 """
 
-from typing import Optional
-
 from ..core.exceptions import ValidationError
 from ..core.graph import Graph
 
@@ -35,7 +33,7 @@ class TikzDocument:
     def begin_picture(
         self,
         scale: float = 1.0,
-        options: Optional[str] = None,
+        options: str | None = None,
     ) -> "TikzDocument":
         """
         Begin a TikZ picture environment.
@@ -122,7 +120,7 @@ class TikzDocument:
         x: float,
         y: float,
         z: float = 0,
-        label: Optional[str] = None,
+        label: str | None = None,
         label_position: str = "right",
     ) -> "TikzDocument":
         """
@@ -333,7 +331,7 @@ def graph_to_tikz(graph: Graph) -> str:
     drawn_edges: set[tuple[int, int]] = set()
     for edge in graph.edges:
         if edge.is_internal:
-            edge_key = tuple(sorted([edge.v1, edge.v2]))
+            edge_key = (min(edge.v1, edge.v2), max(edge.v1, edge.v2))
             if edge_key not in drawn_edges:
                 lines.append(f"  \\draw[propagator] (v{edge.v1}) -- (v{edge.v2});")
                 drawn_edges.add(edge_key)

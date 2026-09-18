@@ -4,8 +4,6 @@ Plain text export utilities for Feynman integral analysis.
 Provides functions to generate human-readable text reports.
 """
 
-from typing import Optional
-
 import sympy as sp
 
 from ..core.graph import Graph
@@ -241,9 +239,9 @@ def _create_analysis_report(
     graph: Graph,
     u_polynomial: sp.Expr,
     f_polynomial: sp.Expr,
-    gkz_system: Optional[GKZSystem] = None,
-    parametrisation_results: Optional[dict[str, ParametrisationResult]] = None,
-    toric_generators: Optional[list[sp.Expr]] = None,
+    gkz_system: GKZSystem | None = None,
+    parametrisation_results: dict[str, ParametrisationResult] | None = None,
+    toric_generators: list[sp.Expr] | None = None,
     title: str = "Feynman Integral Analysis Report",
 ) -> str:
     """

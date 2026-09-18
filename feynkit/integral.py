@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from .database import FeynkitDatabase
 
 from .algebra.toric import compute_toric_ideal_generators
+from .core.constants import LEE_POMERANSKY_PARAM_PREFIX
 from .core.exceptions import ValidationError
 from .core.graph import Graph
 from .core.validation import (
@@ -50,9 +51,8 @@ from .kinematics.momentum import create_momentum_products
 from .normal_forms.pairing_matrix import PairingMatrixResult, maximal_pairing_matrix
 from .parametrisations.base import ParametrisationResult
 from .parametrisations.factory import AllParametrisations, _create_parametrisations
-from .core.constants import LEE_POMERANSKY_PARAM_PREFIX
 from .polynomials.spanning_trees import gkz_exponent_vectors
-from .systems.complete import GKZSystem, _create_gkz_system, _create_gkz_system_direct
+from .systems.complete import GKZSystem, _create_gkz_system_direct
 from .systems.monomial import extract_monomial_support
 from .types import (
     NewtonPolytope,
@@ -130,7 +130,7 @@ class FeynmanIntegral:
         momentum_products: dict[tuple[int, int], sp.Expr] | None = None,
         use_mandelstam: bool = True,
         kinematic_constraints: list[sp.Expr] | None = None,
-        database: "FeynkitDatabase | None" = None,
+        database: FeynkitDatabase | None = None,
     ) -> None:
         if dimension is None:
             dimension = sp.Symbol(_DEFAULT_DIMENSION_NAME, positive=True)
@@ -201,7 +201,7 @@ class FeynmanIntegral:
     # ──────── Constructors from CNickel ────────
 
     @classmethod
-    def from_cnickel(cls, cnickel: str, **kwargs: Any) -> "FeynmanIntegral":
+    def from_cnickel(cls, cnickel: str, **kwargs: Any) -> FeynmanIntegral:
         """
         Construct a :class:`FeynmanIntegral` from a CNickel string.
 
@@ -229,7 +229,7 @@ class FeynmanIntegral:
         return cls(Graph.from_cnickel(cnickel), **kwargs)
 
     @classmethod
-    def from_nickel(cls, nickel: str, **kwargs: Any) -> "FeynmanIntegral":
+    def from_nickel(cls, nickel: str, **kwargs: Any) -> FeynmanIntegral:
         """
         Construct a massless :class:`FeynmanIntegral` from a bare Nickel string.
 
@@ -432,7 +432,7 @@ class FeynmanIntegral:
 
     # ──────── Actions ────────
 
-    def with_(self, **overrides: Any) -> "FeynmanIntegral":
+    def with_(self, **overrides: Any) -> FeynmanIntegral:
         """
         Return a new :class:`FeynmanIntegral` with the given fields replaced.
 
@@ -526,7 +526,7 @@ class FeynmanIntegral:
 
     # ──────── Comparison ────────
 
-    def is_unimodular_equivalent_to(self, other: "FeynmanIntegral") -> PolytopeEquivalence:
+    def is_unimodular_equivalent_to(self, other: FeynmanIntegral) -> PolytopeEquivalence:
         """
         Test whether two integrals' Newton polytopes are unimodularly
         equivalent (Liu–Cai, arXiv:2506.23846).
@@ -545,7 +545,7 @@ class FeynmanIntegral:
 
     def is_affinely_equivalent_to(
         self,
-        other: "FeynmanIntegral",
+        other: FeynmanIntegral,
         *,
         method: Literal["brute_force", "sage"] = "brute_force",
     ) -> PolytopeEquivalence:

@@ -87,7 +87,7 @@ for i, p in enumerate(pairs_1m):
     perm_str = str(list(p.column_permutation))
     print(f"  [{i}]  {p.determinant:>4}  {perm_str:<22}  {tb}")
 
-print(f"""
+print("""
 Observation:
   β₀ = Σνᵢ − D/2 is preserved by every T (first row of T is always
   [1, 0, 0]), confirming that the overall degree of homogeneity is
@@ -205,7 +205,7 @@ for label, cn, interp in DIAGRAMS:
         n = cfg.rows - 1  # ambient dimension (drop homogenization row)
         n_all = len(ps)
         n_uni = sum(1 for p in ps if p.is_unimodular)
-        dets = sorted(set(p.determinant for p in ps))
+        dets = sorted({p.determinant for p in ps})
         dets_str = str(dets) if len(dets) <= 3 else f"[{min(dets)}..{max(dets)}]"
         print(f"  {label:<22}  {N:>4}  {n:>3}  {n_all:>7}  {n_uni:>5}  {dets_str:>14}  {interp}")
     except Exception as exc:

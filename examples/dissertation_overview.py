@@ -29,16 +29,12 @@ Supporting examples: bubble (1-loop, 2-point) and massive sunrise (2-loop).
 import sympy as sp
 
 from feynkit import (
+    AConfiguration,
     Edge,
     FeynmanIntegral,
     Graph,
-    PolytopeEquivalence,
-    PolytopeAutomorphisms,
-    AConfiguration,
-    FiniteIndexResult,
     finite_index_map,
     intrinsic_lattice_model,
-    symmetry_pairs,
     landau_analysis,
 )
 from feynkit.artifacts.conformal import (
@@ -47,18 +43,15 @@ from feynkit.artifacts.conformal import (
     massless_polygon_a_config,
 )
 from feynkit.artifacts.dissertation import (
+    banana3_a_config,
+    four_point_simplex_a_config,
     triangle_a_config,
     triple_k_a_config,
-    four_point_simplex_a_config,
-    banana3_a_config,
 )
 from feynkit.normal_forms import (
-    is_unimodular_equivalent,
-    is_affinely_equivalent,
     is_point_config_equivalent,
     maximal_pairing_matrix,
 )
-from feynkit.normal_forms._invariants import hull_vertex_indices
 
 W = 70
 
@@ -127,17 +120,17 @@ sym = fi_tri.symanzik
 
 sec("First Symanzik polynomial  U  (topology)")
 print(f"  U = {sym.u}")
-print(f"  U encodes spanning trees of the internal graph.")
-print(f"  For the triangle: three spanning trees, each missing one edge.")
+print("  U encodes spanning trees of the internal graph.")
+print("  For the triangle: three spanning trees, each missing one edge.")
 
 sec("Second Symanzik polynomial  F  (kinematics + masses)")
 print(f"  F = {sym.f}")
-print(f"  F encodes external momenta via 2-forests.")
+print("  F encodes external momenta via 2-forests.")
 
 sec("Lee–Pomeransky polynomial  G = U + F  (in u-variables)")
 print(f"  G = {sym.g}")
 print(f"  LP variables: {sym.lp_parameters}")
-print(f"  G is the input to the GKZ hypergeometric system.")
+print("  G is the input to the GKZ hypergeometric system.")
 
 sec("Bubble and sunrise for comparison")
 print(f"  Bubble  U = {fi_bubble.symanzik.u}")
@@ -167,7 +160,7 @@ sec("Lee–Pomeransky parametrisation  (u ∈ R_{>0}^E, no constraint)")
 lp = fi_tri.lee_pomeransky
 print(f"  Prefactor  : {lp.prefactor}")
 print(f"  Parameters : {lp.parameters}   (LP u variables)")
-print(f"  The integrand is u^β · G^{{-β₀}} with G = U + F.")
+print("  The integrand is u^β · G^{-β₀} with G = U + F.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -184,20 +177,20 @@ print(
     f"({fi_tri.loop_count + 1} rows = loops+1; {m_cols} cols = monomials of G)"
 )
 sp.pprint(gkz.a_matrix)
-print(f"  First row is the homogenisation row (all ones).")
-print(f"  Remaining rows give the exponent of each u_i in each monomial.")
+print("  First row is the homogenisation row (all ones).")
+print("  Remaining rows give the exponent of each u_i in each monomial.")
 
 sec("GKZ parameters")
 print(f"  z-variables  : {gkz.z_variables}")
 print(f"  β-parameters : {gkz.beta_parameters}")
-print(f"  β encodes dimension D and propagator exponents νᵢ via:")
-print(f"    β₀ = (L·D)/2 − Σνᵢ")
-print(f"    βₖ = νₖ   (one per Schwinger parameter)")
+print("  β encodes dimension D and propagator exponents νᵢ via:")
+print("    β₀ = (L·D)/2 − Σνᵢ")
+print("    βₖ = νₖ   (one per Schwinger parameter)")
 
 sec("Euler differential equations  Ê_r · I_A = β_r · I_A")
 for i, eq in enumerate(gkz.euler_equations):
     print(f"  [{i}]  {eq}")
-print(f"  Each equation: (Σⱼ Aᵣⱼ · zⱼ ∂/∂zⱼ) I_A = βᵣ · I_A")
+print("  Each equation: (Σⱼ Aᵣⱼ · zⱼ ∂/∂zⱼ) I_A = βᵣ · I_A")
 
 sec("GKZ for bubble and sunrise")
 gkz_b = fi_bubble.gkz
@@ -229,7 +222,7 @@ print(f"  Affine dimension        : {cfg_tri.affine_dim}")
 print(f"  Normalised volume       : {cfg_tri.normalized_volume}")
 print("    (= holonomic rank = #independent master integrals for generic β)")
 print(f"  Smith invariants of A   : {cfg_tri.smith_invariants}")
-print(f"    (Smith = [1,1,1] → A-columns span the full ℤ³ lattice)")
+print("    (Smith = [1,1,1] → A-columns span the full ℤ³ lattice)")
 
 sec("Intrinsic model — same computation, explicit SNF basis")
 model = cfg_tri.intrinsic_model()
@@ -253,17 +246,17 @@ for i, gen in enumerate(ti.generators):
 print(f"  z-variables: {ti.z_variables}")
 
 sec("IBP interpretation")
-print(f"  Each generator  z^u − z^v = 0  (u,v ∈ ℤ^m, Au = Av)")
-print(f"  encodes an integration-by-parts identity for I_A:")
-print(f"  the differential operator ∂^u − ∂^v annihilates I_A.")
-print(f"  The toric ideal is the kernel of the ring map ℤ[z] → ℤ[t^±1]")
-print(f"  defined by  zⱼ ↦ t^{{aⱼ}}  (aⱼ = j-th column of A).")
+print("  Each generator  z^u − z^v = 0  (u,v ∈ ℤ^m, Au = Av)")
+print("  encodes an integration-by-parts identity for I_A:")
+print("  the differential operator ∂^u − ∂^v annihilates I_A.")
+print("  The toric ideal is the kernel of the ring map ℤ[z] → ℤ[t^±1]")
+print("  defined by  zⱼ ↦ t^{aⱼ}  (aⱼ = j-th column of A).")
 
 sec("Bubble toric ideal (trivial case)")
 ti_b = fi_bubble.toric_ideal
 print(f"  Bubble generators: {len(ti_b.generators)}")
 if len(ti_b.generators) == 0:
-    print(f"  (empty — bubble GKZ system has no toric relations; it is a master integral)")
+    print("  (empty — bubble GKZ system has no toric relations; it is a master integral)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -275,7 +268,7 @@ aut = fi_tri.polytope_automorphisms
 
 sec("Unimodular automorphism group")
 print(f"  |Aut(P)| = {aut.order}")
-print(f"  Each (U, t) satisfies:  U ∈ GL_n(ℤ),  |det U| = 1,  {{Uv + t}} = vertices")
+print("  Each (U, t) satisfies:  U ∈ GL_n(ℤ),  |det U| = 1,  {Uv + t} = vertices")
 for k, (U, t) in enumerate(aut.maps[:3]):
     print(f"\n  [{k}]  U =")
     sp.pprint(U)
@@ -284,19 +277,19 @@ if aut.order > 3:
     print(f"\n  … ({aut.order - 3} further automorphisms)")
 
 sec("Vertex orbits under Aut(P)")
-print(f"  Orbits (indices into hull vertex list):")
+print("  Orbits (indices into hull vertex list):")
 for orb in aut.vertex_orbits:
     print(f"    {orb}")
 print(f"  The triangle LP Newton polytope has {len(aut.vertex_orbits)} orbits:")
 print(f"  {3} U-monomials (degree-2 face) and {3} F-monomials (degree-1 face)")
-print(f"  form separate orbits under the symmetry group.")
+print("  form separate orbits under the symmetry group.")
 
 sec("Graph automorphisms (subgroup)")
 g_aut = fi_tri.graph_automorphisms
 print(f"  |Aut(graph)| = {len(g_aut)}")
-print(f"  These are the vertex permutations of the triangle that preserve its")
-print(f"  edge structure — the dihedral group D₃ (order 6 for the equilateral")
-print(f"  triangle), embedded in Aut(P).")
+print("  These are the vertex permutations of the triangle that preserve its")
+print("  edge structure — the dihedral group D₃ (order 6 for the equilateral")
+print("  triangle), embedded in Aut(P).")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -305,12 +298,12 @@ print(f"  triangle), embedded in Aut(P).")
 hdr(8, "Symmetry pairs  — transformation identities")
 
 sec("Definition")
-print(f"  A symmetry pair (M, t, P) satisfies  T·A = A·Π_P")
-print(f"  where T = [[1, 0ᵀ], [t, M]] ∈ GL_{{n+1}}(ℤ)  and  Π_P is a column permutation.")
-print(f"  It gives the integral identity:")
-print(f"    I_A(β, z) = I_A(T β, z_P)")
-print(f"  Unimodular maps (|det M| = 1) are polytope automorphisms;")
-print(f"  non-unimodular maps (|det M| > 1) are finite-index self-embeddings.")
+print("  A symmetry pair (M, t, P) satisfies  T·A = A·Π_P")
+print("  where T = [[1, 0ᵀ], [t, M]] ∈ GL_{n+1}(ℤ)  and  Π_P is a column permutation.")
+print("  It gives the integral identity:")
+print("    I_A(β, z) = I_A(T β, z_P)")
+print("  Unimodular maps (|det M| = 1) are polytope automorphisms;")
+print("  non-unimodular maps (|det M| > 1) are finite-index self-embeddings.")
 
 sp_list = fi_tri.symmetry_pairs
 
@@ -320,13 +313,13 @@ nonuni = [s for s in sp_list if not s.is_unimodular]
 print(f"  Unimodular (|det| = 1): {len(unimod)}")
 print(f"  Finite-index (|det| > 1): {len(nonuni)}")
 
-print(f"\n  First unimodular pair:")
+print("\n  First unimodular pair:")
 s0 = unimod[0]
-print(f"    M =")
+print("    M =")
 sp.pprint(s0.linear_map)
 print(f"    t = {s0.translation.T.tolist()[0]}")
 print(f"    column permutation P = {s0.column_permutation}")
-print(f"    Integral identity: I_A(β, z) = I_A(T·β, z_P)")
+print("    Integral identity: I_A(β, z) = I_A(T·β, z_P)")
 
 sec("Using AConfiguration.symmetry_pairs  (standalone)")
 sp_cfg = cfg_tri.symmetry_pairs()
@@ -342,27 +335,27 @@ print(
 hdr(9, "Intrinsic lattice model")
 
 sec("Concept")
-print(f"  Express a point configuration in the basis of the lattice it spans.")
-print(f"  Removes the accident of the ambient ℤⁿ embedding.")
-print(f"  Smith decomposition: D = U·diffs·V  (integer SNF).")
+print("  Express a point configuration in the basis of the lattice it spans.")
+print("  Removes the accident of the ambient ℤⁿ embedding.")
+print("  Smith decomposition: D = U·diffs·V  (integer SNF).")
 print(f"  Intrinsic rank = affine dimension = {cfg_tri.affine_dim}.")
 
 model_tri = intrinsic_lattice_model(cfg_tri.affine_points)
-print(f"\n  Triangle LP:")
+print("\n  Triangle LP:")
 print(f"    base point        : {model_tri.base_point}")
 print(f"    Smith invariants  : {model_tri.smith_invariants}")
 print(f"    intrinsic rank    : {model_tri.intrinsic_rank}")
-print(f"    intrinsic coords  :")
+print("    intrinsic coords  :")
 for c in model_tri.intrinsic_coords:
     print(f"      {c}")
 
 # Compare with triple-K which has Smith [1,1,2].
 cfg_tk = triple_k_a_config()
 model_tk = intrinsic_lattice_model(cfg_tk.affine_points)
-print(f"\n  Triple-K star:")
+print("\n  Triple-K star:")
 print(f"    Smith invariants  : {model_tk.smith_invariants}")
-print(f"    (Smith [1,1,2] → columns span an index-2 sublattice of ℤ³,")
-print(f"     the even-parity sublattice {{x : Σxᵢ ≡ 0 mod 2}}.)")
+print("    (Smith [1,1,2] → columns span an index-2 sublattice of ℤ³,")
+print("     the even-parity sublattice {x : Σxᵢ ≡ 0 mod 2}.)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -371,15 +364,15 @@ print(f"     the even-parity sublattice {{x : Σxᵢ ≡ 0 mod 2}}.)")
 hdr(10, "Polytope equivalence")
 
 sec("Unimodular equivalence  (Liu–Cai, arXiv:2506.23846)")
-print(f"  Tests: ∃ U ∈ GL_n(ℤ), t ∈ ℤⁿ  such that  {{Uv + t}} = vertices of Q.")
-print(f"  Unimodular equivalence ⟹ GKZ systems have identical analytic structure.")
+print("  Tests: ∃ U ∈ GL_n(ℤ), t ∈ ℤⁿ  such that  {Uv + t} = vertices of Q.")
+print("  Unimodular equivalence ⟹ GKZ systems have identical analytic structure.")
 
 # Two diagrams with the same graph (different edge labelling) are unimodular.
 fi_tri2 = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
 uni_self = fi_tri.is_unimodular_equivalent_to(fi_tri2)
 print(f"\n  Triangle (labelling A) ↔ Triangle (labelling B): {uni_self.equivalent}")
 if uni_self.witness_map is not None:
-    print(f"  Witness U =")
+    print("  Witness U =")
     sp.pprint(uni_self.witness_map)
     print(f"  Translation t = {uni_self.translation.T.tolist() if uni_self.translation else None}")
 
@@ -389,8 +382,8 @@ uni_mass = fi_tri.is_unimodular_equivalent_to(fi_tri_mass)
 print(f"\n  Massless triangle ↔ Massive triangle: {uni_mass.equivalent}")
 
 sec("Affine equivalence  (rational maps, hull vertices only)")
-print(f"  Tests: ∃ M ∈ GL_n(ℚ), t ∈ ℚⁿ  with  M·vert(P) + t = vert(Q).")
-print(f"  Weaker than unimodular; captures same combinatorial shape up to scaling.")
+print("  Tests: ∃ M ∈ GL_n(ℚ), t ∈ ℚⁿ  with  M·vert(P) + t = vert(Q).")
+print("  Weaker than unimodular; captures same combinatorial shape up to scaling.")
 
 # Same-topology diagrams.
 aff_self = fi_tri.is_affinely_equivalent_to(fi_tri2)
@@ -399,8 +392,8 @@ print(
 )
 
 sec("Point-configuration equivalence  (stricter GKZ condition)")
-print(f"  Tests the same map on ALL A-columns, not just hull vertices.")
-print(f"  This is the correct condition for GKZ-system isomorphism.")
+print("  Tests the same map on ALL A-columns, not just hull vertices.")
+print("  This is the correct condition for GKZ-system isomorphism.")
 pts_a = cfg_tri.affine_points
 pts_b = triple_k_a_config().affine_points
 pc_eq = is_point_config_equivalent(pts_a, pts_b)
@@ -415,10 +408,10 @@ if pc_eq.equivalent:
 hdr(11, "Finite-index map  (det ≠ ±1 integer maps)")
 
 sec("Concept")
-print(f"  An integer affine map x ↦ Mx + t with M ∈ GL_n(ℤ) but |det M| > 1.")
-print(f"  Such a map takes every source point to a target point, but the image")
-print(f"  lattice has index |det M| in the target lattice.")
-print(f"  For GKZ systems, a det = k map implies the holonomic ranks differ by k.")
+print("  An integer affine map x ↦ Mx + t with M ∈ GL_n(ℤ) but |det M| > 1.")
+print("  Such a map takes every source point to a target point, but the image")
+print("  lattice has index |det M| in the target lattice.")
+print("  For GKZ systems, a det = k map implies the holonomic ranks differ by k.")
 
 fi_triangle = finite_index_map(cfg_tri, cfg_tk)
 
@@ -439,7 +432,7 @@ print(
     f"{cfg_tk.normalized_volume // cfg_tri.normalized_volume})"
 )
 if fi2.witness_map is not None:
-    print(f"  M =")
+    print("  M =")
     sp.pprint(fi2.witness_map)
     print(f"  t = {fi2.translation.T.tolist() if fi2.translation else None}")
 
@@ -450,7 +443,7 @@ print(
     f"unimodular: {fi_full.is_unimodular}"
 )
 if fi_full.found:
-    print(f"  M =")
+    print("  M =")
     sp.pprint(fi_full.witness_matrix)
     print(f"  t = {fi_full.translation.T.tolist() if fi_full.translation else None}")
     print(f"  column permutation: {fi_full.column_permutation}")
@@ -462,23 +455,23 @@ if fi_full.found:
 hdr(12, "Pairing-matrix canonical form  (Grinis–Kasprzyk)")
 
 sec("Definition")
-print(f"  Given a matrix M, the pairing-matrix canonical form is the unique")
-print(f"  lexicographically maximal form under row and column permutations.")
-print(f"  Used to canonicalise Newton polytope support matrices.")
+print("  Given a matrix M, the pairing-matrix canonical form is the unique")
+print("  lexicographically maximal form under row and column permutations.")
+print("  Used to canonicalise Newton polytope support matrices.")
 
 A_tri = gkz.a_matrix  # the triangle LP A-matrix
 pm = maximal_pairing_matrix(A_tri)
 
 sec("Triangle LP A-matrix")
 print(f"  Input A (rows × cols) = {A_tri.shape}")
-print(f"  PM_max (canonical form):")
+print("  PM_max (canonical form):")
 sp.pprint(pm.PM_max)
 print(f"  Row permutation    : {pm.row_permutation}")
 print(f"  Column permutation : {pm.col_permutation}")
 print(f"  Symmetry vector    : {pm.symmetry_vector}")
 
 sec("Checking the canonical form is indeed maximal")
-from feynkit.normal_forms import is_canonical, symbolic_compare
+from feynkit.normal_forms import is_canonical
 
 print(f"  is_canonical(PM_max) = {is_canonical(pm.PM_max)}")
 
@@ -489,27 +482,27 @@ print(f"  is_canonical(PM_max) = {is_canonical(pm.PM_max)}")
 hdr(13, "Landau singularity analysis")
 
 sec("Method: edge-part of the principal A-determinant")
-print(f"  The Landau singularities of I_A are encoded in the principal")
-print(f"  A-determinant E_A.  The edge-part E_A^(1) is the product over")
-print(f"  all edges of the discriminant of G restricted to each edge.")
+print("  The Landau singularities of I_A are encoded in the principal")
+print("  A-determinant E_A.  The edge-part E_A^(1) is the product over")
+print("  all edges of the discriminant of G restricted to each edge.")
 
 la_tri = landau_analysis(fi_tri)
 
 sec("Triangle")
-print(f"  Landau polynomial (product of edge discriminants):")
+print("  Landau polynomial (product of edge discriminants):")
 print(f"    L = {la_tri.landau_polynomial}")
-print(f"  Landau surfaces (irreducible factors):")
+print("  Landau surfaces (irreducible factors):")
 for i, surf in enumerate(la_tri.landau_surfaces):
     print(f"    [{i}]  {surf} = 0")
-print(f"\n  Interpretation: each surface L_k = 0 is a threshold in the")
-print(f"  external kinematics where the integral develops a leading singularity.")
+print("\n  Interpretation: each surface L_k = 0 is a threshold in the")
+print("  external kinematics where the integral develops a leading singularity.")
 
 la_b = landau_analysis(fi_bubble)
 sec("Bubble")
 print(f"  Landau polynomial : {la_b.landau_polynomial}")
 print(f"  Landau surfaces   : {la_b.landau_surfaces}")
-print(f"  (Single surface: the familiar threshold p² = 4m² for massive bubble,")
-print(f"   or p² = 0 for the massless case.)")
+print("  (Single surface: the familiar threshold p² = 4m² for massive bubble,")
+print("   or p² = 0 for the massless case.)")
 
 la_s = landau_analysis(fi_sunrise)
 sec("Massive sunrise")
@@ -524,9 +517,9 @@ for i, surf in enumerate(la_s.landau_surfaces):
 hdr(14, "with_()  — parametric specialisations")
 
 sec("Concept")
-print(f"  FeynmanIntegral.with_(**overrides) returns a new instance with the")
-print(f"  specified fields replaced and all cached properties cleared.")
-print(f"  Used to specialise kinematics, impose equal masses, etc.")
+print("  FeynmanIntegral.with_(**overrides) returns a new instance with the")
+print("  specified fields replaced and all cached properties cleared.")
+print("  Used to specialise kinematics, impose equal masses, etc.")
 
 # Specialise the triangle to equal propagator exponents.
 nu = sp.Symbol("nu", positive=True)
@@ -537,12 +530,12 @@ sym_sym = fi_sym.symanzik
 print(f"  G = {sym_sym.g}")
 gkz_sym = fi_sym.gkz
 print(f"  β-parameters : {gkz_sym.beta_parameters}")
-print(f"  (All three νᵢ collapse to a single symbol ν.)")
+print("  (All three νᵢ collapse to a single symbol ν.)")
 
 # Specialise dimension.
 D = sp.Integer(4)
 fi_4d = fi_tri.with_(dimension=D)
-print(f"\n  In D = 4 dimensions:")
+print("\n  In D = 4 dimensions:")
 print(f"  β₀ = {fi_4d.gkz.beta_parameters[0]}")
 print(f"  βₖ = {fi_4d.gkz.beta_parameters[1]}  (same ν-symbols, now numeric D)")
 
@@ -573,25 +566,25 @@ sec("AConfiguration equivalence methods")
 cfg_t = triangle_a_config()
 cfg_tk = triple_k_a_config()
 
-print(f"\n  triangle.is_unimodular_equivalent_to(triangle)")
+print("\n  triangle.is_unimodular_equivalent_to(triangle)")
 r_uu = cfg_t.is_unimodular_equivalent_to(cfg_t)
 print(f"    equivalent = {r_uu.equivalent}")
 
-print(f"\n  triangle.is_affinely_equivalent_to(triple-K)  [hull vertices]")
+print("\n  triangle.is_affinely_equivalent_to(triple-K)  [hull vertices]")
 r_at = cfg_t.is_affinely_equivalent_to(cfg_tk)
 print(f"    equivalent = {r_at.equivalent},  det M = {r_at.determinant}")
 
-print(f"\n  triangle.is_point_config_equivalent_to(triple-K)  [all columns]")
+print("\n  triangle.is_point_config_equivalent_to(triple-K)  [all columns]")
 r_pt = cfg_t.is_point_config_equivalent_to(cfg_tk)
 print(f"    equivalent = {r_pt.equivalent},  det M = {r_pt.determinant}")
 
-print(f"\n  triangle.finite_index_map_to(triple-K)")
+print("\n  triangle.finite_index_map_to(triple-K)")
 r_fi = cfg_t.finite_index_map_to(cfg_tk)
 print(
     f"    found = {r_fi.found},  det = {r_fi.determinant},  " f"unimodular = {r_fi.is_unimodular}"
 )
 
-print(f"\n  triangle.automorphisms()")
+print("\n  triangle.automorphisms()")
 aut_t = cfg_t.automorphisms()
 print(f"    |Aut(P)| = {aut_t.order}")
 print(f"    orbits   = {aut_t.vertex_orbits}")
@@ -608,9 +601,9 @@ for n in [3, 4]:
     print(f"  n={n}: {cfg.matrix.shape}, dim={cfg.ambient_dim}, " f"Smith={cfg.smith_invariants}")
 
 sec("bms_simplex_a_config(n)  — BMS n-point conformal integral")
-print(f"  G_n(u) = Σᵢ pᵢ² ∏_{{j≠i}} uⱼ  +  4 Σᵢ uᵢ² ∏_{{j≠i}} uⱼ")
-print(f"  2n monomials (n lower + n upper), ambient ℝⁿ")
-print(f"  Smith [1,…,1,2] → even-parity sublattice (for all n)")
+print("  G_n(u) = Σᵢ pᵢ² ∏_{j≠i} uⱼ  +  4 Σᵢ uᵢ² ∏_{j≠i} uⱼ")
+print("  2n monomials (n lower + n upper), ambient ℝⁿ")
+print("  Smith [1,…,1,2] → even-parity sublattice (for all n)")
 for n in [3, 4]:
     cfg = bms_simplex_a_config(n)
     print(
@@ -619,8 +612,8 @@ for n in [3, 4]:
     )
 
 sec("conformal_companion_a_config(n)  — finite-index companion to BMS_n")
-print(f"  G_n(u) = Σᵢ ∏_{{j≠i}} uⱼ  +  Σᵢ pᵢ² uᵢ")
-print(f"  Same lower monomials as BMS_n; upper monomials are the standard basis eᵢ")
+print("  G_n(u) = Σᵢ ∏_{j≠i} uⱼ  +  Σᵢ pᵢ² uᵢ")
+print("  Same lower monomials as BMS_n; upper monomials are the standard basis eᵢ")
 for n in [3, 4]:
     cfg_comp = conformal_companion_a_config(n)
     cfg_bms = bms_simplex_a_config(n)
@@ -629,7 +622,7 @@ for n in [3, 4]:
         f"  n={n}: companion → BMS_n  found={fi_map.found}, "
         f"det={fi_map.determinant if fi_map.found else '—'}"
     )
-print(f"  (det=2 map exists for n=3; for n≥4 the map is broken by S_n → S_{{n-1}})")
+print("  (det=2 map exists for n=3; for n≥4 the map is broken by S_n → S_{n-1})")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -637,7 +630,9 @@ print(f"  (det=2 map exists for n=3; for n≥4 the map is broken by S_n → S_{{
 # ─────────────────────────────────────────────────────────────────────────────
 hdr(17, "Database  (store · lookup · find_equivalent)")
 
-import tempfile, pathlib
+import pathlib
+import tempfile
+
 from feynkit import FeynkitDatabase
 
 # Use a temporary file so this example is self-contained.
@@ -679,11 +674,11 @@ if txt.count("\n") > 20:
 
 sec("to_latex()  — self-contained LaTeX document (preamble only)")
 latex = fi_tri.to_latex()
-preamble_lines = [l for l in latex.splitlines() if l.strip().startswith("\\")][:6]
+preamble_lines = [ln for ln in latex.splitlines() if ln.strip().startswith("\\")][:6]
 for line in preamble_lines:
     print(" ", line)
 print(f"  … ({latex.count(chr(10))} lines total)")
-print(f"  Compile with pdflatex to get a standalone analysis document.")
+print("  Compile with pdflatex to get a standalone analysis document.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -105,7 +105,7 @@ def main() -> None:
     lp = result_bubble.landau_polynomial
     t_norm = sp.simplify(lp.subs(s, -2 * (m1 + m2) ** 2))
     t_pseudo = sp.simplify(lp.subs(s, -2 * (m1 - m2) ** 2))
-    print(f"\n  Verification:")
+    print("\n  Verification:")
     print(f"    E_A^(1) at threshold   s = -2(m1+m2)²  →  {t_norm}")
     print(f"    E_A^(1) at pseudothres s = -2(m1-m2)²  →  {t_pseudo}")
 

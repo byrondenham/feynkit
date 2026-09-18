@@ -5,7 +5,6 @@ Runs massless and massive variants of increasing complexity, printing
 each result as it completes.
 """
 
-import sys
 import time
 
 import sympy as sp

@@ -14,7 +14,7 @@ import sympy as sp
 
 from ..core.exceptions import ValidationError
 from .euler import create_euler_equations
-from .gkz import construct_gkz_matrix, construct_gkz_matrix_from_exponents
+from .gkz import construct_gkz_matrix_from_exponents
 from .monomial import extract_monomial_support
 
 

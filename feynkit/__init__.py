@@ -62,12 +62,6 @@ References
         American Mathematical Society.
 """
 
-from feynkit.artifacts.conformal import (
-    bms_simplex_a_config,
-    complete_graph_a_config,
-    conformal_companion_a_config,
-    massless_polygon_a_config,
-)
 from feynkit.a_configuration import (
     AConfiguration,
     FiniteIndexResult,
@@ -76,6 +70,12 @@ from feynkit.a_configuration import (
     finite_index_map,
     intrinsic_lattice_model,
     symmetry_pairs,
+)
+from feynkit.artifacts.conformal import (
+    bms_simplex_a_config,
+    complete_graph_a_config,
+    conformal_companion_a_config,
+    massless_polygon_a_config,
 )
 from feynkit.core import (
     Edge,
@@ -92,6 +92,9 @@ from feynkit.landau import (
     landau_analysis,
     landau_analysis_from_polynomial,
 )
+from feynkit.normal_forms import PairingMatrixResult
+from feynkit.parametrisations import ParametrisationResult
+from feynkit.systems import GKZSystem
 from feynkit.types import (
     NewtonPolytope,
     PolytopeAutomorphisms,
@@ -99,9 +102,6 @@ from feynkit.types import (
     SymanzikPolynomials,
     ToricIdeal,
 )
-from feynkit.normal_forms import PairingMatrixResult
-from feynkit.parametrisations import ParametrisationResult
-from feynkit.systems import GKZSystem
 
 __all__ = [
     "__version__",

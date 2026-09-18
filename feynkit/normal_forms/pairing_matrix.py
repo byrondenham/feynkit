@@ -12,7 +12,7 @@ References
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import sympy as sp
 from sympy.core.sorting import default_sort_key
@@ -38,7 +38,7 @@ class PairingMatrixResult:
     PM_max: sp.Matrix
     row_permutation: list[int]
     col_permutation: list[int]
-    symmetry_vector: Optional[list[tuple[int, int]]] = None
+    symmetry_vector: list[tuple[int, int]] | None = None
 
 
 def symbolic_compare(expr1: sp.Expr, expr2: sp.Expr) -> int:

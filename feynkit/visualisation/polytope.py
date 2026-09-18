@@ -6,7 +6,7 @@ using TikZ.
 """
 
 from collections.abc import Sequence
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -27,7 +27,7 @@ def visualise_newton_polytope(
     scale: float = 1.6,
     show_labels: bool = True,
     show_fill: bool = False,
-    camera_direction: Optional[np.ndarray] = None,
+    camera_direction: np.ndarray | None = None,
 ) -> str:
     """
     Generate TikZ code for visualising the Newton polytope.

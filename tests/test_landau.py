@@ -210,30 +210,13 @@ class TestMasslessTriangle:
             assert p.total_degree() == 1, f"Surface {surf} is not linear"
 
     def test_surfaces_are_pairwise_sums(self, massless_triangle):
-        """The three surfaces should be pairwise sums s_ij + s_ik."""
+        """Each pairwise Mandelstam sum s_ij + s_ik is proportional to one surface."""
         s12, s13, s23 = sp.symbols("s12 s13 s23", real=True)
-        expected_zeros = {
-            (s12 + s13, -s13, -s12),  # s12+s13=0: set s12=-s13 and check
-        }
         result = landau_analysis(massless_triangle)
-        surfaces_expanded = {sp.expand(s) for s in result.landau_surfaces}
-        # All three Mandelstam pairwise sums should appear (up to overall sign/scaling)
-        pairs = [s12 + s13, s12 + s23, s13 + s23]
-        for pair in pairs:
-            matches = [
-                sp.simplify(sp.cancel(surf / pair)).is_rational
-                for surf in surfaces_expanded
-                if (surf / pair).is_rational  # avoid zero division
-            ]
-            # At least one surface is proportional to each pair
-            found = any(
-                (
-                    sp.simplify(surf.subs([(s12, -s13)])) == sp.Integer(0)
-                    if pair is (s12 + s13)
-                    else True
-                )
-                for surf in surfaces_expanded
-            )
+        surfaces = [sp.expand(s) for s in result.landau_surfaces]
+        for pair in (s12 + s13, s12 + s23, s13 + s23):
+            ratios = [sp.cancel(surf / pair) for surf in surfaces]
+            assert any(r.is_number and r != 0 for r in ratios), f"No surface ∝ {pair}"
 
     def test_landau_polynomial_vanishes_at_ir_locus(self, massless_triangle):
         """Polynomial vanishes when s12 = 0 and s13 = 0 (collinear kinematics)."""

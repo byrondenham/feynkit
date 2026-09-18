@@ -30,9 +30,11 @@ intrinsic_lattice_model(points) -> IntrinsicModel
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from itertools import combinations, permutations, product as _prod
-from typing import Optional, Sequence
+from itertools import combinations
+from itertools import product as _prod
+from typing import Any, cast
 
 import numpy as np
 import sympy as sp
@@ -42,7 +44,6 @@ from sympy.polys.domains import ZZ
 from .normal_forms._invariants import (
     hull_vertex_indices,
     labelled_polytope_graph,
-    to_integer_points,
 )
 from .normal_forms.affine_equivalence import (
     is_affinely_equivalent,
@@ -83,10 +84,10 @@ class FiniteIndexResult:
     """
 
     found: bool
-    witness_matrix: Optional[sp.ImmutableMatrix] = None
-    translation: Optional[sp.ImmutableMatrix] = None
-    determinant: Optional[int] = None
-    column_permutation: Optional[list[int]] = None
+    witness_matrix: sp.ImmutableMatrix | None = None
+    translation: sp.ImmutableMatrix | None = None
+    determinant: int | None = None
+    column_permutation: list[int] | None = None
     is_unimodular: bool = False
 
 
@@ -170,7 +171,7 @@ class SymmetryPair:
             rows.append([self.translation[i, 0]] + M_list[i])
         return sp.ImmutableMatrix(rows)
 
-    def transform_beta(self, beta: "list[sp.Expr] | sp.Matrix") -> "list[sp.Expr]":
+    def transform_beta(self, beta: list[sp.Expr] | sp.Matrix) -> list[sp.Expr]:
         """
         Apply T to the GKZ parameter vector β.
 
@@ -227,14 +228,14 @@ class AConfiguration:
         self,
         matrix: object,
         *,
-        is_homogenized: Optional[bool] = None,
+        is_homogenized: bool | None = None,
     ) -> None:
         if isinstance(matrix, sp.Matrix):
             arr = np.array(matrix.tolist(), dtype=np.int64)
         elif isinstance(matrix, np.ndarray):
             arr = matrix.astype(np.int64)
         else:
-            arr = np.array(list(matrix), dtype=np.int64)
+            arr = np.array(list(cast(Iterable[Any], matrix)), dtype=np.int64)
 
         if arr.ndim != 2:
             raise ValueError("A-matrix must be 2-dimensional")
@@ -243,10 +244,7 @@ class AConfiguration:
 
         if is_homogenized is None:
             # Auto-detect: first row is all-ones, at least 2 rows.
-            if arr.shape[0] >= 2 and np.all(arr[0] == 1):
-                is_homogenized = True
-            else:
-                is_homogenized = False
+            is_homogenized = bool(arr.shape[0] >= 2 and np.all(arr[0] == 1))
 
         self._is_homogenized = bool(is_homogenized)
 
@@ -277,14 +275,14 @@ class AConfiguration:
 
     @property
     def n_points(self) -> int:
-        return self._matrix.shape[1]
+        return int(self._matrix.shape[1])
 
     @property
     def ambient_dim(self) -> int:
         """Dimension of the ambient integer lattice."""
         if self._is_homogenized:
-            return self._matrix.shape[0] - 1
-        return self._matrix.shape[0]
+            return int(self._matrix.shape[0]) - 1
+        return int(self._matrix.shape[0])
 
     # ── Smith invariants ───────────────────────────────────────────────────────
 
@@ -344,6 +342,7 @@ class AConfiguration:
         in their intrinsic lattices (and hence the same GKZ rank).
         """
         import math
+
         from scipy.spatial import ConvexHull, QhullError
 
         pts = self.affine_points
@@ -386,7 +385,7 @@ class AConfiguration:
             other.newton_polytope_points,
         )
 
-    def is_affinely_equivalent_to(self, other: "AConfiguration") -> PolytopeEquivalence:
+    def is_affinely_equivalent_to(self, other: AConfiguration) -> PolytopeEquivalence:
         """
         Test affine equivalence of the Newton polytopes (hull vertices only).
 
@@ -399,7 +398,7 @@ class AConfiguration:
             other.newton_polytope_points,
         )
 
-    def is_point_config_equivalent_to(self, other: "AConfiguration") -> PolytopeEquivalence:
+    def is_point_config_equivalent_to(self, other: AConfiguration) -> PolytopeEquivalence:
         """
         Test affine equivalence of the full A-column sets (all monomials).
 
@@ -412,7 +411,7 @@ class AConfiguration:
             other.affine_points,
         )
 
-    def finite_index_map_to(self, other: "AConfiguration") -> FiniteIndexResult:
+    def finite_index_map_to(self, other: AConfiguration) -> FiniteIndexResult:
         """
         Search for a finite-index integer affine map from self to other.
 
@@ -432,7 +431,7 @@ class AConfiguration:
 
         return compute_polytope_automorphisms(self.newton_polytope_points)
 
-    def symmetry_pairs(self) -> "list[SymmetryPair]":
+    def symmetry_pairs(self) -> list[SymmetryPair]:
         """
         Find all integer affine self-maps of this configuration.
 
@@ -601,7 +600,7 @@ def finite_index_map(
 
 
 def symmetry_pairs(
-    cfg: "AConfiguration | Sequence | np.ndarray",
+    cfg: AConfiguration | Sequence | np.ndarray,
 ) -> list[SymmetryPair]:
     """
     Find all integer affine self-maps of a GKZ A-configuration.
@@ -756,12 +755,12 @@ def symmetry_pairs(
                 valid = True
                 for i in range(N):
                     key = tuple(int(x) for x in mapped[:, i])
-                    j = delta_to_idx.get(key)
-                    if j is None or j in seen_tgts:
+                    j_opt = delta_to_idx.get(key)
+                    if j_opt is None or j_opt in seen_tgts:
                         valid = False
                         break
-                    col_perm[i] = j
-                    seen_tgts.add(j)
+                    col_perm[i] = j_opt
+                    seen_tgts.add(j_opt)
                 if not valid:
                     continue
 
@@ -887,7 +886,7 @@ def _to_pts(obj: object) -> np.ndarray:
         return obj.affine_points
     if isinstance(obj, np.ndarray):
         return obj.astype(np.int64)
-    return np.array(list(obj), dtype=np.int64)
+    return np.array(list(cast(Iterable[Any], obj)), dtype=np.int64)
 
 
 def _basis_indices(deltas: np.ndarray, aff_dim: int) -> list[int] | None:

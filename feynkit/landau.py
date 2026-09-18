@@ -20,11 +20,15 @@ Klausen (2020), §3, "Counting master integrals".
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 import sympy as sp
 
 from .systems.monomial import extract_monomial_support
+
+if TYPE_CHECKING:
+    from .integral import FeynmanIntegral
 
 __all__ = [
     "EdgeDiscriminant",
@@ -84,7 +88,7 @@ class LandauAnalysis:
 def _primitive_direction(pts: np.ndarray) -> np.ndarray:
     """Primitive integer direction vector for a collinear set of lattice points."""
     diffs = pts - pts[0]
-    direction = None
+    direction: np.ndarray | None = None
     for diff in diffs[1:]:
         if np.any(diff != 0):
             direction = diff.copy().astype(int)
@@ -95,8 +99,8 @@ def _primitive_direction(pts: np.ndarray) -> np.ndarray:
     for v in direction:
         g = int(np.gcd(g, abs(int(v))))
     if g == 0:
-        return direction
-    return direction // g
+        return np.asarray(direction, dtype=int)
+    return np.asarray(direction // g, dtype=int)
 
 
 def _points_on_segment(all_pts: np.ndarray, i: int, j: int) -> list[int]:
@@ -106,7 +110,7 @@ def _points_on_segment(all_pts: np.ndarray, i: int, j: int) -> list[int]:
     direction = pj - pi
     on_seg = [i, j]
     for k in range(len(all_pts)):
-        if k == i or k == j:
+        if k in (i, j):
             continue
         diff = all_pts[k].astype(float) - pi
         # Find parameter t such that diff = t * direction
@@ -282,7 +286,7 @@ def landau_analysis_from_polynomial(
     )
 
 
-def landau_analysis(integral) -> LandauAnalysis:
+def landau_analysis(integral: FeynmanIntegral) -> LandauAnalysis:
     """Edge-part Landau analysis of a :class:`~feynkit.FeynmanIntegral`.
 
     Computes the edge-part principal A-determinant E_A^(1)(G) of the

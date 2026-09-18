@@ -444,7 +444,7 @@
   n=3: (4, 6), dim=3, norm-vol=4, Smith=[1, 1, 2]
   n=4: (5, 8), dim=4, norm-vol=8, Smith=[1, 1, 1, 2]
 
-── conformal_companion_a_config(n)  — finite-index companion to BMS_n 
+── conformal_companion_a_config(n)  — finite-index companion to BMS_n
   G_n(u) = Σᵢ ∏_{j≠i} uⱼ  +  Σᵢ pᵢ² uᵢ
   Same lower monomials as BMS_n; upper monomials are the standard basis eᵢ
   n=3: companion → BMS_n  found=True, det=2
@@ -476,9 +476,9 @@ FeynkitDatabase: /tmp/tmpf3vbbxnv.db
 
 ── to_text()  — plain-text analysis report (first 20 lines) ──────────
   ======================================================================
-                     Feynman Integral Analysis Report                   
+                     Feynman Integral Analysis Report
   ======================================================================
-  
+
   ======================================================================
   FEYNMAN GRAPH PROPERTIES
   ======================================================================
@@ -486,15 +486,15 @@ FeynkitDatabase: /tmp/tmpf3vbbxnv.db
   External legs:         3
   Internal propagators:  3
   Loop number:           1
-  
-  
+
+
   ======================================================================
   EDGE LIST
   ======================================================================
-  Idx   Type       From  To    Mass                 Name           
+  Idx   Type       From  To    Mass                 Name
   ----------------------------------------------------------------------
-  1     Internal   1     2     ---                  ---            
-  2     Internal   2     3     ---                  ---            
+  1     Internal   1     2     ---                  ---
+  2     Internal   2     3     ---                  ---
   … (148 lines total)
 
 ── to_latex()  — self-contained LaTeX document (preamble only) ───────

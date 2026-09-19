@@ -2,9 +2,9 @@
 Landau singularity analysis via the principal A-determinant.
 
 Demonstrates feynkit.landau for standard Feynman diagrams and the BMS
-conformal simplex family.  For each integral the edge-part principal
-A-determinant E_A^(1) is computed; its irreducible factors are the Landau
-surfaces of the integral.
+conformal simplex family.  For each integral the reduced principal
+A-determinant is computed face by face; its irreducible factors are the
+candidate Landau surfaces of the integral.
 
 Usage
 -----
@@ -69,10 +69,12 @@ def _show(name: str, result: LandauAnalysis) -> None:
     print(f"\n{'-' * 60}")
     print(f"  {name}")
     print(f"{'-' * 60}")
-    print(f"  Active edges:  {len(result.edge_discriminants)}")
+    print(
+        f"  Faces:  {len(result.face_discriminants)}  (non-trivial: {sum(1 for f in result.face_discriminants if f.discriminant != 1)})"
+    )
     print(f"  # surfaces:   {len(result.landau_surfaces)}")
     if result.landau_surfaces:
-        print("  Landau surfaces (irreducible factors of E_A^(1)):")
+        print("  Landau surfaces (irreducible factors of E_A):")
         for i, surf in enumerate(result.landau_surfaces, 1):
             print(f"    [{i}]  {surf}  =  0")
     else:
@@ -85,10 +87,10 @@ def _show(name: str, result: LandauAnalysis) -> None:
 def main(include_box: bool = False) -> None:
     print("=" * 60)
     print("  LANDAU SINGULARITY ANALYSIS ,  feynkit.landau")
-    print("  Edge-part principal A-determinant E_A^(1)(G)")
+    print("  Reduced principal A-determinant E_A(G) over all faces")
     print("=" * 60)
     print()
-    print("  Theory: the zero locus of E_A^(1) in kinematic space")
+    print("  Theory: the zero locus of E_A in kinematic space")
     print("  gives the leading Landau singularity surfaces of the")
     print("  Feynman integral (normal thresholds and IR singularities).")
     print()
@@ -105,12 +107,12 @@ def main(include_box: bool = False) -> None:
     _show("Massive bubble  [m1, m2 free]", result_bubble)
     # Verify zeros
     s = sp.Symbol("s", real=True)
-    lp = result_bubble.landau_polynomial
-    t_norm = sp.simplify(lp.subs(s, -2 * (m1 + m2) ** 2))
-    t_pseudo = sp.simplify(lp.subs(s, -2 * (m1 - m2) ** 2))
+    lp = result_bubble.principal_a_determinant
+    t_norm = sp.simplify(lp.subs(s, (m1 + m2) ** 2))
+    t_pseudo = sp.simplify(lp.subs(s, (m1 - m2) ** 2))
     print("\n  Verification:")
-    print(f"    E_A^(1) at threshold   s = -2(m1+m2)^2  ->  {t_norm}")
-    print(f"    E_A^(1) at pseudothres s = -2(m1-m2)^2  ->  {t_pseudo}")
+    print(f"    E_A at threshold   s = (m1+m2)^2  ->  {t_norm}")
+    print(f"    E_A at pseudothres s = (m1-m2)^2  ->  {t_pseudo}")
 
     # -- 3. Equal-mass bubble -------------------------------------------------
     m = sp.Symbol("m", nonnegative=True)
@@ -118,11 +120,9 @@ def main(include_box: bool = False) -> None:
 
     # -- 4. Massless triangle -------------------------------------------------
     _show("Massless triangle  [all propagators massless]", landau_analysis(_massless_triangle()))
-    s12, s13, s23 = sp.symbols("s12 s13 s23", real=True)
     print()
-    print("  Physical interpretation (with momentum conservation s12+s13+s23=0):")
-    print("  Each surface s_ij + s_ik = 0 reduces to s_jk = 0,")
-    print("  i.e., the collinear IR singularity when leg j+k becomes null.")
+    print("  The factors p_i^2 = 0 are the vertex contributions (external masses);")
+    print("  the Gram determinant lambda(p_1^2, p_2^2, p_3^2) is the second-type singularity.")
 
     # -- 5. Massless box (opt-in: the discriminants take several minutes) ----
     if include_box:
@@ -147,11 +147,11 @@ def main(include_box: bool = False) -> None:
     print("  Summary")
     print("=" * 60)
     print()
-    print("  The edge-part principal A-determinant recovers:")
+    print("  The principal A-determinant recovers:")
     print()
-    print("  - Bubble:    normal threshold  s = -2(m1+m2)^2")
-    print("               pseudothreshold   s = -2(m1-m2)^2")
-    print("  - Triangle:  collinear IR singularities (s_ij = 0)")
+    print("  - Bubble:    normal threshold  s = (m1+m2)^2")
+    print("               pseudothreshold   s = (m1-m2)^2, and p^2 = 0")
+    print("  - Triangle:  p_i^2 = 0 and the Gram determinant")
     print("  - BMS_n:     null-momentum singularities p_i^2 = 0")
     print("               (conformal IR singularities)")
     print()

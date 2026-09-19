@@ -15,7 +15,7 @@ Covers every public-facing capability in a single linear narrative:
   section 10  Polytope equivalence  (unimodular * affine * point-configuration)
   section 11  Finite-index map  (triangle -> triple-K, det = 2)
   section 12  Pairing-matrix canonical form  (Grinis-Kasprzyk)
-  section 13  Landau singularity analysis  (edge-part principal A-determinant)
+  section 13  Landau singularity analysis  (principal A-determinant)
   section 14  with_() , varying kinematics without rebuilding
   section 15  AConfiguration , standalone GKZ matrix objects
   section 16  Conformal artifacts  (BMS simplex * conformal companion)
@@ -482,16 +482,16 @@ print(f"  is_canonical(PM_max) = {is_canonical(pm.PM_max)}")
 # -----------------------------------------------------------------------------
 hdr(13, "Landau singularity analysis")
 
-sec("Method: edge-part of the principal A-determinant")
-print("  The Landau singularities of I_A are encoded in the principal")
-print("  A-determinant E_A.  The edge-part E_A^(1) is the product over")
-print("  all edges of the discriminant of G restricted to each edge.")
+sec("Method: the principal A-determinant")
+print("  The singular locus of the GKZ system is the zero set of the principal")
+print("  A-determinant E_A, the product over all faces of the Newton polytope")
+print("  of the discriminant of G restricted to that face (GKZ 1994, ch. 10).")
 
 la_tri = landau_analysis(fi_tri)
 
 sec("Triangle")
-print("  Landau polynomial (product of edge discriminants):")
-print(f"    L = {la_tri.landau_polynomial}")
+print("  Reduced principal A-determinant:")
+print(f"    E_A = {la_tri.principal_a_determinant}")
 print("  Landau surfaces (irreducible factors):")
 for i, surf in enumerate(la_tri.landau_surfaces):
     print(f"    [{i}]  {surf} = 0")
@@ -500,10 +500,10 @@ print("  external kinematics where the integral develops a leading singularity."
 
 la_b = landau_analysis(fi_bubble)
 sec("Bubble")
-print(f"  Landau polynomial : {la_b.landau_polynomial}")
+print(f"  Principal A-det   : {la_b.principal_a_determinant}")
 print(f"  Landau surfaces   : {la_b.landau_surfaces}")
-print("  (Single surface: the familiar threshold p^2 = 4m^2 for massive bubble,")
-print("   or p^2 = 0 for the massless case.)")
+print("  (Massless bubble: the single factor s = p^2 = 0; the massive bubble")
+print("   adds the thresholds s = (m1 +/- m2)^2 and the mass singularities.)")
 
 la_s = landau_analysis(fi_sunrise)
 sec("Massive sunrise")

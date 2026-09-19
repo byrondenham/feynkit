@@ -18,8 +18,8 @@ jobs:
       - uses: astral-sh/setup-uv@v10.1.0
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install 4ti2 (toric ideal backend)
-        run: sudo apt-get update && sudo apt-get install -y 4ti2
+      - name: Install 4ti2 (toric ideal backend) and Singular (elimination backend)
+        run: sudo apt-get update && sudo apt-get install -y 4ti2 singular
       - run: uv sync --locked
       - run: uv run pytest --no-cov -q
 

@@ -87,10 +87,12 @@ from feynkit.core import (
 from feynkit.database import FeynkitDatabase
 from feynkit.integral import FeynmanIntegral
 from feynkit.landau import (
-    EdgeDiscriminant,
+    FaceDiscriminant,
     LandauAnalysis,
     landau_analysis,
     landau_analysis_from_polynomial,
+    one_loop_landau_surfaces,
+    one_loop_principal_a_determinant,
 )
 from feynkit.normal_forms import PairingMatrixResult
 from feynkit.parametrisations import ParametrisationResult

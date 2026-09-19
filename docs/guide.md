@@ -954,25 +954,24 @@ print(model.intrinsic_points) # points re-expressed in the intrinsic basis
 
 ## Landau singularities
 
-`feynkit.landau` computes the edge-part of the principal A-determinant,
-
-```
-E_A^(1)(G) = prod_{tau edge of New(G)}  Delta_{A_tau}(G|_tau)
-```
-
-whose zero locus in kinematic space gives the leading Landau singularity surfaces (normal
-thresholds and IR singularities).
+`feynkit.landau` computes the reduced principal A-determinant of the Lee-Pomeransky polynomial
+$G$: the product, over every face of the Newton polytope, of the A-discriminant of $G$ restricted
+to that face (GKZ 1994, chapter 10). Its irreducible kinematic factors are candidate singular
+surfaces of the integral. See section 10 of the mathematics reference for what each kind of face
+contributes and for the caveats.
 
 ### From a FeynmanIntegral
 
 ```python
 from feynkit import FeynmanIntegral, landau_analysis
 
-fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")   # massless triangle
+fi = FeynmanIntegral.from_cnickel("11e|e|:nn")   # massive bubble
 la = landau_analysis(fi)
 
-print(la.edge_discriminants)   # list of EdgeDiscriminant, one per Newton-polytope edge
-print(la.principal_a_det)      # E_A^(1) as a SymPy expression
+print(la.landau_surfaces)          # m_1, m_2, s, s - (m_1 + m_2)^2, s - (m_1 - m_2)^2
+print(la.principal_a_determinant)  # their product
+for face in la.face_discriminants:
+    print(face.dimension, face.is_simplex, face.discriminant)
 ```
 
 ### From a polynomial directly
@@ -982,32 +981,43 @@ from feynkit import landau_analysis_from_polynomial
 import sympy as sp
 
 u1, u2, u3 = sp.symbols("u1:4")
-G = u1*u2 + u2*u3 + u1*u3   # G-polynomial of the massless triangle
+p1, p2, p3 = sp.symbols("p1^2 p2^2 p3^2")
+G = u1 + u2 + u3 - p1*u1*u2 - p2*u1*u3 - p3*u2*u3   # massless off-shell triangle
 la = landau_analysis_from_polynomial(G, [u1, u2, u3])
 ```
+
+### One-loop closed form
+
+For one-loop graphs `one_loop_landau_surfaces(fi)` returns the same factors from the principal
+minors of the modified Cayley matrix (Dlapa, Helmer, Papathanasiou, Tellander 2023). It is fast,
+needs no Groebner basis, and is what the test-suite checks the face computation against.
+
+### Backends
+
+Faces of dimension two or more that are not simplices need an elimination ideal. feynkit uses
+Singular when the `Singular` binary is on the path and falls back to SymPy otherwise, which is
+much slower. Faces with more monomials than `max_face_points` (default 12) are skipped and
+listed in `la.skipped_faces`.
 
 ### LandauAnalysis fields
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
-| `la.edge_discriminants` | `list[EdgeDiscriminant]` | One per Newton-polytope edge |
-| `la.principal_a_det` | `sp.Expr` | Product E_A^(1) |
+| `la.face_discriminants` | `tuple[FaceDiscriminant, ...]` | One per face of the Newton polytope |
+| `la.principal_a_determinant` | `sp.Expr` | Product of the distinct kinematic factors |
+| `la.landau_surfaces` | `tuple[sp.Expr, ...]` | The factors themselves |
+| `la.skipped_faces` | `tuple` | Faces too large to eliminate |
 
-### EdgeDiscriminant fields
+### FaceDiscriminant fields
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
-| `ed.edge_exponents` | `tuple[tuple[int,...],...]` | Exponent vectors on the edge |
-| `ed.edge_coefficients` | `tuple[sp.Expr,...]` | Kinematic coefficients |
-| `ed.discriminant` | `sp.Expr` | Discriminant of the edge restriction |
-
-### Physical interpretation
-
-The zero locus of each edge discriminant corresponds to:
-- **Massive bubble edges**: normal threshold `p^2 = ($\sum$ m_i)^2`
-- **Massless edges at a vertex**: IR/collinear singularity (`p_i^2 = 0` for n-gon polygons)
-- **BMS_n higher polygons**: `p_i^2 = 0` for each external leg, a novel family of IR
-  singularities identified by feynkit
+| `face.dimension` | `int` | Dimension of the face |
+| `face.exponents` | `tuple[tuple[int, ...], ...]` | Exponent vectors on the face |
+| `face.coefficients` | `tuple[sp.Expr, ...]` | Kinematic coefficients |
+| `face.discriminant` | `sp.Expr` | Discriminant of the restriction, 1 if trivial |
+| `face.is_simplex` | `bool` | Lattice points affinely independent |
+| `face.principal` | `bool` | Elimination ideal had a single generator |
 
 ---
 

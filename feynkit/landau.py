@@ -1,25 +1,41 @@
 """
-Principal A-determinant (edge part) for Landau singularity analysis.
+Principal A-determinant and Landau surfaces of a Feynman integral.
 
-For a Feynman integral with Lee-Pomeransky polynomial G, this module computes
-the 1-face contribution to the principal A-determinant,
+For the Lee-Pomeransky polynomial G = U + F with Newton polytope P, the
+principal A-determinant is the product over all faces tau of P of the
+A-discriminant of G restricted to tau (Gelfand, Kapranov and Zelevinsky
+1994, chapter 10, theorem 1.2). Its zero locus in kinematic space is the
+singular locus of the GKZ system, and it contains the Landau variety
+(Klausen 2023, section 5.1). This module computes the reduced form: every
+irreducible kinematic factor once, without the multiplicities.
 
-    E_A^(1)(G) = prod_{tau edge of New(G)}  Delta_{A_tau}(G|_tau)
+Faces contribute as follows.
 
-where Delta_{A_tau}(G|_tau) is the discriminant of G restricted to the edge tau,
-viewed as a univariate polynomial in the edge direction.  The zero locus of
-E_A^(1) in kinematic space gives the leading Landau singularity surfaces
-(normal thresholds and IR singularities).
+- A vertex contributes its coefficient (Fevola, Mizera and Telen 2023,
+  example 2.1).
+- A face whose lattice points form a simplex has discriminant 1.
+- An edge contributes the discriminant of the univariate polynomial in
+  the lattice coordinate along the edge.
+- Any other face contributes the elimination ideal of {f_tau = 0,
+  t_i d f_tau / d t_i = 0} in the torus, computed with a Groebner basis.
+  Faces with more points than ``max_face_points`` are skipped and listed
+  in ``LandauAnalysis.skipped_faces``.
 
-References
-----------
-Gelfand-Kapranov-Zelevinsky (1994) section 10.1, Theorem 10.1.4.
-Klausen (2020), section 3, "Counting master integrals".
+The factors are candidate codimension-one singular loci on all sheets of the
+integral. Membership is necessary for a singularity, not sufficient, and
+the list is neither complete for physical sheets nor guaranteed exhaustive
+(Fevola, Mizera and Telen 2023, section 2).
+
+For one-loop graphs, :func:`one_loop_principal_a_determinant` gives the
+closed form of Dlapa, Helmer, Papathanasiou and Tellander (2023, eq.
+1LoopEA): the product of the principal minors of the modified Cayley
+matrix. It is used as an independent check of the face computation.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import combinations
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -28,13 +44,16 @@ import sympy as sp
 from .systems.monomial import extract_monomial_support
 
 if TYPE_CHECKING:
+    from .core.edge import Edge
     from .integral import FeynmanIntegral
 
 __all__ = [
-    "EdgeDiscriminant",
+    "FaceDiscriminant",
     "LandauAnalysis",
     "landau_analysis",
     "landau_analysis_from_polynomial",
+    "one_loop_landau_surfaces",
+    "one_loop_principal_a_determinant",
 ]
 
 
@@ -42,140 +61,124 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class EdgeDiscriminant:
-    """Discriminant of G restricted to one edge of its Newton polytope.
+class FaceDiscriminant:
+    """A-discriminant of G restricted to one face of its Newton polytope.
 
     Attributes
     ----------
-    edge_exponents
-        Exponent vectors of the monomials on this edge.
-    edge_coefficients
-        Corresponding kinematic coefficients (same order).
+    dimension
+        Dimension of the face.
+    exponents
+        Exponent vectors of the monomials of G on the face.
+    coefficients
+        Their kinematic coefficients, in the same order.
     discriminant
-        Polynomial in kinematic variables whose zeros are the Landau
-        surfaces contributed by this edge.
+        Polynomial in the kinematic variables; 1 when the face is a simplex
+        or its discriminant carries no kinematics.
+    is_simplex
+        True when the face's lattice points are affinely independent.
+    principal
+        True when the discriminant was obtained as a single generator. For
+        faces of dimension two or more it is False when the elimination
+        ideal needed more than one generator; the product of their
+        kinematic factors is then reported.
     """
 
-    edge_exponents: tuple[tuple[int, ...], ...]
-    edge_coefficients: tuple[sp.Expr, ...]
+    dimension: int
+    exponents: tuple[tuple[int, ...], ...]
+    coefficients: tuple[sp.Expr, ...]
     discriminant: sp.Expr
+    is_simplex: bool
+    principal: bool = True
 
 
 @dataclass(frozen=True)
 class LandauAnalysis:
-    """Edge-part Landau analysis of a Feynman integral.
+    """Reduced principal A-determinant of a Feynman integral.
 
     Attributes
     ----------
-    edge_discriminants
-        One entry per edge of New(G) whose discriminant depends on kinematic
-        variables.
-    landau_polynomial
-        Product of all edge discriminants (a polynomial in kinematics).
+    face_discriminants
+        One entry per face of the Newton polytope of G, all dimensions.
+    principal_a_determinant
+        Product of the distinct irreducible kinematic factors of all face
+        discriminants (the reduced principal A-determinant).
     landau_surfaces
-        Irreducible kinematic factors of ``landau_polynomial``; each one
-        defines a Landau surface.
+        Those factors, one per candidate singular surface.
+    skipped_faces
+        Exponent sets of faces that were too large to eliminate.
     """
 
-    edge_discriminants: tuple[EdgeDiscriminant, ...]
-    landau_polynomial: sp.Expr
+    face_discriminants: tuple[FaceDiscriminant, ...]
+    principal_a_determinant: sp.Expr
     landau_surfaces: tuple[sp.Expr, ...]
+    skipped_faces: tuple[tuple[tuple[int, ...], ...], ...] = ()
 
 
-# --- internal helpers --------------------------------------------------------
+# --- face enumeration --------------------------------------------------------
 
 
-def _primitive_direction(pts: np.ndarray) -> np.ndarray:
-    """Primitive integer direction vector for a collinear set of lattice points."""
-    diffs = pts - pts[0]
-    direction: np.ndarray | None = None
-    for diff in diffs[1:]:
-        if np.any(diff != 0):
-            direction = diff.copy().astype(int)
-            break
-    if direction is None:
-        return np.zeros(pts.shape[1], dtype=int)
-    g = 0
-    for v in direction:
-        g = int(np.gcd(g, abs(int(v))))
-    if g == 0:
-        return np.asarray(direction, dtype=int)
-    return np.asarray(direction // g, dtype=int)
+def _affine_rank(pts: np.ndarray) -> int:
+    if len(pts) <= 1:
+        return 0
+    diffs = (pts[1:] - pts[0]).astype(float)
+    return int(np.linalg.matrix_rank(diffs, tol=1e-9))
 
 
-def _points_on_segment(all_pts: np.ndarray, i: int, j: int) -> list[int]:
-    """Indices of all integer lattice points on the closed segment [pts[i], pts[j]]."""
-    pi = all_pts[i].astype(float)
-    pj = all_pts[j].astype(float)
-    direction = pj - pi
-    on_seg = [i, j]
-    for k in range(len(all_pts)):
-        if k in (i, j):
-            continue
-        diff = all_pts[k].astype(float) - pi
-        # Find parameter t such that diff = t * direction
-        t_vals: list[float] = []
-        for dim in range(len(direction)):
-            if abs(direction[dim]) > 1e-9:
-                t_vals.append(diff[dim] / direction[dim])
-        if not t_vals:
-            continue
-        t = t_vals[0]
-        if not (1e-9 < t < 1.0 - 1e-9):
-            continue
-        if not all(abs(tv - t) < 1e-9 for tv in t_vals):
-            continue
-        if all(abs(diff[dim] - t * direction[dim]) < 1e-9 for dim in range(len(direction))):
-            on_seg.append(k)
-    return sorted(on_seg)
+def _faces(pts: np.ndarray) -> list[tuple[int, tuple[int, ...]]]:
+    """All faces of conv(pts) as (dimension, indices of the points on the face).
 
-
-def _hull_edges(pts: np.ndarray) -> list[list[int]]:
-    """Enumerate all 1-faces (edges) of the convex hull of pts.
-
-    In d dimensions a pair of hull vertices forms an edge iff they appear
-    together in at least d-1 facets.  Interior lattice points on the
-    segment are included in each returned list.
+    Includes the vertices and the polytope itself. Points that lie on a face
+    without being vertices are included in that face.
     """
-    n, d = pts.shape
+    n_pts = len(pts)
+    if n_pts == 0:
+        return []
+    rank = _affine_rank(pts)
+    if rank == 0:
+        return [(0, tuple(range(n_pts)))]
 
-    if d == 1:
-        imin = int(np.argmin(pts[:, 0]))
-        imax = int(np.argmax(pts[:, 0]))
-        return [_points_on_segment(pts, imin, imax)]
+    # Work in coordinates of the affine hull so the hull is full-dimensional.
+    diffs = (pts - pts[0]).astype(float)
+    _, _, vt = np.linalg.svd(diffs, full_matrices=False)
+    coords = diffs @ vt[:rank].T
 
-    from scipy.spatial import ConvexHull, QhullError
+    if rank == 1:
+        order = np.argsort(coords[:, 0])
+        lo, hi = int(order[0]), int(order[-1])
+        return [(0, (lo,)), (0, (hi,)), (1, tuple(range(n_pts)))]
 
-    try:
-        hull = ConvexHull(pts.astype(float))
-    except QhullError:
-        # Points span a lower-dimensional affine subspace, project and recurse.
-        basis = (pts - pts[0]).astype(float)
-        _, sv, vt = np.linalg.svd(basis, full_matrices=False)
-        rank = int(np.sum(sv > 1e-6))
-        if rank == 0:
-            return []
-        proj = basis @ vt[:rank].T  # shape (n, rank)
-        return _hull_edges(proj)  # indices are preserved
+    from scipy.spatial import ConvexHull
 
-    hull_verts = hull.vertices.tolist()
-    facet_sets = [frozenset(row.tolist()) for row in hull.simplices]
+    hull = ConvexHull(coords)
+    facets: set[frozenset[int]] = set()
+    for eq in hull.equations:
+        normal, offset = eq[:-1], eq[-1]
+        on = frozenset(int(i) for i in range(n_pts) if abs(coords[i] @ normal + offset) < 1e-7)
+        facets.add(on)
 
-    edges: list[list[int]] = []
-    seen: set[tuple[int, int]] = set()
-    for ii in range(len(hull_verts)):
-        for jj in range(ii + 1, len(hull_verts)):
-            vi, vj = hull_verts[ii], hull_verts[jj]
-            pair = (vi, vj)
-            if pair in seen:
-                continue
-            seen.add(pair)
-            shared = sum(1 for fs in facet_sets if vi in fs and vj in fs)
-            if shared >= d - 1:
-                seg = _points_on_segment(pts, vi, vj)
-                edges.append(seg)
+    faces: set[frozenset[int]] = set(facets)
+    frontier = set(facets)
+    while frontier:
+        new: set[frozenset[int]] = set()
+        for a in frontier:
+            for b in faces:
+                c = a & b
+                if c and c not in faces and c not in new:
+                    new.add(c)
+        faces |= new
+        frontier = new
+    faces.add(frozenset(range(n_pts)))
 
-    return edges
+    out: list[tuple[int, tuple[int, ...]]] = []
+    for face in faces:
+        idx = tuple(sorted(face))
+        out.append((_affine_rank(pts[list(idx)]), idx))
+    out.sort(key=lambda f: (f[0], f[1]))
+    return out
+
+
+# --- discriminants -----------------------------------------------------------
 
 
 def _univariate_discriminant(coeffs: list[sp.Expr], t_exps: list[int]) -> sp.Expr:
@@ -214,93 +217,356 @@ def _factor_list(expr: sp.Expr, kinematic_syms: set[sp.Symbol]) -> list[sp.Expr]
 # --- public API --------------------------------------------------------------
 
 
+def _lattice_coordinates(pts: np.ndarray) -> list[tuple[int, ...]]:
+    """Integer coordinates of the points in the lattice their differences span.
+
+    A Z-basis of the difference lattice comes from the Hermite normal form of
+    the difference matrix; coordinates are shifted to be non-negative.
+    """
+    if len(pts) == 1:
+        return [()]
+    from sympy.matrices.normalforms import hermite_normal_form
+
+    diffs = sp.Matrix([[int(x) for x in row] for row in (pts[1:] - pts[0])])
+    hnf = hermite_normal_form(diffs.T).T  # rows: Z-basis of the row lattice of diffs
+    basis = sp.Matrix([row for row in hnf.tolist() if any(x != 0 for x in row)])
+    if basis.rows == 0:
+        return [() for _ in pts]
+    coords: list[tuple[int, ...]] = []
+    for row in pts - pts[0]:
+        target = sp.Matrix([[int(x) for x in row]])
+        sol = (
+            basis.T.solve_least_squares(target.T)
+            if basis.rows < basis.cols
+            else basis.T.solve(target.T)
+        )
+        c = [sp.nsimplify(x) for x in sol]
+        if any(not x.is_integer for x in c):
+            raise ValueError("Point is not in the lattice spanned by the differences")
+        coords.append(tuple(int(x) for x in c))
+    mins = [min(c[i] for c in coords) for i in range(basis.rows)]
+    return [tuple(c[i] - mins[i] for i in range(basis.rows)) for c in coords]
+
+
+def _singular_binary() -> str | None:
+    """Path to the Singular binary, or None if it is not installed."""
+    import shutil
+
+    return shutil.which("Singular")
+
+
+def _eliminate_sympy(
+    system: list[sp.Expr], to_eliminate: list[sp.Symbol], kin: list[sp.Symbol]
+) -> list[sp.Expr]:
+    basis = sp.groebner(system, *to_eliminate, *kin, order="lex")
+    return [g for g in basis.exprs if not (g.free_symbols & set(to_eliminate))]
+
+
+def _eliminate_singular(
+    system: list[sp.Expr], to_eliminate: list[sp.Symbol], kin: list[sp.Symbol], binary: str
+) -> list[sp.Expr]:
+    """Elimination ideal via Singular's ``eliminate`` (Decker et al., Singular 4)."""
+    import subprocess
+    import tempfile
+    from pathlib import Path as _Path
+
+    from sympy.parsing.sympy_parser import (
+        convert_xor,
+        parse_expr,
+        standard_transformations,
+    )
+
+    names = {sym: f"v{i}" for i, sym in enumerate(to_eliminate + kin)}
+    back = {v: k for k, v in names.items()}
+
+    def render(expr: sp.Expr) -> str:
+        return str(sp.expand(expr).subs(names, simultaneous=True)).replace("**", "^")
+
+    ring_vars = ",".join(names[v] for v in to_eliminate + kin)
+    ideal = ",".join(render(g) for g in system)
+    product = "*".join(names[v] for v in to_eliminate)
+    script = (
+        f"ring r = 0, ({ring_vars}), dp;\n"
+        f"ideal I = {ideal};\n"
+        f"ideal E = eliminate(I, {product});\n"
+        "int k; for (k = 1; k <= size(E); k++) { print(string(E[k])); }\n"
+        "quit;\n"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _Path(tmp) / "elim.sing"
+        path.write_text(script)
+        result = subprocess.run(
+            [binary, "-q", "--no-warn", str(path)], capture_output=True, text=True, check=False
+        )
+    if result.returncode != 0:
+        raise RuntimeError(f"Singular failed: {result.stderr.strip()}")
+    out: list[sp.Expr] = []
+    local = dict(back)
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line or line == "0":
+            continue
+        expr = parse_expr(
+            line, local_dict=local, transformations=standard_transformations + (convert_xor,)
+        )
+        out.append(sp.expand(expr))
+    return out
+
+
+def _elimination_discriminant(
+    coeffs: list[sp.Expr],
+    exps: list[tuple[int, ...]],
+    kinematic_syms: set[sp.Symbol],
+    backend: str = "auto",
+) -> tuple[sp.Expr, bool]:
+    """Kinematic locus where f = sum c_k t^{e_k} has a singular point in the torus.
+
+    Returns (product of distinct kinematic factors, principal) where principal
+    is True when the elimination ideal had a single generator. Uses Singular
+    when installed and ``backend`` is "auto" or "singular", else SymPy.
+    """
+    dim = len(exps[0])
+    t = list(sp.symbols(f"_t1:{dim + 1}"))
+    w = sp.Symbol("_w")
+    f = sum(
+        c * sp.prod(ti**e for ti, e in zip(t, ek, strict=True))
+        for c, ek in zip(coeffs, exps, strict=True)
+    )
+    num, _den = sp.fraction(sp.together(f))
+    num = sp.expand(num)
+    system = [num] + [sp.expand(ti * sp.diff(num, ti)) for ti in t] + [1 - w * sp.prod(t)]
+    kin = sorted(num.free_symbols - set(t), key=str)
+    to_eliminate = [w, *t]
+
+    binary = _singular_binary() if backend in ("auto", "singular") else None
+    if backend == "singular" and binary is None:
+        raise RuntimeError("Singular backend requested but the 'Singular' binary was not found")
+    if binary is not None:
+        eliminated = _eliminate_singular(system, to_eliminate, kin, binary)
+    else:
+        eliminated = _eliminate_sympy(system, to_eliminate, kin)
+
+    factors: dict[sp.Expr, None] = {}
+    for g in eliminated:
+        for fac in _factor_list(g, kinematic_syms):
+            factors.setdefault(fac, None)
+    if not factors:
+        return sp.Integer(1), len(eliminated) <= 1
+    return sp.prod(list(factors)), len(eliminated) == 1
+
+
+def _face_discriminant(
+    coeffs: list[sp.Expr],
+    exps_ambient: list[tuple[int, ...]],
+    dimension: int,
+    kinematic_syms: set[sp.Symbol],
+    max_face_points: int,
+) -> tuple[sp.Expr, bool, bool] | None:
+    """Return (discriminant, is_simplex, principal), or None if the face is skipped."""
+    n_pts = len(coeffs)
+    is_simplex = n_pts == dimension + 1
+    if dimension == 0:
+        return sp.together(coeffs[0]), True, True
+    if is_simplex:
+        return sp.Integer(1), True, True
+    if n_pts > max_face_points:
+        return None
+    lattice = _lattice_coordinates(np.array(exps_ambient, dtype=int))
+    if dimension == 1:
+        t_exps = [c[0] for c in lattice]
+        return _univariate_discriminant(coeffs, t_exps), False, True
+    disc, principal = _elimination_discriminant(coeffs, lattice, kinematic_syms)
+    return disc, False, principal
+
+
+def _reduced(
+    factors_by_face: list[sp.Expr], kinematic_syms: set[sp.Symbol]
+) -> tuple[sp.Expr, tuple[sp.Expr, ...]]:
+    seen: dict[sp.Expr, None] = {}
+    for disc in factors_by_face:
+        for fac in _factor_list(disc, kinematic_syms):
+            seen.setdefault(fac, None)
+    surfaces = tuple(seen)
+    return (sp.Mul(*surfaces) if surfaces else sp.Integer(1)), surfaces
+
+
+# --- public API --------------------------------------------------------------
+
+
 def landau_analysis_from_polynomial(
     g_poly: sp.Expr,
     lp_parameters: list[sp.Symbol],
+    *,
+    max_face_points: int = 12,
 ) -> LandauAnalysis:
-    """Edge-part Landau analysis for a Lee-Pomeransky polynomial.
+    """Reduced principal A-determinant of a polynomial in the given variables.
 
     Parameters
     ----------
     g_poly
-        Lee-Pomeransky polynomial G(u; kinematics).
+        The polynomial, typically G = U + F.
     lp_parameters
-        Schwinger parameters u_i (the integration variables of g_poly).
-
-    Returns
-    -------
-    LandauAnalysis
-        Edge discriminants, their product, and the irreducible Landau surfaces.
+        Its variables; every other symbol is treated as kinematic.
+    max_face_points
+        Faces of dimension two or more with more monomials than this are
+        not eliminated and are reported in ``skipped_faces``.
     """
-    if not lp_parameters or g_poly == sp.Integer(0):
+    g_poly = sp.expand(g_poly)
+    if g_poly == 0:
         return LandauAnalysis((), sp.Integer(1), ())
     support = extract_monomial_support(g_poly, lp_parameters)
     if not support:
         return LandauAnalysis((), sp.Integer(1), ())
-
     kinematic_syms: set[sp.Symbol] = g_poly.free_symbols - set(lp_parameters)
-    all_exps = np.array([list(e) for e, _ in support], dtype=int)
+    exps = np.array([list(e) for e, _ in support], dtype=int)
 
-    edge_index_lists = _hull_edges(all_exps)
-
-    non_trivial: list[EdgeDiscriminant] = []
-    for idx_list in edge_index_lists:
-        if len(idx_list) < 2:
+    faces: list[FaceDiscriminant] = []
+    skipped: list[tuple[tuple[int, ...], ...]] = []
+    for dimension, idx in _faces(exps):
+        face_exps = [tuple(int(x) for x in exps[i]) for i in idx]
+        face_coeffs = [support[i][1] for i in idx]
+        result = _face_discriminant(
+            face_coeffs, face_exps, dimension, kinematic_syms, max_face_points
+        )
+        if result is None:
+            skipped.append(tuple(face_exps))
             continue
-
-        edge_pts = all_exps[idx_list]
-        direction = _primitive_direction(edge_pts)
-        raw_t = [int(np.dot(direction, pt)) for pt in edge_pts]
-        t_min = min(raw_t)
-        t_exps = [v - t_min for v in raw_t]
-
-        edge_coeffs = [support[k][1] for k in idx_list]
-        disc = _univariate_discriminant(edge_coeffs, t_exps)
-
-        if disc.free_symbols & kinematic_syms:
-            edge_exps = tuple(support[k][0] for k in idx_list)
-            non_trivial.append(
-                EdgeDiscriminant(
-                    edge_exponents=edge_exps,
-                    edge_coefficients=tuple(edge_coeffs),
-                    discriminant=disc,
-                )
+        disc, is_simplex, principal = result
+        if not (disc.free_symbols & kinematic_syms):
+            disc = sp.Integer(1)
+        faces.append(
+            FaceDiscriminant(
+                dimension=dimension,
+                exponents=tuple(face_exps),
+                coefficients=tuple(face_coeffs),
+                discriminant=disc,
+                is_simplex=is_simplex,
+                principal=principal,
             )
+        )
 
-    if not non_trivial:
-        return LandauAnalysis((), sp.Integer(1), ())
+    e_a, surfaces = _reduced([f.discriminant for f in faces], kinematic_syms)
+    return LandauAnalysis(tuple(faces), e_a, surfaces, tuple(skipped))
 
-    raw: sp.Expr = sp.Integer(1)
-    for ed in non_trivial:
-        raw = sp.expand(raw * ed.discriminant)
-    # Keep only the numerator: the denominator is a scale factor with no zeros
-    landau_poly, _den = sp.fraction(sp.together(raw))
-    landau_poly = sp.factor(landau_poly)
 
-    surfaces = tuple(_factor_list(landau_poly, kinematic_syms))
+def landau_analysis(integral: FeynmanIntegral, *, max_face_points: int = 12) -> LandauAnalysis:
+    """Reduced principal A-determinant of G = U + F for a Feynman integral.
 
-    return LandauAnalysis(
-        edge_discriminants=tuple(non_trivial),
-        landau_polynomial=landau_poly,
-        landau_surfaces=surfaces,
+    See the module docstring for what the faces contribute and for the
+    caveats on interpreting the factors as Landau singularities.
+    """
+    sym = integral.symanzik
+    return landau_analysis_from_polynomial(
+        sym.g, list(sym.lp_parameters), max_face_points=max_face_points
     )
 
 
-def landau_analysis(integral: FeynmanIntegral) -> LandauAnalysis:
-    """Edge-part Landau analysis of a :class:`~feynkit.FeynmanIntegral`.
+# --- one-loop closed form ----------------------------------------------------
 
-    Computes the edge-part principal A-determinant E_A^(1)(G) of the
-    Lee-Pomeransky polynomial G.  Its zero locus in kinematic space is the
-    leading Landau variety of the integral.
 
-    Parameters
-    ----------
-    integral
-        A :class:`~feynkit.FeynmanIntegral` instance.
+def _one_loop_cycle(integral: FeynmanIntegral) -> tuple[list[Edge], list[list[int]]]:
+    """Internal edges in cycle order and, for each cycle vertex, the legs attached to it."""
+    graph = integral.graph
+    internal = graph.get_internal_edges()
+    n_int = graph.internal_vertices
+    adjacency: dict[int, list[tuple[int, Edge]]] = {v: [] for v in range(1, n_int + 1)}
+    for e in internal:
+        adjacency[e.v1].append((e.v2, e))
+        adjacency[e.v2].append((e.v1, e))
+    if len(internal) == 1:  # tadpole: a single self-loop
+        return internal, [[ext.v2 - n_int for ext in graph.get_external_edges()]]
+    start = internal[0].v1
+    order_edges: list[Edge] = []
+    order_vertices: list[int] = [start]
+    prev_edge: Edge | None = None
+    v = start
+    while True:
+        nxt = next((w, e) for (w, e) in adjacency[v] if e is not prev_edge)
+        w, e = nxt
+        order_edges.append(e)
+        prev_edge = e
+        v = w
+        if v == start:
+            break
+        order_vertices.append(v)
+    legs_at: dict[int, list[int]] = {v: [] for v in order_vertices}
+    for ext in graph.get_external_edges():
+        legs_at[ext.v1].append(ext.v2 - n_int)
+    return order_edges, [legs_at[v] for v in order_vertices]
 
-    Returns
-    -------
-    LandauAnalysis
+
+def one_loop_principal_a_determinant(integral: FeynmanIntegral) -> sp.Expr:
+    """Reduced principal A-determinant of a one-loop integral in closed form.
+
+    The product of :func:`one_loop_landau_surfaces`; see there for the
+    construction and references.
     """
-    s = integral.symanzik
-    return landau_analysis_from_polynomial(s.g, s.lp_parameters)
+    surfaces = one_loop_landau_surfaces(integral)
+    return sp.Mul(*surfaces) if surfaces else sp.Integer(1)
+
+
+def one_loop_landau_surfaces(integral: FeynmanIntegral) -> tuple[sp.Expr, ...]:
+    """Irreducible factors of the one-loop principal A-determinant in closed form.
+
+    Dlapa, Helmer, Papathanasiou and Tellander (2023, eq. 1LoopEA): with the
+    modified Cayley matrix Y of size (n+1), Y_00 = 0, Y_0i = 1,
+    Y_ii = 2 m_i^2 and Y_ij = m_i^2 + m_j^2 - q_ij^2 where q_ij is the
+    momentum flowing between propagators i and j, the reduced principal
+    A-determinant is the product of the principal minors of Y that are not
+    identically zero. Minors containing index 0 are Gram determinants
+    (second-type singularities), the others Cayley determinants (first type).
+
+    Raises
+    ------
+    ValueError
+        If the integral has more than one loop.
+    """
+    if integral.loop_count != 1:
+        raise ValueError("The closed form applies to one-loop integrals only")
+    edges, legs_at = _one_loop_cycle(integral)
+    n = len(edges)
+    products = integral.momentum_products
+    n_legs = integral.graph.external_legs
+    inv = None
+    if n_legs >= 2:
+        from .kinematics.mandelstam import standard_invariants
+
+        inv = standard_invariants(n_legs)
+
+    def dot(a: int, b: int) -> sp.Expr:
+        if a == b:
+            if inv is not None and integral.use_mandelstam:
+                return inv.external_masses[a - 1]
+            return -sum(
+                products.get((min(a, c), max(a, c)), sp.Integer(0))
+                for c in range(1, n_legs + 1)
+                if c != a
+            )
+        return products.get((min(a, b), max(a, b)), sp.Integer(0))
+
+    def q_squared(legs: list[int]) -> sp.Expr:
+        return sp.expand(sum(dot(a, b) for a in legs for b in legs))
+
+    masses = [e.get_mass() ** 2 for e in edges]
+    y = sp.zeros(n + 1, n + 1)
+    for i in range(1, n + 1):
+        y[0, i] = y[i, 0] = 1
+        y[i, i] = 2 * masses[i - 1]
+    for i in range(1, n + 1):
+        for j in range(i + 1, n + 1):
+            # Cutting edges i and j isolates the cycle vertices strictly after edge i up to edge j.
+            legs = [leg for k in range(i, j) for leg in legs_at[k]]
+            y[i, j] = y[j, i] = masses[i - 1] + masses[j - 1] - q_squared(legs)
+
+    kinematic_syms = set().union(*(sp.sympify(x).free_symbols for x in masses)) | set().union(
+        *(v.free_symbols for v in products.values())
+    )
+    factors: dict[sp.Expr, None] = {}
+    for size in range(1, n + 2):
+        for subset in combinations(range(n + 1), size):
+            minor = sp.expand(y.extract(list(subset), list(subset)).det())
+            if minor == 0:
+                continue
+            for fac in _factor_list(minor, kinematic_syms):
+                factors.setdefault(fac, None)
+    return tuple(factors)

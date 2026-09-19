@@ -32,34 +32,18 @@ class TestCreateMomentumProducts:
         assert (2, 3) in p_dot
 
     def test_mandelstam_two_legs(self) -> None:
-        """Test Mandelstam variables for 2 external legs."""
+        """Two legs: the single invariant is s = p^2 and p_1 . p_2 = -s."""
         p_dot = create_momentum_products(n_external=2, use_mandelstam=True)
-
-        assert len(p_dot) == 1
-        assert (1, 2) in p_dot
-
-        # Should be s/2
-        expr = p_dot[(1, 2)]
-        expected = sp.Symbol("s", real=True) / 2
-        assert sp.simplify(expr - expected) == 0
+        s = sp.Symbol("s", real=True)
+        assert p_dot == {(1, 2): -s}
 
     def test_mandelstam_three_legs(self) -> None:
-        """Test Mandelstam variables for 3 external legs."""
+        """Three legs: products follow from the external masses p_i^2 alone."""
         p_dot = create_momentum_products(n_external=3, use_mandelstam=True)
-
+        p1, p2, p3 = (sp.Symbol(f"p{i}^2", real=True) for i in (1, 2, 3))
         assert len(p_dot) == 3
-        assert (1, 2) in p_dot
-        assert (1, 3) in p_dot
-        assert (2, 3) in p_dot
-
-        # Should have s12, s13, s23 divided by 2
-        s12_expected = sp.Symbol("s12", real=True) / 2
-        s13_expected = sp.Symbol("s13", real=True) / 2
-        s23_expected = sp.Symbol("s23", real=True) / 2
-
-        assert sp.simplify(p_dot[(1, 2)] - s12_expected) == 0
-        assert sp.simplify(p_dot[(1, 3)] - s13_expected) == 0
-        assert sp.simplify(p_dot[(2, 3)] - s23_expected) == 0
+        assert sp.expand(p_dot[(1, 2)] - (p3 - p1 - p2) / 2) == 0
+        assert sp.expand(p_dot[(2, 3)] - (p1 - p2 - p3) / 2) == 0
 
     def test_invalid_n_external(self) -> None:
         """Test that invalid n_external raises error."""

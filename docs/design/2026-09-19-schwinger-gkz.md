@@ -15,6 +15,17 @@ topological and kinematic coefficients apart, which is what lets the paper read
 off facet reductions and work with fewer variables. This note specifies how
 feynkit builds that system and its reduction.
 
+## Prior art
+
+The same two-block system appears in Klausen's thesis (arXiv:2302.13184, section 3.4, the
+equation labelled AprimeUF) as the "$\mathcal{U}\mathcal{F}$ Cayley form", with
+$\beta = (d/2 - \omega, \omega, \nu_1, \ldots, \nu_{n-1})$ in his plus-sign convention and
+$\omega = \sum\nu - L d/2$. Translated to feynkit's convention it is the vector below. Klausen
+also states that this configuration is unimodularly equivalent to the Lee-Pomeransky one, which
+gives a test: `is_unimodular_equivalent` between the Cayley matrix and `fi.gkz.a_matrix` must
+succeed. The 2026 paper's contribution is the derivation from the Schwinger representation and the
+use of the block structure for reductions.
+
 ## Mathematics and conventions
 
 All references are to arXiv:2609.16107 unless stated.
@@ -77,10 +88,20 @@ are `w_1 ... w_n` and `z_1 ... z_m`.
   Cayley matrix with the $w$ and $z$ variables.
 - `restrict_to_f_block()` returns an ordinary `GKZSystem` with
   $A = (1 \cdots 1;\ A_2)$ and $\beta = (L D/2 - \nu, -\nu_1, \ldots, -\nu_{N-1})$,
-  the paper's eq. 54 and its reduced box. The docstring quotes the paper: this
-  is "a good candidate for a reduction", chosen because $\tilde U$ has purely
-  numerical coefficients, and the paper does not prove admissibility in
-  general. It points to the paper's discussion of resonance in section 2.2.
+  the paper's eq. 54 and its reduced box.
+
+  What this reduction is, stated carefully. Britto, Grimm and Hoefnagels (arXiv:2606.09978,
+  section 2.2) show that the solutions of a face subsystem $(\mathcal{A}_F, \beta)$ lie in the
+  solution space of the full system, and treat the $\mathcal{U}$ facet only when its exponent
+  vanishes, $\nu = (L+1)D/2$ (section 8.1). The converse does not hold in general: rescaling the
+  $\tilde F$ coefficients along an exponent row rescales $u$, which changes
+  $\tilde U^{\nu - (L+1)D/2}$ unless that exponent is zero, so the $\tilde F$-block Euler
+  equations do not annihilate $\Phi$ at generic $D$. Vanhove (arXiv:1807.11466, section 3.2)
+  uses the corresponding object for the maximal cut, where the torus cycle has no boundary. The
+  docstring therefore says: the reduced system is a face subsystem whose solutions are solutions
+  of the full system; it annihilates the Feynman integral itself only when the $\tilde U$
+  exponent vanishes or on cut contours; the paper's comparison of its rank with the number of
+  master integrals is the paper's own observation, not a bound.
 
 ## Facade
 
@@ -101,6 +122,7 @@ orders columns differently:
   at unit exponents.
 - On-shell massless box: the $5 \times 6$ matrix and $\beta = (4 - 2\beta, \beta - 4, -1, -1, -1)$.
 - Off-shell massless box: the reduced $4 \times 6$ matrix and $\beta$.
+- Unimodular equivalence of the Cayley matrix and `fi.gkz.a_matrix` (Klausen 2023, section 3.4).
 - Numerical homogeneity of the bubble's Cayley integral, in the style of the
   test added for `fi.gkz`, so the sign convention is pinned independently of
   the paper.

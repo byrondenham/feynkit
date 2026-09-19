@@ -560,60 +560,71 @@ Accessed via `AConfiguration.finite_index_map_to(other)`, returning a `FiniteInd
 
 ---
 
-## 10. Landau Singularities via Principal A-Determinant
+## 10. Landau Singularities via the Principal A-Determinant
 
-*Ref:* GKZ (1994) section 10; Klausen (2022).
+*Ref:* GKZ (1994) chapter 10; Klausen (2023) section 5; Dlapa, Helmer, Papathanasiou, Tellander
+(2023); Fevola, Mizera, Telen (2023).
 
-### 10.1 Principal A-Determinant and Its Edge Part
+### 10.1 Principal A-Determinant
 
-The **principal A-determinant** $E_A(G)$ is a polynomial in the coefficients of $G$ whose zero locus
-encodes all singularities of the GKZ system (including Landau singularities of the Feynman integral).
+Write $G = \sum_j z_j u^{\alpha_j}$ with Newton polytope $P = \mathrm{conv}\{\alpha_j\}$. The
+**principal A-determinant** is the product over all faces $\tau$ of $P$ (vertices, edges, ..., $P$
+itself) of the A-discriminant of the restriction $G_\tau = \sum_{\alpha_j \in \tau} z_j u^{\alpha_j}$:
 
-The **edge part** $E_A^{(1)}(G)$, the physically relevant piece, is the product of discriminants
-over the **1-faces (edges)** of the Newton polytope:
+$$E_A(G) \;=\; \pm \prod_{\tau \subseteq P} \Delta_{A \cap \tau}(G_\tau)^{\mu_\tau},$$
 
-$$E_A^{(1)}(G) \;=\; \prod_{\tau \;\text{edge of}\; \Delta_G} \Delta_{A_\tau}\!\left(G\big|_\tau\right).$$
+with positive integer multiplicities $\mu_\tau$ (GKZ chapter 10, theorem 1.2). Its zero locus is the
+singular locus of the GKZ system (Klausen 2023, section 2.6.3), and it contains the Landau variety
+of the integral (Klausen 2023, lemma "Landau variety contained in Sing"). feynkit computes the
+**reduced** form, every irreducible kinematic factor once:
 
-Here $G|_\tau$ is the restriction of $G$ to the edge $\tau$: keep only the monomials $\alpha_j \in \tau$,
-viewed as a univariate polynomial in the primitive edge direction.
+- a vertex contributes its coefficient $z_v$;
+- a face whose lattice points are affinely independent (a simplex) contributes $1$;
+- an edge contributes the discriminant of $G_\tau$ as a univariate polynomial in the lattice
+  coordinate along the edge, $\Delta(P) = \mathrm{Res}(P, P') / \mathrm{lc}(P)^{\deg P - 1}$;
+- any other face contributes the elimination ideal of $\{G_\tau = 0,\ u_i \partial_i G_\tau = 0\}$ in
+  the torus, computed with a Groebner basis (Singular when installed, SymPy otherwise).
 
-### 10.2 Edge Discriminant
+In lattice coordinates the exponent of a point $\alpha_0 + k v$ on an edge with primitive direction
+$v$ is $k = \langle \alpha - \alpha_0, v \rangle / \langle v, v \rangle$, not $\langle \alpha, v \rangle$.
 
-For a univariate polynomial $P(t) = c_0 t^{e_0} + c_1 t^{e_1} + \cdots + c_s t^{e_s}$ (not
-necessarily with consecutive exponents), the **discriminant** is
+### 10.2 What the Faces Mean
 
-$$\Delta(P) \;=\; \frac{\operatorname{Res}(P, P')}{\operatorname{lc}(P)^{\deg P - 1}},$$
+For a one-loop integral with propagator masses $m_i$ and momentum $q_{ij}$ flowing between
+propagators $i$ and $j$, Dlapa et al. (2023, eq. 1LoopEA) give the closed form: the reduced
+principal A-determinant is the product of the non-vanishing principal minors of the modified Cayley
+matrix
 
-where $P' = dP/dt$, $\operatorname{lc}(P)$ is the leading coefficient, and $\operatorname{Res}$ is the
-resultant.  The zero locus of $\Delta(P)$ (viewed as a polynomial in the kinematic variables $z$) is
-the set of kinematics at which the restricted polynomial $G|_\tau$ has a repeated root, the
-**Landau surface** associated with edge $\tau$.
+$$\mathcal{Y} = \begin{pmatrix} 0 & 1 & \cdots & 1 \\ 1 & & & \\ \vdots & & Y & \\ 1 & & & \end{pmatrix},
+\qquad Y_{ii} = 2 m_i^2,\quad Y_{ij} = m_i^2 + m_j^2 - q_{ij}^2 .$$
 
-### 10.3 Algorithm
+Minors of $Y$ alone are Cayley determinants, the first-type (threshold) singularities; minors
+containing the index $0$ are Gram determinants, the second-type singularities. Vertices give the mass
+singularities $m_i^2 = 0$ and, for massless propagators, the external masses $p_i^2 = 0$. Edges give
+only the normal and pseudo-normal thresholds; for massless internal lines every edge is a simplex
+and the edge part is trivial (Fevola, Mizera, Telen 2023, lemma 4.10). `one_loop_landau_surfaces`
+implements the closed form and the test-suite checks the face computation against it.
 
-1. Compute the monomial support of $G(u;\,\text{kinematics})$.
-2. Find all 1-faces (edges) of $\Delta_G$ using `ConvexHull`: two hull vertices form an edge iff they
-   share at least $\dim\Delta_G - 1$ facets.  Include all lattice points on each closed segment.
-3. For each edge $\tau$ with $\geq 2$ distinct lattice points:
-   a. Compute the primitive direction $v_\tau \in \mathbb{Z}^n$ of the edge.
-   b. Express the restriction $G|_\tau(t) = \sum_{j:\,\alpha_j\in\tau} c_j \cdot t^{\langle\alpha_j, v_\tau\rangle}$
-      as a polynomial in the scalar $t$ (with kinematic coefficients $c_j$).
-   c. Compute the discriminant $\Delta(G|_\tau)$.
-   d. Retain it if it depends on the kinematic symbols (discard purely numerical factors).
-4. Factor the product of retained discriminants into irreducible kinematic factors.
-5. Return these irreducible factors as the **Landau surfaces**.
+### 10.3 Caveats
 
-### 10.4 Known Results for Standard Topologies
+The factors are candidate codimension-one loci on all sheets of the integral. A point on one of
+them may or may not be singular on the physical sheet, and the list is not guaranteed complete
+(Fevola, Mizera, Telen 2023, section 2). Beyond one loop the principal A-determinant with generic
+coefficients can vanish identically after specialising to physical kinematics, and the face-by-face
+computation here specialises first; this is the "principal Landau determinant" of Fevola, Mizera and
+Telen rather than $E_A$ of the generic polynomial. Multiplicities are dropped.
 
-- **Massive bubble:** $\Delta_G$ has one edge; $G|_\tau = c_1 t + c_2$, degenerate; discriminant is
-  the threshold $(s - (m_1 + m_2)^2)$ (normal threshold).
-- **Massless triangle:** Three external legs at zero mass; $G|_\tau = p_i^2 \cdot t^{e_1} + \ldots$
-  for each edge; discriminant factors give $p_i^2 = 0$ (IR singularities).
-- **BMS simplex ($n$ points):** Edge restrictions give $p_i^2 = 0$ for each external momentum, a
-  novel result for the CFT correlation function integral, not previously catalogued.
+### 10.4 Known Results
 
-Accessed via `fi.landau` (module `feynkit/landau.py`); returns `LandauAnalysis` with
-`.edge_discriminants`, `.landau_polynomial`, `.landau_surfaces`.
+- **Massive bubble:** $m_1^2$, $m_2^2$, $s$ (Gram) and $\lambda(s, m_1^2, m_2^2)$, which factors
+  over the masses into $s = (m_1 \pm m_2)^2$.
+- **Massless off-shell triangle:** $p_1^2$, $p_2^2$, $p_3^2$ and the Gram determinant
+  $\lambda(p_1^2, p_2^2, p_3^2)$.
+- **Massive banana $B_3$:** $m_e^2$, $s$ and $s = (m_1 \pm m_2 \pm m_3)^2$ (Fevola, Mizera, Telen
+  2023, example 3.4).
+
+Accessed via `landau_analysis(fi)`, returning `LandauAnalysis` with `.face_discriminants`,
+`.principal_a_determinant`, `.landau_surfaces` and `.skipped_faces`.
 
 ---
 
@@ -773,11 +784,12 @@ This table maps every mathematical symbol to the corresponding Python identifier
 
 | Math symbol | Python / feynkit identifier |
 |-------------|----------------------------|
-| $E_A^{(1)}(G)$ | `fi.landau.landau_polynomial` |
-| Per-edge discriminants | `fi.landau.edge_discriminants` (list of `EdgeDiscriminant`) |
-| Landau surfaces | `fi.landau.landau_surfaces` |
-| Edge exponent vectors | `edge_disc.edge_exponents` |
-| Edge kinematic coefficients | `edge_disc.edge_coefficients` |
+| reduced $E_A(G)$ | `la.principal_a_determinant` |
+| Per-face discriminants | `la.face_discriminants` (tuple of `FaceDiscriminant`) |
+| Landau surfaces | `la.landau_surfaces` |
+| Face exponent vectors | `face.exponents` |
+| Face kinematic coefficients | `face.coefficients` |
+| One-loop closed form | `one_loop_landau_surfaces(fi)` |
 
 ---
 

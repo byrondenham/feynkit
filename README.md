@@ -10,7 +10,7 @@ description: Symanzik polynomials, Schwinger / Feynman / Lee-Pomeransky parametr
 GKZ hypergeometric system, the Newton polytope, and the toric ideal (IBP generators). It assigns
 a canonical **Nickel / CNickel index** to every graph and can construct diagrams directly from
 that index. It can compare integrals by unimodular, affine, or point-configuration equivalence,
-detect Landau singularities via the edge-part principal A-determinant, and cache results in a
+compute the principal A-determinant whose factors are the candidate Landau singularities, and cache results in a
 persistent SQLite database.
 
 ---
@@ -198,7 +198,7 @@ same CNickel string, the canonical form minimises the mass colouring lexicograph
 | `feynkit.algebra` | Toric ideal generators (SymPy or 4ti2 backend), Gröbner bases, ideal quotients and intersections, syzygies |
 | `feynkit.normal_forms` | Unimodular equivalence (Liu-Cai), affine equivalence, polytope automorphism groups |
 | `feynkit.a_configuration` | Arbitrary GKZ A-configurations: equivalence, finite-index maps, Smith invariants, symmetry pairs |
-| `feynkit.landau` | Landau singularity analysis via edge-part principal A-determinant |
+| `feynkit.landau` | Principal A-determinant over all polytope faces; one-loop closed form |
 | `feynkit.artifacts` | Conformal simplex, BMS simplex, complete-graph, and massless-polygon A-configurations |
 | `feynkit.database` | SQLite cache for GKZ analysis results, CNickel, and automorphism data |
 | `feynkit.visualisation` | TikZ diagrams and Newton polytope plots |
@@ -273,34 +273,23 @@ comp = conformal_companion_a_config(n=4)  # conformal companion for n=4
 
 ## Landau singularities
 
-`feynkit.landau` computes the edge-part of the principal A-determinant, whose zeros in
-kinematic space are the leading Landau singularity surfaces:
+`feynkit.landau` computes the reduced principal A-determinant of the Lee-Pomeransky polynomial:
+the product over every face of the Newton polytope of the discriminant of $G$ restricted to that
+face. Its irreducible factors are the candidate Landau surfaces:
 
 ```python
 from feynkit import FeynmanIntegral, landau_analysis
 
-fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")   # massless triangle
+fi = FeynmanIntegral.from_cnickel("11e|e|:nn")   # massive bubble
 la = landau_analysis(fi)
 
-print(la.edge_discriminants)   # one EdgeDiscriminant per Newton-polytope edge
-print(la.principal_a_det)      # E_A^(1) = product of edge discriminants
+print(la.landau_surfaces)          # m_1, m_2, s, s - (m_1 + m_2)^2, s - (m_1 - m_2)^2
+print(la.face_discriminants)       # one FaceDiscriminant per face, all dimensions
 ```
 
-You can also start from a polynomial directly:
-
-```python
-from feynkit import landau_analysis_from_polynomial
-import sympy as sp
-
-u1, u2, u3 = sp.symbols("u1:4")
-G = u1*u2 + u2*u3 + u1*u3
-la = landau_analysis_from_polynomial(G, [u1, u2, u3])
-```
-
-The module identifies:
-- **Normal thresholds** (massive bubble edges): `p^2 = ($\sum$ m_i)^2`
-- **IR singularities** (massless edges meeting at a vertex)
-- **Novel BMS_n -> p_i^2 = 0** thresholds for higher-loop polygons
+For one-loop graphs `one_loop_landau_surfaces(fi)` gives the same factors in closed form from the
+modified Cayley matrix (Dlapa, Helmer, Papathanasiou, Tellander 2023). Faces of dimension two or
+more use a Groebner elimination; install Singular for speed.
 
 ---
 

@@ -4,6 +4,21 @@
 
 ### Breaking changes
 
+- Kinematic invariants. With `use_mandelstam=True` the external dot products
+  are now written in the standard invariants: the external masses p_i^2 and
+  the planar invariants s_{i...j-1} = (p_i + ... + p_{j-1})^2, so that for four
+  legs the variables are s, t and p_1^2 ... p_4^2. For two legs the single
+  invariant is s = p^2 with p_1 . p_2 = -s, so the massive bubble's threshold
+  sits at s = (m_1 + m_2)^2 as in the literature. Previously s_ij meant
+  2 p_i . p_j and the bubble threshold sat at s = -2 (m_1 + m_2)^2.
+- `feynkit.landau` now computes the reduced principal A-determinant over all
+  faces of the Newton polytope, not only its edges, and the edge computation
+  used a wrong exponent (the dot product with the direction instead of the
+  lattice coordinate), which squared the Kallen factor of the bubble and
+  produced spurious surfaces for the massless triangle. `EdgeDiscriminant`
+  is replaced by `FaceDiscriminant`, `landau_polynomial` by
+  `principal_a_determinant`, and `skipped_faces` is added.
+
 - The GKZ parameter vector `FeynmanIntegral.gkz.beta_parameters` is now
   beta = (-D/2, -nu_1, ..., -nu_N), the value the Euler equations
   sum_j A_rj z_j d/dz_j Phi = beta_r Phi require for the Lee-Pomeransky
@@ -23,6 +38,12 @@
 
 ### Added
 
+- `one_loop_landau_surfaces` and `one_loop_principal_a_determinant`: the
+  one-loop closed form of Dlapa, Helmer, Papathanasiou and Tellander (2023)
+  from the principal minors of the modified Cayley matrix, used to check the
+  face computation.
+- Singular is used for the elimination ideals of non-simplex faces when the
+  `Singular` binary is installed; SymPy is the fallback.
 - `feynkit.algebra.ideal_quotient` and `feynkit.algebra.intersect_ideals`, computed
   by elimination.
 - `feynkit.algebra.compute_syzygy_module`, which returns generators of the first

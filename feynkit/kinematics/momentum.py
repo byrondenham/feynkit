@@ -86,16 +86,9 @@ def create_momentum_products(
     momentum_products: dict[tuple[int, int], sp.Expr] = {}
 
     if use_mandelstam:
-        if n_external == 2:
-            # Special case: only one kinematic invariant for 2 external legs
-            s = sp.Symbol("s", real=True)
-            momentum_products[(1, 2)] = s / 2
-        else:
-            # General case: Mandelstam variables s_{ij} for each pair
-            for i in range(1, n_external + 1):
-                for j in range(i + 1, n_external + 1):
-                    s_ij = sp.Symbol(f"s{i}{j}", real=True)
-                    momentum_products[(i, j)] = s_ij / 2
+        from .mandelstam import standard_invariants
+
+        momentum_products.update(standard_invariants(n_external).momentum_products)
     else:
         # Generic momentum dot products p_i * p_j
         for i in range(1, n_external + 1):

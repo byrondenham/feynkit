@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 
 from feynkit.core.exceptions import ComputationError
-
 from feynkit.visualisation.geometry import (
     _is_planar,
     classify_edges_by_visibility,

@@ -8,9 +8,9 @@ import sympy as sp
 from feynkit import FeynmanIntegral
 from feynkit.io.latex import (
     euler_equation_to_latex,
-    to_latex,
     gkz_system_to_latex,
     parametrisation_to_latex,
+    to_latex,
     to_latex_split,
     toric_ideal_to_latex,
 )

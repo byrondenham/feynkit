@@ -103,12 +103,7 @@ def extract_edges_from_hull(
     List[Tuple[int, int]]
         List of unique edges as sorted (v1, v2) tuples.
     """
-    # Check if points are coplanar (lie in a plane)
-    if _is_planar(points, tolerance):
-        # For planar polytopes, compute 2D convex hull to get proper edges
-        return _extract_planar_edges(points, tolerance)
-
-    # For 3D polytopes: group coplanar facets into faces
+    # Group coplanar facets into faces
     faces = _group_coplanar_facets(hull, points, tolerance)
 
     # Extract boundary edges of each face
@@ -268,120 +263,8 @@ def _get_face_boundary_edges(points: np.ndarray, vertex_indices: set[int]) -> se
         return edges
 
 
-def _is_planar(points: np.ndarray, tolerance: float = 1e-8) -> bool:
-    """
-    Check if points are coplanar (lie in a 2D plane in 3D space).
-
-    Parameters
-    ----------
-    points : np.ndarray
-        3D points, shape (n, 3).
-    tolerance : float
-        Tolerance for coplanarity check.
-
-    Returns
-    -------
-    bool
-        True if points are coplanar.
-    """
-    if len(points) < 4:
-        return True  # Less than 4 points are always coplanar
-
-    # Check if all z-coordinates are approximately the same
-    z_coords = points[:, 2]
-    z_range = np.max(z_coords) - np.min(z_coords)
-
-    if z_range < tolerance:
-        return True
-
-    # Check y-coordinates
-    y_coords = points[:, 1]
-    y_range = np.max(y_coords) - np.min(y_coords)
-
-    if y_range < tolerance:
-        return True
-
-    # Check x-coordinates
-    x_coords = points[:, 0]
-    x_range = np.max(x_coords) - np.min(x_coords)
-
-    if x_range < tolerance:
-        return True
-
-    # More general check: compute rank of centered points
-    centered = points - points.mean(axis=0, keepdims=True)
-    rank = np.linalg.matrix_rank(centered, tol=tolerance)
-
-    return bool(rank <= 2)
-
-
-def _extract_planar_edges(points: np.ndarray, tolerance: float = 1e-8) -> list[tuple[int, int]]:
-    """
-    Extract edges for a planar polytope by finding the 2D convex hull boundary.
-
-    Parameters
-    ----------
-    points : np.ndarray
-        3D points that lie in a plane.
-    tolerance : float
-        Tolerance.
-
-    Returns
-    -------
-    List[Tuple[int, int]]
-        List of edge tuples.
-    """
-    # Determine which coordinate is constant (or nearly constant)
-    z_coords = points[:, 2]
-    y_coords = points[:, 1]
-    x_coords = points[:, 0]
-
-    z_range = np.max(z_coords) - np.min(z_coords)
-    y_range = np.max(y_coords) - np.min(y_coords)
-    x_range = np.max(x_coords) - np.min(x_coords)
-
-    # Choose the two coordinates with the largest range
-    if z_range < tolerance:
-        # z is constant, use x-y plane
-        points_2d = points[:, :2]
-    elif y_range < tolerance:
-        # y is constant, use x-z plane
-        points_2d = points[:, [0, 2]]
-    elif x_range < tolerance:
-        # x is constant, use y-z plane
-        points_2d = points[:, [1, 2]]
-    else:
-        # General planar case - project onto best-fit plane
-        # Use PCA to find the plane
-        centered = points - points.mean(axis=0, keepdims=True)
-        U, S, Vt = np.linalg.svd(centered, full_matrices=False)
-        # Project onto first two principal components
-        points_2d = centered @ Vt[:2].T
-
-    # Compute 2D convex hull
-    try:
-        hull_2d = ConvexHull(points_2d)
-
-        # Extract boundary edges
-        edges: list[tuple[int, int]] = []
-        boundary_vertices = hull_2d.vertices
-        n = len(boundary_vertices)
-
-        for i in range(n):
-            v1 = int(boundary_vertices[i])
-            v2 = int(boundary_vertices[(i + 1) % n])
-            edge_v1, edge_v2 = sorted([v1, v2])
-            edges.append((edge_v1, edge_v2))
-
-        return edges
-    except Exception:
-        # Fallback: should not happen for valid planar polytopes.
-        # Keep library output stable by avoiding direct console prints here.
-        return []
-
-
 def classify_edges_by_visibility(
-    points: np.ndarray,
+    points: np.ndarray,  # noqa: ARG001 — kept for call-site symmetry with extract_edges_from_hull
     hull: ConvexHull,
     edges: list[tuple[int, int]],
     camera_direction: np.ndarray = np.array([0, 0, 1]),
@@ -410,13 +293,7 @@ def classify_edges_by_visibility(
     An edge is visible if at least one of its adjacent faces has a normal
     pointing toward the camera.
 
-    For planar polytopes (2D in 3D), all edges are visible.
     """
-    # Check if planar
-    if _is_planar(points):
-        # For planar polytopes, all edges are visible
-        return list(edges), []
-
     # Identify front-facing facets
     front_facets: set[int] = set()
     for i, equation in enumerate(hull.equations):

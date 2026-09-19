@@ -8,10 +8,13 @@ surfaces of the integral.
 
 Usage
 -----
-    python examples/landau_analysis.py
+    python examples/landau_analysis.py          # bubbles, triangle, BMS_3..5 (seconds)
+    python examples/landau_analysis.py --all    # also the massless box (several minutes)
 """
 
 from __future__ import annotations
+
+import argparse
 
 import sympy as sp
 
@@ -79,7 +82,7 @@ def _show(name: str, result: LandauAnalysis) -> None:
 # ─── main ────────────────────────────────────────────────────────────────────
 
 
-def main() -> None:
+def main(include_box: bool = False) -> None:
     print("=" * 60)
     print("  LANDAU SINGULARITY ANALYSIS  —  feynkit.landau")
     print("  Edge-part principal A-determinant E_A^(1)(G)")
@@ -121,11 +124,15 @@ def main() -> None:
     print("  Each surface s_ij + s_ik = 0 reduces to s_jk = 0,")
     print("  i.e., the collinear IR singularity when leg j+k becomes null.")
 
-    # ── 5. Massless box ──────────────────────────────────────────────────────
-    print("\n  [Computing massless box — may take a moment...]")
-    _show(
-        "Massless box  [4 massless propagators, 4 external legs]", landau_analysis(_massless_box())
-    )
+    # ── 5. Massless box (opt-in: the discriminants take several minutes) ────
+    if include_box:
+        print("\n  [Computing massless box — this takes several minutes...]")
+        _show(
+            "Massless box  [4 massless propagators, 4 external legs]",
+            landau_analysis(_massless_box()),
+        )
+    else:
+        print("\n  [Massless box skipped — rerun with --all to include it]")
 
     # ── 6. BMS_3 conformal simplex ───────────────────────────────────────────
     print("\n  ── Conformal family (BMS simplex, Bzowski–McFadden–Skenderis) ──")
@@ -153,4 +160,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__.split("Usage")[0].strip())
+    parser.add_argument("--all", action="store_true", help="also analyse the massless box (slow)")
+    main(include_box=parser.parse_args().all)

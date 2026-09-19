@@ -7,7 +7,6 @@ import pytest
 
 from feynkit.core.exceptions import ComputationError
 from feynkit.visualisation.geometry import (
-    _is_planar,
     classify_edges_by_visibility,
     compute_convex_hull_3d,
     determine_label_position,
@@ -45,14 +44,6 @@ class TestProjection:
         d_in = np.linalg.norm(pts5[:, None] - pts5[None], axis=-1)
         d_out = np.linalg.norm(out[:, None] - out[None], axis=-1)
         assert np.allclose(d_in, d_out)
-
-
-class TestPlanarity:
-    def test_square_is_planar(self) -> None:
-        assert _is_planar(SQUARE_IN_3D)
-
-    def test_tetrahedron_is_not_planar(self) -> None:
-        assert not _is_planar(TETRA)
 
 
 class TestEdgeExtraction:

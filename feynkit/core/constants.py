@@ -8,7 +8,7 @@ and ease of maintenance.
 from typing import Final
 
 # Package metadata
-__version__: Final[str] = "0.1.0"
+__version__: Final[str] = "0.2.0"
 __author__: Final[str] = "Byron Denham"
 __email__: Final[str] = "bd567@bath.ac.uk"
 

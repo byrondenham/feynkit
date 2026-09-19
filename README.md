@@ -2,7 +2,7 @@
 
 **Symbolic Feynman integral computations in Python**
 
-[![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Feynkit computes every standard representation of a Feynman integral from a single graph
@@ -195,7 +195,7 @@ same CNickel string — the canonical form minimises the mass coloring lexicogra
 | `feynkit.polynomials` | Symanzik U and F via spanning-tree enumeration |
 | `feynkit.parametrisations` | Schwinger, Feynman, Lee–Pomeransky representations |
 | `feynkit.systems` | GKZ A-matrix, β parameters, Euler operators |
-| `feynkit.algebra` | Toric ideal generators (SymPy or 4ti2 backend) |
+| `feynkit.algebra` | Toric ideal generators (SymPy or 4ti2 backend), Gröbner bases, ideal quotients and intersections, syzygies |
 | `feynkit.normal_forms` | Unimodular equivalence (Liu–Cai), affine equivalence, polytope automorphism groups |
 | `feynkit.a_configuration` | Arbitrary GKZ A-configurations: equivalence, finite-index maps, Smith invariants, symmetry pairs |
 | `feynkit.landau` | Landau singularity analysis via edge-part principal A-determinant |

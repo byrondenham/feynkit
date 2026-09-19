@@ -668,6 +668,55 @@ for i, gen in enumerate(ti.generators):
     print(f"  [{i}] {gen} = 0")
 ```
 
+### Ideal arithmetic: quotients, intersections and syzygies
+
+The toric ideal is an ordinary polynomial ideal, so the helpers in
+`feynkit.algebra` that manipulate ideals apply to it directly. All of them take
+the list of generators and the list of ring variables; the toric ideal's
+variables are the `z_i` coefficients of G, available as `ti.z_variables`.
+
+```python
+from feynkit import FeynmanIntegral
+from feynkit.algebra import (
+    compute_syzygy_module,
+    ideal_quotient,
+    intersect_ideals,
+    is_in_ideal,
+)
+
+fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+ti = fi.toric_ideal
+gens, zs = ti.generators, ti.z_variables
+
+# Membership: is a product of generators in the ideal?  Pass the same
+# monomial order the basis was computed in.
+import sympy as sp
+basis = list(sp.groebner(gens, *zs, order="grevlex").exprs)
+print(is_in_ideal(sp.expand(gens[0] * zs[0]), basis, zs, order="grevlex"))   # True
+
+# Quotient  I : J  = { f : f·g ∈ I for every g ∈ J }.
+# Quotienting by one of the z variables saturates that direction away.
+q = ideal_quotient(gens, [zs[0]], zs)
+
+# Intersection of two ideals.
+both = intersect_ideals(gens, [zs[0] * zs[1]], zs)
+
+# Syzygies: every list h satisfies sum(h_i * gens_i) == 0.
+for h in compute_syzygy_module(gens, zs):
+    assert sp.expand(sum(c * g for c, g in zip(h, gens, strict=True))) == 0
+```
+
+`ideal_quotient` and `intersect_ideals` return a reduced grevlex Gröbner
+basis, with the zero ideal returned as an empty list and the whole ring as
+`[1]`. Both are computed by elimination with an auxiliary variable, so they
+are exact but slow for large ideals.
+
+`compute_syzygy_module` returns generators of the first syzygy module, found
+by running Buchberger's algorithm while tracking how each new basis element is
+expressed in the original generators (Schreyer's construction). The returned
+vectors generate all relations among the generators over the polynomial ring;
+they are not guaranteed to be a minimal generating set.
+
 ---
 
 ## Polytope equivalence
@@ -735,7 +784,7 @@ pts_a = fi_a.newton_polytope.points
 pts_b = fi_b.newton_polytope.points
 
 result = is_unimodular_equivalent(pts_a, pts_b)
-result = is_affinely_equivalent(pts_a, pts_b, method="brute_force")
+result = is_affinely_equivalent(pts_a, pts_b)
 ```
 
 ---

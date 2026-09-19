@@ -225,10 +225,16 @@ and the GKZ Euler equation is $\hat{E}_r \cdot \Phi = \beta_r\,\Phi$.
 
 **Beta parameter vector:**
 
-$$\beta \;=\; \bigl(\Sigma\nu - D/2,\;\nu_1,\;\nu_2,\ldots,\nu_n\bigr)^T \in \mathbb{C}^{n+1}.$$
+$$\beta \;=\; \bigl(-D/2,\;-\nu_1,\;-\nu_2,\ldots,-\nu_n\bigr)^T \in \mathbb{C}^{n+1}.$$
 
-The first component $\beta_0 = \Sigma\nu - D/2$ encodes the overall dimensional behaviour; components
-$\beta_i = \nu_i$ for $i \geq 1$ encode propagator-index shifts.
+Each component is the homogeneity weight of the integral $\int u^{\nu-1} G^{-D/2}\,du$ under the
+rescaling encoded by the corresponding row of $A$: scaling every coefficient $z_j \to \lambda z_j$
+multiplies $G^{-D/2}$ by $\lambda^{-D/2}$, and scaling $z_j \to \lambda^{\alpha_j^{(i)}} z_j$ is
+undone by $u_i \to u_i/\lambda$, which costs $\lambda^{-\nu_i}$ from the measure.  This is the
+vector $\kappa = (-d/2, -\alpha)$ of de la Cruz (2019), eq. (fintegral-A-hypergeometric), and the
+system $\langle A\theta + \underline{\nu}\rangle$ with $\underline{\nu} = (d/2, \nu)$ of Klausen
+(2020), Thm 3.1.  Versions of feynkit before 0.3.0 used $(\Sigma\nu - D/2, \nu_1, \ldots, \nu_n)$,
+which does not satisfy the Euler equations.
 
 Accessed as `fi.gkz.beta_parameters` and `fi.gkz.euler_equations`.
 

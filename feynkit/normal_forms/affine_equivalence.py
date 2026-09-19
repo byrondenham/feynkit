@@ -220,7 +220,7 @@ def _direct_basis_search(
     GW_b: Any,
     deltas_a: np.ndarray,
     basis_indices: list[int],
-    W_a: sp.Matrix,  # noqa: ARG001 — kept for call-site symmetry with W_a_inv
+    W_a: sp.Matrix,  # noqa: ARG001 (kept for call-site symmetry with W_a_inv)
     W_a_inv: sp.Matrix,
     idx_a: np.ndarray,
     idx_b: np.ndarray,
@@ -351,7 +351,7 @@ def _verify_unimodular_witness(
 
 
 def _lift_correspondence(
-    hull_idx_a: np.ndarray,  # noqa: ARG001 — source indices are implicit in the correspondence order
+    hull_idx_a: np.ndarray,  # noqa: ARG001 (source indices are implicit in the correspondence order)
     hull_idx_b: np.ndarray,
     hull_correspondence: list[int],
 ) -> list[int]:

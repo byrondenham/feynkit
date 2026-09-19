@@ -1,10 +1,22 @@
 # Changelog
 
-## 0.2.0 — 2026-09-19
+## Unreleased
 
 ### Breaking changes
 
-- Python 3.10 or newer is required. Python 3.9 reached end of life in October 2025.
+- The GKZ parameter vector `FeynmanIntegral.gkz.beta_parameters` is now
+  beta = (-D/2, -nu_1, ..., -nu_N), the value the Euler equations
+  sum_j A_rj z_j d/dz_j Phi = beta_r Phi require for the Lee-Pomeransky
+  integral (de la Cruz 2019; Klausen 2020). Earlier versions reported
+  (sum(nu) - D/2, nu_1, ..., nu_N), which does not satisfy those equations. A
+  numerical homogeneity test now pins the correct values. The A-matrix, toric
+  ideal and polytope data are unchanged.
+
+## 0.2.0 (2026-09-19)
+
+### Breaking changes
+
+- Python 3.10 or newer is required; 3.9 reached end of life in October 2025.
 - The `method` keyword has been removed from `is_affinely_equivalent`,
   `is_point_config_equivalent` and `FeynmanIntegral.is_affinely_equivalent_to`.
   The `"sage"` option it accepted was a placeholder that ran the SymPy search anyway.

@@ -168,19 +168,19 @@ class SchwingerParametrisation(Parametrisation):
         """
         Dehomogenise the Symanzik polynomials for the GKZ form of the Schwinger integral.
 
-        The substitution {α_1, …, α_N} → {t·u_1, …, t·u_{N-1}, t} factors the
-        homogeneous Symanzik polynomials as U(α) = t^L Ũ(u) and
-        F(α) = t^{L+1} F̃(u), which brings the Schwinger representation into the
-        form of a GKZ integral (see https://arxiv.org/abs/2609.16107).  Because
-        U and F are homogeneous, Ũ and F̃ are simply U and F with α_N = 1 and
-        α_i = u_i for i < N.
+        The substitution alpha = (t u_1, ..., t u_{N-1}, t) factors the
+        homogeneous Symanzik polynomials as U(alpha) = t^L U~(u) and
+        F(alpha) = t^{L+1} F~(u), which brings the Schwinger representation into
+        the form of a GKZ integral (arXiv:2609.16107, section 3). Because U and
+        F are homogeneous, U~ and F~ are just U and F with alpha_N = 1 and
+        alpha_i = u_i for i < N.
 
         Returns
         -------
         tuple[sp.Expr, sp.Expr]
-            Dehomogenised Symanzik polynomials Ũ and F̃ in the new variables.
+            Dehomogenised Symanzik polynomials U~ and F~ in the new variables.
         list[sp.Symbol]
-            The new variables u_1, …, u_{N-1}.
+            The new variables u_1, ..., u_{N-1}.
         """
         internal_edges = self.graph.get_internal_edges()
         new_vars = [
@@ -202,22 +202,21 @@ class SchwingerParametrisation(Parametrisation):
         GKZ A-matrix of the Schwinger representation written as an A-hypergeometric integral.
 
         The integrand is a product of two polynomials, the dehomogenised
-        Symanzik polynomials Ũ and F̃, so the A-matrix has the block form::
+        Symanzik polynomials U~ and F~, so the A-matrix has the block form::
 
             1 ... 1 | 0 ... 0
             0 ... 0 | 1 ... 1
             -----------------
               A_U   |   A_F
 
-        where A_U and A_F are the exponent matrices of the monomials of Ũ and
-        F̃ (without their own homogenising rows).  See
-        https://arxiv.org/abs/2609.16107 for a full treatment.
+        where A_U and A_F are the exponent matrices of the monomials of U~ and
+        F~, without their own homogenising rows (arXiv:2609.16107, section 3).
 
         Returns
         -------
         sp.Matrix
-            Integer matrix of shape (N + 1) × (n + m) for N propagators, n
-            monomials in Ũ and m monomials in F̃.
+            Integer matrix of shape (N + 1) x (n + m) for N propagators, n
+            monomials in U~ and m monomials in F~.
         """
         (u_tilde, f_tilde), new_vars = self.dehomogenised_symanzik_polynomials()
 

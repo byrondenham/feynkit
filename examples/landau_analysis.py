@@ -126,13 +126,13 @@ def main(include_box: bool = False) -> None:
 
     # ── 5. Massless box (opt-in: the discriminants take several minutes) ────
     if include_box:
-        print("\n  [Computing massless box — this takes several minutes...]")
+        print("\n  [Computing massless box: this takes several minutes...]")
         _show(
             "Massless box  [4 massless propagators, 4 external legs]",
             landau_analysis(_massless_box()),
         )
     else:
-        print("\n  [Massless box skipped — rerun with --all to include it]")
+        print("\n  [Massless box skipped; rerun with --all to include it]")
 
     # ── 6. BMS_3 conformal simplex ───────────────────────────────────────────
     print("\n  ── Conformal family (BMS simplex, Bzowski–McFadden–Skenderis) ──")

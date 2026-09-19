@@ -3,7 +3,7 @@
 The lower-level utilities (extract_monomial_support, construct_gkz_matrix,
 create_euler_equations) are exercised directly because they are
 general-purpose helpers; the complete GKZ system is exercised through the
-FeynmanIntegral façade.
+FeynmanIntegral facade.
 """
 
 from collections.abc import Generator
@@ -112,14 +112,51 @@ class TestCompleteGKZSystem:
         assert len(gkz.euler_equations) == len(u_vars) + 1
 
     def test_gkz_beta_parameters(self, bubble_integral: FeynmanIntegral) -> None:
+        """beta = (-D/2, -nu_1, ..., -nu_N): de la Cruz (2019) kappa; Klausen (2020) Thm 3.1."""
         gkz = bubble_integral.gkz
         D = bubble_integral.dimension
         nus = list(bubble_integral.propagator_exponents.values())
 
-        expected_beta_0 = sum(nus) - D / 2
-        assert sp.simplify(gkz.beta_parameters[0] - expected_beta_0) == 0
+        assert sp.simplify(gkz.beta_parameters[0] + D / 2) == 0
         for i, nu in enumerate(nus, start=1):
-            assert sp.simplify(gkz.beta_parameters[i] - nu) == 0
+            assert sp.simplify(gkz.beta_parameters[i] + nu) == 0
+
+    def test_euler_equations_match_numerical_homogeneity(self) -> None:
+        """Rescaling z_j -> lambda^{A_rj} z_j multiplies the LP integral by lambda^{beta_r}.
+
+        Direct numerical check of the homogeneity weights for the massless
+        bubble at D = 3, nu = (1, 1), where the integral converges (Klausen
+        2020, Thm 2.2: nu/(D/2) must lie in the interior of the Newton polytope).
+        """
+        import warnings
+
+        import numpy as np
+        from scipy import integrate
+
+        fi = FeynmanIntegral.from_cnickel("11e|e|:zz")
+        gkz = fi.gkz
+        A = np.array(gkz.a_matrix.tolist(), dtype=float)
+        support = [alpha for alpha, _ in gkz.support]
+        D, nu = 3.0, (1.0, 1.0)
+        subs = {fi.dimension: D}
+        subs.update({fi.propagator_exponents[i]: nu[i - 1] for i in (1, 2)})
+        expected = [float(b.subs(subs)) for b in gkz.beta_parameters]
+
+        def phi(z: np.ndarray) -> float:
+            def integrand(u2: float, u1: float) -> float:
+                g = sum(zj * u1 ** a[0] * u2 ** a[1] for zj, a in zip(z, support, strict=True))
+                return u1 ** (nu[0] - 1) * u2 ** (nu[1] - 1) * g ** (-D / 2)
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", integrate.IntegrationWarning)
+                return integrate.dblquad(integrand, 0, np.inf, 0, np.inf, epsrel=1e-8)[0]
+
+        z0 = np.array([1.3, 0.7, 2.1])
+        lam = 1.5
+        base = phi(z0)
+        for r in range(A.shape[0]):
+            measured = np.log(phi(z0 * lam ** A[r]) / base) / np.log(lam)
+            assert abs(measured - expected[r]) < 1e-3, (r, measured, expected[r])
 
     def test_gkz_system_str(self, bubble_integral: FeynmanIntegral) -> None:
         gkz_str = str(bubble_integral.gkz)

@@ -167,9 +167,9 @@ def intersect_ideals(
     variables: list[sp.Symbol],
 ) -> list[sp.Expr]:
     """
-    Compute generators of the intersection I1 ∩ I2.
+    Compute generators of the intersection of I1 and I2.
 
-    Uses the elimination formula ``I1 ∩ I2 = (t·I1 + (1 - t)·I2) ∩ k[x]``
+    Uses the elimination formula ``I1 cap I2 = (t I1 + (1 - t) I2) cap k[x]``
     with a fresh variable ``t`` eliminated by a lex Gröbner basis.
 
     Returns
@@ -214,12 +214,10 @@ def ideal_quotient(
     Notes
     -----
     The ideal quotient I1 : I2 consists of all polynomials f such that
-    f · g is in I1 for all g in I2.  It is computed as
-
-        I1 : I2 = ⋂_{g ∈ I2} (I1 : g),      I1 : g = (1/g) · (I1 ∩ ⟨g⟩),
-
-    where each intersection is obtained by elimination (Cox, Little &
-    O'Shea, *Ideals, Varieties, and Algorithms*, §4.4).
+    f g is in I1 for all g in I2. It is computed as the intersection over the
+    generators g of I2 of I1 : g, with I1 : g = (1/g) (I1 cap <g>), where each
+    intersection is obtained by elimination (Cox, Little and O'Shea, Ideals,
+    Varieties, and Algorithms, section 4.4).
 
     Raises
     ------

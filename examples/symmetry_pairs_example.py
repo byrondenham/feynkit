@@ -72,7 +72,7 @@ beta_1m = fi_1m.gkz.beta_parameters
 print(f"""
 The one-mass bubble has G with {fi_1m.newton_polytope.a_matrix.cols} monomials in ℝ².
   G = {fi_1m.symanzik.g}
-  β = {beta_1m}   (β₀ = Σνᵢ − D/2, β₁ = ν₁, β₂ = ν₂)
+  β = {beta_1m}   (β₀ = −D/2, β₁ = −ν₁, β₂ = −ν₂)
 
 de la Cruz (2024) §3.1 shows this configuration has exactly 8 symmetry pairs,
 recovering the eightfold Kummer symmetry group of the Gauss ₂F₁ function.
@@ -89,7 +89,7 @@ for i, p in enumerate(pairs_1m):
 
 print("""
 Observation:
-  β₀ = Σνᵢ − D/2 is preserved by every T (first row of T is always
+  β₀ = −D/2 is preserved by every T (first row of T is always
   [1, 0, 0]), confirming that the overall degree of homogeneity is
   invariant.  The dimension D and propagator indices ν are mixed by the
   lower block of T.

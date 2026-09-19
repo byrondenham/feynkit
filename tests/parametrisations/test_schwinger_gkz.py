@@ -56,7 +56,7 @@ class TestDehomogenisedSymanzikPolynomials:
     def test_homogeneity_recovers_original_polynomials(
         self, massless_triangle: FeynmanIntegral
     ) -> None:
-        """U(t u_1, ..., t u_{N-1}, t) = t^L Ũ(u) and F(...) = t^{L+1} F̃(u)."""
+        """U(t u_1, ..., t u_{N-1}, t) = t^L U~(u) and F(...) = t^{L+1} F~(u)."""
         sch = _schwinger(massless_triangle)
         (u_tilde, f_tilde), new_vars = sch.dehomogenised_symanzik_polynomials()
         sym = massless_triangle.symanzik
@@ -71,7 +71,7 @@ class TestDehomogenisedSymanzikPolynomials:
 
 class TestSchwingerAMatrix:
     def test_bubble_a_matrix_columns(self, massless_bubble: FeynmanIntegral) -> None:
-        """Ũ = u1 + 1 and F̃ ∝ u1 give the 3×3 block matrix with two homogenising rows."""
+        """U~ = u1 + 1 and F~ = c u1 give the 3 x 3 block matrix with two homogenising rows."""
         A = _schwinger(massless_bubble).get_A_matrix()
         assert A.shape == (3, 3)
         cols = {tuple(A[:, j]) for j in range(A.cols)}

@@ -694,7 +694,7 @@ import sympy as sp
 basis = list(sp.groebner(gens, *zs, order="grevlex").exprs)
 print(is_in_ideal(sp.expand(gens[0] * zs[0]), basis, zs, order="grevlex"))   # True
 
-# Quotient  I : J  = { f : f·g ∈ I for every g ∈ J }.
+# Quotient  I : J  = { f : f g in I for every g in J }.
 # Quotienting by one of the z variables saturates that direction away.
 q = ideal_quotient(gens, [zs[0]], zs)
 

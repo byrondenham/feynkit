@@ -107,11 +107,11 @@ def _create_gkz_system(
     Notes
     -----
     The parameter vector beta is constructed as:
-        beta = [sum nu_i - D/2, nu_1, nu_2, ..., nu_n]
+        beta = [-D/2, -nu_1, -nu_2, ..., -nu_n]
 
-    This choice ensures that:
-    1. The homogeneity degree beta_0 matches the overall dimensional behavior
-    2. The individual beta_i track the propagator index shifts
+    These are the homogeneity weights of the integral int u^(nu-1) G^(-D/2) du
+    under the rescalings encoded by the rows of A (de la Cruz 2019, kappa =
+    (-d/2, -alpha); Klausen 2020, Thm 3.1).
 
     Examples
     --------
@@ -156,9 +156,8 @@ def _create_gkz_system(
     z_variables = [sp.Symbol(f"z_{j + 1}") for j in range(num_monomials)]
 
     # Construct parameter vector beta
-    # beta = [sum_i nu_i - D/2, nu_1, nu_2, ..., nu_n]
-    nu_sum = sum(propagator_exponents)
-    beta_parameters = [nu_sum - dimension / 2] + list(propagator_exponents)
+    # beta = [-D/2, -nu_1, -nu_2, ..., -nu_n]  (de la Cruz 2019; Klausen 2020)
+    beta_parameters = [-dimension / 2] + [-nu for nu in propagator_exponents]
 
     # Generate Euler differential equations
     euler_equations = create_euler_equations(a_matrix, beta_parameters, z_variables)
@@ -201,8 +200,7 @@ def _create_gkz_system_direct(
     support = [(alpha, sp.Integer(1)) for alpha in sorted_vecs]
     m = len(exponent_vecs)
     z_variables = [sp.Symbol(f"z_{j + 1}") for j in range(m)]
-    nu_sum = sum(propagator_exponents)
-    beta_parameters = [nu_sum - dimension / 2] + list(propagator_exponents)
+    beta_parameters = [-dimension / 2] + [-nu for nu in propagator_exponents]
     euler_equations = create_euler_equations(a_matrix, beta_parameters, z_variables)
     return GKZSystem(
         a_matrix=a_matrix,

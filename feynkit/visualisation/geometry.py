@@ -264,7 +264,7 @@ def _get_face_boundary_edges(points: np.ndarray, vertex_indices: set[int]) -> se
 
 
 def classify_edges_by_visibility(
-    points: np.ndarray,  # noqa: ARG001 — kept for call-site symmetry with extract_edges_from_hull
+    points: np.ndarray,  # noqa: ARG001 (kept for call-site symmetry with extract_edges_from_hull)
     hull: ConvexHull,
     edges: list[tuple[int, int]],
     camera_direction: np.ndarray = np.array([0, 0, 1]),

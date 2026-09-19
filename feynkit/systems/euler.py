@@ -96,8 +96,10 @@ def create_euler_equations(
         The GKZ A-matrix of size (n+1) × m encoding monomial exponents.
     beta_parameters : List[sp.Expr]
         Parameter vector of length (n+1), typically:
-        - beta_0 = sum_i nu_i - D/2 (total index minus half dimension)
-        - beta_i = nu_i for i>= 1 (propagator exponents)
+        - beta_0 = -D/2 (homogeneity of G^{-D/2} under an overall rescaling)
+        - beta_i = -nu_i for i >= 1 (rescaling of the i-th Lee-Pomeransky variable)
+        See de la Cruz (2019) eq. for I_{g_r}(kappa), kappa = (-d/2, -alpha), and
+        Klausen (2020) Thm 3.1, which proves J(s^{a_b} z) = s^{-nu_b} J(z).
     z_variables : List[sp.Symbol]
         Variables for the differential equations (z_1, z_2, ..., z_m).
         These represent coefficients in the polynomial expansion.

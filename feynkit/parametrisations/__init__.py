@@ -1,7 +1,7 @@
 """
 Parametric representations module for Feynman integrals.
 
-The Schwinger, Feynman, and Lee–Pomeransky parametric representations of an
+The Schwinger, Feynman, and Lee-Pomeransky parametric representations of an
 integral are accessed through :attr:`feynkit.FeynmanIntegral.schwinger`,
 ``.feynman``, and ``.lee_pomeransky`` respectively. This module exposes the
 underlying classes for users that wish to construct or extend the

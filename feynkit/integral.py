@@ -1,10 +1,10 @@
 """
 Unified Feynman integral object.
 
-This module exposes :class:`FeynmanIntegral`, a single immutable façade that
-gathers every representation of a Feynman integral — graph topology, Symanzik
+This module exposes :class:`FeynmanIntegral`, a single immutable facade that
+gathers every representation of a Feynman integral, graph topology, Symanzik
 and Lee-Pomeransky polynomials, parametric representations, the GKZ
-hypergeometric system, the Newton polytope, and the toric ideal — as
+hypergeometric system, the Newton polytope, and the toric ideal, as
 ``cached_property`` attributes derived lazily from one underlying
 :class:`Graph` and its kinematic data.
 
@@ -72,9 +72,9 @@ __all__ = [
 ]
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# The façade.
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# The facade.
+# ------------------------------------------------------------------------------
 
 
 _NU_PREFIX = "nu"
@@ -88,7 +88,7 @@ class FeynmanIntegral:
     The constructor only validates inputs and stores symbols; every
     representation is computed lazily on first access through a
     ``cached_property``. Two attributes accessed in succession therefore
-    share intermediate results — for instance, ``integral.toric_ideal``
+    share intermediate results, for instance, ``integral.toric_ideal``
     re-uses the GKZ A-matrix already computed by ``integral.gkz``.
 
     Parameters
@@ -98,12 +98,12 @@ class FeynmanIntegral:
     dimension
         The spacetime dimension. Defaults to a positive symbol ``D``.
     propagator_exponents
-        Mapping ``edge_idx → ν_i``. Defaults to symbols ``nu_<i>`` for each
+        Mapping ``edge_idx -> nu_i``. Defaults to symbols ``nu_<i>`` for each
         internal edge.
     loop_count
         Number of independent loops. Defaults to ``graph.get_loop_count()``.
     momentum_products
-        Mapping ``(i, j) → p_i · p_j`` for external legs. Defaults to symbolic
+        Mapping ``(i, j) -> p_i * p_j`` for external legs. Defaults to symbolic
         products built by :func:`create_momentum_products`.
     use_mandelstam
         Forwarded to :func:`create_momentum_products` when generating default
@@ -168,7 +168,7 @@ class FeynmanIntegral:
         self._kinematic_constraints = list(kinematic_constraints or [])
         self._database = database
 
-    # ──────── Read-only views of the input data ────────
+    # -------- Read-only views of the input data --------
 
     @property
     def graph(self) -> Graph:
@@ -198,7 +198,7 @@ class FeynmanIntegral:
     def kinematic_constraints(self) -> list[sp.Expr]:
         return list(self._kinematic_constraints)
 
-    # ──────── Constructors from CNickel ────────
+    # -------- Constructors from CNickel --------
 
     @classmethod
     def from_cnickel(cls, cnickel: str, **kwargs: Any) -> FeynmanIntegral:
@@ -217,7 +217,7 @@ class FeynmanIntegral:
             CNickel string, e.g. ``"12e|2e|e|:nzz"`` or ``"12e|2e|e|"``.
         **kwargs
             Forwarded to :class:`FeynmanIntegral` (``dimension``,
-            ``propagator_exponents``, ``momentum_products``, ``database``, …).
+            ``propagator_exponents``, ``momentum_products``, ``database``, ...).
 
         Examples
         --------
@@ -243,7 +243,7 @@ class FeynmanIntegral:
         """
         return cls.from_cnickel(nickel, **kwargs)
 
-    # ──────── Topology ────────
+    # -------- Topology --------
 
     @property
     def nickel_index(self) -> str:
@@ -252,10 +252,10 @@ class FeynmanIntegral:
 
     @property
     def cnickel(self) -> str:
-        """Colored Nickel index: topology + mass coloring (``"topology:colors"``)."""
+        """Colored Nickel index: topology + mass colouring (``"topology:colours"``)."""
         return self._graph.cnickel()
 
-    # ──────── Internal: shared parametrisation factory ────────
+    # -------- Internal: shared parametrisation factory --------
 
     @cached_property
     def _all_parametrisations(self) -> AllParametrisations:
@@ -267,13 +267,13 @@ class FeynmanIntegral:
             momentum_products=self._momentum_products,
         )
 
-    # ──────── Polynomials ────────
+    # -------- Polynomials --------
 
     @cached_property
     def symanzik(self) -> SymanzikPolynomials:
         """All graph polynomials together: U, F (Schwinger and LP forms) and G."""
         ap = self._all_parametrisations
-        # Reuse the Lee–Pomeransky helper that builds the canonical a → u
+        # Reuse the Lee-Pomeransky helper that builds the canonical a -> u
         # substitution; this guarantees the LP parameters here match those
         # used by the GKZ system below.
         lp_params, _, u_lp, f_lp = ap.lee_pomeransky._build_lp_substitution()
@@ -288,7 +288,7 @@ class FeynmanIntegral:
             lp_parameters=list(lp_params),
         )
 
-    # ──────── Parametric representations ────────
+    # -------- Parametric representations --------
 
     @cached_property
     def schwinger(self) -> ParametrisationResult:
@@ -302,7 +302,7 @@ class FeynmanIntegral:
     def lee_pomeransky(self) -> ParametrisationResult:
         return self._all_parametrisations.lee_pomeransky.compute()
 
-    # ──────── Algebraic-geometry representations ────────
+    # -------- Algebraic-geometry representations --------
 
     @cached_property
     def gkz(self) -> GKZSystem:
@@ -343,12 +343,12 @@ class FeynmanIntegral:
         """
         Unimodular automorphism group of the Newton polytope of G.
 
-        Computes Aut(P) = {(U, t) : U ∈ GL_n(ℤ), |det U|=1, t ∈ ℤⁿ,
-        {Up + t : p ∈ P} = P}.  The identity is always included; for generic
+        Computes Aut(P) = {(U, t) : U in GL_n(Z), |det U|=1, t in Z ^n,
+        {Up + t : p in P} = P}.  The identity is always included; for generic
         polytopes it is the only element.
 
-        For highly symmetric diagrams (massless triangle → S₃, massless box
-        → D₄, bananas → Sₙ) the group is non-trivial and reflects the
+        For highly symmetric diagrams (massless triangle -> S_3, massless box
+        -> D_4, bananas -> S_n) the group is non-trivial and reflects the
         symmetry of the GKZ system.
 
         See Also
@@ -366,13 +366,13 @@ class FeynmanIntegral:
         """
         All integer affine self-maps of the GKZ A-configuration.
 
-        Returns every :class:`SymmetryPair` (M, t, P) satisfying T·A = A·Π_P,
+        Returns every :class:`SymmetryPair` (M, t, P) satisfying T*A = A*Pi_P,
         where T = [[1, 0^T], [t, M]] is an invertible integer matrix and P is
         a column permutation.  Each pair gives the Feynman-integral identity:
 
-            I_A(β, z) = I_A(T β, z_P)
+            I_A(beta, z) = I_A(T beta, z_P)
 
-        where z_P = (z_{P(0)}, …, z_{P(N-1)}) (de la Cruz 2024).
+        where z_P = (z_{P(0)}, ..., z_{P(N-1)}) (de la Cruz 2024).
 
         The unimodular subset (``pair.is_unimodular``) coincides with the
         polytope automorphism group from :attr:`polytope_automorphisms`.
@@ -395,12 +395,12 @@ class FeynmanIntegral:
         Vertex permutations of the Feynman graph preserving topology and masses.
 
         Each element is a list of length V (internal vertices) giving the new
-        1-indexed label for each original vertex.  The identity ``[1, 2, …, V]``
+        1-indexed label for each original vertex.  The identity ``[1, 2, ..., V]``
         is always included.
 
         These are the graph-theoretic automorphisms; the polytope automorphism
         group can be larger (e.g. the 3-propagator banana has vertex
-        automorphism ℤ/2 but polytope automorphism S₃).
+        automorphism Z/2 but polytope automorphism S_3).
         """
         from .normal_forms.polytope_automorphisms import compute_graph_automorphisms
 
@@ -430,7 +430,7 @@ class FeynmanIntegral:
             z_variables=list(gkz.z_variables),
         )
 
-    # ──────── Actions ────────
+    # -------- Actions --------
 
     def with_(self, **overrides: Any) -> FeynmanIntegral:
         """
@@ -465,11 +465,11 @@ class FeynmanIntegral:
     def canonicalise(self, matrix: sp.Matrix) -> PairingMatrixResult:
         """
         Lex-maximal canonical form of a pairing matrix under independent
-        row/column permutations (Grinis–Kasprzyk).
+        row/column permutations (Grinis-Kasprzyk).
 
         Exposed as a method rather than a property because the relevant
         pairing matrix depends on which downstream object the user wishes
-        to canonicalise (e.g. the GKZ A-matrix, or a vertex–facet pairing
+        to canonicalise (e.g. the GKZ A-matrix, or a vertex-facet pairing
         matrix once the face lattice is wired up in Part B).
         """
         return maximal_pairing_matrix(matrix)
@@ -524,16 +524,16 @@ class FeynmanIntegral:
             **kwargs,
         )
 
-    # ──────── Comparison ────────
+    # -------- Comparison --------
 
     def is_unimodular_equivalent_to(self, other: FeynmanIntegral) -> PolytopeEquivalence:
         """
         Test whether two integrals' Newton polytopes are unimodularly
-        equivalent (Liu–Cai, arXiv:2506.23846).
+        equivalent (Liu-Cai, arXiv:2506.23846).
 
         Compares the lattice point configurations spanned by the monomial
-        support of each integral's Lee–Pomeransky G polynomial. On success
-        the result carries an integer witness map ``U ∈ GL_n(ℤ)`` and a
+        support of each integral's Lee-Pomeransky G polynomial. On success
+        the result carries an integer witness map ``U in GL_n(Z)`` and a
         vertex correspondence.
         """
         from .normal_forms.affine_equivalence import is_unimodular_equivalent

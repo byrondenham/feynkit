@@ -1,5 +1,5 @@
 """
-Parity tests for the FeynmanIntegral façade.
+Parity tests for the FeynmanIntegral facade.
 
 Verifies that every cached_property on FeynmanIntegral produces the same
 mathematical object as the corresponding free-function pipeline. The parity
@@ -31,9 +31,9 @@ from feynkit.polynomials.symanzik import _calculate_symanzik_polynomials
 from feynkit.systems.complete import _create_gkz_system
 from feynkit.systems.monomial import extract_monomial_support
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Fixtures
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 @pytest.fixture  # type: ignore[misc]
@@ -55,7 +55,7 @@ def integral(bubble: Graph) -> Generator[FeynmanIntegral, None, None]:
 @pytest.fixture  # type: ignore[misc]
 def free_pipeline(bubble: Graph):
     """Run the existing free-function pipeline with the same defaults the
-    façade uses. Returns a dict of intermediate results."""
+    facade uses. Returns a dict of intermediate results."""
     D = sp.Symbol("D", positive=True)
     nus = {e.idx: sp.Symbol(f"nu_{e.idx}", positive=True) for e in bubble.get_internal_edges()}
     p_dot = create_momentum_products(n_external=bubble.external_legs, use_mandelstam=True)
@@ -91,9 +91,9 @@ def _expr_eq(a: sp.Expr, b: sp.Expr) -> bool:
     return sp.simplify(a - b) == 0
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Construction
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestConstruction:
@@ -122,9 +122,9 @@ class TestConstruction:
             FeynmanIntegral(bubble, loop_count=999)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Polynomials
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestSymanzikParity:
@@ -148,9 +148,9 @@ class TestSymanzikParity:
         assert list(integral.symanzik.lp_parameters) == list(free_pipeline["lp_params"])
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Parametrisations
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestParametrisationParity:
@@ -180,9 +180,9 @@ class TestParametrisationParity:
         assert _expr_eq(integral.lee_pomeransky.integrand, expected.integrand)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Algebraic-geometry representations
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestGKZParity:
@@ -237,9 +237,9 @@ class TestToricIdealParity:
         assert from_facade == from_free
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Caching, immutability, and derivation
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestCachingAndImmutability:
@@ -259,7 +259,7 @@ class TestCachingAndImmutability:
         # Force a cache fill.
         gkz_orig = integral.gkz
         derived = integral.with_(dimension=sp.Integer(4))
-        # New object → new cache → new GKZ instance with the new D in beta.
+        # New object -> new cache -> new GKZ instance with the new D in beta.
         assert derived.gkz is not gkz_orig
         # The dimension field on the GKZ system should reflect the override.
         assert derived.gkz.dimension == sp.Integer(4)
@@ -278,9 +278,9 @@ class TestLaziness:
             assert name not in integral.__dict__
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Comparison verbs
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestEquivalenceVerbs:

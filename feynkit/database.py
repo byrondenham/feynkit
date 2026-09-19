@@ -98,7 +98,7 @@ class IntegralRecord:
         cn = f", cnickel={self.cnickel!r}" if self.cnickel else ""
         aut = f", |Aut(P)|={self.poly_aut_order}" if self.poly_aut_order is not None else ""
         return (
-            f"IntegralRecord(id={self.id}, A={self.n_rows}×{self.n_cols}"
+            f"IntegralRecord(id={self.id}, A={self.n_rows} x {self.n_cols}"
             f"{gens}{cn}{aut}{label}, stored={self.stored_at[:10]})"
         )
 
@@ -126,7 +126,7 @@ class FeynkitDatabase:
         self._conn.commit()
         self._migrate()
 
-    # ── schema migration ──────────────────────────────────────────────────
+    # -- schema migration --------------------------------------------------
 
     def _migrate(self) -> None:
         """Add columns introduced after the initial schema (idempotent)."""
@@ -144,7 +144,7 @@ class FeynkitDatabase:
             except sqlite3.OperationalError:
                 pass  # column already present
 
-    # ── serialisation helpers ─────────────────────────────────────────────
+    # -- serialisation helpers ---------------------------------------------
 
     @staticmethod
     def _fingerprint(points: list[tuple[int, ...]]) -> str:
@@ -180,7 +180,7 @@ class FeynkitDatabase:
     def _now() -> str:
         return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    # ── row → record ──────────────────────────────────────────────────────
+    # -- row -> record ------------------------------------------------------
 
     def _to_record(self, row: sqlite3.Row) -> IntegralRecord:
         gens = self._deser_exprs(row["toric_gens"]) if row["toric_gens"] is not None else None
@@ -215,7 +215,7 @@ class FeynkitDatabase:
             stored_at=row["stored_at"],
         )
 
-    # ── internal fast-path used by FeynmanIntegral ────────────────────────
+    # -- internal fast-path used by FeynmanIntegral ------------------------
 
     def _lookup_toric(self, points: list[tuple[int, ...]]) -> list[sp.Expr] | None:
         """Return cached toric generators for these Newton points, or None."""
@@ -297,7 +297,7 @@ class FeynkitDatabase:
         )
         self._conn.commit()
 
-    # ── public API ────────────────────────────────────────────────────────
+    # -- public API --------------------------------------------------------
 
     def store(
         self,
@@ -415,7 +415,7 @@ class FeynkitDatabase:
         fi
             The integral to compare against the database.
         relation
-            ``"unimodular"`` (Liu–Cai) or ``"affine_polytope"`` (rational, hull vertices).
+            ``"unimodular"`` (Liu-Cai) or ``"affine_polytope"`` (rational, hull vertices).
         """
         from .normal_forms.affine_equivalence import (
             is_affinely_equivalent,
@@ -586,14 +586,14 @@ class FeynkitDatabase:
                 f"  {'bin':>4}  {'|Aut(P)|':>9}  {'|Aut(G)|':>9}"
                 f"  {'|CP|':>5}  label"
             )
-            sep = "  " + "─" * 72
+            sep = "  " + "-" * 72
         else:
             header = f"  {'A shape':<10} {'gens':>6}  {'L':>3}  {'props':>5}" f"  {'bin':>4}  label"
-            sep = "  " + "─" * 52
+            sep = "  " + "-" * 52
 
         lines = [
             f"FeynkitDatabase: {self._path}",
-            f"  {n_int} integral(s)  ·  {n_equiv} equivalence check(s) cached",
+            f"  {n_int} integral(s)  *  {n_equiv} equivalence check(s) cached",
             "",
             header,
             sep,
@@ -602,7 +602,7 @@ class FeynkitDatabase:
             lbl = r["label"] or ""
             bi = {None: "?", 0: "no", 1: "yes"}[r["is_binomial"]]
             base = (
-                f"  {r['n_rows']}×{r['n_cols']:<7} {r['n_toric_gens'] or '?':>6}"
+                f"  {r['n_rows']} x {r['n_cols']:<7} {r['n_toric_gens'] or '?':>6}"
                 f"  {r['loop_count'] or '?':>3}"
                 f"  {r['n_props'] or '?':>5}"
                 f"  {bi:>4}"

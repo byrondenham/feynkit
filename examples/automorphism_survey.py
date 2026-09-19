@@ -38,20 +38,20 @@ SEP = "-" * 72
 def _describe_group(order: int) -> str:
     known = {
         1: "trivial",
-        2: "ℤ/2",
-        4: "V₄ or ℤ/4",
-        6: "S₃ or ℤ/6",
-        8: "D₄ or ℤ/8",
-        12: "A₄ or D₆",
-        24: "S₄",
-        48: "B₃",
-        120: "B₄?",
+        2: "Z/2",
+        4: "V_4 or Z/4",
+        6: "S_3 or Z/6",
+        8: "D_4 or Z/8",
+        12: "A_4 or D_6",
+        24: "S_4",
+        48: "B_3",
+        120: "B_4?",
     }
     return known.get(order, "?")
 
 
 print(SEP)
-print("Feynkit — Automorphism Survey")
+print("Feynkit, Automorphism Survey")
 print(SEP)
 print(f"{'Diagram':<28} {'|Aut(P)|':>8} {'|Aut(G)|':>8} {'|Coeff-pres.|':>14}  Notes")
 print(SEP)
@@ -82,15 +82,15 @@ print()
 print("Definitions")
 print("-----------")
 print("|Aut(P)|   Unimodular automorphism group of Newton polytope of G.")
-print("           (U, t) with U∈GL_n(ℤ), |det U|=1, {Up+t : p∈P} = P.")
+print("           (U, t) with U in GL_n(Z), |det U|=1, {Up+t : p in P} = P.")
 print()
 print("|Aut(G)|   Vertex permutations of the Feynman graph preserving")
-print("           topology and mass coloring. For multi-edge graphs (bananas)")
+print("           topology and mass colouring. For multi-edge graphs (bananas)")
 print("           this misses edge-permutation symmetries.")
 print()
-print("|Coeff-pres.| Automorphisms (U,t) ∈ Aut(P) that also preserve the")
+print("|Coeff-pres.| Automorphisms (U,t) in Aut(P) that also preserve the")
 print("           coefficient multiset of G. These generate functional")
-print("           equations of the GKZ hypergeometric system: I(z) = I(σ·z).")
+print("           equations of the GKZ hypergeometric system: I(z) = I(sigma*z).")
 print()
 
 # Detailed view for one interesting case.
@@ -101,8 +101,8 @@ fi = FeynmanIntegral.from_cnickel("11e|e|:zz")
 print(f"G = {fi.symanzik.g}")
 print()
 auts = fi.polytope_automorphisms
-print(f"|Aut(P)| = {auts.order}  (S₃: automorphisms of a 2-simplex)")
-print(f"Vertex orbits: {auts.vertex_orbits}  (single orbit — all points equivalent)")
+print(f"|Aut(P)| = {auts.order}  (S_3: automorphisms of a 2-simplex)")
+print(f"Vertex orbits: {auts.vertex_orbits}  (single orbit, all points equivalent)")
 print()
 cp = coefficient_preserving_indices(fi, auts)
 print(f"Coefficient-preserving indices: {cp}")

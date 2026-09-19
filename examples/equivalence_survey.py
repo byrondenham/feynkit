@@ -1,25 +1,25 @@
 """
-Equivalence-rich toric survey — resumable.
+Equivalence-rich toric survey, resumable.
 
 For each n-gon (n = 3, 4, 5, 6) we insert EVERY mass placement: all C(n,k)
-ways of making exactly k out of n propagators massive, for k = 0, …, n.
+ways of making exactly k out of n propagators massive, for k = 0, ..., n.
 Propagators in each variant carry a common symbol m so the Newton polytope
 depends only on WHICH edges are massive, not on the coefficient values.
 
 Within each (n, k) family, all C(n,k) variants are unimodularly equivalent:
-they are related by a permutation of the Lee–Pomeransky parameters (a
-permutation matrix is unimodular with det = ±1).  The equivalence analysis
+they are related by a permutation of the Lee-Pomeransky parameters (a
+permutation matrix is unimodular with det = +/-1).  The equivalence analysis
 at the end therefore recovers one non-trivial equivalence class of size C(n,k)
-for each k ∈ {1, …, n-1}, and singletons for the massless (k=0) and
+for each k in {1, ..., n-1}, and singletons for the massless (k=0) and
 all-massive (k=n) cases.
 
 We also include massless and massive banana families for additional coverage.
 
-Expected non-trivial classes (size ≥ 2):
-  triangle:  k=1 → 3,  k=2 → 3
-  box:       k=1 → 4,  k=2 → 6,  k=3 → 4
-  pentagon:  k=1 → 5,  k=2 → 10, k=3 → 10, k=4 → 5
-  hexagon:   k=1 → 6,  k=2 → 15, k=3 → 20, k=4 → 15, k=5 → 6
+Expected non-trivial classes (size >= 2):
+  triangle:  k=1 -> 3,  k=2 -> 3
+  box:       k=1 -> 4,  k=2 -> 6,  k=3 -> 4
+  pentagon:  k=1 -> 5,  k=2 -> 10, k=3 -> 10, k=4 -> 5
+  hexagon:   k=1 -> 6,  k=2 -> 15, k=3 -> 20, k=4 -> 15, k=5 -> 6
 
 Requires 4ti2 for the hexagon variants (install via pacman/brew/apt).
 
@@ -42,7 +42,7 @@ import sympy as sp
 
 from feynkit import Edge, FeynkitDatabase, FeynmanIntegral, Graph
 
-# ── diagram constructors ──────────────────────────────────────────────────────
+# -- diagram constructors ------------------------------------------------------
 
 
 def _polygon(n: int, mass_set: frozenset[int], db: FeynkitDatabase) -> FeynmanIntegral:
@@ -112,7 +112,7 @@ def _banana(n_props: int, *, massive: bool, db: FeynkitDatabase) -> FeynmanInteg
     )
 
 
-# ── diagram families ──────────────────────────────────────────────────────────
+# -- diagram families ----------------------------------------------------------
 
 _POLY_NAMES = {2: "bubble", 3: "triangle", 4: "box", 5: "pentagon", 6: "hexagon"}
 
@@ -138,7 +138,7 @@ def build_families(db: FeynkitDatabase) -> list[tuple[str, list[tuple[str, Feynm
     """
     families: list[tuple[str, list[tuple[str, FeynmanIntegral]]]] = []
 
-    # ── Polygons: n = 3, 4, 5, 6 ─────────────────────────────────────────────
+    # -- Polygons: n = 3, 4, 5, 6 ---------------------------------------------
     for n in (3, 4, 5, 6):
         name = _POLY_NAMES[n]
         for k in range(n + 1):
@@ -157,10 +157,10 @@ def build_families(db: FeynkitDatabase) -> list[tuple[str, list[tuple[str, Feynm
             ]
             families.append((family_title, items))
 
-    # ── Bananas ───────────────────────────────────────────────────────────────
+    # -- Bananas ---------------------------------------------------------------
     families.append(
         (
-            "massless banana  n = 3 … 7  (massless bubble already in polygons)",
+            "massless banana  n = 3 ... 7  (massless bubble already in polygons)",
             [
                 (f"massless banana  {n} props  ({n-1}-loop)", _banana(n, massive=False, db=db))
                 for n in range(3, 8)
@@ -169,7 +169,7 @@ def build_families(db: FeynkitDatabase) -> list[tuple[str, list[tuple[str, Feynm
     )
     families.append(
         (
-            "massive banana  n = 2 … 6",
+            "massive banana  n = 2 ... 6",
             [
                 (f"massive banana  {n} props  ({n-1}-loop)", _banana(n, massive=True, db=db))
                 for n in range(2, 7)
@@ -180,20 +180,20 @@ def build_families(db: FeynkitDatabase) -> list[tuple[str, list[tuple[str, Feynm
     return families
 
 
-# ── output helpers ────────────────────────────────────────────────────────────
+# -- output helpers ------------------------------------------------------------
 
 W = 74
 
 
 def _hdr(title: str) -> None:
-    print(f"\n  ── {title} {'─' * max(2, W - 6 - len(title))}", flush=True)
+    print(f"\n  -- {title} {'-' * max(2, W - 6 - len(title))}", flush=True)
 
 
 def _row_cached(idx: int, total: int, label: str, rec) -> None:
     tag = f"[{idx}/{total}]"
     print(
         f"  {tag:<8} {label:<42}  "
-        f"A={rec.n_rows}×{rec.n_cols:<4}  {rec.n_toric_gens:>5} gens  [cached]",
+        f"A={rec.n_rows} x {rec.n_cols:<4}  {rec.n_toric_gens:>5} gens  [cached]",
         flush=True,
     )
 
@@ -202,12 +202,12 @@ def _row_stored(idx: int, total: int, label: str, rec, elapsed: float) -> None:
     tag = f"[{idx}/{total}]"
     print(
         f"  {tag:<8} {label:<42}  "
-        f"A={rec.n_rows}×{rec.n_cols:<4}  {rec.n_toric_gens:>5} gens  {elapsed:.2f}s",
+        f"A={rec.n_rows} x {rec.n_cols:<4}  {rec.n_toric_gens:>5} gens  {elapsed:.2f}s",
         flush=True,
     )
 
 
-# ── equivalence analysis ──────────────────────────────────────────────────────
+# -- equivalence analysis ------------------------------------------------------
 
 
 def equivalence_analysis(db: FeynkitDatabase) -> None:
@@ -219,7 +219,7 @@ def equivalence_analysis(db: FeynkitDatabase) -> None:
     _hdr("UNIMODULAR EQUIVALENCE ANALYSIS")
     records = db.all_integrals()
     n = len(records)
-    print(f"  Checking {n} integral(s) …", flush=True)
+    print(f"  Checking {n} integral(s) ...", flush=True)
 
     parent: dict[str, str] = {r.fingerprint: r.fingerprint for r in records}
 
@@ -235,7 +235,7 @@ def equivalence_analysis(db: FeynkitDatabase) -> None:
             parent[pa] = pb
 
     for i, rec in enumerate(records, 1):
-        print(f"  [{i}/{n}] {rec.label} …", end="\r", flush=True)
+        print(f"  [{i}/{n}] {rec.label} ...", end="\r", flush=True)
         for m in db.find_equivalent_record(rec, relation="unimodular"):
             union(rec.fingerprint, m.fingerprint)
 
@@ -258,12 +258,12 @@ def equivalence_analysis(db: FeynkitDatabase) -> None:
         rep = cls[0]
         labels = ", ".join(r.label or r.fingerprint[:8] for r in cls)
         print(
-            f"  [{len(cls):>2} equiv]  A={rep.n_rows}×{rep.n_cols}  {labels}",
+            f"  [{len(cls):>2} equiv]  A={rep.n_rows} x {rep.n_cols}  {labels}",
             flush=True,
         )
 
 
-# ── main ──────────────────────────────────────────────────────────────────────
+# -- main ----------------------------------------------------------------------
 
 
 def main() -> None:

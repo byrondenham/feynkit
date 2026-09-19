@@ -42,13 +42,13 @@ def project_to_3d_pca(points: np.ndarray) -> np.ndarray:
             raise ComputationError(f"Cannot handle {points.shape[1]}D points")
 
     # Center the data
-    centered = points - points.mean(axis=0, keepdims=True)
+    centred = points - points.mean(axis=0, keepdims=True)
 
     # Compute SVD
     try:
-        U, S, Vt = np.linalg.svd(centered, full_matrices=False)
+        U, S, Vt = np.linalg.svd(centred, full_matrices=False)
         # Project onto first 3 principal components
-        projected = centered @ Vt[:3].T
+        projected = centred @ Vt[:3].T
         return projected
     except np.linalg.LinAlgError as e:
         raise ComputationError(f"PCA projection failed: {e}") from e

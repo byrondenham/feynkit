@@ -23,15 +23,15 @@ from .validation import (
     validate_positive_integer,
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Mass-code helpers
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 # Codes that map to zero mass.
 _MASSLESS_CODES: frozenset[str] = frozenset(("0", "z"))
 
 # Single-character codes that denote a *shared* symbolic mass m_{code}.
-# Range: digits 1–9 and lowercase letters a–y, excluding the reserved codes
+# Range: digits 1-9 and lowercase letters a-y, excluding the reserved codes
 # 'n' (unique non-zero) and 's' (special shared).
 _LABELED_CODES: frozenset[str] = frozenset(
     [str(d) for d in range(1, 10)] + [c for c in "abcdefghijklmnopqrstuvwxy" if c not in ("n", "s")]
@@ -55,9 +55,9 @@ def _mass_from_code(mc: str, edge_idx: int, mass_assumptions: dict) -> sp.Expr:
 def _mass_code_from_expr(mass: sp.Expr) -> str:
     """Reverse-map a SymPy mass expression to a single mass-code character.
 
-    Digit-labeled symbols (m_1 … m_9) are ambiguous with unique-mass symbols
+    Digit-labeled symbols (m_1 ... m_9) are ambiguous with unique-mass symbols
     created by the 'n' code (which also uses m_{edge_idx}), so they are always
-    returned as 'n'.  Letter-labeled symbols (m_a … m_y, m_s) round-trip
+    returned as 'n'.  Letter-labeled symbols (m_a ... m_y, m_s) round-trip
     exactly.
     """
     if mass == sp.Integer(0):
@@ -92,7 +92,7 @@ class Graph:
     edges : List[Edge]
         Complete list of all edges (both internal and external).
     energy_scale : sp.Symbol
-        Energy scale parameter for dimensional analysis (typically μ).
+        Energy scale parameter for dimensional analysis (typically mu).
     schwinger_parameters : Dict[int, sp.Symbol]
         Schwinger/Feynman parameters for internal edges, indexed by edge idx.
         Parameters are named 'a_{idx}' by default.
@@ -289,7 +289,7 @@ class Graph:
         """
         return len(self._internal_edges) - self.internal_vertices + 1
 
-    # ── Nickel / CNickel index ────────────────────────────────────────────────
+    # -- Nickel / CNickel index ------------------------------------------------
 
     def _nickel_adjacency(
         self,
@@ -362,7 +362,7 @@ class Graph:
         ext_deg: dict[int, int],
     ) -> tuple[str, list[str]]:
         """
-        Build the Nickel entry string and mass color list for vertex with
+        Build the Nickel entry string and mass colour list for vertex with
         new label i (corresponding to original vertex orig_v).
         """
         from collections import defaultdict
@@ -411,7 +411,7 @@ class Graph:
         V = self.internal_vertices
         if V > 9:
             raise NotImplementedError(
-                f"Nickel index requires V ≤ 9; this graph has {V} internal vertices"
+                f"Nickel index requires V <= 9; this graph has {V} internal vertices"
             )
 
         adj, ext_deg = self._nickel_adjacency()
@@ -431,15 +431,15 @@ class Graph:
 
     def cnickel(self) -> str:
         """
-        Canonical Colored Nickel (CNickel) index: topology + mass coloring.
+        Canonical Colored Nickel (CNickel) index: topology + mass colouring.
 
         Extends :meth:`nickel_index` with a mass-color suffix separated by
         ``':'``.  Mass codes: ``'z'`` = zero mass (massless propagator),
-        ``'n'`` = nonzero mass (massive propagator).  The colors are listed
+        ``'n'`` = nonzero mass (massive propagator).  The colours are listed
         in the order the corresponding internal edges appear left-to-right
         in the topology string.
 
-        The canonical form minimises the full ``(topology, coloring)`` pair
+        The canonical form minimises the full ``(topology, colouring)`` pair
         lexicographically, correctly handling graphs with automorphisms.
 
         Examples
@@ -454,7 +454,7 @@ class Graph:
         V = self.internal_vertices
         if V > 9:
             raise NotImplementedError(
-                f"CNickel index requires V ≤ 9; this graph has {V} internal vertices"
+                f"CNickel index requires V <= 9; this graph has {V} internal vertices"
             )
 
         adj, ext_deg = self._nickel_adjacency()
@@ -482,17 +482,17 @@ class Graph:
         """
         Construct a :class:`Graph` from a CNickel string.
 
-        Accepts both the full ``"<topology>:<colors>"`` form and a bare
-        topology string (all edges default to massless when colors are absent).
+        Accepts both the full ``"<topology>:<colours>"`` form and a bare
+        topology string (all edges default to massless when colours are absent).
 
         Vertex labels in the string are 0-indexed; feynkit's internal vertex
         numbering (1-indexed) is assigned in the same order.  External legs are
         numbered sequentially in the order they appear reading left-to-right
         through the topology entries.
 
-        Massive edges (color ``'n'``) receive a symbolic mass
+        Massive edges (colour ``'n'``) receive a symbolic mass
         ``m_<idx>`` with assumptions ``{nonnegative: True, real: True}``.
-        Massless edges (color ``'z'``) receive ``mass = 0``.
+        Massless edges (colour ``'z'``) receive ``mass = 0``.
 
         Parameters
         ----------
@@ -515,16 +515,16 @@ class Graph:
         >>> Graph.from_cnickel("12e|2e|e|:zzz")      # massless triangle
         >>> Graph.from_cnickel("12e|2e|e|:nzz")      # one-mass triangle
         >>> Graph.from_cnickel("111e|e|:zzz")        # massless 3-prop banana
-        >>> Graph.from_cnickel("12e|2e|e|")           # bare topology → massless
+        >>> Graph.from_cnickel("12e|2e|e|")           # bare topology -> massless
         """
         from .constants import MASS_ASSUMPTIONS
 
         if ":" in cnickel:
             topology, color_part = cnickel.rsplit(":", 1)
             if "|" in color_part:
-                # Structured format: color string mirrors the topology structure
-                # (one color per topology character, '|' as separator).
-                # Extract only the colors that sit at digit (internal-edge) positions.
+                # Structured format: colour string mirrors the topology structure
+                # (one colour per topology character, '|' as separator).
+                # Extract only the colours that sit at digit (internal-edge) positions.
                 topo_chars = topology.rstrip("|").replace("|", "")
                 color_chars = color_part.rstrip("|").replace("|", "")
                 mass_str = "".join(
@@ -548,7 +548,7 @@ class Graph:
         edge_idx = 1
         mass_idx = 0
 
-        # ── internal edges ────────────────────────────────────────────────
+        # -- internal edges ------------------------------------------------
         for i, entry in enumerate(parts):
             for ch in entry:
                 if ch.isdigit():
@@ -585,7 +585,7 @@ class Graph:
                 f"internal edge count {mass_idx} in {cnickel!r}"
             )
 
-        # ── external edges ────────────────────────────────────────────────
+        # -- external edges ------------------------------------------------
         ext_v = V + 1
         for i, entry in enumerate(parts):
             for ch in entry:
@@ -613,7 +613,7 @@ class Graph:
         """
         Construct a massless :class:`Graph` from a bare Nickel topology string.
 
-        Equivalent to ``Graph.from_cnickel(nickel)`` — the mass-color suffix is
+        Equivalent to ``Graph.from_cnickel(nickel)``, the mass-color suffix is
         omitted, so all propagators default to zero mass.
 
         Examples
@@ -647,8 +647,8 @@ class Graph:
         Returns
         -------
         sp.Matrix
-            The Laplacian matrix of size (r_int + n_ext) × (r_int + n_ext) if
-            include_external is True, or r_int × r_int if False.
+            The Laplacian matrix of size (r_int + n_ext) x (r_int + n_ext) if
+            include_external is True, or r_int x r_int if False.
 
         Notes
         -----

@@ -82,12 +82,12 @@ class SchwingerParametrisation(Parametrisation):
         Notes
         -----
         The Schwinger representation is:
-            I = prefactor × int_0^infty [prod_i d alpha_i alpha_i^(nu_i-1)] U^(-D/2) exp(-F/U)
+            I = prefactor x int_0^infty [prod_i d alpha_i alpha_i^(nu_i-1)] U^(-D/2) exp(-F/U)
 
         where:
-        - prefactor = exp(L·epsilon·gamma_E) / prod_i[Gamma(nu_i)]
+        - prefactor = exp(L*epsilon*gamma_E) / prod_i[Gamma(nu_i)]
         - measure = prod_i[d alpha_i alpha_i^(nu_i-1)]
-        - integrand = U^(-D/2) · exp(-F/U)
+        - integrand = U^(-D/2) * exp(-F/U)
 
         Examples
         --------
@@ -120,7 +120,7 @@ class SchwingerParametrisation(Parametrisation):
             loop_order = sp.Integer(self.loop_count)
 
             # === Compute prefactor ===
-            # prefactor = exp(L·epsilon·gamma_E) / prod_i[Gamma(nu_i)]
+            # prefactor = exp(L*epsilon*gamma_E) / prod_i[Gamma(nu_i)]
             gamma_product = sp.prod(
                 [sp.gamma(self.propagator_exponents[e.idx]) for e in internal_edges]
             )
@@ -137,7 +137,7 @@ class SchwingerParametrisation(Parametrisation):
             )
 
             # === Compute integrand ===
-            # integrand = U^(-D/2) · exp(-F/U)
+            # integrand = U^(-D/2) * exp(-F/U)
             integrand = sp.simplify(u_alpha ** (-self.dimension / 2) * sp.exp(-f_alpha / u_alpha))
 
             # === Constraints ===

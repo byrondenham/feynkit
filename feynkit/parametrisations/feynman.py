@@ -72,11 +72,11 @@ class FeynmanParametrisation(Parametrisation):
         Notes
         -----
         The Feynman representation is:
-            I = prefactor × int_Sigma [prod_i da_i a_i^(nu_i-1)] U^(sum_i nu_i - (L+1)D/2) / F^(sum_i nu_i - LD/2)
+            I = prefactor x int_Sigma [prod_i da_i a_i^(nu_i-1)] U^(sum_i nu_i - (L+1)D/2) / F^(sum_i nu_i - LD/2)
 
         where:
         - Sigma = {a >= 0, sum_i a_i = 1} is the unit simplex
-        - prefactor = exp(L·epsilon·gamma_E) · Gamma(sum_i nu_i - LD/2) / prod_i[Gamma(nu_i)]
+        - prefactor = exp(L*epsilon*gamma_E) * Gamma(sum_i nu_i - LD/2) / prod_i[Gamma(nu_i)]
         - measure = prod_i[da_i a_i^(nu_i-1)] with delta(sum_i a_i - 1)
         - integrand = U^(sum_i nu_i - (L+1)D/2) / F^(sum_i nu_i - LD/2)
 
@@ -102,7 +102,7 @@ class FeynmanParametrisation(Parametrisation):
             loop_order = sp.Integer(self.loop_count)
 
             # === Compute prefactor ===
-            # prefactor = exp(L·epsilon·gamma_E) · Γ(sum_i nu_i - LD/2) / prod_i[Gamma(nu_i)]
+            # prefactor = exp(L*epsilon*gamma_E) * Gamma(sum_i nu_i - LD/2) / prod_i[Gamma(nu_i)]
             gamma_numerator = sp.gamma(nu_sum - loop_order * self.dimension / 2)
             gamma_denominator = sp.prod(
                 [sp.gamma(self.propagator_exponents[e.idx]) for e in internal_edges]

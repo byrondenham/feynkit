@@ -88,7 +88,7 @@ class TestSmallMatrices:
 
 
 class TestSymbolicDeterminism:
-    """Test deterministic behavior with equivalent symbolic expressions."""
+    """Test deterministic behaviour with equivalent symbolic expressions."""
 
     def test_equivalent_expressions(self) -> None:
         """Test that equivalent expressions give same result."""

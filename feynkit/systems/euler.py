@@ -20,12 +20,12 @@ def create_euler_operators(
     Create Euler differential operators from the A-matrix.
 
     Each row of the A-matrix defines one Euler operator:
-        Ehat_r = sum_j A[r,j] · z_j · partial/partial z_j
+        Ehat_r = sum_j A[r,j] * z_j * partial/partial z_j
 
     Parameters
     ----------
     a_matrix : sp.Matrix
-        The GKZ A-matrix of size (n+1) × m.
+        The GKZ A-matrix of size (n+1) x m.
     z_variables : List[sp.Symbol]
         Differential variables [z_1, z_2, ..., z_m].
 
@@ -42,7 +42,7 @@ def create_euler_operators(
     Notes
     -----
     The Euler operators act on a function Phi(z_1, ..., z_m) as:
-        Ehat_r · Phi = sum_j A[r,j] · z_j · partial Phi/partial z_j
+        Ehat_r * Phi = sum_j A[r,j] * z_j * partial Phi/partial z_j
 
     Examples
     --------
@@ -93,7 +93,7 @@ def create_euler_equations(
     Parameters
     ----------
     a_matrix : sp.Matrix
-        The GKZ A-matrix of size (n+1) × m encoding monomial exponents.
+        The GKZ A-matrix of size (n+1) x m encoding monomial exponents.
     beta_parameters : List[sp.Expr]
         Parameter vector of length (n+1), typically:
         - beta_0 = -D/2 (homogeneity of G^{-D/2} under an overall rescaling)
@@ -108,7 +108,7 @@ def create_euler_equations(
     -------
     List[sp.Equality]
         List of (n+1) differential equations of the form:
-            sum_j A[r,j] · z_j · partial Phi/partial z_j = beta_r · Phi
+            sum_j A[r,j] * z_j * partial Phi/partial z_j = beta_r * Phi
         for r = 0, 1, ..., n.
 
     Raises
@@ -119,9 +119,9 @@ def create_euler_equations(
     Notes
     -----
     The r-th Euler equation is:
-        Ehat_r · Phi = beta_r · Phi
+        Ehat_r * Phi = beta_r * Phi
     where the Euler operator Ehat_r is defined as:
-        Ehat_r = sum_{j=1}^m A[r,j] · z_j · partial/partial z_j
+        Ehat_r = sum_{j=1}^m A[r,j] * z_j * partial/partial z_j
 
     These equations express homogeneity properties of the Feynman integral
     under rescalings associated with the monoid structure.
@@ -174,13 +174,13 @@ def create_euler_equations(
     # Generate one equation for each row of A
     for r in range(num_rows):
         # Left-hand side: Euler operator Ehat_r applied to Phi
-        # Ehat_r · Phi = sum_j A[r,j] · z_j · dPhi/dz_j
+        # Ehat_r * Phi = sum_j A[r,j] * z_j * dPhi/dz_j
         lhs = sum(
             a_matrix[r, j] * z_variables[j] * sp.Derivative(phi, z_variables[j])
             for j in range(num_cols)
         )
 
-        # Right-hand side: beta_r · Phi
+        # Right-hand side: beta_r * Phi
         rhs = beta_parameters[r] * phi
 
         # Create equation: lhs = rhs

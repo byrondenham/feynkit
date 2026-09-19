@@ -36,7 +36,7 @@ def extract_monomial_support(
     List[Tuple[Tuple[int, ...], sp.Expr]]
         List of (exponent_vector, coefficient) pairs, where:
         - exponent_vector: Tuple of non-negative integers (alpha_1, alpha_2, ..., alpha_n)
-          representing the monomial u_1^alpha_1 · ... · u_n^alpha_n
+          representing the monomial u_1^alpha_1 * ... * u_n^alpha_n
         - coefficient: Simplified symbolic coefficient for this monomial
 
     Raises
@@ -46,7 +46,7 @@ def extract_monomial_support(
 
     Notes
     -----
-    For a polynomial G(u) = sum c_alpha · u^alpha, this function returns the set:
+    For a polynomial G(u) = sum c_alpha * u^alpha, this function returns the set:
         {(alpha, c_alpha) : c_alpha != 0}
 
     The monomial support forms the columns of the GKZ A-matrix (after adding

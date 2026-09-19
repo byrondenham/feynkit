@@ -7,8 +7,8 @@ from feynkit import Edge, Graph, __version__
 
 def test_basic_import() -> None:
     """Test that basic imports work."""
-    print("✓ Successfully imported feynkit core modules")
-    print(f"✓ Feynkit version: {__version__}")
+    print("yes Successfully imported feynkit core modules")
+    print(f"yes Feynkit version: {__version__}")
 
 
 def test_edge_creation() -> None:
@@ -18,11 +18,11 @@ def test_edge_creation() -> None:
 
     # Create internal edge
     e1 = Edge(idx=1, v1=1, v2=2, is_internal=True, mass=m, nu=nu)
-    print(f"✓ Created internal edge: {e1}")
+    print(f"yes Created internal edge: {e1}")
 
     # Create external edge
     e2 = Edge(idx=2, v1=1, v2=3, is_internal=False)
-    print(f"✓ Created external edge: {e2}")
+    print(f"yes Created external edge: {e2}")
 
 
 def test_graph_creation() -> None:
@@ -34,7 +34,7 @@ def test_graph_creation() -> None:
     ex2 = Edge(idx=4, v1=2, v2=4, is_internal=False)
 
     graph = Graph(internal_vertices=2, external_legs=2, edges=[e1, e2, ex1, ex2])
-    print(f"✓ Created graph: {graph}")
+    print(f"yes Created graph: {graph}")
 
     # Test basic graph properties
     assert graph.internal_vertices == 2
@@ -42,7 +42,7 @@ def test_graph_creation() -> None:
     assert len(graph.get_internal_edges()) == 2
     assert len(graph.get_external_edges()) == 2
     assert graph.get_loop_count() == 1
-    print("✓ Graph properties verified")
+    print("yes Graph properties verified")
 
 
 def test_laplacian_calculation() -> None:
@@ -56,11 +56,11 @@ def test_laplacian_calculation() -> None:
 
     # Calculate Laplacian
     L = graph.calculate_laplacian(include_external=False)
-    print(f"✓ Calculated Laplacian matrix:\n{L}")
+    print(f"yes Calculated Laplacian matrix:\n{L}")
 
     # Calculate W polynomial
     W = graph.calculate_w_polynomial()
-    print(f"✓ Calculated W polynomial: {W}")
+    print(f"yes Calculated W polynomial: {W}")
 
 
 def main() -> None:
@@ -84,13 +84,13 @@ def main() -> None:
         print()
 
         print("=" * 60)
-        print("✓ All tests passed! Feynkit is correctly installed.")
+        print("yes All tests passed! Feynkit is correctly installed.")
         print("=" * 60)
 
     except Exception as e:
         print()
         print("=" * 60)
-        print(f"✗ Test failed with error: {e}")
+        print(f"no Test failed with error: {e}")
         print("=" * 60)
         raise
 

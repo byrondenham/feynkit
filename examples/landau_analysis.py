@@ -22,7 +22,7 @@ from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.artifacts.conformal import _bms_g_polynomial
 from feynkit.landau import LandauAnalysis, landau_analysis, landau_analysis_from_polynomial
 
-# ─── diagram constructors ────────────────────────────────────────────────────
+# --- diagram constructors ----------------------------------------------------
 
 
 def _bubble(m1, m2) -> FeynmanIntegral:
@@ -62,13 +62,13 @@ def _massless_box() -> FeynmanIntegral:
     return FeynmanIntegral(g)
 
 
-# ─── formatting helpers ──────────────────────────────────────────────────────
+# --- formatting helpers ------------------------------------------------------
 
 
 def _show(name: str, result: LandauAnalysis) -> None:
-    print(f"\n{'─' * 60}")
+    print(f"\n{'-' * 60}")
     print(f"  {name}")
-    print(f"{'─' * 60}")
+    print(f"{'-' * 60}")
     print(f"  Active edges:  {len(result.edge_discriminants)}")
     print(f"  # surfaces:   {len(result.landau_surfaces)}")
     if result.landau_surfaces:
@@ -79,12 +79,12 @@ def _show(name: str, result: LandauAnalysis) -> None:
         print("  No kinematic Landau surfaces (integral has no normal threshold).")
 
 
-# ─── main ────────────────────────────────────────────────────────────────────
+# --- main --------------------------------------------------------------------
 
 
 def main(include_box: bool = False) -> None:
     print("=" * 60)
-    print("  LANDAU SINGULARITY ANALYSIS  —  feynkit.landau")
+    print("  LANDAU SINGULARITY ANALYSIS ,  feynkit.landau")
     print("  Edge-part principal A-determinant E_A^(1)(G)")
     print("=" * 60)
     print()
@@ -92,13 +92,13 @@ def main(include_box: bool = False) -> None:
     print("  gives the leading Landau singularity surfaces of the")
     print("  Feynman integral (normal thresholds and IR singularities).")
     print()
-    print("  Ref: Gelfand–Kapranov–Zelevinsky (1994) §10.1")
+    print("  Ref: Gelfand-Kapranov-Zelevinsky (1994) section 10.1")
 
-    # ── 1. Massless bubble ───────────────────────────────────────────────────
+    # -- 1. Massless bubble ---------------------------------------------------
     mb = _bubble(sp.Integer(0), sp.Integer(0))
     _show("Massless bubble  [m1 = m2 = 0]", landau_analysis(mb))
 
-    # ── 2. Massive bubble ────────────────────────────────────────────────────
+    # -- 2. Massive bubble ----------------------------------------------------
     m1, m2 = sp.symbols("m1 m2", nonnegative=True)
     bubble = _bubble(m1, m2)
     result_bubble = landau_analysis(bubble)
@@ -109,14 +109,14 @@ def main(include_box: bool = False) -> None:
     t_norm = sp.simplify(lp.subs(s, -2 * (m1 + m2) ** 2))
     t_pseudo = sp.simplify(lp.subs(s, -2 * (m1 - m2) ** 2))
     print("\n  Verification:")
-    print(f"    E_A^(1) at threshold   s = -2(m1+m2)²  →  {t_norm}")
-    print(f"    E_A^(1) at pseudothres s = -2(m1-m2)²  →  {t_pseudo}")
+    print(f"    E_A^(1) at threshold   s = -2(m1+m2)^2  ->  {t_norm}")
+    print(f"    E_A^(1) at pseudothres s = -2(m1-m2)^2  ->  {t_pseudo}")
 
-    # ── 3. Equal-mass bubble ─────────────────────────────────────────────────
+    # -- 3. Equal-mass bubble -------------------------------------------------
     m = sp.Symbol("m", nonnegative=True)
     _show("Equal-mass bubble  [m1 = m2 = m]", landau_analysis(_bubble(m, m)))
 
-    # ── 4. Massless triangle ─────────────────────────────────────────────────
+    # -- 4. Massless triangle -------------------------------------------------
     _show("Massless triangle  [all propagators massless]", landau_analysis(_massless_triangle()))
     s12, s13, s23 = sp.symbols("s12 s13 s23", real=True)
     print()
@@ -124,7 +124,7 @@ def main(include_box: bool = False) -> None:
     print("  Each surface s_ij + s_ik = 0 reduces to s_jk = 0,")
     print("  i.e., the collinear IR singularity when leg j+k becomes null.")
 
-    # ── 5. Massless box (opt-in: the discriminants take several minutes) ────
+    # -- 5. Massless box (opt-in: the discriminants take several minutes) ----
     if include_box:
         print("\n  [Computing massless box: this takes several minutes...]")
         _show(
@@ -134,8 +134,8 @@ def main(include_box: bool = False) -> None:
     else:
         print("\n  [Massless box skipped; rerun with --all to include it]")
 
-    # ── 6. BMS_3 conformal simplex ───────────────────────────────────────────
-    print("\n  ── Conformal family (BMS simplex, Bzowski–McFadden–Skenderis) ──")
+    # -- 6. BMS_3 conformal simplex -------------------------------------------
+    print("\n  -- Conformal family (BMS simplex, Bzowski-McFadden-Skenderis) --")
     for n in range(3, 6):
         g = _bms_g_polynomial(n)
         params = [sp.Symbol(f"u_{i+1}") for i in range(n)]
@@ -149,14 +149,14 @@ def main(include_box: bool = False) -> None:
     print()
     print("  The edge-part principal A-determinant recovers:")
     print()
-    print("  • Bubble:    normal threshold  s = -2(m1+m2)²")
-    print("               pseudothreshold   s = -2(m1-m2)²")
-    print("  • Triangle:  collinear IR singularities (s_ij = 0)")
-    print("  • BMS_n:     null-momentum singularities p_i² = 0")
+    print("  - Bubble:    normal threshold  s = -2(m1+m2)^2")
+    print("               pseudothreshold   s = -2(m1-m2)^2")
+    print("  - Triangle:  collinear IR singularities (s_ij = 0)")
+    print("  - BMS_n:     null-momentum singularities p_i^2 = 0")
     print("               (conformal IR singularities)")
     print()
     print("  All results are derived purely from the Newton polytope")
-    print("  of the Lee–Pomeransky G polynomial via edge discriminants.")
+    print("  of the Lee-Pomeransky G polynomial via edge discriminants.")
 
 
 if __name__ == "__main__":

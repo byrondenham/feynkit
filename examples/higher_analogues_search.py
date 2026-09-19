@@ -2,30 +2,30 @@
 Search for higher-dimensional analogues of the triangle / triple-K equivalence.
 
 The n=3 equivalence:
-  massless triangle C_3 LP  ←det=2 map→  BMS_3 (triple-K)
+  massless triangle C_3 LP  <-det=2 map->  BMS_3 (triple-K)
 
 is the only known case where a Feynman-LP A-configuration and the BMS conformal
 simplex are related by a finite-index (det=2) affine map.
 
-This script tests the canonical candidate for n≥4 and then conducts a broader search.
+This script tests the canonical candidate for n>=4 and then conducts a broader search.
 
 Canonical candidate (Phase 1):
-  A_candidate(n) = { ∏_{j≠i} uⱼ : i=1,...,n }  (degree n−1, = BMS_n lower)
-                 ∪ { uᵢ : i=1,...,n }             (degree 1, standard basis)
+  A_candidate(n) = { prod_{j!=i} u_j : i=1,...,n }  (degree n-1, = BMS_n lower)
+                 union { u_i : i=1,...,n }             (degree 1, standard basis)
 
 Key parity finding:
-  All BMS_n monomials have degree-parity n−1 ≡ n+1 mod 2 (same for both halves).
-  The canonical candidate's lower monomials (degree n−1) and upper (degree 1) have
+  All BMS_n monomials have degree-parity n-1 == n+1 mod 2 (same for both halves).
+  The canonical candidate's lower monomials (degree n-1) and upper (degree 1) have
   DIFFERENT parities iff n is even... wait, it's the reverse:
-    - n odd (n=3): lower deg n-1=2 (even), upper deg 1 (odd)  → mixed → Smith all-ones
-    - n even (n=4): lower deg n-1=3 (odd), upper deg 1 (odd)  → same  → Smith [1,...,1,2]
+    - n odd (n=3): lower deg n-1=2 (even), upper deg 1 (odd)  -> mixed -> Smith all-ones
+    - n even (n=4): lower deg n-1=3 (odd), upper deg 1 (odd)  -> same  -> Smith [1,...,1,2]
   For odd n: parity mixed, but gcd(n-2)=n-2 governs the lattice structure.
   Smith(A_candidate(n)) = [1,...,1, n-2]:  n-2=1 for n=3, n-2=2 for n=4, n-2=3 for n=5.
 
-Phase 2: Test an alternative upper monomial set for n=4 — degree-2 pairs (even sum)
+Phase 2: Test an alternative upper monomial set for n=4, degree-2 pairs (even sum)
   instead of standard basis (odd sum), to get mixed parity and Smith all-ones.
 
-Phase 3: Numpy-vectorised inverse-map search over small det=±2 matrices for n=4.
+Phase 3: Numpy-vectorised inverse-map search over small det=+/-2 matrices for n=4.
 
 Run with:
     uv run python examples/higher_analogues_search.py
@@ -45,7 +45,7 @@ from feynkit import (
 )
 from feynkit.a_configuration import finite_index_map
 
-SEP = "─" * 72
+SEP = "-" * 72
 FLUSH = sys.stdout.flush
 
 
@@ -60,27 +60,27 @@ def print_section(title: str) -> None:
 def describe(label: str, cfg: AConfiguration) -> None:
     print(f"  {label}")
     print(
-        f"    N={cfg.n_points}  dim={cfg.ambient_dim}  Smith={cfg.smith_invariants}  vol₀={cfg.normalized_volume}"
+        f"    N={cfg.n_points}  dim={cfg.ambient_dim}  Smith={cfg.smith_invariants}  vol_0={cfg.normalized_volume}"
     )
     FLUSH()
 
 
 def check_map(label_a: str, a: AConfiguration, label_b: str, b: AConfiguration) -> None:
     fim = finite_index_map(a, b)
-    print(f"  finite_index_map({label_a} → {label_b}): found={fim.found}", end="")
+    print(f"  finite_index_map({label_a} -> {label_b}): found={fim.found}", end="")
     if fim.found:
         print(f"  det={fim.determinant}  unimod={fim.is_unimodular}", end="")
     print()
     FLUSH()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Phase 1: canonical candidate
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
-print_section("Phase 1 — canonical candidate A_candidate(n) = lower_BMS ∪ standard_basis")
+print_section("Phase 1, canonical candidate A_candidate(n) = lower_BMS union standard_basis")
 
-print("""  G polynomial: G(u) = ∑ᵢ ∏_{j≠i} uⱼ  +  ∑ᵢ pᵢ² uᵢ
+print("""  G polynomial: G(u) = sum_i prod_{j!=i} u_j  +  sum_i p_i^2 u_i
   For n=3 this is the triangle by construction.\n""")
 
 bms3 = bms_simplex_a_config(3)
@@ -89,7 +89,7 @@ tri = massless_polygon_a_config(3)
 
 assert cn3.smith_invariants == tri.smith_invariants == [1, 1, 1]
 assert cn3.normalized_volume == tri.normalized_volume == 4
-print("  n=3: companion matches triangle ✓")
+print("  n=3: companion matches triangle yes")
 FLUSH()
 
 print()
@@ -99,28 +99,28 @@ for n in [3, 4, 5]:
     describe(f"companion({n})", comp)
     describe(f"BMS_{n}     ", bms)
     smith_last = comp.smith_invariants[-1]
-    print(f"  last Smith = {smith_last}  (= n−2 = {n-2}?  {'yes' if smith_last == n-2 else 'no'})")
+    print(f"  last Smith = {smith_last}  (= n-2 = {n-2}?  {'yes' if smith_last == n-2 else 'no'})")
     check_map(f"companion({n})", comp, f"BMS_{n}", bms)
     r_aff = comp.is_affinely_equivalent_to(bms)
     print(f"  affine equiv: {r_aff.equivalent}")
     print()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Phase 2: degree-2 upper monomials for n=4 (even n needs even-degree upper)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
-print_section("Phase 2 — alternative n=4: lower_BMS_4 ∪ degree-2 pairs")
+print_section("Phase 2, alternative n=4: lower_BMS_4 union degree-2 pairs")
 
 print("""  For n=4: lower monomials have degree 3 (odd sum).
-  Standard basis has degree 1 (odd sum) → same parity → Smith [1,1,1,2].
-  Use degree-2 pairs (even sum) instead → mixed parity → possibly Smith [1,1,1,1].
+  Standard basis has degree 1 (odd sum) -> same parity -> Smith [1,1,1,2].
+  Use degree-2 pairs (even sum) instead -> mixed parity -> possibly Smith [1,1,1,1].
 
   Candidates for 4 degree-2 monomials from C_4 "adjacent pairs":
-    A: box-cycle  {u₁u₂, u₂u₃, u₃u₄, u₁u₄}  — the 4-gon cycle edges
-    B: star-cross {u₁u₂, u₁u₃, u₁u₄, u₂u₃}  — star from vertex 1 + one cross
-    C: all same   {u₁u₂, u₁u₃, u₁u₄, u₂u₃}  — same as B
-    D: opposite   {u₁u₂, u₃u₄, u₁u₃, u₂u₄}  — 2 pairs of complementary edges
+    A: box-cycle  {u_1u_2, u_2u_3, u_3u_4, u_1u_4} , the 4-gon cycle edges
+    B: star-cross {u_1u_2, u_1u_3, u_1u_4, u_2u_3} , star from vertex 1 + one cross
+    C: all same   {u_1u_2, u_1u_3, u_1u_4, u_2u_3} , same as B
+    D: opposite   {u_1u_2, u_3u_4, u_1u_3, u_2u_4} , 2 pairs of complementary edges
 """)
 
 bms4 = bms_simplex_a_config(4)
@@ -145,23 +145,23 @@ for name, upper4 in upper_sets.items():
         check_map("", cfg, "BMS_4", bms4)
         r_aff = cfg.is_affinely_equivalent_to(bms4)
         r_uni = cfg.is_unimodular_equivalent_to(bms4)
-        print(f"    affine≡BMS_4={r_aff.equivalent}  unimod≡BMS_4={r_uni.equivalent}")
+        print(f"    affine==BMS_4={r_aff.equivalent}  unimod==BMS_4={r_uni.equivalent}")
     except Exception as e:
-        print(f"  {name}: error — {e}")
+        print(f"  {name}: error, {e}")
     print()
     FLUSH()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Phase 3: numpy-vectorised inverse-map search for n=4
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
-print_section("Phase 3 — vectorised inverse-map search for n=4 companion")
+print_section("Phase 3, vectorised inverse-map search for n=4 companion")
 
-print("""  Strategy: enumerate all 4×4 integer matrices M (entries {-1,0,1}, det=±2,
-  all-even column sums) and check if A₁ = adj(M)·(BMS_4 − t)/2 has Smith [1,1,1,1].
-  Parity constraint: all BMS_4 columns have odd sum → M must have all-even column
-  sums so that sum(M·v) is always even, and sum(t) odd, to produce odd-sum outputs.
+print("""  Strategy: enumerate all 4 x 4 integer matrices M (entries {-1,0,1}, det=+/-2,
+  all-even column sums) and check if A_1 = adj(M)*(BMS_4 - t)/2 has Smith [1,1,1,1].
+  Parity constraint: all BMS_4 columns have odd sum -> M must have all-even column
+  sums so that sum(M*v) is always even, and sum(t) odd, to produce odd-sum outputs.
 """)
 
 # BMS_4 affine coord columns, shape (8,4)
@@ -180,7 +180,7 @@ def even_sum_cols() -> list[tuple]:
 even_cols = even_sum_cols()
 print(f"  Even-sum columns from {{-1,0,1}}: {len(even_cols)} per column")
 
-# Build all matrices with 4 such columns: 41^4 ≈ 2.8M
+# Build all matrices with 4 such columns: 41^4 ~ 2.8M
 # Use numpy batch computation
 
 # batch size for det computation
@@ -327,7 +327,7 @@ if found_companions:
     print(f"  Unique column sets: {len(unique)}")
     _u_syms = [sp.Symbol(f"u_{i+1}") for i in range(4)]
     for i, c in enumerate(unique[:3]):
-        print(f"\n  Candidate {i+1}: Smith={c['smith']}  vol₀={c['vol']}")
+        print(f"\n  Candidate {i+1}: Smith={c['smith']}  vol_0={c['vol']}")
         print(f"    M = {c['M']}")
         print(f"    t = {c['t']}")
         cols_i = c["cols"]  # list of 8 column vectors (each length 4)
@@ -350,12 +350,12 @@ if found_companions:
         fim = finite_index_map(cfg, bms4)
         print(
             f"    S4-symmetry: {sym_count}/24  |  "
-            f"finite_index_map → BMS_4: found={fim.found}  det={fim.determinant}"
+            f"finite_index_map -> BMS_4: found={fim.found}  det={fim.determinant}"
         )
         FLUSH()
 else:
     print("""
-  No companion with Smith=[1,1,1,1] found among det=±2 matrices
+  No companion with Smith=[1,1,1,1] found among det=+/-2 matrices
   with entries {{-1,0,1}} and even column sums.
 
   Interpretation:
@@ -364,47 +364,47 @@ else:
     (b) does not correspond to any "small" integer affine map to BMS_n, or
     (c) requires a fundamentally different lattice construction.
 
-  The canonical candidate A_candidate(n) = lower_BMS ∪ standard_basis is always
-  affinely equivalent to BMS_n (same Newton polytope shape over ℚ) but with
-  Smith invariants [1,...,1, n−2], not all-ones.  It is the "natural geometric
-  companion" but not connected by a finite-index map for n≥4.
+  The canonical candidate A_candidate(n) = lower_BMS union standard_basis is always
+  affinely equivalent to BMS_n (same Newton polytope shape over Q) but with
+  Smith invariants [1,...,1, n-2], not all-ones.  It is the "natural geometric
+  companion" but not connected by a finite-index map for n>=4.
 """)
     FLUSH()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Summary
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 print_section("Summary")
 _n4_companion_found = len(found_companions) > 0
 _unique_count = len({tuple(sorted(tuple(row) for row in c["cols"])) for c in found_companions})
 print(f"""
   The triangle/triple-K equivalence (n=3) arises from a unique lattice coincidence:
-    Smith(A_candidate(3)) = [1,1,1]   (full ℤ³ lattice)
+    Smith(A_candidate(3)) = [1,1,1]   (full Z^3 lattice)
     Smith(BMS_3)          = [1,1,2]   (index-2 sublattice)
     det(M) = 2            (the lattice index is carried by the map)
 
-  For the canonical companion conformal_companion_a_config(n), Smith(n) = [1,...,1, n−2]:
-    n=4: Smith = [1,1,1,2] = Smith(BMS_4)  → same sublattice, no det=2 map
-    n=5: Smith = [1,1,1,1,3]               → different sublattice from BMS_5's [1,...,2]
+  For the canonical companion conformal_companion_a_config(n), Smith(n) = [1,...,1, n-2]:
+    n=4: Smith = [1,1,1,2] = Smith(BMS_4)  -> same sublattice, no det=2 map
+    n=5: Smith = [1,1,1,1,3]               -> different sublattice from BMS_5's [1,...,2]
 
   All A_candidate(n) ARE affinely equivalent to BMS_n (same Newton polytope
-  shape over ℚ), but in a different arithmetic sublattice.
+  shape over Q), but in a different arithmetic sublattice.
 
-  PHASE 3 RESULT (n=4, search range: M entries {{-1,0,1}}, det=±2):
+  PHASE 3 RESULT (n=4, search range: M entries {{-1,0,1}}, det=+/-2):
     Found companions: {len(found_companions):,}  |  Unique column sets: {_unique_count}
-    {"✓  YES — full-lattice companions with det=2 map to BMS_4 DO EXIST." if _n4_companion_found else "✗  No full-lattice companions found in this restricted search range."}
+    {"yes  YES, full-lattice companions with det=2 map to BMS_4 DO EXIST." if _n4_companion_found else "no  No full-lattice companions found in this restricted search range."}
 
   First candidate (up to S4 permutation) has G polynomial:
-    G = u₁u₂u₃ + (∑_{{i<j}} uᵢuⱼ) + u₄
-  = one degree-(n-1) monomial ∏_{{j≠k}} uⱼ
+    G = u_1u_2u_3 + (sum_{{i<j}} u_iu_j) + u_4
+  = one degree-(n-1) monomial prod_{{j!=k}} u_j
   + all C(n,2) degree-2 pairs
   + one degree-1 monomial u_k  (k fixed, 4 choices by S4 symmetry)
 
   The canonical companion conformal_companion_a_config(n) remains the most
   natural and fully S_n-symmetric choice, but it is NOT connected to BMS_n
-  by any integer finite-index map for n≥4.  The Phase 3 companions break S_n
+  by any integer finite-index map for n>=4.  The Phase 3 companions break S_n
   to S_{{n-1}} (stabilising one variable), suggesting no fully symmetric
   higher-dimensional analogue of the triangle-triple-K pair exists.
 """)

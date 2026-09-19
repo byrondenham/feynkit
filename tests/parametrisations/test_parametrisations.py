@@ -1,4 +1,4 @@
-"""Tests for parametric representations, exercised through the FeynmanIntegral façade."""
+"""Tests for parametric representations, exercised through the FeynmanIntegral facade."""
 
 from collections.abc import Generator
 

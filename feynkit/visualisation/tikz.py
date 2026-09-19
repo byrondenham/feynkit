@@ -172,7 +172,7 @@ class TikzDocument:
         style : str, default "thick"
             Line style (thick, thin, dashed, etc.).
         color : str, default "black"
-            Line color.
+            Line colour.
 
         Returns
         -------
@@ -202,7 +202,7 @@ class TikzDocument:
         x2, y2, z2 : float
             Coordinates of second point.
         color : str, default "gray"
-            Line color.
+            Line colour.
 
         Returns
         -------
@@ -226,9 +226,9 @@ class TikzDocument:
         points : List[Tuple[float, float, float]]
             List of 3D coordinates defining the polygon.
         fill_color : str, default "blue!20"
-            Fill color (with opacity).
+            Fill colour (with opacity).
         edge_color : str, default "black"
-            Edge color. Use "none" for no edge.
+            Edge colour. Use "none" for no edge.
 
         Returns
         -------

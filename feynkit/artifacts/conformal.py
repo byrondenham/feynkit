@@ -6,14 +6,14 @@ Factories
 massless_polygon_a_config(n)
     GKZ A-configuration of the 1-loop massless n-gon (C_n = n-cycle).
     For n=3 this is the triangle; for n=4, the box.
-    Uses n LP variables (one per internal edge) and lives in ℝⁿ.
+    Uses n LP variables (one per internal edge) and lives in R ^n.
 
 bms_simplex_a_config(n)
-    GKZ A-configuration of the Bzowski–McFadden–Skenderis n-point conformal
-    simplex integral (Bzowski–McFadden–Skenderis 2021; Caloro 2024).
+    GKZ A-configuration of the Bzowski-McFadden-Skenderis n-point conformal
+    simplex integral (Bzowski-McFadden-Skenderis 2021; Caloro 2024).
     The G polynomial has 2n monomials in n variables:
-      - n lower monomials ∏_{j≠i} u_j  (degree n−1, "K-function denominators")
-      - n upper monomials u_i² ∏_{j≠i} u_j  (degree n+1, "scaling terms")
+      - n lower monomials prod_{j!=i} u_j  (degree n-1, "K-function denominators")
+      - n upper monomials u_i^2 prod_{j!=i} u_j  (degree n+1, "scaling terms")
     For n=3 this reproduces triple_k_a_config().
 
 complete_graph_a_config(n)
@@ -27,9 +27,9 @@ conformal_companion_a_config(n)
     Candidate companion A-configuration to bms_simplex_a_config(n), designed to
     admit a det=2 finite-index map to BMS_n.  For n=3 this is exactly the
     massless triangle.  The 2n monomials are:
-      - n lower monomials ∏_{j≠i} u_j  (degree n−1, same as BMS_n lower)
+      - n lower monomials prod_{j!=i} u_j  (degree n-1, same as BMS_n lower)
       - n upper monomials u_i            (degree 1, standard basis)
-    G polynomial: ∑ᵢ ∏_{j≠i} uⱼ + ∑ᵢ pᵢ² uᵢ
+    G polynomial: sum_i prod_{j!=i} u_j + sum_i p_i^2 u_i
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ from ..integral import FeynmanIntegral
 _ZERO = sp.Integer(0)
 
 
-# ── massless n-gon (C_n) ──────────────────────────────────────────────────────
+# -- massless n-gon (C_n) ------------------------------------------------------
 
 
 def massless_polygon_a_config(n: int) -> AConfiguration:
@@ -52,21 +52,21 @@ def massless_polygon_a_config(n: int) -> AConfiguration:
     GKZ A-configuration of the massless 1-loop n-gon (n-cycle C_n).
 
     The n-gon has n internal edges forming a cycle and n external legs, one
-    per vertex.  The Lee–Pomeransky G polynomial lives in n variables (one per
+    per vertex.  The Lee-Pomeransky G polynomial lives in n variables (one per
     internal edge).
 
     Parameters
     ----------
     n
-        Number of sides (= external legs).  Must be ≥ 3.
+        Number of sides (= external legs).  Must be >= 3.
 
     Returns
     -------
     AConfiguration
-        Homogenised (n+1) × N A-matrix derived from feynkit's LP pipeline.
+        Homogenised (n+1) x N A-matrix derived from feynkit's LP pipeline.
     """
     if n < 3:
-        raise ValueError(f"n-gon requires n ≥ 3, got {n}")
+        raise ValueError(f"n-gon requires n >= 3, got {n}")
     edges = []
     for i in range(1, n + 1):
         j = (i % n) + 1
@@ -78,7 +78,7 @@ def massless_polygon_a_config(n: int) -> AConfiguration:
     return AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
 
 
-# ── BMS n-point conformal simplex ─────────────────────────────────────────────
+# -- BMS n-point conformal simplex ---------------------------------------------
 
 
 def _bms_g_polynomial(n: int) -> sp.Expr:
@@ -88,32 +88,32 @@ def _bms_g_polynomial(n: int) -> sp.Expr:
 
     Starting from
 
-        I_n = ∫₀^∞ r^{β₀-1} ∏_{i=1}^n K_{νᵢ}(pᵢ r) dr
+        I_n = int_0^inf r^{beta_0-1} prod_{i=1}^n K_{nu_i}(p_i r) dr
 
     with the integral representation
 
-        K_ν(p r) = (p/2)^ν / 2 · ∫₀^∞ u^{-ν-1} exp(-r(u + p²/(4u))) du
+        K_nu(p r) = (p/2)^nu / 2 * int_0^inf u^{-nu-1} exp(-r(u + p^2/(4u))) du
 
-    the product of n K-functions introduces n Schwinger parameters u₁,…,uₙ and
-    after integrating over r yields Γ(β₀) G₀^{-β₀} with
+    the product of n K-functions introduces n Schwinger parameters u_1,...,u_n and
+    after integrating over r yields Gamma(beta_0) G_0^{-beta_0} with
 
-        G₀(u) = Σᵢ uᵢ + Σᵢ pᵢ²/(4uᵢ).
+        G_0(u) = sum_i u_i + sum_i p_i^2/(4u_i).
 
-    Multiplying G₀ by 4 ∏ⱼ uⱼ to clear denominators, and absorbing the
-    overall factor 4 ∏ uⱼ into the Schwinger weight, gives the polynomial
+    Multiplying G_0 by 4 prod_j u_j to clear denominators, and absorbing the
+    overall factor 4 prod u_j into the Schwinger weight, gives the polynomial
 
-        G(u) = Σᵢ pᵢ² ∏_{j≠i} uⱼ  +  4 Σᵢ uᵢ² ∏_{j≠i} uⱼ
+        G(u) = sum_i p_i^2 prod_{j!=i} u_j  +  4 sum_i u_i^2 prod_{j!=i} u_j
 
     where the coefficient 4 is absorbed into the GKZ coefficient of the upper
     monomials when all N=2n coefficients are treated as independent variables.
 
-    Returns G as a SymPy expression in symbols u_1,…,u_n and p_1sq,…,p_nsq.
+    Returns G as a SymPy expression in symbols u_1,...,u_n and p_1sq,...,p_nsq.
     """
     u = [sp.Symbol(f"u_{i + 1}") for i in range(n)]
     p_sq = [sp.Symbol(f"p_{i + 1}sq") for i in range(n)]
     prod_u = sp.Mul(*u)
     lower = sum(p_sq[i] * prod_u / u[i] for i in range(n))
-    upper = 4 * sum(u) * prod_u  # 4 (Σ uᵢ)(∏ uⱼ) = 4 Σ uᵢ² ∏_{j≠i} uⱼ
+    upper = 4 * sum(u) * prod_u  # 4 (sum u_i)(prod u_j) = 4 sum u_i^2 prod_{j!=i} u_j
     return sp.expand(lower + upper)
 
 
@@ -125,49 +125,49 @@ def bms_simplex_a_config(n: int) -> AConfiguration:
     ----------
     The integral is the n-Bessel K-function form of the contact Witten diagram:
 
-        I_n(p₁,…,pₙ) = ∫₀^∞ r^{β₀-1} ∏ᵢ K_{νᵢ}(pᵢ r) dr
+        I_n(p_1,...,p_n) = int_0^inf r^{beta_0-1} prod_i K_{nu_i}(p_i r) dr
 
-    Using K_ν(pr) = (p/2)^ν/2 ∫₀^∞ u^{-ν-1} exp(-r(u + p²/(4u))) du for each
+    Using K_nu(pr) = (p/2)^nu/2 int_0^inf u^{-nu-1} exp(-r(u + p^2/(4u))) du for each
     factor, taking the product over i, and integrating out r gives
 
-        I_n ∝ Γ(β₀) ∫ ∏ᵢ duᵢ uᵢ^{β₀-νᵢ-1} G₀^{-β₀}
+        I_n ~ Gamma(beta_0) int prod_i du_i u_i^{beta_0-nu_i-1} G_0^{-beta_0}
 
-    with G₀ = Σᵢ uᵢ + Σᵢ pᵢ²/(4uᵢ).  Multiplying G₀ by 4 ∏ⱼ uⱼ (which
-    shifts the u-exponents) yields the Lee–Pomeransky-style polynomial
+    with G_0 = sum_i u_i + sum_i p_i^2/(4u_i).  Multiplying G_0 by 4 prod_j u_j (which
+    shifts the u-exponents) yields the Lee-Pomeransky-style polynomial
 
-        G(u) = Σᵢ pᵢ² ∏_{j≠i} uⱼ  +  4 Σᵢ uᵢ² ∏_{j≠i} uⱼ       (*)
+        G(u) = sum_i p_i^2 prod_{j!=i} u_j  +  4 sum_i u_i^2 prod_{j!=i} u_j       (*)
 
-    Promoting all 2n coefficients of (*) to independent GKZ variables aⱼ
-    gives the generalised integral I_A(β, a), whose A-matrix is read off from
+    Promoting all 2n coefficients of (*) to independent GKZ variables a_j
+    gives the generalised integral I_A(beta, a), whose A-matrix is read off from
     the 2n monomial exponent vectors:
 
-        lower : eᵢ  has 0 in position i, 1 elsewhere  (degree n−1)
-        upper : fᵢ  has 2 in position i, 1 elsewhere  (degree n+1)
+        lower : e_i  has 0 in position i, 1 elsewhere  (degree n-1)
+        upper : f_i  has 2 in position i, 1 elsewhere  (degree n+1)
 
     The A-matrix is derived programmatically from the monomial support of G
     (see ``_bms_g_polynomial``).
 
     Physical context (BMS 2021, Caloro 2024)
     -----------------------------------------
-    For equal conformal dimensions Δᵢ = Δ, the n-point contact Witten diagram
-    reduces to I_n after applying the star–mesh duality of Caloro (2024).
-    The holonomic rank vol₀ = 2^{n-1} counts the independent A-hypergeometric
-    series at generic β.  The Smith invariants [1,…,1,2] reflect that the
-    monomial support spans an index-2 sublattice of ℤⁿ (the even-parity
+    For equal conformal dimensions Delta_i = Delta, the n-point contact Witten diagram
+    reduces to I_n after applying the star-mesh duality of Caloro (2024).
+    The holonomic rank vol_0 = 2^{n-1} counts the independent A-hypergeometric
+    series at generic beta.  The Smith invariants [1,...,1,2] reflect that the
+    monomial support spans an index-2 sublattice of Z ^n (the even-parity
     sublattice).  For n=3 this recovers the triple-K A-configuration.
 
     Parameters
     ----------
     n
-        Number of external points.  Must be ≥ 2.
+        Number of external points.  Must be >= 2.
 
     Returns
     -------
     AConfiguration
-        Homogenised (n+1) × 2n A-matrix derived from the G polynomial (*).
+        Homogenised (n+1) x 2n A-matrix derived from the G polynomial (*).
     """
     if n < 2:
-        raise ValueError(f"BMS simplex requires n ≥ 2, got {n}")
+        raise ValueError(f"BMS simplex requires n >= 2, got {n}")
 
     G = _bms_g_polynomial(n)
     u = [sp.Symbol(f"u_{i + 1}") for i in range(n)]
@@ -183,7 +183,7 @@ def bms_simplex_a_config(n: int) -> AConfiguration:
     return AConfiguration(A, is_homogenized=True)
 
 
-# ── K_n complete-graph LP ─────────────────────────────────────────────────────
+# -- K_n complete-graph LP -----------------------------------------------------
 
 
 def complete_graph_a_config(n: int) -> AConfiguration:
@@ -192,19 +192,19 @@ def complete_graph_a_config(n: int) -> AConfiguration:
     vertex.
 
     K_n has C(n,2) = n(n-1)/2 internal edges and n external legs.  The
-    Lee–Pomeransky G polynomial lives in C(n,2) variables (one per internal
+    Lee-Pomeransky G polynomial lives in C(n,2) variables (one per internal
     edge) and the A-matrix has ambient dimension C(n,2).
 
     For n=3, K_3 = C_3 = triangle, so this coincides with
     ``massless_polygon_a_config(3)``.
     For n=4, K_4 is a 3-loop tetrahedron graph (C(4,2)=6 LP variables,
-    ambient dimension 6) — much larger than the n=4 BMS simplex (ambient dim
+    ambient dimension 6), much larger than the n=4 BMS simplex (ambient dim
     4).
 
     Parameters
     ----------
     n
-        Number of vertices.  Must be ≥ 3.
+        Number of vertices.  Must be >= 3.
 
     Returns
     -------
@@ -212,7 +212,7 @@ def complete_graph_a_config(n: int) -> AConfiguration:
         Homogenised A-matrix derived from feynkit's LP pipeline.
     """
     if n < 3:
-        raise ValueError(f"K_n requires n ≥ 3, got {n}")
+        raise ValueError(f"K_n requires n >= 3, got {n}")
     edges = []
     idx = 1
     for i in range(1, n + 1):
@@ -227,7 +227,7 @@ def complete_graph_a_config(n: int) -> AConfiguration:
     return AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
 
 
-# ── conformal companion ───────────────────────────────────────────────────────
+# -- conformal companion -------------------------------------------------------
 
 
 def conformal_companion_a_config(n: int) -> AConfiguration:
@@ -237,10 +237,10 @@ def conformal_companion_a_config(n: int) -> AConfiguration:
     For n=3 this coincides with the massless triangle (massless_polygon_a_config(3)).
 
     The 2n monomials are:
-      lower : ∏_{j≠i} uⱼ  (degree n−1, same as BMS_n lower / U(C_n)),  i=1,...,n
-      upper : uᵢ            (degree 1, standard basis),                   i=1,...,n
+      lower : prod_{j!=i} u_j  (degree n-1, same as BMS_n lower / U(C_n)),  i=1,...,n
+      upper : u_i            (degree 1, standard basis),                   i=1,...,n
 
-    G polynomial: G(u) = ∑ᵢ ∏_{j≠i} uⱼ  +  ∑ᵢ pᵢ² uᵢ
+    G polynomial: G(u) = sum_i prod_{j!=i} u_j  +  sum_i p_i^2 u_i
 
     This is the natural higher-dimensional analogue of the triangle A-configuration
     when searching for companions related to BMS_n by a finite-index (det=2) affine map.
@@ -248,21 +248,21 @@ def conformal_companion_a_config(n: int) -> AConfiguration:
     Parameters
     ----------
     n
-        Number of variables / external points.  Must be ≥ 2.
+        Number of variables / external points.  Must be >= 2.
 
     Returns
     -------
     AConfiguration
-        Homogenised (n+1) × 2n A-matrix.
+        Homogenised (n+1) x 2n A-matrix.
     """
     if n < 3:
-        raise ValueError(f"conformal companion requires n ≥ 3, got {n}")
+        raise ValueError(f"conformal companion requires n >= 3, got {n}")
     monomials = []
     for k in range(n):
-        # lower: all-ones except position k → ∏_{j≠k} u_j
+        # lower: all-ones except position k -> prod_{j!=k} u_j
         monomials.append(tuple(0 if j == k else 1 for j in range(n)))
     for k in range(n):
-        # upper: standard basis vector ê_k → u_k
+        # upper: standard basis vector ehat_k -> u_k
         monomials.append(tuple(1 if j == k else 0 for j in range(n)))
     hom_row = [1] * (2 * n)
     coord_rows = [[m[r] for m in monomials] for r in range(n)]

@@ -211,7 +211,7 @@ class TestCNickelTadpole:
         assert Graph.from_cnickel("12e|2e|e|:sss").cnickel() == "12e|2e|e|:sss"
 
     def test_structured_color_string_with_external_legs(self) -> None:
-        # 'e11|e|:zzz|z|' — colors mirror topology structure including 'e' positions
+        # 'e11|e|:zzz|z|', colours mirror topology structure including 'e' positions
         g = Graph.from_cnickel("e11|e|:zzz|z|")
         assert len(g.get_internal_edges()) == 2
         assert g.external_legs == 2

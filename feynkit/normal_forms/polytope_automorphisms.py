@@ -2,21 +2,21 @@
 Unimodular automorphism group of a convex lattice polytope.
 
 The automorphism group Aut(P) consists of all unimodular affine maps
-(U, t) with U ∈ GL_n(ℤ), |det U| = 1, t ∈ ℤⁿ, that send P to itself.
+(U, t) with U in GL_n(Z), |det U| = 1, t in Z ^n, that send P to itself.
 The identity (I, 0) is always a member; for a generic polytope it is the
 only member.  Symmetric integrals (triangles, bananas, boxes) have larger
 groups that are directly visible in their GKZ/IBP structure.
 
-The algorithm extends the Liu–Cai basis-search used for equivalence testing
+The algorithm extends the Liu-Cai basis-search used for equivalence testing
 (_direct_basis_search in affine_equivalence.py): instead of returning on the
 first valid witness, every valid (U, t) is collected and deduplicated via the
 induced vertex permutation.
 
 Basis selection is done with a label-diversity strategy: vertices from smaller
-Liu–Cai label classes are chosen as basis vectors first.  For highly-symmetric
-polytopes (e.g. K₄ Newton polytope: 31 hull vertices with label classes of
+Liu-Cai label classes are chosen as basis vectors first.  For highly-symmetric
+polytopes (e.g. K_4 Newton polytope: 31 hull vertices with label classes of
 sizes 24, 4, 3) this reduces the number of candidate basis combinations per
-anchor from C(30,6) ≈ 594 000 to a few hundred, giving a ~700× speedup over
+anchor from C(30,6) ~ 594 000 to a few hundred, giving a ~700 x  speedup over
 the naive greedy-index basis choice.
 
 Public API
@@ -53,9 +53,9 @@ if TYPE_CHECKING:
     from ..integral import FeynmanIntegral
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Public: polytope automorphism group
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
@@ -65,7 +65,7 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
     Parameters
     ----------
     points
-        Integer point configuration (n × d array, rows = points). Non-vertex
+        Integer point configuration (n x d array, rows = points). Non-vertex
         points are filtered out before the computation.
 
     Returns
@@ -76,10 +76,10 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
 
     Notes
     -----
-    The algorithm is the Liu–Cai basis-search: for each candidate image of a
+    The algorithm is the Liu-Cai basis-search: for each candidate image of a
     fixed anchor vertex, enumerate all possible images of a fixed basis and
     verify that the implied affine map sends the full polytope to itself.  The
-    basis is chosen to maximise Liu–Cai label diversity (rarest-label vertices
+    basis is chosen to maximise Liu-Cai label diversity (rarest-label vertices
     first), which for polytopes with a few large label orbits dramatically
     reduces the number of candidate basis combinations.
     """
@@ -152,7 +152,7 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
 
         others = [j for j in range(n_vert) if j != anchor_idx]
 
-        # Group others by label — build once per anchor.
+        # Group others by label, build once per anchor.
         label_to_others: dict[int, list[int]] = defaultdict(list)
         for j in others:
             label_to_others[labels[j]].append(j)
@@ -176,7 +176,7 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
                 if not np.allclose(U_np, U_int.astype(float), atol=1e-6):
                     continue
 
-                # Check det ±1 using the already-computed float det of W_cand.
+                # Check det +/-1 using the already-computed float det of W_cand.
                 if abs(abs(np.linalg.det(W_b_np)) / abs_det_W_a - 1.0) > 0.05:
                     continue
 
@@ -223,15 +223,15 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
     )
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Public: graph automorphisms
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def compute_graph_automorphisms(graph: Graph) -> list[list[int]]:
     """
     All vertex permutations of the Feynman graph that preserve topology and
-    mass coloring.
+    mass colouring.
 
     Each permutation is a list ``sigma`` of length ``V`` (internal vertices)
     where ``sigma[i-1]`` is the new label for internal vertex ``i``. Only
@@ -278,9 +278,9 @@ def compute_graph_automorphisms(graph: Graph) -> list[list[int]]:
     return found
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Public: coefficient-preserving automorphisms
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def coefficient_preserving_indices(
@@ -295,7 +295,7 @@ def coefficient_preserving_indices(
     applied to the support of G, each monomial maps to another monomial with
     the same coefficient.  This is the condition relevant for functional
     equations of the GKZ system: the integral satisfies a symmetry relation
-    I(z) = I(σ·z) exactly when σ is coefficient-preserving.
+    I(z) = I(sigma*z) exactly when sigma is coefficient-preserving.
 
     Parameters
     ----------
@@ -333,9 +333,9 @@ def coefficient_preserving_indices(
     return result
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Helpers (private)
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def _select_basis_indices(deltas: np.ndarray, n_dim: int) -> list[int] | None:
@@ -359,13 +359,13 @@ def _select_basis_indices_by_label(
     label_count: Counter,
 ) -> list[int] | None:
     """
-    Greedy basis selection ordered by Liu–Cai label class size (rarest first).
+    Greedy basis selection ordered by Liu-Cai label class size (rarest first).
 
     Choosing vertices from smaller label classes as basis vectors minimises
     the number of eligible basis combinations during the anchor loop: if the
     basis label multiset uses only small-class labels, the per-anchor
-    combination count is C(s₁, k₁) × C(s₂, k₂) × … rather than C(N-1, n).
-    For K₄ this reduces ~106 000 combos/anchor to ~4, giving ~700× speedup.
+    combination count is C(s_1, k_1) x C(s_2, k_2) x ... rather than C(N-1, n).
+    For K_4 this reduces ~106 000 combos/anchor to ~4, giving ~700 x  speedup.
     """
     sorted_indices = sorted(
         range(1, deltas.shape[0]),

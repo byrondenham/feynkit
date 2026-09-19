@@ -16,11 +16,11 @@ from .spanning_trees import separating_2forest_poly, spanning_tree_poly
 
 def _reverse_monomials(poly_expr: sp.Expr, variables: list[sp.Symbol]) -> sp.Expr:
     """
-    Compute ``(∏ xᵢ) · P(1/x₁, …, 1/xₙ)`` without rational arithmetic.
+    Compute ``(prod x_i) * P(1/x_1, ..., 1/x_n)`` without rational arithmetic.
 
     Every monomial in a spanning-tree or spanning-2-forest polynomial is
     square-free (each variable appears with exponent 0 or 1), so the map
-    ``eᵢ → 1 − eᵢ`` sends valid exponent vectors to valid exponent vectors.
+    ``e_i -> 1 - e_i`` sends valid exponent vectors to valid exponent vectors.
     Working directly on the :class:`~sympy.Poly` monomial list avoids
     creating rational intermediate expressions.
     """
@@ -61,9 +61,9 @@ def _calculate_symanzik_polynomials(
     Returns
     -------
     U : sp.Expr
-        First Symanzik polynomial U(a_1, …, a_n).
+        First Symanzik polynomial U(a_1, ..., a_n).
     F : sp.Expr
-        Second Symanzik polynomial F(a_1, …, a_n).
+        Second Symanzik polynomial F(a_1, ..., a_n).
 
     Raises
     ------
@@ -74,27 +74,27 @@ def _calculate_symanzik_polynomials(
     -----
     **Algorithm:**
 
-    Let C = sum over spanning trees T of ∏_{e∈T} aₑ  (spanning-tree polynomial
+    Let C = sum over spanning trees T of prod_{e in T} a_e  (spanning-tree polynomial
     of the *internal* graph).  Then:
 
-        U = (∏ aᵢ) · C(1/a₁, …, 1/aₙ)
+        U = (prod a_i) * C(1/a_1, ..., 1/a_n)
 
     which is computed without rational arithmetic via :func:`_reverse_monomials`.
 
     Similarly, for each pair of external legs (j, k) attached to distinct
-    internal vertices vⱼ, vₖ, let Q_{jk} = sum over spanning 2-forests that
-    separate vⱼ from vₖ of ∏_{e in forest} aₑ.  Then:
+    internal vertices v_j, v_k, let Q_{jk} = sum over spanning 2-forests that
+    separate v_j from v_k of prod_{e in forest} a_e.  Then:
 
-        F₀ = Σ_{j<k} (pⱼ·pₖ / μ²) · (∏ aᵢ) · Q_{jk}(1/a)
+        F_0 = sum_{j<k} (p_j*p_k / mu^2) * (prod a_i) * Q_{jk}(1/a)
 
-    and F = F₀ + U · Σᵢ mᵢ²/μ² · aᵢ.
+    and F = F_0 + U * sum_i m_i^2/mu^2 * a_i.
 
     This completely avoids a symbolic Laplacian-matrix determinant.
 
     References
     ----------
     .. [1] Weinzierl, S. (2022). "Feynman Integrals." Springer.
-    .. [2] Symanzik, K. (1971). Commun. Math. Phys. 18, 227–246.
+    .. [2] Symanzik, K. (1971). Commun. Math. Phys. 18, 227-246.
     """
     internal_edges = graph.get_internal_edges()
     n_int = graph.internal_vertices
@@ -115,8 +115,8 @@ def _calculate_symanzik_polynomials(
         )
     u_polynomial = _reverse_monomials(C, params)
 
-    # === F₀: kinematic contribution from spanning 2-forests ===
-    # Map external leg index j (1-based) → 0-indexed internal vertex
+    # === F_0: kinematic contribution from spanning 2-forests ===
+    # Map external leg index j (1-based) -> 0-indexed internal vertex
     leg_to_vertex: dict[int, int] = {}
     for ext_edge in graph.get_external_edges():
         leg_number = ext_edge.v2 - n_int
@@ -131,7 +131,7 @@ def _calculate_symanzik_polynomials(
             vj = leg_to_vertex[j]
             vk = leg_to_vertex[k]
             if vj == vk:
-                continue  # same internal vertex → no 2-forest can separate them
+                continue  # same internal vertex -> no 2-forest can separate them
 
             p_jk = get_momentum_product(momentum_products, j, k)
             if p_jk == 0:

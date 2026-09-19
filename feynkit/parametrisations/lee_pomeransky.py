@@ -93,11 +93,11 @@ class LeePomeranskyParametrisation(Parametrisation):
         Notes
         -----
         The Lee-Pomeransky representation is:
-            I = prefactor × int_0^infty [prod_i du_i u_i^(nu_i-1)] G(u)^(-D/2)
+            I = prefactor x int_0^infty [prod_i du_i u_i^(nu_i-1)] G(u)^(-D/2)
 
         where:
         - G(u) = U(u) + F(u) is the combined polynomial
-        - prefactor = exp(L·epsilon·gamma_E) · Gamma(D/2) / [Gamma((L+1)D/2 - sum_i nu_i) · prod_i Gamma(nu_i)]
+        - prefactor = exp(L*epsilon*gamma_E) * Gamma(D/2) / [Gamma((L+1)D/2 - sum_i nu_i) * prod_i Gamma(nu_i)]
         - measure = prod_i[du_i u_i^(nu_i-1)]
         - integrand = G(u)^(-D/2)
         - Each u_i in [0, infty)
@@ -129,7 +129,7 @@ class LeePomeranskyParametrisation(Parametrisation):
             loop_order = sp.Integer(self.loop_count)
 
             # === Compute prefactor ===
-            # prefactor = exp(L·epsilon·gamma_E) · Gamma(D/2) / [Gamma((L+1)D/2 - sum_i nu_i) · prod_i Gamma(nu_i)]
+            # prefactor = exp(L*epsilon*gamma_E) * Gamma(D/2) / [Gamma((L+1)D/2 - sum_i nu_i) * prod_i Gamma(nu_i)]
             gamma_numerator = sp.gamma(self.dimension / 2)
             gamma_denominator_1 = sp.gamma((loop_order + 1) * self.dimension / 2 - nu_sum)
             gamma_denominator_2 = sp.prod(

@@ -3,11 +3,11 @@ Equivalence tests for convex (lattice) polytopes.
 
 This module exposes two complementary verbs:
 
-- :func:`is_unimodular_equivalent` — implements the Liu–Cai algorithm
+- :func:`is_unimodular_equivalent`, implements the Liu-Cai algorithm
   (arXiv:2506.23846). Decides whether two integer point configurations span
   unimodularly-isomorphic lattice polytopes, and returns a witness
-  ``U ∈ GL_n(ℤ)`` and an integer translation when one exists.
-- :func:`is_affinely_equivalent` — broader equivalence over the rationals.
+  ``U in GL_n(Z)`` and an integer translation when one exists.
+- :func:`is_affinely_equivalent`, broader equivalence over the rationals.
   Uses brute-force search over affine bases.
 
 Both return a :class:`feynkit.PolytopeEquivalence` carrying the verdict, a
@@ -26,9 +26,9 @@ import sympy as sp
 from ..types import PolytopeEquivalence
 from . import _invariants
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Public API: Liu–Cai unimodular equivalence
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# Public API: Liu-Cai unimodular equivalence
+# ------------------------------------------------------------------------------
 
 
 def is_unimodular_equivalent(
@@ -37,15 +37,15 @@ def is_unimodular_equivalent(
 ) -> PolytopeEquivalence:
     """
     Decide whether two integer point configurations span unimodularly-
-    isomorphic convex lattice polytopes (Liu–Cai, arXiv:2506.23846).
+    isomorphic convex lattice polytopes (Liu-Cai, arXiv:2506.23846).
 
-    Two lattice polytopes ``P, P' ⊂ ℤ^n`` are *unimodularly isomorphic* if
-    there exists ``U ∈ GL_n(ℤ)`` and ``Z ∈ ℤ^n`` such that ``P' = UP + Z``.
+    Two lattice polytopes ``P, P' subset of Z^n`` are *unimodularly isomorphic* if
+    there exists ``U in GL_n(Z)`` and ``Z in Z^n`` such that ``P' = UP + Z``.
 
     Parameters
     ----------
     points_a, points_b
-        Point configurations as ``d × n`` integer arrays (rows = lattice
+        Point configurations as ``d x n`` integer arrays (rows = lattice
         points). Accepts numpy arrays, sympy matrices, or any iterable of
         integer-coordinate tuples. Non-vertex points (interior or on a
         face) are filtered out automatically by computing the convex hull.
@@ -62,13 +62,13 @@ def is_unimodular_equivalent(
 
     1. Restrict each point set to its convex-hull vertices.
     2. Build the labelled vertex/edge graph $\\mathcal{GW}(P)$ with
-       node label ``lab(v) = det(A_v)`` (Liu–Cai, Definition 5.2) and edge
+       node label ``lab(v) = det(A_v)`` (Liu-Cai, Definition 5.2) and edge
        weight ``lab(u) + lab(v)``.
     3. Compute one MST of $\\mathcal{GW}(P)$ and all MSTs of
        $\\mathcal{GW}(P')$.
-    4. For each label-preserving tree isomorphism ``φ`` and each
-       ``χ ∈ Aut_lab(T)``, build the candidate vertex map ``φ ∘ χ`` and try
-       to solve for ``U ∈ GL_n(ℤ)`` and the integer translation ``Z``.
+    4. For each label-preserving tree isomorphism ``phi`` and each
+       ``chi in Aut_lab(T)``, build the candidate vertex map ``phi composed with chi`` and try
+       to solve for ``U in GL_n(Z)`` and the integer translation ``Z``.
 
     See Also
     --------
@@ -171,12 +171,12 @@ def _label_preserving_orderings(
 ) -> Iterator[tuple[int, ...]]:
     """
     Yield all column orderings of ``combo`` where the k-th entry has the same
-    Liu–Cai label as ``basis_label_seq[k]``.
+    Liu-Cai label as ``basis_label_seq[k]``.
 
-    Liu–Cai labels are unimodular invariants, so any valid witness map must
+    Liu-Cai labels are unimodular invariants, so any valid witness map must
     preserve them.  Restricting to label-preserving orderings reduces the
-    search space from ``n_dim!`` to ``∏_lab (count_lab)!`` where ``count_lab`` is
-    the multiplicity of label ``lab`` in the basis — typically a small constant.
+    search space from ``n_dim!`` to ``prod_lab (count_lab)!`` where ``count_lab`` is
+    the multiplicity of label ``lab`` in the basis, typically a small constant.
     """
     from collections import defaultdict
     from itertools import product as _prod
@@ -228,18 +228,18 @@ def _direct_basis_search(
     """
     Enumerate candidate (anchor, ordered-basis) pairs in V_b and solve for U.
 
-    For each anchor vertex in V_b whose Liu–Cai label matches V_a[0], try all
+    For each anchor vertex in V_b whose Liu-Cai label matches V_a[0], try all
     C(n_vert-1, n_dim) unordered n-subsets of the remaining vertices as the
     basis image, filtered by:
 
       1. Label multiset: sorted labels of the subset must equal sorted labels
-         of the basis_indices vertices in V_a (Liu–Cai labels are unimodular
+         of the basis_indices vertices in V_a (Liu-Cai labels are unimodular
          invariants, so valid maps preserve them).
       2. |det| = 1: computed once per unordered subset (column permutations
          only flip the sign, so all orderings share the same |det|).
       3. Label-preserving orderings only: instead of all n_dim! column
          permutations, only those where the k-th column label matches the
-         required label for that basis position — typically ∏_lab (count_lab)!
+         required label for that basis position, typically prod_lab (count_lab)!
          orderings rather than n_dim!.
 
     Candidates passing all three filters are verified with numpy integer
@@ -267,7 +267,7 @@ def _direct_basis_search(
         v_0_image = V_b[anchor_idx]
         deltas_b = (V_b - v_0_image).astype(np.int64)
 
-        # Fast delta→index lookup (hull vertices are distinct, so no collisions).
+        # Fast delta->index lookup (hull vertices are distinct, so no collisions).
         delta_to_b_idx = {tuple(int(x) for x in row): i for i, row in enumerate(deltas_b.tolist())}
 
         others = [j for j in range(n_vert) if j != anchor_idx]
@@ -277,9 +277,9 @@ def _direct_basis_search(
             if sorted(labels_b_node[j] for j in combo) != basis_label_multiset:
                 continue
 
-            # Filter 2: |det(W_b)| must equal |det(W_a)| for U = W_b·W_a⁻¹ to
-            # have det ±1.  The original filter checked |det| ≈ 1 which is only
-            # correct when W_a itself has det ±1; this is the general form.
+            # Filter 2: |det(W_b)| must equal |det(W_a)| for U = W_b*W_a^-1 to
+            # have det +/-1.  The original filter checked |det| ~ 1 which is only
+            # correct when W_a itself has det +/-1; this is the general form.
             W_cand = deltas_b[list(combo)].T.astype(float)
             if abs(abs(np.linalg.det(W_cand)) - abs_det_W_a) > 0.5:
                 continue
@@ -293,7 +293,7 @@ def _direct_basis_search(
                     continue
 
                 # Integer verification of all points.
-                mapped = U_int @ deltas_a.T  # n_dim × n_vert
+                mapped = U_int @ deltas_a.T  # n_dim x n_vert
                 vertex_map: dict[int, int] = {}
                 valid = True
                 for i in range(n_vert):
@@ -341,7 +341,7 @@ def _verify_unimodular_witness(
     V_b: np.ndarray,
     vertex_map: dict[int, int],
 ) -> bool:
-    """Check ``U·v + Z == V_b[vertex_map[i]]`` for every vertex ``v = V_a[i]``."""
+    """Check ``U*v + Z == V_b[vertex_map[i]]`` for every vertex ``v = V_a[i]``."""
     for i in range(V_a.shape[0]):
         v_a_col = sp.Matrix(V_a[i].tolist())
         v_b_target = sp.Matrix(V_b[vertex_map[i]].tolist())
@@ -363,9 +363,9 @@ def _lift_correspondence(
     return [int(hull_idx_b[j]) for j in hull_correspondence]
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Public API: affine equivalence (broader, rational)
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def is_affinely_equivalent(
@@ -374,18 +374,18 @@ def is_affinely_equivalent(
 ) -> PolytopeEquivalence:
     """
     Decide whether two **Newton polytopes** are affinely equivalent over the
-    rationals: i.e. there is an affine map ``v ↦ M·v + t`` with ``M ∈ GL_n(ℚ)``
+    rationals: i.e. there is an affine map ``v -> M*v + t`` with ``M in GL_n(Q)``
     taking one *vertex set* onto the other.
 
     Both inputs are first projected to their convex-hull vertices before the
     search.  Interior lattice points and non-vertex boundary points are
-    discarded — use :func:`is_point_config_equivalent` if you need the
+    discarded, use :func:`is_point_config_equivalent` if you need the
     stricter all-columns GKZ check.
 
     Parameters
     ----------
     points_a, points_b
-        Point configurations as ``n_pts × dim`` arrays (rows = points).
+        Point configurations as ``n_pts x dim`` arrays (rows = points).
         Accepts numpy arrays, sympy matrices, or nested lists.
 
     Returns
@@ -419,25 +419,25 @@ def is_point_config_equivalent(
     points_b: object,
 ) -> PolytopeEquivalence:
     """
-    Decide whether two **full point configurations** are affinely equivalent:
-    i.e. there is an affine map ``v ↦ M·v + t`` taking every column of A_1
-    (as a multiset) to a column of A_2.
+     Decide whether two **full point configurations** are affinely equivalent:
+     i.e. there is an affine map ``v -> M*v + t`` taking every column of A_1
+     (as a multiset) to a column of A_2.
 
-    Unlike :func:`is_affinely_equivalent`, this function does **not** filter
-    to convex-hull vertices.  It is the correct check for GKZ system
-    equivalence, where the full monomial support — not just the Newton polytope
-    — determines the hypergeometric system.
+     Unlike :func:`is_affinely_equivalent`, this function does **not** filter
+     to convex-hull vertices.  It is the correct check for GKZ system
+     equivalence, where the full monomial support, not just the Newton polytope
+    , determines the hypergeometric system.
 
-    Parameters
-    ----------
-    points_a, points_b
-        All affine points (rows = points) of the two A-matrices, with the
-        homogenisation row stripped.  Size of the point sets must match.
-    Returns
-    -------
-    PolytopeEquivalence
-        ``relation="affine_point_config"``.  On success: ``witness_map=M``,
-        ``translation=t``, ``determinant=det(M)``.  On failure: all ``None``.
+     Parameters
+     ----------
+     points_a, points_b
+         All affine points (rows = points) of the two A-matrices, with the
+         homogenisation row stripped.  Size of the point sets must match.
+     Returns
+     -------
+     PolytopeEquivalence
+         ``relation="affine_point_config"``.  On success: ``witness_map=M``,
+         ``translation=t``, ``determinant=det(M)``.  On failure: all ``None``.
     """
     pts_a = _coerce_sympy_points(points_a)
     pts_b = _coerce_sympy_points(points_b)
@@ -454,10 +454,10 @@ def is_point_config_equivalent(
     )
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Internal: brute-force sympy backend (preserved from the original
 # implementation; the algorithm is correct and was hand-tuned).
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def _coerce_sympy_points(data: object) -> sp.Matrix:
@@ -533,11 +533,11 @@ def _find_affine_witness(
     points_b: sp.Matrix,
 ) -> tuple[sp.Matrix, sp.Matrix, sp.Expr] | None:
     """
-    Return ``(M, t, det(M))`` of the first affine map ``v ↦ M·v + t`` sending
+    Return ``(M, t, det(M))`` of the first affine map ``v -> M*v + t`` sending
     the multiset ``points_a`` onto ``points_b``, or ``None`` if none exists.
 
-    ``M`` is the linear part (dim × dim), ``t`` is the translation column
-    vector (dim × 1).  Both may be rational.
+    ``M`` is the linear part (dim x dim), ``t`` is the translation column
+    vector (dim x 1).  Both may be rational.
     """
     if points_a.shape != points_b.shape:
         return None
@@ -573,7 +573,7 @@ def _find_affine_witness(
                     continue
                 mapped = _apply_affine_map(points_a, affine_map)
                 if _same_point_multiset(mapped, points_b):
-                    # affine_map is (dim+1)×dim: rows 0..dim-1 form M^T,
+                    # affine_map is (dim+1) x dim: rows 0..dim-1 form M^T,
                     # row dim is the translation t^T.
                     M = affine_map[:dim, :].T
                     t = affine_map[dim, :].T

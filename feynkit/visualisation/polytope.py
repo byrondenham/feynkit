@@ -47,7 +47,7 @@ def visualise_newton_polytope(
     show_labels : bool, default True
         Whether to show coordinate labels at vertices.
     show_fill : bool, default False
-        Whether to fill one face with color (set to False to see through).
+        Whether to fill one face with colour (set to False to see through).
     camera_direction : Optional[np.ndarray], default None
         Camera viewing direction for determining hidden edges.
         If None, uses [0.5, 0.5, 1] for a nice 3D perspective.
@@ -262,7 +262,7 @@ def save_polytope_tikz(
     show_labels : bool, default True
         Whether to show vertex labels.
     show_fill : bool, default False
-        Whether to fill a face with color.
+        Whether to fill a face with colour.
 
     Returns
     -------

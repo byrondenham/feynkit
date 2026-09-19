@@ -2,7 +2,7 @@
 Arbitrary GKZ A-configurations: equivalence, finite-index maps, intrinsic models.
 
 An A-configuration is a matrix whose columns are (homogenised) exponent vectors
-of a polynomial — the fundamental input to a GKZ hypergeometric system.  This
+of a polynomial, the fundamental input to a GKZ hypergeometric system.  This
 module works with *arbitrary* A-matrices, not only those derived from Feynman
 graphs via feynkit's pipeline.
 
@@ -20,7 +20,7 @@ IntrinsicModel
     Intrinsic lattice model produced by :func:`intrinsic_lattice_model`.
 
 finite_index_map(source, target) -> FiniteIndexResult
-    Search for an integer affine map x → Mx + t (no det ±1 constraint)
+    Search for an integer affine map x -> Mx + t (no det +/-1 constraint)
     taking every source point onto a target point.
 
 intrinsic_lattice_model(points) -> IntrinsicModel
@@ -56,9 +56,9 @@ from .normal_forms.polytope_automorphisms import (
 )
 from .types import PolytopeAutomorphisms, PolytopeEquivalence
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Value types
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -71,7 +71,7 @@ class FiniteIndexResult:
     found
         Whether a valid integer affine map was found.
     witness_matrix
-        The integer matrix M such that M·x + t maps source onto target.
+        The integer matrix M such that M*x + t maps source onto target.
     translation
         The integer translation vector t (column vector as ImmutableMatrix).
     determinant
@@ -97,7 +97,7 @@ class IntrinsicModel:
     Intrinsic lattice representation of a point configuration.
 
     Express the point set in the basis of the lattice it spans, removing the
-    ambient ℤⁿ embedding.
+    ambient Z ^n embedding.
 
     Attributes
     ----------
@@ -125,28 +125,28 @@ class SymmetryPair:
     One integer affine self-map of a GKZ A-configuration.
 
     A symmetry pair (M, t, P) satisfies: for every affine point a_j in the
-    configuration, M·a_j + t = a_{P(j)}, where P is a bijection on column
-    indices.  Equivalently, in homogenized form T·A = A·Π_P where
+    configuration, M*a_j + t = a_{P(j)}, where P is a bijection on column
+    indices.  Equivalently, in homogenised form T*A = A*Pi_P where
 
         T = [[1,  0^T ],
              [t,  M   ]]
 
-    is an invertible (n+1)×(n+1) integer matrix and Π_P is the column
-    permutation matrix for P (Π_P[P(j), j] = 1).
+    is an invertible (n+1) x (n+1) integer matrix and Pi_P is the column
+    permutation matrix for P (Pi_P[P(j), j] = 1).
 
     For Feynman integrals each symmetry pair gives the transformation identity
     (FMS 2019; de la Cruz 2024):
 
-        I_A(β, z) = I_A(T β, z_P)
+        I_A(beta, z) = I_A(T beta, z_P)
 
-    where z_P = (z_{P(0)}, …, z_{P(N-1)}) and the prefactor R(β) = 1.
+    where z_P = (z_{P(0)}, ..., z_{P(N-1)}) and the prefactor R(beta) = 1.
 
     Attributes
     ----------
     linear_map
-        M: n×n integer matrix (the linear part of the affine map).
+        M: n x n integer matrix (the linear part of the affine map).
     translation
-        t: n×1 integer column vector.
+        t: n x 1 integer column vector.
     column_permutation
         P as a length-N tuple; P[j] = index that column j maps to.
     determinant
@@ -163,7 +163,7 @@ class SymmetryPair:
 
     @property
     def homogenized_map(self) -> sp.ImmutableMatrix:
-        """T = [[1, 0^T], [t, M]]: the (n+1)×(n+1) homogenized matrix."""
+        """T = [[1, 0^T], [t, M]]: the (n+1) x (n+1) homogenised matrix."""
         n = self.linear_map.rows
         rows: list[list] = [[sp.Integer(1)] + [sp.Integer(0)] * n]
         M_list = self.linear_map.tolist()
@@ -173,27 +173,27 @@ class SymmetryPair:
 
     def transform_beta(self, beta: list[sp.Expr] | sp.Matrix) -> list[sp.Expr]:
         """
-        Apply T to the GKZ parameter vector β.
+        Apply T to the GKZ parameter vector beta.
 
-        Returns T β as a list, giving the parameter vector of the
-        transformed integral I_A(T β, z_P).
+        Returns T beta as a list, giving the parameter vector of the
+        transformed integral I_A(T beta, z_P).
         """
         T = sp.Matrix(self.homogenized_map.tolist())
         b = beta if isinstance(beta, sp.Matrix) else sp.Matrix(list(beta))
         return list(T * b)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Smith normal form helpers
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def _compute_smith_invariants(diffs: np.ndarray) -> list[int]:
     """
-    Diagonal entries (all of them, ≥ 1) of the Smith normal form of ``diffs``.
+    Diagonal entries (all of them, >= 1) of the Smith normal form of ``diffs``.
 
     ``diffs`` is the matrix of differences from a base point (integer,
-    shape n_pts × n_dim).  Only the non-zero diagonal entries are returned;
+    shape n_pts x n_dim).  Only the non-zero diagonal entries are returned;
     they classify the sublattice generated by the differences.
     """
     M = sp.Matrix(diffs.tolist())
@@ -202,9 +202,9 @@ def _compute_smith_invariants(diffs: np.ndarray) -> list[int]:
     return [d for d in diag if d != 0]
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # AConfiguration
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class AConfiguration:
@@ -248,23 +248,23 @@ class AConfiguration:
 
         self._is_homogenized = bool(is_homogenized)
 
-    # ── raw access ─────────────────────────────────────────────────────────────
+    # -- raw access -------------------------------------------------------------
 
     @property
     def matrix(self) -> sp.ImmutableMatrix:
-        """The full A-matrix as a SymPy ImmutableMatrix (rows × columns)."""
+        """The full A-matrix as a SymPy ImmutableMatrix (rows x columns)."""
         return sp.ImmutableMatrix(self._matrix.tolist())
 
     @property
     def is_homogenized(self) -> bool:
         return self._is_homogenized
 
-    # ── affine points (rows = points, columns = coordinates) ──────────────────
+    # -- affine points (rows = points, columns = coordinates) ------------------
 
     @property
     def affine_points(self) -> np.ndarray:
         """
-        Affine (un-homogenised) points as an n_pts × n_dim integer array.
+        Affine (un-homogenised) points as an n_pts x n_dim integer array.
 
         If the matrix is homogenised, the first row (all-ones) is stripped.
         The result is transposed so that rows are points.
@@ -284,7 +284,7 @@ class AConfiguration:
             return int(self._matrix.shape[0]) - 1
         return int(self._matrix.shape[0])
 
-    # ── Smith invariants ───────────────────────────────────────────────────────
+    # -- Smith invariants -------------------------------------------------------
 
     @property
     def smith_invariants(self) -> list[int]:
@@ -300,7 +300,7 @@ class AConfiguration:
         diffs = pts[1:] - pts[0]
         return _compute_smith_invariants(diffs)
 
-    # ── Newton polytope ────────────────────────────────────────────────────────
+    # -- Newton polytope --------------------------------------------------------
 
     @property
     def newton_polytope_points(self) -> list[tuple[int, ...]]:
@@ -309,7 +309,7 @@ class AConfiguration:
         idx = hull_vertex_indices(pts)
         return [tuple(int(x) for x in pts[i]) for i in idx]
 
-    # ── affine dimension ───────────────────────────────────────────────────────
+    # -- affine dimension -------------------------------------------------------
 
     @property
     def affine_dim(self) -> int:
@@ -320,23 +320,23 @@ class AConfiguration:
         diffs = (pts[1:] - pts[0]).astype(float)
         return int(np.linalg.matrix_rank(diffs))
 
-    # ── normalized lattice volume ──────────────────────────────────────────────
+    # -- normalised lattice volume ----------------------------------------------
 
     @property
     def normalized_volume(self) -> int:
         """
         Normalized lattice volume of the Newton polytope.
 
-        Defined as  n! × Vol_Euclidean(P) / ∏(Smith invariants), where n is
+        Defined as  n! x Vol_Euclidean(P) / prod(Smith invariants), where n is
         the affine dimension and Vol_Euclidean is the Euclidean volume of the
         convex hull of the affine point configuration.
 
         This equals the holonomic rank of the GKZ D-module for generic
-        parameters β — that is, the number of independent master integrals in
+        parameters beta, that is, the number of independent master integrals in
         the generalised Feynman integral (Klausen 2020, Theorem 2.2;
-        de la Cruz 2019, §3).
+        de la Cruz 2019, section 3).
 
-        Two polytopes related by a unimodular map have the same normalized
+        Two polytopes related by a unimodular map have the same normalised
         volume.  Two polytopes related by a finite-index map of index k have
         volumes differing by k in the ambient lattice, but the same volume
         in their intrinsic lattices (and hence the same GKZ rank).
@@ -376,10 +376,10 @@ class AConfiguration:
 
         return int(round(math.factorial(n) * eucl_vol / inv_product))
 
-    # ── equivalence ───────────────────────────────────────────────────────────
+    # -- equivalence -----------------------------------------------------------
 
     def is_unimodular_equivalent_to(self, other: AConfiguration) -> PolytopeEquivalence:
-        """Test unimodular equivalence of the Newton polytopes (Liu–Cai)."""
+        """Test unimodular equivalence of the Newton polytopes (Liu-Cai)."""
         return is_unimodular_equivalent(
             self.newton_polytope_points,
             other.newton_polytope_points,
@@ -435,9 +435,9 @@ class AConfiguration:
         """
         Find all integer affine self-maps of this configuration.
 
-        Each returned :class:`SymmetryPair` (M, t, P) satisfies T·A = A·Π_P
+        Each returned :class:`SymmetryPair` (M, t, P) satisfies T*A = A*Pi_P
         where T = [[1, 0^T], [t, M]] and gives the transformation identity
-        I_A(β, z) = I_A(T β, z_P) for the associated Feynman integral
+        I_A(beta, z) = I_A(T beta, z_P) for the associated Feynman integral
         (de la Cruz 2024).
 
         Unimodular maps (|det M| = 1) are the polytope automorphisms.
@@ -447,13 +447,13 @@ class AConfiguration:
 
     def __repr__(self) -> str:
         r, c = self._matrix.shape
-        hom = " (homogenized)" if self._is_homogenized else ""
-        return f"AConfiguration({r}×{c}{hom}, {self.n_points} points, dim={self.ambient_dim})"
+        hom = " (homogenised)" if self._is_homogenized else ""
+        return f"AConfiguration({r} x {c}{hom}, {self.n_points} points, dim={self.ambient_dim})"
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # finite_index_map
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def finite_index_map(
@@ -461,7 +461,7 @@ def finite_index_map(
     target: AConfiguration | Sequence | np.ndarray,
 ) -> FiniteIndexResult:
     """
-    Search for an integer affine map x → Mx + t taking every source point
+    Search for an integer affine map x -> Mx + t taking every source point
     onto some target point, with no constraint on |det M|.
 
     If |det M| = 1, the map is unimodular (a lattice isomorphism).  If
@@ -485,7 +485,7 @@ def finite_index_map(
       1. Compute deltas_src = source_pts - source_pts[0].
       2. Select aff_dim linearly independent rows as a basis.
       3. For each aff_dim-subset of target deltas as candidate basis image:
-         - Solve M = W_tgt @ W_src⁻¹  (rational).
+         - Solve M = W_tgt @ W_src^-1  (rational).
          - Check M is integer.
          - Verify every source point maps to a target point.
          - Return on first success.
@@ -544,7 +544,7 @@ def finite_index_map(
                 continue
 
             # Verify all source deltas map to target deltas.
-            mapped_deltas = M_int @ deltas_src.T  # n_dim × n_src
+            mapped_deltas = M_int @ deltas_src.T  # n_dim x n_src
             col_perm: list[int] = []
             valid = True
             for i in range(n_src):
@@ -594,9 +594,9 @@ def finite_index_map(
     return FiniteIndexResult(found=False)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # symmetry_pairs
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def symmetry_pairs(
@@ -605,9 +605,9 @@ def symmetry_pairs(
     """
     Find all integer affine self-maps of a GKZ A-configuration.
 
-    An integer affine self-map x → Mx + t sends every point in the
+    An integer affine self-map x -> Mx + t sends every point in the
     configuration to another point in the configuration bijectively, with M
-    an invertible integer matrix (det M ≠ 0, not restricted to ±1).
+    an invertible integer matrix (det M != 0, not restricted to +/-1).
 
     Each result is a :class:`SymmetryPair` encoding the linear map M,
     translation t, induced column permutation P, and determinant |det M|.
@@ -615,9 +615,9 @@ def symmetry_pairs(
 
     For Feynman integrals, each symmetry pair gives (de la Cruz 2024):
 
-        I_A(β, z) = I_A(T β, z_P),   T = [[1, 0^T], [t, M]]
+        I_A(beta, z) = I_A(T beta, z_P),   T = [[1, 0^T], [t, M]]
 
-    where z_P = (z_{P(0)}, …, z_{P(N-1)}) and the prefactor R(β) = 1.
+    where z_P = (z_{P(0)}, ..., z_{P(N-1)}) and the prefactor R(beta) = 1.
 
     Parameters
     ----------
@@ -635,15 +635,15 @@ def symmetry_pairs(
     Algorithm
     ---------
     All self-maps of a non-degenerate configuration are unimodular (by the
-    affine volume argument).  Liu–Cai vertex labels — invariants of unimodular
-    maps — are used to (a) filter anchor candidates and (b) generate only
+    affine volume argument).  Liu-Cai vertex labels, invariants of unimodular
+    maps, are used to (a) filter anchor candidates and (b) generate only
     label-valid basis combinations.  Fix a label-diverse canonical basis
-    {p_0, p_{b_1}, …, p_{b_n}} (rarest Liu–Cai class first).  For each
+    {p_0, p_{b_1}, ..., p_{b_n}} (rarest Liu-Cai class first).  For each
     anchor image p_a whose label matches p_0, iterate only over unordered
     target basis combos drawn from same-label buckets, then try all
     label-consistent orderings via :func:`_label_preserving_orderings`.
 
-    Complexity: O(|Aut| · d!) in the best case (K₄: ~144 checks vs 13 B
+    Complexity: O(|Aut| * d!) in the best case (K_4: ~144 checks vs 13 B
     naive).  Falls back to the full P(N-1, n) count when all labels coincide.
     """
     pts = _to_pts(cfg)
@@ -673,7 +673,7 @@ def symmetry_pairs(
         return []
 
     # All self-maps of a non-degenerate configuration are unimodular:
-    # |det M| = Vol(M·conv(A)) / Vol(conv(A)) = Vol(conv(A)) / Vol(conv(A)) = 1.
+    # |det M| = Vol(M*conv(A)) / Vol(conv(A)) = Vol(conv(A)) / Vol(conv(A)) = 1.
     # Liu-Cai labels (det-of-moment-matrix at each hull vertex) are unimodular
     # invariants, so they can filter both anchors and basis combinations.
     hull_idx = hull_vertex_indices(pts)
@@ -730,7 +730,7 @@ def symmetry_pairs(
 
         # Generate label-valid unordered combos, then try all orderings that
         # match the basis label sequence.  This replaces permutations(others, d)
-        # which is P(N-1, d) — catastrophically large for K₄ (N=31, d=6 → 427M).
+        # which is P(N-1, d), catastrophically large for K_4 (N=31, d=6 -> 427M).
         sub_combo_iters = [
             combinations(label_to_others[lbl], basis_label_needs[lbl])
             for lbl in basis_label_classes
@@ -749,7 +749,7 @@ def symmetry_pairs(
                     continue
 
                 # Verify all N source deltas map to target deltas (bijection).
-                mapped = M_int @ deltas.T  # n_dim × N
+                mapped = M_int @ deltas.T  # n_dim x N
                 col_perm: list[int] = [-1] * N
                 seen_tgts: set[int] = set()
                 valid = True
@@ -800,9 +800,9 @@ def symmetry_pairs(
     return results
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # intrinsic_lattice_model
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def intrinsic_lattice_model(
@@ -814,11 +814,11 @@ def intrinsic_lattice_model(
     Steps
     -----
     1. Subtract the first point (base_point) to get difference vectors.
-    2. Compute the Smith normal form D = U·diffs·V of the difference matrix
-       (rows = diffs, columns = coordinates), so the columns of diffs·V form
+    2. Compute the Smith normal form D = U*diffs*V of the difference matrix
+       (rows = diffs, columns = coordinates), so the columns of diffs*V form
        a unimodular basis.
     3. The intrinsic coordinates are the coordinates in the SNF basis:
-       coords_i = D⁻¹ · U · (pt_i − base).
+       coords_i = D^-1 * U * (pt_i - base).
 
     The resulting intrinsic_coords are independent of the ambient embedding
     and depend only on the lattice structure of the configuration.
@@ -852,18 +852,18 @@ def intrinsic_lattice_model(
 
     # For the intrinsic coordinates, express each difference as rational linear
     # combination of an integer basis W chosen from the difference rows.
-    # W is aff_dim × aff_dim (columns = basis vectors); coords = W⁻¹ · diff.
+    # W is aff_dim x aff_dim (columns = basis vectors); coords = W^-1 * diff.
     n_pts, n_dim = diffs.shape
     basis_idx = _basis_indices(diffs, aff_dim)
     if basis_idx is None:
         coords_list: list[tuple[int, ...]] = [(0,) * aff_dim] * n_pts
     else:
-        W_sp = sp.Matrix(diffs[basis_idx].T.tolist())  # n_dim × aff_dim
+        W_sp = sp.Matrix(diffs[basis_idx].T.tolist())  # n_dim x aff_dim
         W_inv = W_sp.inv()  # rational
         coords_list = []
         for i in range(n_pts):
             diff_col = sp.Matrix(diffs[i].tolist())
-            c = W_inv * diff_col  # aff_dim × 1
+            c = W_inv * diff_col  # aff_dim x 1
             c_int = tuple(int(x) for x in c)
             coords_list.append(c_int)
 
@@ -875,13 +875,13 @@ def intrinsic_lattice_model(
     )
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Internal helpers
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def _to_pts(obj: object) -> np.ndarray:
-    """Coerce to an (n_pts × n_dim) integer numpy array."""
+    """Coerce to an (n_pts x n_dim) integer numpy array."""
     if isinstance(obj, AConfiguration):
         return obj.affine_points
     if isinstance(obj, np.ndarray):

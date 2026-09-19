@@ -4,7 +4,7 @@ polytope-equivalence verbs.
 
 These types are kept in their own module to avoid circular imports between
 :mod:`feynkit.integral` (which uses them) and downstream modules (which
-also produce them — e.g. the polytope-equivalence verbs in
+also produce them, e.g. the polytope-equivalence verbs in
 :mod:`feynkit.normal_forms.affine_equivalence`).
 """
 
@@ -19,12 +19,12 @@ import sympy as sp
 @dataclass(frozen=True)
 class SymanzikPolynomials:
     """
-    The Symanzik U and F polynomials together with the Lee–Pomeransky G = U + F.
+    The Symanzik U and F polynomials together with the Lee-Pomeransky G = U + F.
 
     All four polynomials are presented in two complete parameter sets so the
     user can pick whichever is convenient: the Schwinger parameters
     ``a_i`` (the Schwinger form, used internally by the U/F construction) and
-    the Lee–Pomeransky parameters ``u_i`` (used by the GKZ system and the
+    the Lee-Pomeransky parameters ``u_i`` (used by the GKZ system and the
     Newton polytope).
 
     Attributes
@@ -32,9 +32,9 @@ class SymanzikPolynomials:
     u, f
         First and second Symanzik polynomials in Schwinger parameters.
     u_lp, f_lp
-        The same polynomials after substituting ``a_i → u_i``.
+        The same polynomials after substituting ``a_i -> u_i``.
     g
-        Lee–Pomeransky polynomial ``G(u) = U(u) + F(u)``.
+        Lee-Pomeransky polynomial ``G(u) = U(u) + F(u)``.
     schwinger_parameters
         The ``a_i`` symbols, in edge-index order.
     lp_parameters
@@ -53,7 +53,7 @@ class SymanzikPolynomials:
 @dataclass(frozen=True)
 class NewtonPolytope:
     """
-    Newton polytope of the Lee–Pomeransky G polynomial.
+    Newton polytope of the Lee-Pomeransky G polynomial.
 
     Wraps the monomial support together with the homogenised GKZ A-matrix
     (whose columns are the support exponent vectors with a leading row of
@@ -66,7 +66,7 @@ class NewtonPolytope:
     a_matrix
         The GKZ A-matrix; columns are homogenised exponent vectors.
     parameters
-        The Lee–Pomeransky parameters labelling the rows of the
+        The Lee-Pomeransky parameters labelling the rows of the
         un-homogenised exponent vectors.
     """
 
@@ -110,13 +110,13 @@ class PolytopeAutomorphisms:
     """
     Unimodular automorphism group of a convex lattice polytope.
 
-    Aut(P) = { (U, t) : U ∈ GL_n(ℤ), |det U| = 1, t ∈ ℤⁿ, {Up + t : p ∈ P} = P }.
+    Aut(P) = { (U, t) : U in GL_n(Z), |det U| = 1, t in Z ^n, {Up + t : p in P} = P }.
 
     Attributes
     ----------
     maps
         All automorphisms as ``(U, t)`` pairs where ``U`` is an
-        ``ImmutableMatrix`` in ``GL_n(ℤ)`` and ``t`` is an integer column
+        ``ImmutableMatrix`` in ``GL_n(Z)`` and ``t`` is an integer column
         vector (also an ``ImmutableMatrix``).
     order
         ``|Aut(P)|``, equal to ``len(maps)``.
@@ -145,12 +145,12 @@ class PolytopeEquivalence:
         Whether the two polytopes were found equivalent under the named
         relation.
     relation
-        ``"unimodular"`` — integer map with det ±1 (Liu–Cai).
-        ``"affine_polytope"`` — rational/integer affine map, hull vertices only.
-        ``"affine_point_config"`` — rational/integer affine map, all A-columns.
+        ``"unimodular"``, integer map with det +/-1 (Liu-Cai).
+        ``"affine_polytope"``, rational/integer affine map, hull vertices only.
+        ``"affine_point_config"``, rational/integer affine map, all A-columns.
     witness_map
-        Linear part ``M`` of the witness affine map ``v ↦ M·v + t``.
-        For ``"unimodular"`` results this is in ``GL_n(ℤ)``; for affine
+        Linear part ``M`` of the witness affine map ``v -> M*v + t``.
+        For ``"unimodular"`` results this is in ``GL_n(Z)``; for affine
         results it may be rational.  ``None`` on failure.
     translation
         Translation vector ``t`` of the witness map (column vector).
@@ -158,7 +158,7 @@ class PolytopeEquivalence:
     determinant
         ``det(M)`` of the witness linear part.  ``None`` on failure.
     vertex_correspondence
-        For positive results, a list ``[j_0, j_1, …]`` such that input
+        For positive results, a list ``[j_0, j_1, ...]`` such that input
         point ``i`` of source is mapped to point ``j_i`` of target.
     """
 

@@ -1,4 +1,4 @@
-"""Tests for the Liu–Cai unimodular isomorphism algorithm (arXiv:2506.23846)."""
+"""Tests for the Liu-Cai unimodular isomorphism algorithm (arXiv:2506.23846)."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ import sympy as sp
 from feynkit import Edge, FeynmanIntegral, Graph, PolytopeEquivalence
 from feynkit.normal_forms import is_unimodular_equivalent
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Polytope generators
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def unit_simplex(n: int) -> np.ndarray:
@@ -28,7 +28,7 @@ def unit_cube(n: int) -> np.ndarray:
 
 
 def cross_polytope(n: int) -> np.ndarray:
-    """The cross polytope: ±e_i for i = 1..n."""
+    """The cross polytope: +/-e_i for i = 1..n."""
     pts = []
     for i in range(n):
         e = np.zeros(n, dtype=int)
@@ -40,7 +40,7 @@ def cross_polytope(n: int) -> np.ndarray:
 
 
 def random_unimodular_map(n: int, rng: np.random.Generator) -> np.ndarray:
-    """Generate a random U ∈ GL_n(ℤ) by composing elementary row ops."""
+    """Generate a random U in GL_n(Z) by composing elementary row ops."""
     U = np.eye(n, dtype=int)
     n_ops = rng.integers(3, 8)
     for _ in range(n_ops):
@@ -54,19 +54,19 @@ def random_unimodular_map(n: int, rng: np.random.Generator) -> np.ndarray:
             k = int(rng.integers(-2, 3))
             U[i] = U[i] + k * U[j]
         else:
-            # Negate a row (det → -det, still ±1).
+            # Negate a row (det -> -det, still +/-1).
             U[i] = -U[i]
     return U
 
 
 def apply_unimodular(points: np.ndarray, U: np.ndarray, Z: np.ndarray) -> np.ndarray:
-    """Apply v ↦ U·v + Z to every row of points."""
+    """Apply v -> U*v + Z to every row of points."""
     return points @ U.T + Z
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Self-equivalence
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -90,9 +90,9 @@ def test_self_equivalence(polytope_factory, n) -> None:
     assert abs(result.witness_map.det()) == 1
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Translation only
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def test_pure_translation() -> None:
@@ -104,9 +104,9 @@ def test_pure_translation() -> None:
     assert result.witness_map == sp.eye(3)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Random unimodular maps
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -136,7 +136,7 @@ def test_random_unimodular_image_recovered(polytope_factory, n, seed) -> None:
 
 
 def test_witness_map_actually_works() -> None:
-    """For a random unimodular image, the witness U must satisfy U·v_i + Z = v_image_i."""
+    """For a random unimodular image, the witness U must satisfy U*v_i + Z = v_image_i."""
     rng = np.random.default_rng(42)
     pts = unit_simplex(3)
     U_true = random_unimodular_map(3, rng)
@@ -154,9 +154,9 @@ def test_witness_map_actually_works() -> None:
         assert np.array_equal(U @ pts[i] + Z, pts_b[j])
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Negative cases
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def test_different_vertex_count() -> None:
@@ -172,12 +172,12 @@ def test_different_dimension() -> None:
 
 
 def test_scaled_polytope_not_unimodular() -> None:
-    """Scaling by 2 multiplies all edge labels by 2^? — generally not unimodular."""
+    """Scaling by 2 multiplies all edge labels by 2^?, generally not unimodular."""
     pts = unit_cube(2)
     pts_scaled = 2 * pts  # 2x scaled square
     # The scaled cube has different edge lengths, so it's not unimodularly
     # equivalent to the unit cube (det of any U mapping one to the other
-    # would be 2^n != ±1).
+    # would be 2^n != +/-1).
     assert is_unimodular_equivalent(pts, pts_scaled).equivalent is False
 
 
@@ -187,9 +187,9 @@ def test_triangle_vs_square_not_equivalent() -> None:
     assert is_unimodular_equivalent(triangle, square).equivalent is False
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Reflection (orientation-reversing) is allowed: det U = -1
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def test_reflection_is_allowed() -> None:
@@ -204,9 +204,9 @@ def test_reflection_is_allowed() -> None:
     assert result.witness_map.det() in (1, -1)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Robustness to vertex reordering and to non-vertex points in the input
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def test_permuted_input_order() -> None:
@@ -225,9 +225,9 @@ def test_interior_lattice_points_ignored() -> None:
     assert is_unimodular_equivalent(pts, augmented).equivalent is True
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Newton polytopes from Feynman integrals
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def _bubble_integral() -> FeynmanIntegral:
@@ -264,9 +264,9 @@ def test_two_different_loops_not_equivalent() -> None:
     assert result.equivalent is False
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Cross-validation: Liu–Cai must agree with the brute-force on small instances
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# Cross-validation: Liu-Cai must agree with the brute-force on small instances
+# ------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -279,7 +279,7 @@ def test_two_different_loops_not_equivalent() -> None:
     ],
 )
 def test_cross_validation_with_brute_force(polytope_factory, n, seed) -> None:
-    """Liu–Cai must agree with the brute-force backend on small examples (where
+    """Liu-Cai must agree with the brute-force backend on small examples (where
     affine equivalence implies unimodular for unimodular images)."""
     from feynkit.normal_forms import is_affinely_equivalent
 

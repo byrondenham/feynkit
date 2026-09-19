@@ -16,7 +16,7 @@ from feynkit import AConfiguration, bms_simplex_a_config, massless_polygon_a_con
 from feynkit.a_configuration import finite_index_map
 from feynkit.artifacts.conformal import _bms_g_polynomial
 
-SEP = "─" * 72
+SEP = "-" * 72
 
 
 def print_section(title: str) -> None:
@@ -26,43 +26,43 @@ def print_section(title: str) -> None:
     print(SEP)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 1: Symbolic derivation of G₀ and G
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Section 1: Symbolic derivation of G_0 and G
+# -----------------------------------------------------------------------------
 
 print_section("Schwinger-parameterisation derivation of the BMS G polynomial")
 
 print("""
 Starting point (BMS 2021 / Caloro 2024):
 
-    I_n(p₁,…,pₙ) = ∫₀^∞ r^{β₀-1} ∏ᵢ K_{νᵢ}(pᵢ r) dr
+    I_n(p_1,...,p_n) = int_0^inf r^{beta_0-1} prod_i K_{nu_i}(p_i r) dr
 
 Using the integral representation of the Bessel K function,
 
-    K_ν(pᵢ r) = (pᵢ/2)^{νᵢ}/2 ∫₀^∞ uᵢ^{-νᵢ-1} exp(-r(uᵢ + pᵢ²/(4uᵢ))) duᵢ
+    K_nu(p_i r) = (p_i/2)^{nu_i}/2 int_0^inf u_i^{-nu_i-1} exp(-r(u_i + p_i^2/(4u_i))) du_i
 
-multiplying over i=1,…,n, and integrating over r via Γ(β₀):
+multiplying over i=1,...,n, and integrating over r via Gamma(beta_0):
 
-    I_n ∝ ∫ [∏ᵢ duᵢ uᵢ^{β₀-νᵢ-1}]  G₀(u,p)^{-β₀}
+    I_n ~ int [prod_i du_i u_i^{beta_0-nu_i-1}]  G_0(u,p)^{-beta_0}
 
 with the rational intermediate polynomial
 
-    G₀(u,p) = ∑ᵢ uᵢ + ∑ᵢ pᵢ²/(4uᵢ)
+    G_0(u,p) = sum_i u_i + sum_i p_i^2/(4u_i)
 
-Multiplying by 4 ∏ⱼ uⱼ to clear denominators (this shifts the Schwinger
-exponents, absorbed into the GKZ parameter vector β), gives the
-Lee–Pomeransky-style polynomial
+Multiplying by 4 prod_j u_j to clear denominators (this shifts the Schwinger
+exponents, absorbed into the GKZ parameter vector beta), gives the
+Lee-Pomeransky-style polynomial
 
-    G(u,p) = ∑ᵢ pᵢ² ∏_{j≠i} uⱼ  +  4 ∑ᵢ uᵢ² ∏_{j≠i} uⱼ
+    G(u,p) = sum_i p_i^2 prod_{j!=i} u_j  +  4 sum_i u_i^2 prod_{j!=i} u_j
 
-with exactly 2n monomials (n lower of degree n−1, n upper of degree n+1).
+with exactly 2n monomials (n lower of degree n-1, n upper of degree n+1).
 """)
 
 for n in [2, 3, 4]:
     u = [sp.Symbol(f"u_{i+1}") for i in range(n)]
     p_sq = [sp.Symbol(f"p_{i+1}sq") for i in range(n)]
 
-    # G₀ rational form
+    # G_0 rational form
     G0 = sum(u) + sum(p_sq[i] / (4 * u[i]) for i in range(n))
     G0_simplified = sp.simplify(G0)
 
@@ -73,7 +73,7 @@ for n in [2, 3, 4]:
     upper_m = [m for m in monoms if sum(m) == n + 1]
 
     print(f"  n={n}:")
-    print(f"    G₀  = {sp.collect(G0_simplified, u)}")
+    print(f"    G_0  = {sp.collect(G0_simplified, u)}")
     print(f"    G   = {G}")
     print(
         f"    monomials: {len(monoms)} total  ({len(lower)} lower deg {n-1},  "
@@ -82,15 +82,15 @@ for n in [2, 3, 4]:
     print()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 2: n=3 — finite-index map from triangle LP to triple-K
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Section 2: n=3, finite-index map from triangle LP to triple-K
+# -----------------------------------------------------------------------------
 
-print_section("n=3 — the known triangle / triple-K equivalence")
+print_section("n=3, the known triangle / triple-K equivalence")
 
 print("""
 Both the massless triangle (C_3 LP) and the triple-K (BMS_3) are A-configurations
-in ℝ³ with N=6 monomials and holonomic rank 4, but with Smith invariants [1,1,1]
+in R^3 with N=6 monomials and holonomic rank 4, but with Smith invariants [1,1,1]
 vs [1,1,2].  They are NOT unimodularly equivalent, but there exists a finite-index
 affine map from the triangle's monomial support into the triple-K's.
 
@@ -112,7 +112,7 @@ t = np.array([2, 2, 0], dtype=int)
 
 print(f"  det(M) = {int(round(np.linalg.det(M)))}")
 
-# Get affine coordinate rows of C_3 LP (rows 1..3 of the 4×6 A-matrix)
+# Get affine coordinate rows of C_3 LP (rows 1..3 of the 4 x 6 A-matrix)
 cn3 = massless_polygon_a_config(3)
 bms3 = bms_simplex_a_config(3)
 
@@ -133,7 +133,7 @@ for col in tri_cols:
     mapped = tuple((M @ v + t).tolist())
     hit = mapped in bms_cols
     all_hit = all_hit and hit
-    print(f"    triangle {list(col)}  →  {list(mapped)}  in BMS_3: {hit}")
+    print(f"    triangle {list(col)}  ->  {list(mapped)}  in BMS_3: {hit}")
 
 print(f"\n  All 6 triangle monomials map to BMS_3 monomials: {all_hit}")
 
@@ -149,14 +149,14 @@ if fim.found:
     print(f"    unimod  : {fim.is_unimodular}")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 3: Why n≥4 admits no such map
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Section 3: Why n>=4 admits no such map
+# -----------------------------------------------------------------------------
 
-print_section("n≥4 — why no equivalence exists")
+print_section("n>=4, why no equivalence exists")
 
 print("""
-A necessary condition for any point-bijective affine map A → B is N(A) = N(B).
+A necessary condition for any point-bijective affine map A -> B is N(A) = N(B).
 For the C_n LP and BMS_n families:
 
     N(C_n LP) = n  (spanning-tree monomials of U)
@@ -165,12 +165,12 @@ For the C_n LP and BMS_n families:
 
     N(BMS_n) = 2n
 
-For n=3:  N(C_3) = 6,  N(BMS_3) = 6  — equal, map possible.
-For n≥4:  n(n+1)/2 > 2n  (equivalently n > 3), so N(C_n) > N(BMS_n).
+For n=3:  N(C_3) = 6,  N(BMS_3) = 6 , equal, map possible.
+For n>=4:  n(n+1)/2 > 2n  (equivalently n > 3), so N(C_n) > N(BMS_n).
 """)
 
 print(f"  {'n':>3}  {'N(C_n LP)':>12}  {'N(BMS_n)':>10}  {'equal?':>8}")
-print(f"  {'─'*3}  {'─'*12}  {'─'*10}  {'─'*8}")
+print(f"  {'-'*3}  {'-'*12}  {'-'*10}  {'-'*8}")
 for n in range(3, 7):
     n_cn = n * (n + 1) // 2
     n_bms = 2 * n
@@ -183,7 +183,7 @@ for n in [4, 5]:
     bms = bms_simplex_a_config(n)
     print(f"\n  n={n}:  C_{n} LP has N={cn.n_points}, BMS_{n} has N={bms.n_points}")
     if cn.n_points != bms.n_points:
-        print("    N differs — no bijective map possible, skipping finite_index_map")
+        print("    N differs, no bijective map possible, skipping finite_index_map")
     else:
         fim_ab = finite_index_map(cn, bms)
         fim_ba = finite_index_map(bms, cn)
@@ -193,21 +193,21 @@ for n in [4, 5]:
             print("    No finite-index map in either direction (as expected)")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Section 4: Sub-configuration structure of BMS_n
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 print_section("Sub-configuration structure: lower vs upper monomials")
 
 print("""
 The BMS_n G polynomial splits into two geometrically distinct parts:
 
-    lower : ∑ᵢ pᵢ² ∏_{j≠i} uⱼ  — n monomials, each with one zero exponent
-    upper : 4 ∑ᵢ uᵢ² ∏_{j≠i} uⱼ — n monomials, each with one exponent=2
+    lower : sum_i p_i^2 prod_{j!=i} u_j , n monomials, each with one zero exponent
+    upper : 4 sum_i u_i^2 prod_{j!=i} u_j, n monomials, each with one exponent=2
 
-The lower sub-configuration (monomials of degree n−1) and upper sub-configuration
-(monomials of degree n+1) are each polytopes in ℝⁿ.  Together their convex hull
-gives vol₀(BMS_n) = 2^{n-1}.
+The lower sub-configuration (monomials of degree n-1) and upper sub-configuration
+(monomials of degree n+1) are each polytopes in R ^n.  Together their convex hull
+gives vol_0(BMS_n) = 2^{n-1}.
 """)
 
 for n in [2, 3, 4, 5]:
@@ -227,36 +227,36 @@ for n in [2, 3, 4, 5]:
 
     full_cfg = bms_simplex_a_config(n)
     print(
-        f"  n={n}:  full vol₀={full_cfg.normalized_volume} = 2^{n-1}={2**(n-1)}"
-        f"  |  lower vol₀={cfg_lower.normalized_volume}"
-        f"  |  upper vol₀={cfg_upper.normalized_volume}"
+        f"  n={n}:  full vol_0={full_cfg.normalized_volume} = 2^{n-1}={2**(n-1)}"
+        f"  |  lower vol_0={cfg_lower.normalized_volume}"
+        f"  |  upper vol_0={cfg_upper.normalized_volume}"
     )
 
 print()
 print("  BMS_n holonomic rank = 2^{n-1}:  confirmed for n=2,3,4,5.")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Section 5: Summary
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 print_section("Summary")
 
 print("""
-The BMS G polynomial G(u) = ∑ pᵢ² ∏_{j≠i} uⱼ + 4 ∑ uᵢ² ∏_{j≠i} uⱼ is derived
+The BMS G polynomial G(u) = sum p_i^2 prod_{j!=i} u_j + 4 sum u_i^2 prod_{j!=i} u_j is derived
 analytically via Schwinger parameterisation of the n-Bessel K-function integral.
 Its A-configuration is extracted from the monomial support of G.
 
 For n=3:
-  • C_3 LP (triangle) and BMS_3 (triple-K) have the same N=6 and vol₀=4.
-  • There exists a finite-index (det=2) affine map from triangle → triple-K:
+  - C_3 LP (triangle) and BMS_3 (triple-K) have the same N=6 and vol_0=4.
+  - There exists a finite-index (det=2) affine map from triangle -> triple-K:
       M = [[-1,-1,0],[-1,0,-1],[0,1,1]],  t = [2,2,0]
-  • They are NOT unimodularly equivalent (Smith [1,1,1] vs [1,1,2]).
-  • The index-2 map reflects the triple-K spanning the even-parity sublattice.
+  - They are NOT unimodularly equivalent (Smith [1,1,1] vs [1,1,2]).
+  - The index-2 map reflects the triple-K spanning the even-parity sublattice.
 
-For n≥4:
-  • N(C_n LP) = n(n+1)/2 > 2n = N(BMS_n)  — no bijective map is possible.
-  • The GKZ systems have different holonomic ranks and non-isomorphic Newton
+For n>=4:
+  - N(C_n LP) = n(n+1)/2 > 2n = N(BMS_n) , no bijective map is possible.
+  - The GKZ systems have different holonomic ranks and non-isomorphic Newton
     polytopes.
 
 The triangle/triple-K equivalence is a unique n=3 coincidence arising from

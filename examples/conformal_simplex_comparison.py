@@ -1,14 +1,14 @@
 """
-Conformal simplex vs Lee–Pomeransky GKZ A-configurations.
+Conformal simplex vs Lee-Pomeransky GKZ A-configurations.
 
 Investigates whether the n=3 triangle / triple-K equivalence extends to n=4
 and beyond by comparing:
 
   C_n LP    The massless 1-loop n-gon (C_n = n-cycle graph), computed by
-            feynkit from the graph Lee–Pomeransky polynomial.  Uses n LP
+            feynkit from the graph Lee-Pomeransky polynomial.  Uses n LP
             variables (one per internal edge).
 
-  BMS_n     The Bzowski–McFadden–Skenderis n-point conformal simplex
+  BMS_n     The Bzowski-McFadden-Skenderis n-point conformal simplex
             (BMS 2021; Caloro 2024).  G polynomial has 2n monomials in n
             variables: n "denominator" terms prod_{j!=i} u_j and n "scaling"
             terms u_i^2 prod_{j!=i} u_j.  For n=3 this is the triple-K.
@@ -30,7 +30,7 @@ from feynkit import (
 from feynkit.a_configuration import finite_index_map
 from feynkit.artifacts.dissertation import triangle_a_config, triple_k_a_config
 
-SEP = "─" * 72
+SEP = "-" * 72
 
 _AUT_THRESHOLD = 12  # skip automorphism computation for N above this (N=15 takes ~2min)
 
@@ -44,16 +44,16 @@ def print_section(title: str) -> None:
 
 def describe(label: str, cfg: AConfiguration) -> None:
     print(f"\n  {label}")
-    print(f"    A-matrix shape   : {cfg.matrix.shape[0]}×{cfg.matrix.shape[1]}")
+    print(f"    A-matrix shape   : {cfg.matrix.shape[0]} x {cfg.matrix.shape[1]}")
     print(f"    N (monomials)    : {cfg.n_points}")
     print(f"    ambient_dim      : {cfg.ambient_dim}")
     print(f"    affine_dim       : {cfg.affine_dim}")
     print(f"    Smith invariants : {cfg.smith_invariants}")
-    print(f"    normalized vol   : {cfg.normalized_volume}  (= GKZ holonomic rank)")
+    print(f"    normalised vol   : {cfg.normalized_volume}  (= GKZ holonomic rank)")
     if cfg.n_points <= _AUT_THRESHOLD:
         print(f"    |Aut(P)|         : {cfg.automorphisms().order}")
     else:
-        print(f"    |Aut(P)|         : (skipped — N={cfg.n_points} too large)")
+        print(f"    |Aut(P)|         : (skipped, N={cfg.n_points} too large)")
 
 
 def compare(label_a: str, cfg_a: AConfiguration, label_b: str, cfg_b: AConfiguration) -> None:
@@ -62,13 +62,13 @@ def compare(label_a: str, cfg_a: AConfiguration, label_b: str, cfg_b: AConfigura
     if cfg_a.ambient_dim != cfg_b.ambient_dim:
         print(
             f"    ambient dims differ ({cfg_a.ambient_dim} vs {cfg_b.ambient_dim})"
-            "  — no direct comparison"
+            " , no direct comparison"
         )
         return
     if cfg_a.n_points != cfg_b.n_points:
         print(
             f"    N differs ({cfg_a.n_points} vs {cfg_b.n_points})"
-            "  — no bijective map possible, not equivalent in any sense"
+            " , no bijective map possible, not equivalent in any sense"
         )
         return
 
@@ -86,14 +86,14 @@ def compare(label_a: str, cfg_a: AConfiguration, label_b: str, cfg_b: AConfigura
         fim_ba = finite_index_map(cfg_b, cfg_a)
         if fim_ab.found:
             print(
-                f"    Finite-index map : {label_a} → {label_b}  "
+                f"    Finite-index map : {label_a} -> {label_b}  "
                 f"det={fim_ab.determinant}  unimodular={fim_ab.is_unimodular}"
             )
             print(f"      M = {fim_ab.witness_matrix.tolist()}")
             print(f"      t = {[int(x) for x in fim_ab.translation]}")
         elif fim_ba.found:
             print(
-                f"    Finite-index map : {label_b} → {label_a}  "
+                f"    Finite-index map : {label_b} -> {label_a}  "
                 f"det={fim_ba.determinant}  unimodular={fim_ba.is_unimodular}"
             )
             print(f"      M = {fim_ba.witness_matrix.tolist()}")
@@ -101,9 +101,9 @@ def compare(label_a: str, cfg_a: AConfiguration, label_b: str, cfg_b: AConfigura
             print("    Finite-index map : not found in either direction")
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # n=3: the known case
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 print_section("n=3  (the known case)")
 
@@ -133,9 +133,9 @@ print("  Comparison:")
 compare("C_3 LP (triangle)", cn3, "BMS n=3 (triple-K)", bms3)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # n=4: does the relation extend?
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 print_section("n=4  (does the relation extend?)")
 
@@ -163,9 +163,9 @@ print()
 compare("K_4 LP", kn4, "BMS n=4", bms4)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # n=5: further check
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 print_section("n=5  (further check)")
 
@@ -180,16 +180,16 @@ print("  Comparison:")
 compare("C_5 LP (pentagon)", cn5, "BMS n=5", bms5)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Summary table
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 print_section("Summary table")
 
 print(
     f"\n  {'n':>2}  {'config':<14}  {'N':>4}  {'dim':>4}  {'Smith':<16}  {'vol':>6}  {'|Aut|':>7}"
 )
-print(f"  {'─'*2}  {'─'*14}  {'─'*4}  {'─'*4}  {'─'*16}  {'─'*6}  {'─'*7}")
+print(f"  {'-'*2}  {'-'*14}  {'-'*4}  {'-'*4}  {'-'*16}  {'-'*6}  {'-'*7}")
 
 rows = []
 for n in [3, 4, 5]:
@@ -200,16 +200,16 @@ for n in [3, 4, 5]:
 
 for n, label, cfg in rows:
     smith_str = str(cfg.smith_invariants)
-    aut_str = str(cfg.automorphisms().order) if cfg.n_points <= _AUT_THRESHOLD else "—"
+    aut_str = str(cfg.automorphisms().order) if cfg.n_points <= _AUT_THRESHOLD else " - "
     print(
         f"  {n:>2}  {label:<14}  {cfg.n_points:>4}  {cfg.ambient_dim:>4}  "
         f"{smith_str:<16}  {cfg.normalized_volume:>6}  {aut_str:>7}"
     )
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Diagnostic: why does n=3 work?
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 cn4_n = massless_polygon_a_config(4).n_points
 bms4_n = bms_simplex_a_config(4).n_points

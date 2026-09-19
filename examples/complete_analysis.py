@@ -6,13 +6,13 @@ polytopes using affine and unimodular equivalence.
 
 Diagrams
 --------
-1. Massless triangle     — 1-loop, 3 massless propagators
-2. Massive triangle      — 1-loop, 3 massive propagators
-3. One-mass triangle     — 1-loop, 1 massive + 2 massless propagators
-4. Massless box          — 1-loop, 4 massless propagators
-5. Massive sunrise       — 2-loop (banana), 3 massive propagators
-6. Planar double box     — 2-loop, 7 massive propagators
-7. Tetrahedron (K4)      — 3-loop, 6 massive propagators, 4-point
+1. Massless triangle    , 1-loop, 3 massless propagators
+2. Massive triangle     , 1-loop, 3 massive propagators
+3. One-mass triangle    , 1-loop, 1 massive + 2 massless propagators
+4. Massless box         , 1-loop, 4 massless propagators
+5. Massive sunrise      , 2-loop (banana), 3 massive propagators
+6. Planar double box    , 2-loop, 7 massive propagators
+7. Tetrahedron (K4)     , 3-loop, 6 massive propagators, 4-point
 """
 
 import sympy as sp
@@ -23,7 +23,7 @@ from feynkit.algebra import is_binomial_ideal
 W = 72
 
 
-# ── Formatting helpers ────────────────────────────────────────────────────────
+# -- Formatting helpers --------------------------------------------------------
 
 
 def header(title: str) -> None:
@@ -34,7 +34,7 @@ def header(title: str) -> None:
 
 def section(title: str) -> None:
     pad = max(2, W - 4 - len(title))
-    print(f"\n── {title} " + "─" * pad)
+    print(f"\n-- {title} " + "-" * pad)
 
 
 def show_poly(label: str, expr: sp.Expr, max_terms: int = 12) -> None:
@@ -44,10 +44,10 @@ def show_poly(label: str, expr: sp.Expr, max_terms: int = 12) -> None:
     else:
         print(f"  {label} has {len(terms)} terms (abbreviated):")
         shown = list(terms)[:3]
-        print(f"    {sp.Add(*shown)} + … ({len(terms)} total)")
+        print(f"    {sp.Add(*shown)} + ... ({len(terms)} total)")
 
 
-# ── Analysis function ─────────────────────────────────────────────────────────
+# -- Analysis function ---------------------------------------------------------
 
 
 def analyse(
@@ -69,7 +69,7 @@ def analyse(
     print(f"  Loop count           : {fi.loop_count}")
 
     section("Edge list")
-    print(f"  {'idx':<5} {'v1':<4} {'v2':<4}  {'mass':<22} ν")
+    print(f"  {'idx':<5} {'v1':<4} {'v2':<4}  {'mass':<22} nu")
     for e in internal:
         mass = str(e.get_mass())
         print(f"  {e.idx:<5} {e.v1:<4} {e.v2:<4}  {mass:<22} {e.nu}")
@@ -90,15 +90,15 @@ def analyse(
     section("GKZ system")
     gkz = fi.gkz
     r, m = gkz.a_matrix.shape
-    print(f"  A-matrix shape : {r} × {m}  (r = loops+1, m = #monomials)")
+    print(f"  A-matrix shape : {r} x {m}  (r = loops+1, m = #monomials)")
     if m <= 20:
         print("  A =")
         for row in gkz.a_matrix.tolist():
             print(f"      {row}")
     else:
-        print(f"  A : {r}×{m}  [too wide to display]")
-    print(f"  z-variables    : z_1, …, z_{m}")
-    print(f"  β-parameters   : {gkz.beta_parameters}")
+        print(f"  A : {r} x {m}  [too wide to display]")
+    print(f"  z-variables    : z_1, ..., z_{m}")
+    print(f"  beta-parameters   : {gkz.beta_parameters}")
     if gkz.euler_equations:
         print(f"  Euler eq [0]   : {gkz.euler_equations[0]}")
 
@@ -111,7 +111,7 @@ def analyse(
             print(f"    {pt}")
     else:
         print(f"  First 4 points: {pts[:4]}")
-        print(f"  …  ({len(pts)} total)")
+        print(f"  ...  ({len(pts)} total)")
 
     section("Toric ideal")
     if show_toric:
@@ -119,20 +119,20 @@ def analyse(
         n = len(ti.generators)
         print(f"  Generators : {n}")
         if n == 0:
-            print("  (trivial — no IBP relations; this is likely a master integral)")
+            print("  (trivial, no IBP relations; this is likely a master integral)")
         else:
             print(f"  Binomial   : {is_binomial_ideal(ti.generators)}")
             for i, gen in enumerate(ti.generators[:toric_max]):
                 print(f"  [{i}] {gen} = 0")
             if n > toric_max:
-                print(f"  … ({n - toric_max} further generators)")
+                print(f"  ... ({n - toric_max} further generators)")
     else:
-        print(f"  A-matrix is {r}×{m} — skipped (install 4ti2 and use backend='4ti2')")
+        print(f"  A-matrix is {r} x {m}, skipped (install 4ti2 and use backend='4ti2')")
 
     print()
 
 
-# ── Diagram constructors ──────────────────────────────────────────────────────
+# -- Diagram constructors ------------------------------------------------------
 
 
 def _triangle(masses) -> FeynmanIntegral:
@@ -160,7 +160,7 @@ def massive_triangle() -> FeynmanIntegral:
 
 
 def one_mass_triangle(mass_on: int = 0) -> FeynmanIntegral:
-    """One massive propagator (index mass_on ∈ {0,1,2}), two massless."""
+    """One massive propagator (index mass_on in {0,1,2}), two massless."""
     m = sp.Symbol("m", nonnegative=True)
     masses = [m if i == mass_on else sp.Integer(0) for i in range(3)]
     return _triangle(masses)
@@ -199,15 +199,15 @@ def planar_double_box() -> FeynmanIntegral:
 
     Vertex layout::
 
-        p1→ v1 ─[1]─ v2 ←p2
-             │         │
+        p1-> v1 -[1]- v2 <-p2
+             |         |
             [2]       [3]
-             │         │
-             v3 ─[4]─ v4
-             │         │
+             |         |
+             v3 -[4]- v4
+             |         |
             [5]       [6]
-             │         │
-        p3→ v5 ─[7]─ v6 ←p4
+             |         |
+        p3-> v5 -[7]- v6 <-p4
     """
     m = sp.symbols("m1:8", nonnegative=True)
     nu = sp.symbols("nu1:8", positive=True)
@@ -254,7 +254,7 @@ def tetrahedron() -> FeynmanIntegral:
     return FeynmanIntegral(g, propagator_exponents={i + 1: nu[i] for i in range(6)})
 
 
-# ── Equivalence helper ────────────────────────────────────────────────────────
+# -- Equivalence helper --------------------------------------------------------
 
 
 def compare(
@@ -269,11 +269,11 @@ def compare(
     b_shape = fi_b.gkz.a_matrix.shape
 
     print(f"\n  {name_a}  vs  {name_b}")
-    print(f"    A-matrix : {a_shape[0]}×{a_shape[1]}  vs  {b_shape[0]}×{b_shape[1]}")
+    print(f"    A-matrix : {a_shape[0]} x {a_shape[1]}  vs  {b_shape[0]} x {b_shape[1]}")
     print(f"    #monomials : {pts_a}  vs  {pts_b}")
 
     if pts_a != pts_b:
-        print("    → NOT equivalent (different support sizes)")
+        print("    -> NOT equivalent (different support sizes)")
         return
 
     uni = fi_a.is_unimodular_equivalent_to(fi_b)
@@ -288,24 +288,24 @@ def compare(
         print(f"    Affine equivalent     : {aff.equivalent}")
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# -- Main ----------------------------------------------------------------------
 
 print("=" * W)
 print("  COMPLETE FEYNMAN DIAGRAM ANALYSIS")
 print("=" * W)
 
-print("\nConstructing diagrams …")
+print("\nConstructing diagrams ...")
 tri0 = massless_triangle()
 tri1 = massive_triangle()
-tri1m0 = one_mass_triangle(mass_on=0)  # mass on propagator 1 (v1–v2)
-tri1m1 = one_mass_triangle(mass_on=1)  # mass on propagator 2 (v2–v3)
+tri1m0 = one_mass_triangle(mass_on=0)  # mass on propagator 1 (v1-v2)
+tri1m1 = one_mass_triangle(mass_on=1)  # mass on propagator 2 (v2-v3)
 box0 = massless_box()
 sun = massive_sunrise()
 dbox = planar_double_box()
 tet = tetrahedron()
 print("Done.\n")
 
-# ── Per-diagram analysis ──────────────────────────────────────────────────────
+# -- Per-diagram analysis ------------------------------------------------------
 
 analyse("1. Massless triangle  (1-loop, 3 massless propagators)", tri0)
 analyse("2. Massive triangle   (1-loop, 3 massive propagators)", tri1)
@@ -316,18 +316,18 @@ analyse("6. Massive sunrise    (2-loop, 3 massive propagators)", sun)
 analyse("7. Planar double box  (2-loop, 7 massive propagators)", dbox, show_toric=False)
 analyse("8. Tetrahedron / K4   (3-loop, 6 massive propagators)", tet, show_toric=False)
 
-# ── Equivalence comparisons ───────────────────────────────────────────────────
+# -- Equivalence comparisons ---------------------------------------------------
 
 header("POLYTOPE EQUIVALENCE COMPARISONS")
 
 print("""
   Tests whether the GKZ Newton polytopes of two Feynman integrals are
-  related by a unimodular (det ±1 integer) or affine (rational) map.
+  related by a unimodular (det +/-1 integer) or affine (rational) map.
   Unimodular equivalence implies the GKZ systems have identical analytic
   structure; affine equivalence is strictly weaker.
 """)
 
-print("─" * W)
+print("-" * W)
 
 compare("Massless triangle", tri0, "Massive triangle", tri1)
 compare("Massless triangle", tri0, "One-mass tri (prop 1)", tri1m0)
@@ -337,12 +337,12 @@ compare("Massless box", box0, "Massive sunrise", sun)
 compare("Massive sunrise", sun, "Massive triangle", tri1)
 compare("One-mass tri (prop 1)", tri1m0, "One-mass tri (prop 2)", tri1m1)
 
-print("\n" + "─" * W)
+print("\n" + "-" * W)
 print(f"""
   Note: the planar double box (A: {dbox.gkz.a_matrix.shape}) and
   tetrahedron/K4 (A: {tet.gkz.a_matrix.shape}) have Newton polytopes
   with {len(dbox.newton_polytope.points)} and {len(tet.newton_polytope.points)} monomials
-  respectively — too large for the brute-force affine equivalence backend.
+  respectively, too large for the brute-force affine equivalence backend.
   Use specialised software for those comparisons.
 """)
 

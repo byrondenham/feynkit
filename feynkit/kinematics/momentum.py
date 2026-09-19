@@ -19,7 +19,7 @@ def create_momentum_products(
     Create a dictionary of momentum dot products for external legs.
 
     Constructs symbolic representations of dot products between external momenta,
-    either in terms of Mandelstam variables s_{ij} or generic momentum products p_i · p_j.
+    either in terms of Mandelstam variables s_{ij} or generic momentum products p_i * p_j.
 
     Parameters
     ----------
@@ -27,14 +27,14 @@ def create_momentum_products(
         Number of external legs (external momenta). Must be positive.
     use_mandelstam : bool, default False
         If True, use Mandelstam variables s_{ij} = (p_i + p_j)^2.
-        If False, ise generic dot products p_i · p_j.
+        If False, ise generic dot products p_i * p_j.
 
     Returns
     -------
     Dict[Tuple[int, int], sp.Expr]
         Dictionary mapping pairs (i, j) with i < j to symbolic expressions.
         - If use_mandelstam=True: s_{ij}/2 for n_external > 2, or s/2 for n_external = 2
-        - If use_mandelstam=False: symbol 'p{i}p{j}' representing p_i · p_j
+        - If use_mandelstam=False: symbol 'p{i}p{j}' representing p_i * p_j
 
     Raises
     ------
@@ -49,15 +49,15 @@ def create_momentum_products(
     so we use a single variable 's'.
 
     The factor of 1/2 in Mandelstam variables comes from the relation:
-        s_{ij} - (p_i + p_j)^2 = p_i^2 + 2(p_i · p_j) + p_j^2
+        s_{ij} - (p_i + p_j)^2 = p_i^2 + 2(p_i * p_j) + p_j^2
 
     For massless external particles (p_i^2 = 0):
-        s_{ij} = 2(p_i · p_j) => p_i · p_j = s_{ij}/2
+        s_{ij} = 2(p_i * p_j) => p_i * p_j = s_{ij}/2
 
     Generic Momentum Products:
 
     When use_mandelstam=False, we create generic symbolic dot products
-    p_i · p_j without assuming any specific kinematic relations.
+    p_i * p_j without assuming any specific kinematic relations.
 
     Examples
     --------
@@ -97,7 +97,7 @@ def create_momentum_products(
                     s_ij = sp.Symbol(f"s{i}{j}", real=True)
                     momentum_products[(i, j)] = s_ij / 2
     else:
-        # Generic momentum dot products p_i · p_j
+        # Generic momentum dot products p_i * p_j
         for i in range(1, n_external + 1):
             for j in range(i + 1, n_external + 1):
                 p_ij = sp.Symbol(f"p{i}p{j}", real=True)
@@ -114,7 +114,7 @@ def get_momentum_product(
     """
     Retrieve a momentum product from the dictionary, handling both orderings.
 
-    Since momentum products are symmetric (p_i · p_j = p_j · p_i), this function
+    Since momentum products are symmetric (p_i * p_j = p_j * p_i), this function
     checks both (i, j) and (j, i) orderings in the dictionary.
 
     Parameters
@@ -129,7 +129,7 @@ def get_momentum_product(
     Returns
     -------
     sp.Expr
-        The momentum product p_i · p_j.
+        The momentum product p_i * p_j.
 
     Raises
     ------

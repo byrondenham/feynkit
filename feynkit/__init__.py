@@ -2,9 +2,9 @@
 Feynkit: A unified toolkit for symbolic Feynman integral computations.
 
 The primary interface is :class:`FeynmanIntegral`, an immutable object that
-exposes every representation of an integral — graph topology, Symanzik /
+exposes every representation of an integral, graph topology, Symanzik /
 Lee-Pomeransky polynomials, parametric representations, GKZ system, Newton
-polytope, and toric ideal — as a ``cached_property`` derived lazily from
+polytope, and toric ideal, as a ``cached_property`` derived lazily from
 one underlying graph and its kinematic data.
 
 Quick Start
@@ -111,7 +111,7 @@ __all__ = [
     # Inputs
     "Edge",
     "Graph",
-    # Unified façade
+    # Unified facade
     "FeynmanIntegral",
     # Conformal artifacts
     "massless_polygon_a_config",

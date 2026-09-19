@@ -133,11 +133,11 @@ class TestEdgeStringRepresentation:
         edge = Edge(idx=1, v1=1, v2=2, is_internal=True, name="photon")
 
         str_repr = str(edge)
-        assert str_repr == "Edge 1 (photon): 1 → 2"
+        assert str_repr == "Edge 1 (photon): 1 -> 2"
 
     def test_str_without_name(self) -> None:
         """Test __str__ for edge without name."""
         edge = Edge(idx=1, v1=1, v2=2, is_internal=True)
 
         str_repr = str(edge)
-        assert str_repr == "Edge 1: 1 → 2"
+        assert str_repr == "Edge 1: 1 -> 2"

@@ -3,18 +3,18 @@ Tests for compute_polytope_automorphisms, compute_graph_automorphisms,
 and coefficient_preserving_indices.
 
 Expected group orders (unimodular automorphisms of Newton polytopes):
-  massless bubble    (11e|e|:zz)      → |Aut| = 6  (S₃: Newton polytope is a 2-simplex)
-  massless triangle  (12e|2e|e|:zzz)  → |Aut| = 48 (B₃: Newton polytope is octahedron)
-  one-mass triangle  (12e|2e|e|:nzz)  → |Aut| = 6  (S₃: reduced symmetry)
-  massless box       (12e|3e|3e|e|:zzzz) → |Aut| = 120 (hyperoctahedral group)
-  massless 3-banana  (111e|e|:zzz)    → |Aut| = 24 (S₄: Newton polytope is 3-simplex)
+  massless bubble    (11e|e|:zz)      -> |Aut| = 6  (S_3: Newton polytope is a 2-simplex)
+  massless triangle  (12e|2e|e|:zzz)  -> |Aut| = 48 (B_3: Newton polytope is octahedron)
+  one-mass triangle  (12e|2e|e|:nzz)  -> |Aut| = 6  (S_3: reduced symmetry)
+  massless box       (12e|3e|3e|e|:zzzz) -> |Aut| = 120 (hyperoctahedral group)
+  massless 3-banana  (111e|e|:zzz)    -> |Aut| = 24 (S_4: Newton polytope is 3-simplex)
 
-Graph automorphisms (vertex permutations only — edge permutations not counted):
-  massless bubble:   order 2  (swap vertices 1 ↔ 2)
-  massless triangle: order 6  (S₃ on three vertices)
+Graph automorphisms (vertex permutations only, edge permutations not counted):
+  massless bubble:   order 2  (swap vertices 1 <-> 2)
+  massless triangle: order 6  (S_3 on three vertices)
   one-mass triangle: order 2  (swap the two massless-edge vertices)
-  massless box:      order 8  (D₄ on four vertices)
-  massless 3-banana: order 2  (ℤ/2: swap vertices 1 ↔ 2; S₃ edge perms not vertex perms)
+  massless box:      order 8  (D_4 on four vertices)
+  massless 3-banana: order 2  (Z/2: swap vertices 1 <-> 2; S_3 edge perms not vertex perms)
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from feynkit.normal_forms.polytope_automorphisms import (
     compute_polytope_automorphisms,
 )
 
-# ── helpers ──────────────────────────────────────────────────────────────────
+# -- helpers ------------------------------------------------------------------
 
 
 def _fi(cnickel: str) -> FeynmanIntegral:
@@ -39,7 +39,7 @@ def _points(cnickel: str):
     return _fi(cnickel).newton_polytope.points
 
 
-# ── PolytopeAutomorphisms structure ──────────────────────────────────────────
+# -- PolytopeAutomorphisms structure ------------------------------------------
 
 
 class TestReturnType:
@@ -78,37 +78,37 @@ class TestReturnType:
             assert flat == list(range(len(pts))), f"Orbits don't cover all vertices for {cnickel}"
 
 
-# ── Group orders ──────────────────────────────────────────────────────────────
+# -- Group orders --------------------------------------------------------------
 
 
 class TestGroupOrders:
     def test_massless_bubble_order_6(self):
-        # Newton polytope is a 2-simplex → |Aut| = 6 = |S₃|
+        # Newton polytope is a 2-simplex -> |Aut| = 6 = |S_3|
         auts = compute_polytope_automorphisms(_points("11e|e|:zz"))
         assert auts.order == 6
 
     def test_massless_triangle_order_48(self):
-        # Newton polytope is a regular octahedron → |Aut| = 48 = |B₃|
+        # Newton polytope is a regular octahedron -> |Aut| = 48 = |B_3|
         auts = compute_polytope_automorphisms(_points("12e|2e|e|:zzz"))
         assert auts.order == 48
 
     def test_one_mass_triangle_order_6(self):
-        # Broken S₃ symmetry → |Aut| = 6
+        # Broken S_3 symmetry -> |Aut| = 6
         auts = compute_polytope_automorphisms(_points("12e|2e|e|:nzz"))
         assert auts.order == 6
 
     def test_massless_box_order_120(self):
-        # Hyperoctahedral symmetry → |Aut| = 120
+        # Hyperoctahedral symmetry -> |Aut| = 120
         auts = compute_polytope_automorphisms(_points("12e|3e|3e|e|:zzzz"))
         assert auts.order == 120
 
     def test_massless_banana_3prop_order_24(self):
-        # Newton polytope is a 3-simplex → |Aut| = 24 = |S₄|
+        # Newton polytope is a 3-simplex -> |Aut| = 24 = |S_4|
         auts = compute_polytope_automorphisms(_points("111e|e|:zzz"))
         assert auts.order == 24
 
 
-# ── Witness map validity ──────────────────────────────────────────────────────
+# -- Witness map validity ------------------------------------------------------
 
 
 class TestWitnessValidity:
@@ -142,7 +142,7 @@ class TestWitnessValidity:
         self._check_maps("111e|e|:zzz")
 
 
-# ── Graph automorphisms ───────────────────────────────────────────────────────
+# -- Graph automorphisms -------------------------------------------------------
 
 
 class TestGraphAutomorphisms:
@@ -174,14 +174,14 @@ class TestGraphAutomorphisms:
         assert len(auts) == 8
 
     def test_banana_vertex_aut_order_2(self):
-        # 3-prop banana: vertex automorphisms are ℤ/2 (swap the two vertices).
-        # S₃ permutations of the 3 propagators are edge symmetries, not vertex perms.
+        # 3-prop banana: vertex automorphisms are Z/2 (swap the two vertices).
+        # S_3 permutations of the 3 propagators are edge symmetries, not vertex perms.
         fi = _fi("111e|e|:zzz")
         auts = compute_graph_automorphisms(fi.graph)
         assert len(auts) == 2
 
 
-# ── FeynmanIntegral façade ────────────────────────────────────────────────────
+# -- FeynmanIntegral facade ----------------------------------------------------
 
 
 class TestFacade:
@@ -195,7 +195,7 @@ class TestFacade:
         fi = _fi("12e|2e|e|:zzz")
         gauts = fi.graph_automorphisms
         assert isinstance(gauts, list)
-        assert len(gauts) == 6  # S₃ on triangle vertices
+        assert len(gauts) == 6  # S_3 on triangle vertices
 
     def test_cached(self):
         fi = _fi("12e|2e|e|:zzz")
@@ -204,7 +204,7 @@ class TestFacade:
         assert a1 is a2
 
 
-# ── Coefficient-preserving subgroup ──────────────────────────────────────────
+# -- Coefficient-preserving subgroup ------------------------------------------
 
 
 class TestCoefficientPreserving:
@@ -216,7 +216,7 @@ class TestCoefficientPreserving:
             assert 0 in idx
 
     def test_bubble_has_two_preserving(self):
-        # G = u₁ + u₂ + s/(2μ²) u₁u₂.  The swap u₁↔u₂ is the only non-trivial
+        # G = u_1 + u_2 + s/(2 mu^2) u_1u_2.  The swap u_1<->u_2 is the only non-trivial
         # coefficient-preserving automorphism (it fixes the (1,1) monomial).
         fi = _fi("11e|e|:zz")
         auts = fi.polytope_automorphisms

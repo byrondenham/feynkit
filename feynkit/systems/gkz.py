@@ -34,7 +34,7 @@ def construct_gkz_matrix(
     Returns
     -------
     sp.Matrix
-        The A-matrix of size (n+1) × m, where:
+        The A-matrix of size (n+1) x m, where:
         - n = len(variables) = number of variables
         - m = number of monomials in support
 
@@ -95,7 +95,7 @@ def construct_gkz_matrix(
         num_monomials = len(support)  # Number of columns (m)
         num_variables = len(variables)  # Number of variables (n)
 
-        # Initialise (n+1) × m matrix
+        # Initialise (n+1) x m matrix
         A = sp.zeros(num_variables + 1, num_monomials)
 
         # Fill the A-matrix column by column

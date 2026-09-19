@@ -113,7 +113,7 @@ def gkz_exponent_vectors(
         tree_set = set(tree)
         _add(tuple(0 if i in tree_set else 1 for i in range(n)))
 
-    # F₀ monomials: complement of each separating 2-forest, per momentum pair
+    # F_0 monomials: complement of each separating 2-forest, per momentum pair
     ext_legs = sorted(leg_to_vertex)
     for ji, j in enumerate(ext_legs):
         for k in ext_legs[ji + 1 :]:

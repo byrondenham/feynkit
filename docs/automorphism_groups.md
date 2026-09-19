@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-The Lee–Pomeransky polynomial $G(u; z)$ encodes a Feynman integral as a GKZ
+The Lee-Pomeransky polynomial $G(u; z)$ encodes a Feynman integral as a GKZ
 hypergeometric function: up to a Gamma-function prefactor,
 
 $$
@@ -14,7 +14,7 @@ momentum invariants) appearing as coefficients of the monomials of $G$, and
 $\nu_0$ is a combination of propagator exponents and the spacetime dimension.
 The Newton polytope $P = \mathrm{Newt}(G) \subset \mathbb{R}^n$ controls
 the combinatorics of the GKZ $D$-module associated with $I(z)$: the holonomic
-rank — the number of master integrals in the IBP sense — equals the normalised
+rank, the number of master integrals in the IBP sense, equals the normalised
 volume $\mathrm{vol}(P)$, and the set of GKZ exponents is read off from
 the face structure of $P$.
 
@@ -32,20 +32,20 @@ analogues of Ward identities: they collapse the parameter space and can reduce
 the number of independent kinematic configurations that must be evaluated
 numerically.
 
-feynkit computes these automorphism groups exactly, via the Liu–Cai algorithm
+feynkit computes these automorphism groups exactly, via the Liu-Cai algorithm
 applied to the Newton polytope of $G$.
 
 ---
 
 ## 2. Mathematical Background
 
-### The Lee–Pomeransky polynomial
+### The Lee-Pomeransky polynomial
 
 Let $\Gamma$ be a connected Feynman graph with $n$ internal edges, $L$ loops,
-and $E$ external legs. Assign Lee–Pomeransky parameters $u_1, \ldots, u_n$ to
+and $E$ external legs. Assign Lee-Pomeransky parameters $u_1, \ldots, u_n$ to
 the internal edges. The Symanzik polynomials $\mathcal{U}$ (first kind) and
 $\mathcal{F}$ (second kind) are given by sums over spanning trees and
-2-trees of $\Gamma$, respectively. The Lee–Pomeransky polynomial is
+2-trees of $\Gamma$, respectively. The Lee-Pomeransky polynomial is
 
 $$
 G(u) = \mathcal{U}(u) + \mathcal{F}(u),
@@ -87,7 +87,7 @@ GKZ $D$-module: the A-matrix is sent to a column-permutation of itself, the
 toric ideal is preserved, and the holonomic rank is unchanged. Rational affine
 maps outside $\mathrm{GL}_n(\mathbb{Z})$ do not have this property.
 
-### The Liu–Cai algorithm
+### The Liu-Cai algorithm
 
 feynkit locates $\mathrm{Aut}(P)$ using the basis-search strategy of
 Liu and Cai (arXiv:2506.23846), originally introduced for deciding unimodular
@@ -142,7 +142,7 @@ graph-theoretic structure of $\Gamma$.
 The most striking example is the banana family. The 3-propagator banana has two
 internal vertices and hence $|\mathrm{Aut}(\Gamma)| = 2$, yet its Newton
 polytope is the standard 3-simplex in $\mathbb{R}^3$, which carries the full
-symmetric group $S_4$ acting by permutation of the four vertices — so
+symmetric group $S_4$ acting by permutation of the four vertices, so
 $|\mathrm{Aut}(P)| = 24$.
 
 ### Level 3: Coefficient-preserving automorphisms
@@ -162,8 +162,8 @@ functional equation $I(z) = I(\sigma \cdot z)$.
 
 With generic symbolic kinematics (all masses and Mandelstam invariants
 independent symbols), each monomial of $G$ typically has a distinct coefficient,
-so only the identity is coefficient-preserving. At special kinematic points —
-most notably when all masses are zero — many coefficients coincide and the
+so only the identity is coefficient-preserving. At special kinematic points,
+most notably when all masses are zero, many coefficients coincide and the
 coefficient-preserving subgroup can be as large as the full $\mathrm{Aut}(P)$.
 For massless diagrams, all monomials of $\mathcal{U}$ and all monomials of
 $\mathcal{F}$ carry integer coefficients determined purely by spanning-tree
@@ -200,7 +200,7 @@ coefficient-preserving order for the massless bananas equals the factorial of
 the number of propagators: $6 = 3!$ for the 3-banana and $24 = 4!$ for the
 4-banana. This reflects the fact that in the massless case every monomial of
 $G$ has coefficient 1, so the full $\mathrm{Aut}(P)$ that permutes the
-simplex vertices preserves coefficients — and the edge-permutation symmetry
+simplex vertices preserves coefficients, and the edge-permutation symmetry
 missing from $\mathrm{Aut}(\Gamma)$ is recovered at Level 3.
 
 ---
@@ -210,7 +210,7 @@ missing from $\mathrm{Aut}(\Gamma)$ is recovered at Level 3.
 The $n$-propagator banana graph has $n$ parallel internal edges connecting two
 external vertices and contributes one loop ($L = n - 1$ for a connected banana
 with $n$ edges through a single loop; for the standard banana with 2 external
-vertices and $n$ internal edges, $L = n - 1$). Its Lee–Pomeransky polynomial in
+vertices and $n$ internal edges, $L = n - 1$). Its Lee-Pomeransky polynomial in
 the massless case is
 
 $$
@@ -219,7 +219,7 @@ $$
 
 and the Newton polytope is the standard $(n-1)$-simplex
 $\Delta_{n-1} = \mathrm{conv}(e_1, \ldots, e_n) \subset \mathbb{R}^n$
-together with the vertex corresponding to $\prod_i u_i$ — i.e. a simplex in
+together with the vertex corresponding to $\prod_i u_i$, i.e. a simplex in
 $n$ dimensions with $n+1$ vertices.
 
 The automorphism group of the standard $n$-simplex (as a lattice polytope) is
@@ -273,7 +273,7 @@ fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
 # Full polytope automorphism group (cached property on FeynmanIntegral)
 auts = fi.polytope_automorphisms       # PolytopeAutomorphisms
 print(auts.order)                      # 48
-print(auts.vertex_orbits)             # [[0, 1, 2, 3, 4, 5]] — single orbit
+print(auts.vertex_orbits)             # [[0, 1, 2, 3, 4, 5]], single orbit
 
 # Graph automorphisms (vertex permutations only)
 gauts = fi.graph_automorphisms         # list of vertex-permutation lists
@@ -281,7 +281,7 @@ print(len(gauts))                      # 6
 
 # Which polytope automorphisms preserve G's coefficients?
 cp = coefficient_preserving_indices(fi, auts)
-print(len(cp))                         # 1 (identity only — generic kinematics)
+print(len(cp))                         # 1 (identity only, generic kinematics)
 
 # Banana: coefficient-preserving = full group in massless case
 banana = FeynmanIntegral.from_cnickel("111e|e|:zzz")

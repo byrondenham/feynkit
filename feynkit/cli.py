@@ -32,19 +32,19 @@ from pathlib import Path
 
 import sympy as sp
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Output helpers
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 
-def _rule(char: str = "─", width: int = 68) -> None:
+def _rule(char: str = "-", width: int = 68) -> None:
     print(char * width)
 
 
 def _header(title: str) -> None:
-    _rule("═")
+    _rule("=")
     print(f"  {title}")
-    _rule("═")
+    _rule("=")
 
 
 def _sec(title: str) -> None:
@@ -69,14 +69,14 @@ def _matrix(M: sp.Matrix, indent: int = 4) -> None:
 
 
 def _fmt_euler(eq: sp.Eq) -> str:
-    """Render an Euler equation as 'z_j ∂_j + ... = β' (operator form, no Φ)."""
+    """Render an Euler equation as 'z_j d_j + ... = beta' (operator form, no Phi)."""
     lhs_parts = []
     for term in eq.lhs.as_ordered_terms():
         derivs = [a for a in sp.preorder_traversal(term) if isinstance(a, sp.Derivative)]
         if derivs:
             var = derivs[0].variables[0]
             idx = str(var).split("_", 1)[1]
-            lhs_parts.append(f"z_{idx} ∂_{idx}")
+            lhs_parts.append(f"z_{idx} d_{idx}")
 
     phi_atoms = [
         a for a in sp.preorder_traversal(eq.rhs) if isinstance(a, sp.core.function.AppliedUndef)
@@ -86,9 +86,9 @@ def _fmt_euler(eq: sp.Eq) -> str:
     return " + ".join(lhs_parts) + "  =  " + str(beta)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Single-diagram analysis
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 
 def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
@@ -104,14 +104,14 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
     fi = FeynmanIntegral.from_cnickel(cnickel)
     db = FeynkitDatabase(db_path)
 
-    # ── graph (always shown) ─────────────────────────────────────────────────
+    # -- graph (always shown) -------------------------------------------------
     _header(f"Feynman integral  {fi.cnickel}")
     _kv("Nickel index", fi.nickel_index)
     _kv("Loop count", fi.loop_count)
     _kv("Propagators", len(fi.graph.get_internal_edges()))
     _kv("External legs", fi.graph.external_legs)
 
-    # ── Symanzik polynomials ─────────────────────────────────────────────────
+    # -- Symanzik polynomials -------------------------------------------------
     if _show("symanzik"):
         _sec("Symanzik polynomials")
         sym = fi.symanzik
@@ -120,7 +120,7 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
         print(f"  F  =  {sym.f}")
         print(f"  G  =  U + F  =  {sym.g}")
 
-    # ── Parametrisations ─────────────────────────────────────────────────────
+    # -- Parametrisations -----------------------------------------------------
     if _show("params"):
         _sec("Integral parametrisations")
         sch = fi.schwinger
@@ -134,37 +134,37 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
         print(f"              prefactor  {feyn.prefactor}")
         print(f"              constraint {feyn.constraints}")
         print()
-        print(f"  Lee–Pom.    params  {lp.parameters}")
+        print(f"  Lee-Pom.    params  {lp.parameters}")
         print(f"              prefactor  {lp.prefactor}")
 
-    # ── GKZ system ───────────────────────────────────────────────────────────
+    # -- GKZ system -----------------------------------------------------------
     if _show("gkz"):
         _sec("GKZ hypergeometric system")
         gkz = fi.gkz
         A = gkz.a_matrix
-        print(f"  A-matrix  ({A.rows} × {A.cols})" f"  [rows = coordinates; cols = monomials of G]")
+        print(f"  A-matrix  ({A.rows} x {A.cols})" f"  [rows = coordinates; cols = monomials of G]")
         _matrix(A)
         print()
-        _kv("β-parameters", gkz.beta_parameters)
+        _kv("beta-parameters", gkz.beta_parameters)
         _kv("z-variables", gkz.z_variables)
         print()
-        print("  Euler equations  (Σ_j A_rj z_j ∂_j = β_r):")
+        print("  Euler equations  (sum_j A_rj z_j d_j = beta_r):")
         for i, eq in enumerate(gkz.euler_equations):
             print(f"    [{i}]  {_fmt_euler(eq)}")
 
-    # ── Toric ideal ──────────────────────────────────────────────────────────
+    # -- Toric ideal ----------------------------------------------------------
     if _show("toric"):
         _sec("Toric ideal  (IBP relations in z-space)")
         ti = fi.toric_ideal
         gens = ti.generators
         if gens:
-            print(f"  {len(gens)} generator(s)  [z^u - z^v = 0  ↔  A·u = A·v]:")
+            print(f"  {len(gens)} generator(s)  [z^u - z^v = 0  <->  A*u = A*v]:")
             for g in gens:
                 print(f"    {g}  =  0")
         else:
-            print("  Trivial  (no IBP relations — single master integral)")
+            print("  Trivial  (no IBP relations, single master integral)")
 
-    # ── Newton polytope ──────────────────────────────────────────────────────
+    # -- Newton polytope ------------------------------------------------------
     if _show("newton"):
         _sec("Newton polytope")
         cfg = AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
@@ -177,7 +177,7 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
         model = cfg.intrinsic_model()
         _kv("Lattice base point", model.base_point)
 
-    # ── Automorphisms / symmetry pairs ───────────────────────────────────────
+    # -- Automorphisms / symmetry pairs ---------------------------------------
     if _show("symmetries"):
         _sec("Symmetries")
         aut = fi.polytope_automorphisms
@@ -194,7 +194,7 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
             for p in fi_pairs[:3]:
                 print(f"    det={p.determinant}  perm={p.column_permutation}")
 
-    # ── Database (always) ────────────────────────────────────────────────────
+    # -- Database (always) ----------------------------------------------------
     _sec("Database")
     rec = db.store(fi, label=fi.cnickel)
     print(f"  Stored: {rec}")
@@ -203,19 +203,19 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
         print(f"  Unimodular equivalents in DB ({len(existing)}):")
         for r in existing:
             lbl = r.label or r.cnickel or r.fingerprint[:8]
-            print(f"    {lbl}  (A={r.n_rows}×{r.n_cols})")
+            print(f"    {lbl}  (A={r.n_rows} x {r.n_cols})")
     else:
         print("  No unimodular equivalents in DB.")
 
     db.close()
-    _rule("═")
+    _rule("=")
     print(f"  Done in {time.time()-t0:.1f}s")
-    _rule("═")
+    _rule("=")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Two-diagram equivalence analysis
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 
 def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
@@ -231,13 +231,13 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
     print(f"  A  =  {fi1.cnickel}")
     print(f"  B  =  {fi2.cnickel}")
 
-    # ── per-diagram summaries ─────────────────────────────────────────────────
+    # -- per-diagram summaries -------------------------------------------------
     def _brief(fi: FeynmanIntegral, tag: str) -> AConfiguration:
         gkz = fi.gkz
         A = gkz.a_matrix
         cfg = AConfiguration(A, is_homogenized=True)
         ti = fi.toric_ideal
-        _sec(f"Diagram {tag}  —  {fi.cnickel}")
+        _sec(f"Diagram {tag} ,  {fi.cnickel}")
         _kv("Nickel", fi.nickel_index)
         _kv(
             "Loops / props / ext",
@@ -247,10 +247,10 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
         print(f"  F  =  {fi.symanzik.f}")
         print(f"  G  =  {fi.symanzik.g}")
         print()
-        print(f"  A-matrix  ({A.rows} × {A.cols}):")
+        print(f"  A-matrix  ({A.rows} x {A.cols}):")
         _matrix(A)
         print()
-        _kv("β-parameters", gkz.beta_parameters)
+        _kv("beta-parameters", gkz.beta_parameters)
         _kv("Toric generators", len(ti.generators))
         _kv(
             "Monomials / verts / dim",
@@ -264,15 +264,15 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
     cfg1 = _brief(fi1, "A")
     cfg2 = _brief(fi2, "B")
 
-    # ── quick pre-filter ──────────────────────────────────────────────────────
+    # -- quick pre-filter ------------------------------------------------------
     _sec("Equivalence checks")
     if cfg1.ambient_dim != cfg2.ambient_dim:
         print(f"  Ambient dimension mismatch ({cfg1.ambient_dim} vs {cfg2.ambient_dim}).")
         print("  No affine equivalence is possible between spaces of different dimension.")
         db.close()
-        _rule("═")
+        _rule("=")
         print(f"  Done in {time.time()-t0:.1f}s")
-        _rule("═")
+        _rule("=")
         return
 
     results = []
@@ -299,15 +299,15 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
             f"  {'finite_index':<22} n/a  (different monomial counts: {cfg1.n_points} vs {cfg2.n_points})"
         )
 
-    # ── change of variables for any found map ────────────────────────────────
+    # -- change of variables for any found map --------------------------------
     any_found = any(r.equivalent for _, r in results) or fi_res.found
     if not any_found:
         print()
         print("  No equivalence found between A and B.")
         db.close()
-        _rule("═")
+        _rule("=")
         print(f"  Done in {time.time()-t0:.1f}s")
-        _rule("═")
+        _rule("=")
         return
 
     for relation, res in results:
@@ -317,7 +317,7 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
         M = res.witness_map
         t = res.translation
         n = M.rows
-        print(f"  Linear map M  ({M.rows} × {M.cols}):")
+        print(f"  Linear map M  ({M.rows} x {M.cols}):")
         _matrix(M)
         if t is not None:
             t_list = [t[i, 0] for i in range(n)] if t.cols == 1 else [t[0, i] for i in range(n)]
@@ -325,7 +325,7 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
         print()
         src_vars = [sp.Symbol(f"u_{i+1}") for i in range(n)]
         tgt_vars = [sp.Symbol(f"v_{i+1}") for i in range(n)]
-        print("  u_i (diagram A)  =  Σ_j M_ij v_j + t_i  (diagram B variables v_j):")
+        print("  u_i (diagram A)  =  sum_j M_ij v_j + t_i  (diagram B variables v_j):")
         for i, ui in enumerate(src_vars):
             expr = sum(M[i, j] * tgt_vars[j] for j in range(n))
             if t is not None:
@@ -345,15 +345,15 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
             T_rows.append([t_vals[i]] + [M[i, j] for j in range(n)])
         T_hom = sp.Matrix(T_rows)
         transformed = list(T_hom * sp.Matrix(beta1))
-        print("  GKZ identity  I_A(β, z) = I_A(T·β, z_P):")
-        print(f"    β    =  {beta1}")
-        print(f"    T·β  =  {[str(x) for x in transformed]}")
+        print("  GKZ identity  I_A(beta, z) = I_A(T*beta, z_P):")
+        print(f"    beta    =  {beta1}")
+        print(f"    T*beta  =  {[str(x) for x in transformed]}")
 
     if fi_res.found and fi_res.witness_matrix is not None:
         M, t = fi_res.witness_matrix, fi_res.translation
         n = M.rows
         _sec(f"Change of variables  [finite_index, det = {fi_res.determinant}]")
-        print(f"  Linear map M  ({M.rows} × {M.cols}):")
+        print(f"  Linear map M  ({M.rows} x {M.cols}):")
         _matrix(M)
         if t is not None:
             t_list = [t[i, 0] for i in range(n)] if t.cols == 1 else [t[0, i] for i in range(n)]
@@ -361,7 +361,7 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
         print()
         src_vars = [sp.Symbol(f"u_{i+1}") for i in range(n)]
         tgt_vars = [sp.Symbol(f"v_{i+1}") for i in range(n)]
-        print("  u_i (A)  =  Σ_j M_ij v_j + t_i  (B variables v_j):")
+        print("  u_i (A)  =  sum_j M_ij v_j + t_i  (B variables v_j):")
         for i, ui in enumerate(src_vars):
             expr = sum(M[i, j] * tgt_vars[j] for j in range(n))
             if t is not None:
@@ -371,14 +371,14 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
             print(f"    {ui}  =  {sp.simplify(expr)}")
 
     db.close()
-    _rule("═")
+    _rule("=")
     print(f"  Done in {time.time()-t0:.1f}s")
-    _rule("═")
+    _rule("=")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Entry point
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 
 def main(argv: list[str] | None = None) -> None:

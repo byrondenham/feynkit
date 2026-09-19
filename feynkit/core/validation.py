@@ -232,7 +232,7 @@ def validate_momentum_products(
     Parameters
     ----------
     momentum_products : Dict[tuple[int, int], sp.Expr]
-        Dictionary mapping (i, j) pairs to momentum dot products p_i · p_j.
+        Dictionary mapping (i, j) pairs to momentum dot products p_i * p_j.
     external_leg_count : int
         Number of external legs in the graph.
 
@@ -267,7 +267,7 @@ def validate_dimension_parameter(dimension: sp.Expr) -> None:
     Parameters
     ----------
     dimensions : sp.Expr
-        Spacetime dimension (typically symbolic like D or 4-2ε).
+        Spacetime dimension (typically symbolic like D or 4-2 epsilon).
 
     Raises
     ------

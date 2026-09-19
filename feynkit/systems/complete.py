@@ -26,7 +26,7 @@ class GKZSystem:
     Attributes
     ----------
     a_matrix : sp.Matrix
-        The GKZ A-matrix of size (n+1) × m.
+        The GKZ A-matrix of size (n+1) x m.
     z_variables : List[sp.Symbol]
         Differential variables [z_1, z_2, ..., z_m].
     support : List[Tuple[Tuple[int, ...], sp.Expr]]
@@ -54,7 +54,7 @@ class GKZSystem:
         lines = [
             "GKZ Hypergeometric System",
             "=" * 60,
-            f"A-matrix shape: {self.a_matrix.rows} × {self.a_matrix.cols}",
+            f"A-matrix shape: {self.a_matrix.rows} x {self.a_matrix.cols}",
             f"Number of monomials: {len(self.support)}",
             f"Number of variables: {len(self.z_variables)}",
             f"\nA-matrix:\n{self.a_matrix}",
@@ -182,7 +182,7 @@ def _create_gkz_system_direct(
     """
     Construct a GKZ system directly from pre-enumerated exponent vectors.
 
-    Bypasses symbolic polynomial construction entirely — the A-matrix is built
+    Bypasses symbolic polynomial construction entirely, the A-matrix is built
     from graph-combinatorial data, not from G = U + F as a SymPy expression.
     The ``support`` field uses coefficient ``1`` for every monomial (the
     coefficients are not needed for the A-matrix or Euler equations).
@@ -192,7 +192,7 @@ def _create_gkz_system_direct(
             f"Number of LP params ({len(lp_params)}) must match "
             f"number of propagator exponents ({len(propagator_exponents)})"
         )
-    # Sort descending by total degree, then descending lex — matches sp.Poly grevlex output
+    # Sort descending by total degree, then descending lex, matches sp.Poly grevlex output
     # so that z_j labels are consistent with the polynomial-based path.
     sorted_vecs = sorted(exponent_vecs, key=lambda v: (-sum(v), tuple(-e for e in v)))
     n_vars = len(lp_params)

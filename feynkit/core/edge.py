@@ -194,5 +194,5 @@ class Edge:
             Short string representation.
         """
         if self.name:
-            return f"Edge {self.idx} ({self.name}): {self.v1} → {self.v2}"
-        return f"Edge {self.idx}: {self.v1} → {self.v2}"
+            return f"Edge {self.idx} ({self.name}): {self.v1} -> {self.v2}"
+        return f"Edge {self.idx}: {self.v1} -> {self.v2}"

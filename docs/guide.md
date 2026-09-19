@@ -15,7 +15,7 @@ a `fk` command-line tool for instant analysis of any diagram.
 3. [Core concepts](#core-concepts)
 4. [Building a Feynman diagram](#building-a-feynman-diagram)
 5. [Nickel and CNickel index](#nickel-and-cnickel-index)
-6. [The FeynmanIntegral façade](#the-feynmanintegral-façade)
+6. [The FeynmanIntegral facade](#the-feynmanintegral-facade)
 7. [Symanzik polynomials](#symanzik-polynomials)
 8. [Parametric representations](#parametric-representations)
 9. [GKZ system](#gkz-system)
@@ -48,7 +48,7 @@ uv sync
 ### Optional: 4ti2 backend for toric ideals
 
 The default SymPy backend for computing toric ideals is exact but slow at pentagon scale and
-beyond. The 4ti2 backend is ~15× faster and handles large problems that would otherwise not
+beyond. The 4ti2 backend is ~15 x  faster and handles large problems that would otherwise not
 terminate.
 
 ```bash
@@ -99,7 +99,7 @@ Section flags:
 | Flag | Long form | Section |
 |------|-----------|---------|
 | `-s` | `--symanzik` | Symanzik polynomials U, F, G |
-| `-p` | `--params` | Parametrisations (Schwinger, Feynman, Lee–Pom.) |
+| `-p` | `--params` | Parametrisations (Schwinger, Feynman, Lee-Pom.) |
 | `-g` | `--gkz` | GKZ A-matrix and Euler equations |
 | `-t` | `--toric` | Toric ideal (IBP generators in z-space) |
 | `-n` | `--newton` | Newton polytope (vertices, volume, Smith invariants) |
@@ -133,30 +133,30 @@ The pairwise mode:
 1. Prints a brief per-diagram summary (Symanzik polynomials, A-matrix, Smith invariants).
 2. Runs unimodular, affine-polytope, point-configuration, and finite-index equivalence checks.
 3. For any found map, prints the explicit change-of-variables and the induced GKZ parameter
-   transformation `β → T·β`.
+   transformation `$\beta$ -> T*$\beta$`.
 
 ### Example output (single diagram)
 
 ```
-════════════════════════════════════════════════════════════════════
+====================================================================
   Feynman integral  12e|2e|e|:zzz
-════════════════════════════════════════════════════════════════════
+====================================================================
   Nickel index                 12e|2e|e|
   Loop count                   1
   Propagators                  3
   External legs                3
 
-────────────────────────────────────────────────────────────────────
+--------------------------------------------------------------------
   Symanzik polynomials
-────────────────────────────────────────────────────────────────────
+--------------------------------------------------------------------
   U  =  a_1 + a_2 + a_3
   F  =  ...
   G  =  U + F  =  ...
 
-────────────────────────────────────────────────────────────────────
+--------------------------------------------------------------------
   GKZ hypergeometric system
-────────────────────────────────────────────────────────────────────
-  A-matrix  (4 × 6)  [rows = coordinates; cols = monomials of G]
+--------------------------------------------------------------------
+  A-matrix  (4 x 6)  [rows = coordinates; cols = monomials of G]
     [ 1  1  1  1  1  1 ]
     [ 1  1  1  0  0  0 ]
     [ 1  0  0  1  1  0 ]
@@ -168,18 +168,18 @@ The pairwise mode:
 
 ## Core concepts
 
-Feynkit works with Feynman integrals in the **Lee–Pomeransky representation**:
+Feynkit works with Feynman integrals in the **Lee-Pomeransky representation**:
 
 ```
-I ∝ ∫ [du] G(u)^(d/2−E/2) ∏ uᵢ^(νᵢ−1)
+I ~ int [du] G(u)^(d/2-E/2) prod u_i^(nu_i-1)
 ```
 
-where `G = U + F` is the Lee–Pomeransky polynomial, `U` is the first Symanzik polynomial
+where `G = U + F` is the Lee-Pomeransky polynomial, `U` is the first Symanzik polynomial
 (spanning trees), `F` is the second (spanning 2-forests weighted by momenta), `E` is the total
 propagator degree, and `d` is the spacetime dimension.
 
 The monomial support of `G` defines the **Newton polytope**. Its column-homogenised form is the
-**GKZ A-matrix**. The kernel of the monomial map `z ↦ u^A` is the **toric ideal**, whose
+**GKZ A-matrix**. The kernel of the monomial map `z -> u^A` is the **toric ideal**, whose
 generators are the IBP (integration-by-parts) relations.
 
 ---
@@ -188,7 +188,7 @@ generators are the IBP (integration-by-parts) relations.
 
 ### Edge
 
-Every edge — both internal propagators and external legs — is an `Edge` object:
+Every edge, both internal propagators and external legs, is an `Edge` object:
 
 ```python
 from feynkit import Edge
@@ -197,7 +197,7 @@ import sympy as sp
 m = sp.Symbol("m", nonnegative=True)
 nu = sp.Symbol("nu", positive=True)
 
-# Internal propagator with mass m and exponent ν
+# Internal propagator with mass m and exponent nu
 e1 = Edge(idx=1, v1=1, v2=2, is_internal=True, mass=m, nu=nu)
 
 # Massless internal propagator (default mass=0, nu=1)
@@ -218,8 +218,8 @@ Parameters:
 | `nu` | `sp.Expr` | Propagator exponent (default `1`) |
 
 Vertex index conventions:
-- Internal vertices are labelled `1, 2, …, V`.
-- External vertices are `V+1, V+2, …` — each attached to exactly one external leg.
+- Internal vertices are labelled `1, 2, ..., V`.
+- External vertices are `V+1, V+2, ...`, each attached to exactly one external leg.
 
 ### Graph
 
@@ -254,7 +254,7 @@ graph.get_internal_edges()   # sorted list of internal Edge objects
 graph.get_external_edges()   # sorted list of external Edge objects
 graph.get_loop_count()       # E_int - V_int + 1 (for connected graphs)
 graph.nickel_index()         # canonical topology string, e.g. "12e|2e|e|"
-graph.cnickel()              # topology + mass coloring,  e.g. "12e|2e|e|:zzz"
+graph.cnickel()              # topology + mass colouring,  e.g. "12e|2e|e|:zzz"
 ```
 
 Auto-generated symbols:
@@ -270,19 +270,19 @@ graph.external_parameters    # {leg_num: b_j}   for external legs
 
 ### Format
 
-Every Feynman graph (up to vertex relabelling) has a canonical **Nickel index** — a compact
+Every Feynman graph (up to vertex relabelling) has a canonical **Nickel index**, a compact
 string that uniquely identifies its topology. The **CNickel** (Colored Nickel) index extends
-this with a per-propagator mass coloring, making it a complete identifier for an integral
+this with a per-propagator mass colouring, making it a complete identifier for an integral
 family.
 
-**Nickel format:** internal vertices are numbered `0, 1, …, V−1`. For each vertex `i` in
+**Nickel format:** internal vertices are numbered `0, 1, ..., V-1`. For each vertex `i` in
 order, list its higher-numbered internal neighbors (sorted ascending), then one `e` per
 external leg. Entries are separated by `|`. The canonical form is the lexicographically
 smallest string over all `V!` vertex labellings.
 
-**CNickel format:** `<nickel>:<colors>`, where `<colors>` is a string of `z` (zero / massless)
+**CNickel format:** `<nickel>:<colours>`, where `<colours>` is a string of `z` (zero / massless)
 and `n` (nonzero / massive) characters, one per internal edge in the order they appear left-
-to-right in `<nickel>`. The canonical form jointly minimises topology and mass coloring.
+to-right in `<nickel>`. The canonical form jointly minimises topology and mass colouring.
 
 Common examples:
 
@@ -294,7 +294,7 @@ Common examples:
 | 3-prop banana | `111e\|e\|` | `111e\|e\|:zzz` |
 
 For a one-mass triangle, all three placements of the single massive edge give the same CNickel
-(`"12e|2e|e|:nzz"`) because the canonical form absorbs graph automorphisms — the mass coloring
+(`"12e|2e|e|:nzz"`) because the canonical form absorbs graph automorphisms, the mass colouring
 is minimised ('`n`' < '`z`' in ASCII) over all equivalent labellings.
 
 ### Constructing a graph from CNickel
@@ -309,7 +309,7 @@ from feynkit import Graph, FeynmanIntegral
 g = Graph.from_cnickel("12e|2e|e|:nzz")   # one-mass triangle
 g = Graph.from_nickel("12e|2e|e|")         # massless triangle (bare topology)
 
-# Full FeynmanIntegral (default symbolic exponents nu_1, nu_2, … and dimension D)
+# Full FeynmanIntegral (default symbolic exponents nu_1, nu_2, ... and dimension D)
 fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nzz")
 fi = FeynmanIntegral.from_nickel("111e|e|")   # massless 3-prop banana
 
@@ -321,7 +321,7 @@ fi = FeynmanIntegral.from_cnickel(
 )
 ```
 
-Massive edges (color `'n'`) receive a unique symbolic mass `m_<idx>` with assumptions
+Massive edges (colour `'n'`) receive a unique symbolic mass `m_<idx>` with assumptions
 `{nonnegative: True, real: True}`. Massless edges receive `mass = 0`.
 
 Non-canonical input is accepted: the resulting `Graph` will report the canonical CNickel when
@@ -332,7 +332,7 @@ Non-canonical input is accepted: the resulting `Graph` will report the canonical
 ```python
 fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
 
-print(fi.nickel_index)     # "12e|2e|e|"   — topology only
+print(fi.nickel_index)     # "12e|2e|e|"  , topology only
 print(fi.cnickel)          # "12e|2e|e|:zzz"
 
 # Same methods on the Graph object directly
@@ -354,7 +354,7 @@ makes CNickel suitable as a stable, human-readable identifier for integral famil
 
 ---
 
-## The FeynmanIntegral façade
+## The FeynmanIntegral facade
 
 `FeynmanIntegral` is the main entry point. All representations are computed **lazily** and
 **cached** on first access.
@@ -374,9 +374,9 @@ Constructor parameters:
 |------|------|---------|-------------|
 | `graph` | `Graph` | required | The Feynman graph |
 | `dimension` | `sp.Expr` | `Symbol("D")` | Spacetime dimension |
-| `propagator_exponents` | `dict[int, Expr]` | `{idx: ν_idx}` | Exponent for each internal edge |
+| `propagator_exponents` | `dict[int, Expr]` | `{idx: $\nu$_idx}` | Exponent for each internal edge |
 | `loop_count` | `int` | from graph | Override if graph topology is ambiguous |
-| `momentum_products` | `dict` | generated | `{(i,j): p_i·p_j}` kinematic variables |
+| `momentum_products` | `dict` | generated | `{(i,j): p_i*p_j}` kinematic variables |
 | `use_mandelstam` | `bool` | `True` | Use Mandelstam variables for kinematics |
 | `kinematic_constraints` | `list[Expr]` | `[]` | Extra symbolic constraints |
 | `database` | `FeynkitDatabase` | `None` | Attach a cache database |
@@ -394,8 +394,8 @@ Read-only properties:
 fi.graph                # the Graph object
 fi.dimension            # spacetime dimension symbol
 fi.loop_count           # number of loops
-fi.propagator_exponents # {edge_idx: ν_i}
-fi.momentum_products    # {(i,j): p_i·p_j}
+fi.propagator_exponents # {edge_idx: nu_i}
+fi.momentum_products    # {(i,j): p_i*p_j}
 fi.nickel_index         # canonical Nickel topology string
 fi.cnickel              # canonical CNickel string (topology:mass_colors)
 ```
@@ -406,13 +406,13 @@ Computed lazy properties (expensive on first access, then cached):
 fi.symanzik             # SymanzikPolynomials
 fi.schwinger            # ParametrisationResult (Schwinger form)
 fi.feynman              # ParametrisationResult (Feynman form)
-fi.lee_pomeransky       # ParametrisationResult (Lee–Pomeransky form)
+fi.lee_pomeransky       # ParametrisationResult (Lee-Pomeransky form)
 fi.gkz                  # GKZSystem
 fi.newton_polytope      # NewtonPolytope
 fi.toric_ideal          # ToricIdeal
 fi.polytope_automorphisms   # PolytopeAutomorphisms
-fi.graph_automorphisms      # list[list[int]] — vertex permutations
-fi.symmetry_pairs           # list[SymmetryPair] — all integer affine maps
+fi.graph_automorphisms      # list[list[int]], vertex permutations
+fi.symmetry_pairs           # list[SymmetryPair], all integer affine maps
 ```
 
 ---
@@ -427,13 +427,13 @@ sym = fi.symanzik
 
 | Attribute | Description |
 |-----------|-------------|
-| `sym.u` | First Symanzik polynomial (Schwinger parameters `aᵢ`) |
+| `sym.u` | First Symanzik polynomial (Schwinger parameters `a_i`) |
 | `sym.f` | Second Symanzik polynomial (Schwinger parameters) |
-| `sym.u_lp` | U in Lee–Pomeransky parameters `uᵢ` |
-| `sym.f_lp` | F in Lee–Pomeransky parameters |
+| `sym.u_lp` | U in Lee-Pomeransky parameters `u_i` |
+| `sym.f_lp` | F in Lee-Pomeransky parameters |
 | `sym.g` | G = U\_lp + F\_lp |
-| `sym.schwinger_parameters` | `[a1, a2, …]` in edge-index order |
-| `sym.lp_parameters` | `[u1, u2, …]` in edge-index order |
+| `sym.schwinger_parameters` | `[a1, a2, ...]` in edge-index order |
+| `sym.lp_parameters` | `[u1, u2, ...]` in edge-index order |
 
 ### Example: massless triangle
 
@@ -480,7 +480,7 @@ bubble = FeynmanIntegral(graph, propagator_exponents={1: nu[0], 2: nu[1]})
 
 sym = bubble.symanzik
 # U = a1 + a2
-# F contains the mass terms m1²·a1² + m2²·a2² + ...
+# F contains the mass terms m1^2*a1^2 + m2^2*a2^2 + ...
 ```
 
 ---
@@ -492,14 +492,14 @@ Feynkit provides three parametric representations of the integral prefactor and 
 ```python
 sch = fi.schwinger          # Schwinger representation
 fey = fi.feynman            # Feynman representation
-lp  = fi.lee_pomeransky     # Lee–Pomeransky representation
+lp  = fi.lee_pomeransky     # Lee-Pomeransky representation
 ```
 
 Each is a `ParametrisationResult` with attributes:
 
 | Attribute | Description |
 |-----------|-------------|
-| `.prefactor` | Symbolic prefactor (Gamma factors, powers of π, etc.) |
+| `.prefactor` | Symbolic prefactor (Gamma factors, powers of $\pi$, etc.) |
 | `.parameters` | Integration variables |
 | `.integrand` | The integrand expression |
 | `.measure` | Integration measure |
@@ -516,7 +516,7 @@ print("Parameters:", lp.parameters)
 
 ## GKZ system
 
-The GKZ (Gelfand–Kapranov–Zelevinsky) system associates a system of
+The GKZ (Gelfand-Kapranov-Zelevinsky) system associates a system of
 D-module equations to the Newton polytope. The key object is the A-matrix, whose columns are the
 homogenised exponent vectors of the monomials of G.
 
@@ -528,24 +528,24 @@ gkz = fi.gkz
 
 | Attribute | Description |
 |-----------|-------------|
-| `gkz.a_matrix` | `sp.Matrix` — rows = LP parameters + homogenisation, cols = monomials of G |
-| `gkz.beta_parameters` | The β parameter vector of the GKZ system |
-| `gkz.euler_equations` | Symbolic Euler operators `∑ aᵢⱼ zⱼ ∂/∂zⱼ − βᵢ` |
-| `gkz.z_variables` | `[z_1, …, z_m]` — the monomial variables |
+| `gkz.a_matrix` | `sp.Matrix`, rows = LP parameters + homogenisation, cols = monomials of G |
+| `gkz.beta_parameters` | The $\beta$ parameter vector of the GKZ system |
+| `gkz.euler_equations` | Symbolic Euler operators `$\sum$ a_ij z_j d/dz_j - $\beta$_i` |
+| `gkz.z_variables` | `[z_1, ..., z_m]`, the monomial variables |
 
 The first row of A is a row of ones (homogenisation). Subsequent rows encode the exponent of each
-LP parameter `uᵢ` in each monomial of G.
+LP parameter `u_i` in each monomial of G.
 
 ### Example: massless triangle
 
 ```python
 gkz = fi.gkz
 r, m = gkz.a_matrix.shape
-print(f"A is {r}×{m}")
+print(f"A is {r} x {m}")
 print("A =")
 for row in gkz.a_matrix.tolist():
     print(" ", row)
-# A is 4×6  (r = 4, m = 6 monomials of G for the triangle)
+# A is 4 x 6  (r = 4, m = 6 monomials of G for the triangle)
 # A =
 #   [1, 1, 1, 1, 1, 1]   <- homogenisation row
 #   [1, 1, 1, 0, 0, 0]   <- exponent of u1
@@ -599,9 +599,9 @@ ti = fi.toric_ideal
 
 | Attribute | Description |
 |-----------|-------------|
-| `ti.generators` | `list[sp.Expr]` — polynomials in `z_1, …, z_m` |
+| `ti.generators` | `list[sp.Expr]`, polynomials in `z_1, ..., z_m` |
 | `ti.a_matrix` | The GKZ A-matrix |
-| `ti.z_variables` | `[z_1, …, z_m]` |
+| `ti.z_variables` | `[z_1, ..., z_m]` |
 
 An empty generator list (`len(ti.generators) == 0`) means the toric ideal is trivial: the
 monomial map is injective, which often indicates a master integral with no further reductions.
@@ -610,7 +610,7 @@ monomial map is injective, which often indicates a master integral with no furth
 
 ```python
 from feynkit.algebra import is_binomial_ideal
-print(is_binomial_ideal(ti.generators))   # True if all gens have ≤ 2 terms
+print(is_binomial_ideal(ti.generators))   # True if all gens have <= 2 terms
 ```
 
 ### Backend selection
@@ -632,13 +632,13 @@ Rough timings (with 4ti2):
 
 | Diagram | Propagators | A-matrix | Generators | Time |
 |---------|-------------|----------|------------|------|
-| Bubble | 2 | 2×2 | 0 | <0.01 s |
-| Triangle | 3 | 2×4 | 1 | <0.01 s |
-| Box | 4 | 2×6 | 3 | <0.01 s |
-| Pentagon | 5 | 2×8 | 5 | ~0.06 s |
-| Hexagon | 6 | 2×10 | 7 | ~0.3 s |
-| Sunrise (massive) | 3 | 3×8 | 5 | ~0.01 s |
-| Double box (massive) | 7 | 3×64 | large | ~2 s |
+| Bubble | 2 | 2 x 2 | 0 | <0.01 s |
+| Triangle | 3 | 2 x 4 | 1 | <0.01 s |
+| Box | 4 | 2 x 6 | 3 | <0.01 s |
+| Pentagon | 5 | 2 x 8 | 5 | ~0.06 s |
+| Hexagon | 6 | 2 x 10 | 7 | ~0.3 s |
+| Sunrise (massive) | 3 | 3 x 8 | 5 | ~0.01 s |
+| Double box (massive) | 7 | 3 x 64 | large | ~2 s |
 
 ### Complete example: toric ideal of the massless triangle
 
@@ -722,13 +722,13 @@ they are not guaranteed to be a minimal generating set.
 ## Polytope equivalence
 
 Two Feynman integrals have **unimodularly equivalent** Newton polytopes if there is a unimodular
-matrix `U ∈ GL_n(ℤ)` and translation `t ∈ ℤⁿ` mapping the lattice points of one to the other.
+matrix `U in GL_n($\mathbb{Z}$)` and translation `t in $\mathbb{Z}$ ^n` mapping the lattice points of one to the other.
 Unimodular equivalence implies the GKZ systems are isomorphic: the two integral families share
 the same analytic structure.
 
-**Affine equivalence** is the same question over ℚ (not just ℤ) — it is strictly weaker.
+**Affine equivalence** is the same question over $\mathbb{Q}$ (not just $\mathbb{Z}$), it is strictly weaker.
 
-### Via the FeynmanIntegral façade
+### Via the FeynmanIntegral facade
 
 ```python
 result = fi_a.is_unimodular_equivalent_to(fi_b)
@@ -749,15 +749,15 @@ else:
 |-----------|------|-------------|
 | `.equivalent` | `bool` | Verdict |
 | `.relation` | `str` | `"unimodular"` or `"affine"` |
-| `.witness_map` | `sp.Matrix or None` | `U ∈ GL_n(ℤ)` for unimodular results |
-| `.vertex_correspondence` | `list[int] or None` | `vertex[i]` of source → `vertex[j]` of target |
+| `.witness_map` | `sp.Matrix or None` | `U in GL_n($\mathbb{Z}$)` for unimodular results |
+| `.vertex_correspondence` | `list[int] or None` | `vertex[i]` of source -> `vertex[j]` of target |
 
 ### Example: one-mass triangles
 
 ```python
 from feynkit import FeynmanIntegral
 
-# Three variants: mass on edge 0–1, 0–2, 1–2 respectively
+# Three variants: mass on edge 0-1, 0-2, 1-2 respectively
 fi0 = FeynmanIntegral.from_cnickel("12e|2e|e|:nzz")  # canonical
 fi1 = FeynmanIntegral.from_cnickel("12e|2e|e|:znz")
 fi2 = FeynmanIntegral.from_cnickel("12e|2e|e|:zzn")
@@ -802,8 +802,8 @@ background, physical interpretation, and full results for standard diagrams.
 
 | Object | API | Description |
 |--------|-----|-------------|
-| `PolytopeAutomorphisms` | `fi.polytope_automorphisms` | Full Aut(P): all (U,t) with U∈GL_n(ℤ), \|det U\|=1 |
-| `list[list[int]]` | `fi.graph_automorphisms` | Vertex permutations preserving topology and mass coloring |
+| `PolytopeAutomorphisms` | `fi.polytope_automorphisms` | Full Aut(P): all (U,t) with U in GL_n($\mathbb{Z}$), \|det U\|=1 |
+| `list[list[int]]` | `fi.graph_automorphisms` | Vertex permutations preserving topology and mass colouring |
 | `list[int]` | `coefficient_preserving_indices(fi, auts)` | Indices into auts.maps whose (U,t) also preserves G's coefficients |
 
 ### Symmetry pairs
@@ -815,7 +815,7 @@ including finite-index maps (|det| > 1). Each `SymmetryPair` records:
 |-------|------|-------------|
 | `witness_matrix` | `sp.ImmutableMatrix` | The integer linear map M |
 | `translation` | `sp.ImmutableMatrix` | Translation vector t |
-| `determinant` | `int` | \|det(M)\| — 1 for unimodular, >1 for finite-index |
+| `determinant` | `int` | \|det(M)\|, 1 for unimodular, >1 for finite-index |
 | `is_unimodular` | `bool` | Shorthand for `determinant == 1` |
 | `column_permutation` | `list[int]` | Induced permutation on A-matrix columns |
 
@@ -835,19 +835,19 @@ from feynkit.normal_forms.polytope_automorphisms import coefficient_preserving_i
 fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")  # massless triangle
 
 auts = fi.polytope_automorphisms
-print(auts.order)              # 48  (hyperoctahedral B₃)
-print(auts.vertex_orbits)     # [[0,1,2,3,4,5]] — single orbit
+print(auts.order)              # 48  (hyperoctahedral B_3)
+print(auts.vertex_orbits)     # [[0,1,2,3,4,5]], single orbit
 
 gauts = fi.graph_automorphisms
-print(len(gauts))              # 6  (S₃ on three vertices)
+print(len(gauts))              # 6  (S_3 on three vertices)
 
 cp = coefficient_preserving_indices(fi, auts)
-print(len(cp))                 # 1  (identity only — generic Mandelstam coefficients)
+print(len(cp))                 # 1  (identity only, generic Mandelstam coefficients)
 
-# Massless banana: all monomials have equal coefficients → full group preserved
+# Massless banana: all monomials have equal coefficients -> full group preserved
 banana = FeynmanIntegral.from_cnickel("111e|e|:zzz")
 auts_b = banana.polytope_automorphisms
-print(auts_b.order)            # 24  (S₄)
+print(auts_b.order)            # 24  (S_4)
 cp_b = coefficient_preserving_indices(banana, auts_b)
 print(len(cp_b))               # 6  (= 3! edge permutations)
 ```
@@ -913,7 +913,7 @@ cfg = AConfiguration(A, is_homogenized=True)
 | `cfg.smith_invariants` | Diagonal of the Smith normal form |
 | `cfg.normalized_volume` | Normalised volume of the Newton polytope (= holonomic rank) |
 | `cfg.newton_polytope_points` | Hull vertex coordinates |
-| `cfg.intrinsic_model()` | `IntrinsicModel` — the configuration in a minimal lattice basis |
+| `cfg.intrinsic_model()` | `IntrinsicModel`, the configuration in a minimal lattice basis |
 
 ### Equivalence
 
@@ -957,7 +957,7 @@ print(model.intrinsic_points) # points re-expressed in the intrinsic basis
 `feynkit.landau` computes the edge-part of the principal A-determinant,
 
 ```
-E_A^(1)(G) = ∏_{τ edge of New(G)}  Δ_{A_τ}(G|_τ)
+E_A^(1)(G) = prod_{tau edge of New(G)}  Delta_{A_tau}(G|_tau)
 ```
 
 whose zero locus in kinematic space gives the leading Landau singularity surfaces (normal
@@ -1004,9 +1004,9 @@ la = landau_analysis_from_polynomial(G, [u1, u2, u3])
 ### Physical interpretation
 
 The zero locus of each edge discriminant corresponds to:
-- **Massive bubble edges**: normal threshold `p² = (Σmᵢ)²`
-- **Massless edges at a vertex**: IR/collinear singularity (`pᵢ² = 0` for n-gon polygons)
-- **BMS_n higher polygons**: `pᵢ² = 0` for each external leg — a novel family of IR
+- **Massive bubble edges**: normal threshold `p^2 = ($\sum$ m_i)^2`
+- **Massless edges at a vertex**: IR/collinear singularity (`p_i^2 = 0` for n-gon polygons)
+- **BMS_n higher polygons**: `p_i^2 = 0` for each external leg, a novel family of IR
   singularities identified by feynkit
 
 ---
@@ -1036,7 +1036,7 @@ bms4 = bms_simplex_a_config(n=4)    # BMS_4
 k4 = complete_graph_a_config(n=4)   # K_4 (tetrahedron)
 k5 = complete_graph_a_config(n=5)
 
-# Conformal companion for dimension n (breaks S_n → S_{n-1} symmetry)
+# Conformal companion for dimension n (breaks S_n -> S_{n-1} symmetry)
 comp4 = conformal_companion_a_config(n=4)
 ```
 
@@ -1047,10 +1047,10 @@ equivalence API:
 tri = massless_polygon_a_config(n=3)
 bms = bms_simplex_a_config(n=3)
 res = tri.is_unimodular_equivalent_to(bms)
-print(res.equivalent)   # True — BMS_3 is unimodularly equivalent to the triangle
+print(res.equivalent)   # True, BMS_3 is unimodularly equivalent to the triangle
 ```
 
-The `det = 2` map between conformal families exists only for `n = 3`. For `n ≥ 4` no such map
+The `det = 2` map between conformal families exists only for `n = 3`. For `n >= 4` no such map
 exists; `finite_index_map` confirms this by returning `found=False`.
 
 ---
@@ -1098,7 +1098,7 @@ with FeynkitDatabase("analysis.db") as db:
     # Optionally compute and store automorphism data (slower)
     rec = db.store(fi, label="massless triangle", compute_automorphisms=True)
     print(rec.poly_aut_order)    # |Aut(P)|
-    print(rec.graph_aut_order)   # |Aut(Γ)|
+    print(rec.graph_aut_order)   # |Aut(Gamma)|
     print(rec.coeff_pres_order)  # coefficient-preserving subgroup order
     print(rec.vertex_orbits)     # list of orbit lists
 ```
@@ -1135,7 +1135,7 @@ else:
 | `cnickel` | `str` | Canonical CNickel index |
 | `label` | `str` | User-supplied label |
 | `poly_aut_order` | `int \| None` | \|Aut(P)\| (set when `compute_automorphisms=True`) |
-| `graph_aut_order` | `int \| None` | \|Aut(Γ)\| (vertex permutations) |
+| `graph_aut_order` | `int \| None` | \|Aut($\Gamma$)\| (vertex permutations) |
 | `coeff_pres_order` | `int \| None` | Coefficient-preserving subgroup order |
 | `vertex_orbits` | `list[list[int]] \| None` | Vertex orbits under Aut(P) |
 | `stored_at` | `str` | ISO timestamp |
@@ -1195,7 +1195,7 @@ with FeynkitDatabase("survey.db") as db:
 ```python
 print(db.summary())
 # Feynkit database  survey.db
-# ─────────────────────────────────────────────────────
+# -----------------------------------------------------
 # Integrals stored   : 42
 # Toric computed     : 42
 # ...
@@ -1346,7 +1346,7 @@ def massless_polygon(n: int) -> FeynmanIntegral:
 
 ```python
 def banana(n_props: int, *, massive: bool = True) -> FeynmanIntegral:
-    """(n_props − 1)-loop banana: n_props parallel propagators."""
+    """(n_props - 1)-loop banana: n_props parallel propagators."""
     nu = sp.symbols(f"nu1:{n_props+1}", positive=True)
     ms = sp.symbols(f"m1:{n_props+1}", nonnegative=True)
 
@@ -1373,15 +1373,15 @@ kite         = banana(4, massive=True)   # 3-loop, 4 massive propagators
 m  = sp.symbols("m1:8", nonnegative=True)
 nu = sp.symbols("nu1:8", positive=True)
 
-#  v1 ─[1]─ v2
+#  v1 -[1]- v2
 #   |         |
 #  [2]       [3]
 #   |         |
-#   v3 ─[4]─ v4
+#   v3 -[4]- v4
 #   |         |
 #  [5]       [6]
 #   |         |
-#  v5 ─[7]─ v6
+#  v5 -[7]- v6
 
 edges = [
     Edge(idx=1, v1=1, v2=2, is_internal=True, mass=m[0], nu=nu[0]),

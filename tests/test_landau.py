@@ -1,13 +1,13 @@
 """
-Tests for feynkit.landau — edge-part principal A-determinant.
+Tests for feynkit.landau, edge-part principal A-determinant.
 
 Key mathematical facts verified:
 
 1. Massless bubble: no Landau surfaces (no threshold without masses).
-2. Massive bubble (m1, m2, s): threshold at s = -2(m1+m2)² and
-   pseudothreshold at s = -2(m1-m2)².  The Landau polynomial vanishes
+2. Massive bubble (m1, m2, s): threshold at s = -2(m1+m2)^2 and
+   pseudothreshold at s = -2(m1-m2)^2.  The Landau polynomial vanishes
    at both.
-3. Equal-mass bubble (m, m): threshold at s = -8m² only.
+3. Equal-mass bubble (m, m): threshold at s = -8m^2 only.
 4. Massless triangle (s12, s13, s23): Landau surfaces s12+s13,
    s12+s23, s13+s23 (IR collinear conditions; reduce to individual
    s_ij under momentum conservation).
@@ -15,7 +15,7 @@ Key mathematical facts verified:
    (null-momentum singularities of the conformal 3-point integral).
 
 The Landau polynomial is computed as the product of edge discriminants
-of the Newton polytope of the Lee–Pomeransky G polynomial.
+of the Newton polytope of the Lee-Pomeransky G polynomial.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from feynkit.landau import (
     landau_analysis_from_polynomial,
 )
 
-# ─── fixtures ────────────────────────────────────────────────────────────────
+# --- fixtures ----------------------------------------------------------------
 
 
 def _build_bubble(m1_val, m2_val) -> FeynmanIntegral:
@@ -79,7 +79,7 @@ def massless_triangle() -> FeynmanIntegral:
     return _build_massless_triangle()
 
 
-# ─── return type tests ───────────────────────────────────────────────────────
+# --- return type tests -------------------------------------------------------
 
 
 class TestReturnType:
@@ -96,12 +96,12 @@ class TestReturnType:
         assert isinstance(result.landau_surfaces, tuple)
 
 
-# ─── massless bubble ─────────────────────────────────────────────────────────
+# --- massless bubble ---------------------------------------------------------
 
 
 class TestMasslessBubble:
     def test_no_landau_surfaces(self, massless_bubble):
-        """Massless bubble has no threshold — propagators have no mass."""
+        """Massless bubble has no threshold, propagators have no mass."""
         result = landau_analysis(massless_bubble)
         assert result.landau_surfaces == ()
 
@@ -110,7 +110,7 @@ class TestMasslessBubble:
         assert result.landau_polynomial == sp.Integer(1)
 
 
-# ─── massive bubble ──────────────────────────────────────────────────────────
+# --- massive bubble ----------------------------------------------------------
 
 
 class TestMassiveBubble:
@@ -119,7 +119,7 @@ class TestMassiveBubble:
         assert len(result.landau_surfaces) >= 2
 
     def test_threshold_condition(self, massive_bubble):
-        """Landau polynomial vanishes at the normal threshold s = -2(m1+m2)²."""
+        """Landau polynomial vanishes at the normal threshold s = -2(m1+m2)^2."""
         m1, m2 = sp.symbols("m1 m2", nonnegative=True)
         s = sp.Symbol("s", real=True)
         result = landau_analysis(massive_bubble)
@@ -128,7 +128,7 @@ class TestMassiveBubble:
         assert sp.simplify(lp.subs(s, threshold)) == sp.Integer(0)
 
     def test_pseudothreshold_condition(self, massive_bubble):
-        """Landau polynomial vanishes at the pseudothreshold s = -2(m1-m2)²."""
+        """Landau polynomial vanishes at the pseudothreshold s = -2(m1-m2)^2."""
         m1, m2 = sp.symbols("m1 m2", nonnegative=True)
         s = sp.Symbol("s", real=True)
         result = landau_analysis(massive_bubble)
@@ -170,16 +170,16 @@ class TestMassiveBubble:
         assert found, f"Pseudothreshold surface not found in {result.landau_surfaces}"
 
 
-# ─── equal-mass bubble ───────────────────────────────────────────────────────
+# --- equal-mass bubble -------------------------------------------------------
 
 
 class TestEqualMassBubble:
     def test_single_threshold(self, equal_mass_bubble):
-        """Equal-mass bubble: threshold at s = -8m², pseudothreshold at s = 0.
+        """Equal-mass bubble: threshold at s = -8m^2, pseudothreshold at s = 0.
 
-        s = -2(m+m)² = -8m² and s = -2(m-m)² = 0.  At s=0 the polynomial
-        may vanish trivially (the pseudothreshold coincides with massless kinematics)
-        — both zero-conditions must still hold.
+         s = -2(m+m)^2 = -8m^2 and s = -2(m-m)^2 = 0.  At s=0 the polynomial
+         may vanish trivially (the pseudothreshold coincides with massless kinematics)
+        , both zero-conditions must still hold.
         """
         m = sp.Symbol("m", nonnegative=True)
         s = sp.Symbol("s", real=True)
@@ -192,7 +192,7 @@ class TestEqualMassBubble:
         assert len(result.edge_discriminants) >= 1
 
 
-# ─── massless triangle ───────────────────────────────────────────────────────
+# --- massless triangle -------------------------------------------------------
 
 
 class TestMasslessTriangle:
@@ -216,7 +216,7 @@ class TestMasslessTriangle:
         surfaces = [sp.expand(s) for s in result.landau_surfaces]
         for pair in (s12 + s13, s12 + s23, s13 + s23):
             ratios = [sp.cancel(surf / pair) for surf in surfaces]
-            assert any(r.is_number and r != 0 for r in ratios), f"No surface ∝ {pair}"
+            assert any(r.is_number and r != 0 for r in ratios), f"No surface ~ {pair}"
 
     def test_landau_polynomial_vanishes_at_ir_locus(self, massless_triangle):
         """Polynomial vanishes when s12 = 0 and s13 = 0 (collinear kinematics)."""
@@ -227,7 +227,7 @@ class TestMasslessTriangle:
         assert sp.simplify(val) == sp.Integer(0)
 
 
-# ─── BMS_3 conformal simplex ─────────────────────────────────────────────────
+# --- BMS_3 conformal simplex -------------------------------------------------
 
 
 class TestBMS3Conformal:
@@ -252,7 +252,7 @@ class TestBMS3Conformal:
         assert sp.simplify(lp.subs(p1sq, sp.Integer(0))) == sp.Integer(0)
 
 
-# ─── from_polynomial interface ───────────────────────────────────────────────
+# --- from_polynomial interface -----------------------------------------------
 
 
 class TestFromPolynomial:

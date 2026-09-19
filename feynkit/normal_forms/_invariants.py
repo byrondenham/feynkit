@@ -1,11 +1,11 @@
 """
-Combinatorial invariants and helpers for the Liu–Cai unimodular isomorphism
+Combinatorial invariants and helpers for the Liu-Cai unimodular isomorphism
 algorithm (arXiv:2506.23846).
 
 The functions in this module are the building blocks used by
 :func:`feynkit.normal_forms.affine_equivalence.is_unimodular_equivalent`.
 They are also useful in their own right for callers that want to inspect
-the labelled vertex-edge graph of a lattice polytope, the Liu–Cai vertex
+the labelled vertex-edge graph of a lattice polytope, the Liu-Cai vertex
 labels, or the label-preserving automorphism group.
 """
 
@@ -19,17 +19,17 @@ import numpy as np
 import sympy as sp
 from scipy.spatial import ConvexHull, QhullError
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Coercion / hull
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def to_integer_points(points: object) -> np.ndarray:
     """
-    Coerce a point configuration to a ``d × n`` integer numpy array.
+    Coerce a point configuration to a ``d x n`` integer numpy array.
 
     Accepts numpy arrays, sympy matrices, lists of tuples, and similar.
-    Raises :class:`ValueError` on non-integer entries — Liu–Cai is defined
+    Raises :class:`ValueError` on non-integer entries, Liu-Cai is defined
     only for lattice polytopes.
     """
     if isinstance(points, np.ndarray):
@@ -45,13 +45,13 @@ def to_integer_points(points: object) -> np.ndarray:
     try:
         out = np.array(arr.tolist(), dtype=np.int64)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"Liu–Cai requires integer points: {exc}") from exc
+        raise ValueError(f"Liu-Cai requires integer points: {exc}") from exc
 
     # Re-coerce via Python int to detect non-integer floats that np accepted.
     for row in arr.tolist():
         for v in row:
             if isinstance(v, float) and v != int(v):
-                raise ValueError(f"Liu–Cai requires integer points; got float {v}")
+                raise ValueError(f"Liu-Cai requires integer points; got float {v}")
 
     return out
 
@@ -87,8 +87,8 @@ def hull_vertex_indices(points: np.ndarray) -> np.ndarray:
     # Degenerate: project to affine hull, run hull there, lift back.
     # Right singular vectors span the row space of deltas (= affine hull).
     _u, _s, vt = np.linalg.svd(deltas.astype(float), full_matrices=False)
-    basis = vt[:rank, :].T  # n_dim × rank
-    coords = deltas.astype(float) @ basis  # n_pts × rank
+    basis = vt[:rank, :].T  # n_dim x rank
+    coords = deltas.astype(float) @ basis  # n_pts x rank
     if rank == 1:
         # Convex hull of a 1-d set: just min and max.
         idx_min = int(np.argmin(coords[:, 0]))
@@ -101,9 +101,9 @@ def hull_vertex_indices(points: np.ndarray) -> np.ndarray:
     return np.sort(hull.vertices)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Vertex/edge graph and Liu–Cai labels
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# Vertex/edge graph and Liu-Cai labels
+# ------------------------------------------------------------------------------
 
 
 def _facet_incidence(vertices: np.ndarray, hull: ConvexHull, tol: float = 1e-9) -> list[set[int]]:
@@ -158,7 +158,7 @@ def vertex_edge_graph(vertices: np.ndarray) -> nx.Graph:
         # Lower-dimensional polytope embedded in higher-dim ambient space.
         # Build the 1-skeleton in the affine hull and lift back.
         _u, _s, vt = np.linalg.svd(deltas, full_matrices=False)
-        basis = vt[:rank, :].T  # n_dim × rank
+        basis = vt[:rank, :].T  # n_dim x rank
         coords = deltas @ basis
         if rank == 1:
             order = np.argsort(coords[:, 0])
@@ -191,25 +191,25 @@ def vertex_edge_graph(vertices: np.ndarray) -> nx.Graph:
 
 def vertex_label(v: np.ndarray, neighbours: np.ndarray) -> int:
     """
-    Liu–Cai vertex label
+    Liu-Cai vertex label
 
-        ℓ(v) = det(A_v),   A_v = Σ_w (w − v)(w − v)^T
+        l(v) = det(A_v),   A_v = sum_w (w - v)(w - v)^T
 
     where the sum is over the rows of ``neighbours``. Returns an exact
-    Python ``int``; Liu–Cai shows that for any unimodular ``U``,
+    Python ``int``; Liu-Cai shows that for any unimodular ``U``,
     ``A_{U v + Z} = U A_v U^T``, so ``det(A_v) = det(A_{U v + Z})``.
     """
-    diffs = neighbours.astype(np.int64) - v.astype(np.int64)  # m × n
-    A_v = diffs.T @ diffs  # n × n integer
+    diffs = neighbours.astype(np.int64) - v.astype(np.int64)  # m x n
+    A_v = diffs.T @ diffs  # n x n integer
     return int(sp.Matrix(A_v.tolist()).det())
 
 
 def labelled_polytope_graph(vertices: np.ndarray) -> nx.Graph:
     """
-    Build the Liu–Cai labelled vertex-edge graph $\\mathcal{GW}(P)$:
+    Build the Liu-Cai labelled vertex-edge graph $\\mathcal{GW}(P)$:
 
     - nodes ``0..d-1`` index into ``vertices`` (assumed to be extreme points),
-    - node attribute ``"label"`` is the Liu–Cai vertex label ``det(A_v)``,
+    - node attribute ``"label"`` is the Liu-Cai vertex label ``det(A_v)``,
     - edge attribute ``"weight"`` is the sum of endpoint labels.
     """
     G = vertex_edge_graph(vertices)
@@ -228,9 +228,9 @@ def labelled_polytope_graph(vertices: np.ndarray) -> nx.Graph:
     return G
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Spanning trees and label-preserving isomorphisms
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 def _copy_node_labels(src: nx.Graph, dst: nx.Graph) -> nx.Graph:
@@ -275,7 +275,7 @@ def all_minimum_spanning_trees(G: nx.Graph) -> list[nx.Graph]:
     Materialise every minimum spanning tree as a list (eager).
 
     Prefer :func:`iter_minimum_spanning_trees` when the caller can return
-    early on a match — for highly-symmetric graphs the MST count can be
+    early on a match, for highly-symmetric graphs the MST count can be
     very large.
     """
     return list(iter_minimum_spanning_trees(G))
@@ -287,7 +287,7 @@ def _node_label_match(a: dict, b: dict) -> bool:
 
 def label_preserving_isomorphisms(T1: nx.Graph, T2: nx.Graph) -> Iterator[dict[int, int]]:
     """
-    Yield all isomorphisms ``T1 → T2`` that preserve the ``"label"`` node
+    Yield all isomorphisms ``T1 -> T2`` that preserve the ``"label"`` node
     attribute. Each yielded value is a dict ``{i_in_T1: j_in_T2}``.
     """
     if T1.number_of_nodes() != T2.number_of_nodes():

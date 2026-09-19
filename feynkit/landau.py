@@ -1,20 +1,20 @@
 """
 Principal A-determinant (edge part) for Landau singularity analysis.
 
-For a Feynman integral with Lee–Pomeransky polynomial G, this module computes
+For a Feynman integral with Lee-Pomeransky polynomial G, this module computes
 the 1-face contribution to the principal A-determinant,
 
-    E_A^(1)(G) = ∏_{τ edge of New(G)}  Δ_{A_τ}(G|_τ)
+    E_A^(1)(G) = prod_{tau edge of New(G)}  Delta_{A_tau}(G|_tau)
 
-where Δ_{A_τ}(G|_τ) is the discriminant of G restricted to the edge τ,
+where Delta_{A_tau}(G|_tau) is the discriminant of G restricted to the edge tau,
 viewed as a univariate polynomial in the edge direction.  The zero locus of
 E_A^(1) in kinematic space gives the leading Landau singularity surfaces
 (normal thresholds and IR singularities).
 
 References
 ----------
-Gelfand–Kapranov–Zelevinsky (1994) §10.1, Theorem 10.1.4.
-Klausen (2020), §3, "Counting master integrals".
+Gelfand-Kapranov-Zelevinsky (1994) section 10.1, Theorem 10.1.4.
+Klausen (2020), section 3, "Counting master integrals".
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ __all__ = [
 ]
 
 
-# ─── data types ──────────────────────────────────────────────────────────────
+# --- data types --------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -82,7 +82,7 @@ class LandauAnalysis:
     landau_surfaces: tuple[sp.Expr, ...]
 
 
-# ─── internal helpers ────────────────────────────────────────────────────────
+# --- internal helpers --------------------------------------------------------
 
 
 def _primitive_direction(pts: np.ndarray) -> np.ndarray:
@@ -134,7 +134,7 @@ def _hull_edges(pts: np.ndarray) -> list[list[int]]:
     """Enumerate all 1-faces (edges) of the convex hull of pts.
 
     In d dimensions a pair of hull vertices forms an edge iff they appear
-    together in at least d−1 facets.  Interior lattice points on the
+    together in at least d-1 facets.  Interior lattice points on the
     segment are included in each returned list.
     """
     n, d = pts.shape
@@ -149,7 +149,7 @@ def _hull_edges(pts: np.ndarray) -> list[list[int]]:
     try:
         hull = ConvexHull(pts.astype(float))
     except QhullError:
-        # Points span a lower-dimensional affine subspace — project and recurse.
+        # Points span a lower-dimensional affine subspace, project and recurse.
         basis = (pts - pts[0]).astype(float)
         _, sv, vt = np.linalg.svd(basis, full_matrices=False)
         rank = int(np.sum(sv > 1e-6))
@@ -179,7 +179,7 @@ def _hull_edges(pts: np.ndarray) -> list[list[int]]:
 
 
 def _univariate_discriminant(coeffs: list[sp.Expr], t_exps: list[int]) -> sp.Expr:
-    """Discriminant of P(t) = Σ coeffs[k] * t^{t_exps[k]}.
+    """Discriminant of P(t) = sum coeffs[k] * t^{t_exps[k]}.
 
     Returns Res(P, P') / lc(P)^{deg P - 1}, the standard polynomial
     discriminant.  Returns Integer(1) for linear or constant P.
@@ -211,19 +211,19 @@ def _factor_list(expr: sp.Expr, kinematic_syms: set[sp.Symbol]) -> list[sp.Expr]
     return result
 
 
-# ─── public API ──────────────────────────────────────────────────────────────
+# --- public API --------------------------------------------------------------
 
 
 def landau_analysis_from_polynomial(
     g_poly: sp.Expr,
     lp_parameters: list[sp.Symbol],
 ) -> LandauAnalysis:
-    """Edge-part Landau analysis for a Lee–Pomeransky polynomial.
+    """Edge-part Landau analysis for a Lee-Pomeransky polynomial.
 
     Parameters
     ----------
     g_poly
-        Lee–Pomeransky polynomial G(u; kinematics).
+        Lee-Pomeransky polynomial G(u; kinematics).
     lp_parameters
         Schwinger parameters u_i (the integration variables of g_poly).
 
@@ -290,7 +290,7 @@ def landau_analysis(integral: FeynmanIntegral) -> LandauAnalysis:
     """Edge-part Landau analysis of a :class:`~feynkit.FeynmanIntegral`.
 
     Computes the edge-part principal A-determinant E_A^(1)(G) of the
-    Lee–Pomeransky polynomial G.  Its zero locus in kinematic space is the
+    Lee-Pomeransky polynomial G.  Its zero locus in kinematic space is the
     leading Landau variety of the integral.
 
     Parameters

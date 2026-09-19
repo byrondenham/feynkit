@@ -17,7 +17,7 @@ def compute_syzygy_module(
     """
     Compute generators of the first syzygy module of a set of polynomials.
 
-    A syzygy is a relation ``sum_i h_i · f_i = 0`` where ``f_i`` are the
+    A syzygy is a relation ``sum_i h_i * f_i = 0`` where ``f_i`` are the
     generators.  The returned vectors generate the module of all such
     relations over the polynomial ring.
 
@@ -134,7 +134,7 @@ def trivial_syzygy(
     num_generators: int,
 ) -> list[sp.Expr]:
     """
-    Create a trivial syzygy: f_i · f_j - f_j · f_i = 0.
+    Create a trivial syzygy: f_i * f_j - f_j * f_i = 0.
 
     Parameters
     ----------

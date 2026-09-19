@@ -2,10 +2,10 @@
 Tests for feynkit.a_configuration and feynkit.artifacts.dissertation.
 
 Key mathematical facts verified:
-- triangle Smith invariants = [1,1,1]  (spans full ℤ³)
+- triangle Smith invariants = [1,1,1]  (spans full Z^3)
 - triple-K Smith invariants = [1,1,2]  (spans even-sum sublattice)
-- triangle → triangle: finite-index map with det=1 (unimodular)
-- triangle → triple-K: finite-index map with det=2 (NOT unimodular)
+- triangle -> triangle: finite-index map with det=1 (unimodular)
+- triangle -> triple-K: finite-index map with det=2 (NOT unimodular)
 - triangle and triple-K are NOT unimodularly equivalent
 - triangle and triple-K ARE affinely equivalent (same intrinsic shape)
 - artifacts load and are correctly typed
@@ -38,9 +38,9 @@ from feynkit.artifacts.dissertation import (
     triple_k_a_config,
 )
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Fixtures
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -58,9 +58,9 @@ def banana3():
     return banana3_a_config()
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # AConfiguration basics
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestAConfigurationBasics:
@@ -87,8 +87,8 @@ class TestAConfigurationBasics:
 
     def test_repr_contains_shape(self, triangle):
         r = repr(triangle)
-        assert "4×6" in r
-        assert "homogenized" in r
+        assert "4 x 6" in r
+        assert "homogenised" in r
 
     def test_matrix_property_roundtrip(self, triangle):
         M = triangle.matrix
@@ -97,37 +97,37 @@ class TestAConfigurationBasics:
         assert M[0, :] == sp.ones(1, 6)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Smith invariants
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestSmithInvariants:
     def test_triangle_smith(self, triangle):
-        # Triangle spans full ℤ³ — all invariants are 1.
+        # Triangle spans full Z^3, all invariants are 1.
         assert triangle.smith_invariants == [1, 1, 1]
 
     def test_triple_k_smith(self, triple_k):
-        # Triple-K spans even-sum sublattice — last invariant is 2.
+        # Triple-K spans even-sum sublattice, last invariant is 2.
         inv = triple_k.smith_invariants
         assert inv[-1] == 2
         assert inv[:-1] == [1, 1]
 
     def test_banana3_smith(self, banana3):
-        # Banana-3 affine points: 4 points in ℤ³.
+        # Banana-3 affine points: 4 points in Z^3.
         inv = banana3.smith_invariants
         assert len(inv) >= 1
 
     def test_four_simplex_smith(self):
         cfg = four_point_simplex_a_config()
         inv = cfg.smith_invariants
-        # Standard simplex spans full ℤ⁴ → all invariants = 1.
+        # Standard simplex spans full Z^4 -> all invariants = 1.
         assert all(d == 1 for d in inv)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Newton polytope
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestNewtonPolytope:
@@ -144,9 +144,9 @@ class TestNewtonPolytope:
         assert triangle.affine_dim == 3
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Unimodular equivalence
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestUnimodularEquivalence:
@@ -163,9 +163,9 @@ class TestUnimodularEquivalence:
         assert result.equivalent is True
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Affine equivalence
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestAffineEquivalence:
@@ -178,9 +178,9 @@ class TestAffineEquivalence:
         assert result.equivalent is True
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # finite_index_map
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestFiniteIndexMap:
@@ -202,7 +202,7 @@ class TestFiniteIndexMap:
         M = result.witness_matrix
         t = result.translation
         assert M is not None and t is not None
-        # Verify: M·x + t ∈ triple_k.affine_points for every source point.
+        # Verify: M*x + t in triple_k.affine_points for every source point.
         tgt_set = {tuple(int(x) for x in row) for row in triple_k.affine_points}
         for pt in triangle.affine_points:
             img = M * sp.Matrix(pt.tolist()) + t
@@ -219,7 +219,7 @@ class TestFiniteIndexMap:
     def test_no_map_between_incompatible(self, triangle, banana3):
         # triangle is 3-dimensional, banana3 is also 3-dim but different shape.
         result = finite_index_map(triangle, banana3)
-        # May or may not find a map — just check the type is correct.
+        # May or may not find a map, just check the type is correct.
         assert isinstance(result, FiniteIndexResult)
 
     def test_method_on_aconfiguration(self, triangle, triple_k):
@@ -237,9 +237,9 @@ class TestFiniteIndexMap:
             assert tuple(int(x) for x in img) in tgt_set
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # intrinsic_lattice_model
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestIntrinsicLatticeModel:
@@ -277,9 +277,9 @@ class TestIntrinsicLatticeModel:
         assert isinstance(model, IntrinsicModel)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Artifact registry
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestArtifacts:
@@ -309,9 +309,9 @@ class TestArtifacts:
         assert a is not b
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # symmetry_pairs
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestSymmetryPairs:
@@ -337,18 +337,18 @@ class TestSymmetryPairs:
             assert set(p.column_permutation) == set(range(N))
 
     def test_ta_eq_ap(self, triangle):
-        """Verify T·A = A·Π_P for every symmetry pair."""
-        A = triangle.matrix  # 4×6 (homogenized)
+        """Verify T*A = A*Pi_P for every symmetry pair."""
+        A = triangle.matrix  # 4 x 6 (homogenised)
         N = triangle.n_points
         pairs = symmetry_pairs(triangle)
         for pair in pairs:
             T = pair.homogenized_map
-            # Π_P: column permutation matrix with Π_P[P(j), j] = 1
+            # Pi_P: column permutation matrix with Pi_P[P(j), j] = 1
             Pi = sp.zeros(N, N)
             for j, k in enumerate(pair.column_permutation):
                 Pi[k, j] = 1
             assert A * Pi == T * A, (
-                f"T·A ≠ A·Π_P for det={pair.determinant}, " f"perm={pair.column_permutation}"
+                f"T*A != A*Pi_P for det={pair.determinant}, " f"perm={pair.column_permutation}"
             )
 
     def test_image_points_within_config(self, triangle):
@@ -376,7 +376,7 @@ class TestSymmetryPairs:
     def test_triangle_has_48_unimodular_pairs(self, triangle):
         pairs = symmetry_pairs(triangle)
         uni = [p for p in pairs if p.is_unimodular]
-        assert len(uni) == 48  # B₃ symmetry of the cross-polytope
+        assert len(uni) == 48  # B_3 symmetry of the cross-polytope
 
     def test_triple_k_has_48_unimodular_pairs(self, triple_k):
         pairs = symmetry_pairs(triple_k)
@@ -390,7 +390,7 @@ class TestSymmetryPairs:
             assert p.is_unimodular == (p.determinant == 1)
 
     def test_homogenized_map_block_structure(self, triangle):
-        """T = [[1, 0^T], [t, M]] — first row is [1, 0, 0, 0]."""
+        """T = [[1, 0^T], [t, M]], first row is [1, 0, 0, 0]."""
         pairs = symmetry_pairs(triangle)
         for p in pairs:
             T = p.homogenized_map
@@ -399,7 +399,7 @@ class TestSymmetryPairs:
                 assert T[0, j] == 0
 
     def test_transform_beta_identity(self, triangle):
-        """Identity pair maps β to itself."""
+        """Identity pair maps beta to itself."""
         pairs = symmetry_pairs(triangle)
         identity = next(
             p for p in pairs if p.linear_map == sp.eye(3) and p.translation == sp.zeros(3, 1)
@@ -418,13 +418,13 @@ class TestSymmetryPairs:
         assert any(p.is_unimodular and p.linear_map == sp.eye(3) for p in pairs)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # conformal artifacts
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 
 class TestConformalArtifacts:
-    # ── massless_polygon_a_config ─────────────────────────────────────────────
+    # -- massless_polygon_a_config ---------------------------------------------
 
     def test_polygon_n3_matches_triangle(self):
         """C_3 (massless triangle) should reproduce the dissertation triangle."""
@@ -435,7 +435,7 @@ class TestConformalArtifacts:
         assert cn3.smith_invariants == tri.smith_invariants == [1, 1, 1]
 
     def test_polygon_n4_matches_box(self):
-        """C_4 (massless box) should have N=10 monomials in ℝ⁴."""
+        """C_4 (massless box) should have N=10 monomials in R^4."""
         cn4 = massless_polygon_a_config(4)
         assert cn4.n_points == 10
         assert cn4.ambient_dim == 4
@@ -450,7 +450,7 @@ class TestConformalArtifacts:
         with pytest.raises(ValueError):
             massless_polygon_a_config(2)
 
-    # ── bms_simplex_a_config ─────────────────────────────────────────────────
+    # -- bms_simplex_a_config -------------------------------------------------
 
     def test_bms_n3_matches_triple_k(self):
         """BMS n=3 should reproduce the dissertation triple-K."""
@@ -461,7 +461,7 @@ class TestConformalArtifacts:
         assert bms3.smith_invariants == tpk.smith_invariants == [1, 1, 2]
 
     def test_bms_shape(self):
-        """BMS n-point should produce (n+1) × 2n A-matrix."""
+        """BMS n-point should produce (n+1) x 2n A-matrix."""
         for n in [2, 3, 4, 5]:
             cfg = bms_simplex_a_config(n)
             assert cfg.matrix.shape == (n + 1, 2 * n)
@@ -474,7 +474,7 @@ class TestConformalArtifacts:
             assert all(s == 1 for s in cfg.smith_invariants[:-1])
 
     def test_bms_volume_is_power_of_two(self):
-        """Holonomic rank vol₀(BMS_n) = 2^{n-1}, derived from n-Bessel integral."""
+        """Holonomic rank vol_0(BMS_n) = 2^{n-1}, derived from n-Bessel integral."""
         for n in [2, 3, 4, 5]:
             cfg = bms_simplex_a_config(n)
             assert cfg.normalized_volume == 2 ** (n - 1)
@@ -506,7 +506,7 @@ class TestConformalArtifacts:
         with pytest.raises(ValueError):
             bms_simplex_a_config(1)
 
-    # ── complete_graph_a_config ───────────────────────────────────────────────
+    # -- complete_graph_a_config -----------------------------------------------
 
     def test_complete_graph_n3_matches_triangle(self):
         """K_3 = C_3 = triangle, so K_3 LP should match triangle invariants."""
@@ -525,7 +525,7 @@ class TestConformalArtifacts:
         with pytest.raises(ValueError):
             complete_graph_a_config(2)
 
-    # ── cross-family relations ────────────────────────────────────────────────
+    # -- cross-family relations ------------------------------------------------
 
     def test_n3_triangle_and_bms3_are_affinely_equivalent(self):
         """The known n=3 equivalence: C_3 LP ~_Q BMS_3 but NOT unimodular."""
@@ -537,7 +537,7 @@ class TestConformalArtifacts:
         assert r_aff.equivalent
 
     def test_n3_finite_index_map_det2(self):
-        """The finite-index map C_3 → BMS_3 has determinant 2."""
+        """The finite-index map C_3 -> BMS_3 has determinant 2."""
         cn3 = massless_polygon_a_config(3)
         bms3 = bms_simplex_a_config(3)
         fim = finite_index_map(cn3, bms3)
@@ -550,7 +550,7 @@ class TestConformalArtifacts:
         bms4 = bms_simplex_a_config(4)
         assert cn4.n_points != bms4.n_points
 
-    # ── conformal_companion_a_config ─────────────────────────────────────────
+    # -- conformal_companion_a_config -----------------------------------------
 
     def test_companion_n3_matches_triangle_invariants(self):
         """For n=3, conformal_companion must equal the triangle (same Smith, vol)."""
@@ -560,7 +560,7 @@ class TestConformalArtifacts:
         assert comp3.normalized_volume == tri.normalized_volume == 4
 
     def test_companion_n3_finite_index_map_to_bms3(self):
-        """conformal_companion(3) → BMS_3 via the known det=2 map."""
+        """conformal_companion(3) -> BMS_3 via the known det=2 map."""
         comp3 = conformal_companion_a_config(3)
         bms3 = bms_simplex_a_config(3)
         fim = finite_index_map(comp3, bms3)
@@ -569,13 +569,13 @@ class TestConformalArtifacts:
         assert not fim.is_unimodular
 
     def test_companion_n3_finite_index_map_witness(self):
-        """The witness matrix for companion(3) → BMS_3 maps every column correctly."""
+        """The witness matrix for companion(3) -> BMS_3 maps every column correctly."""
         comp3 = conformal_companion_a_config(3)
         bms3 = bms_simplex_a_config(3)
         fim = finite_index_map(comp3, bms3)
         assert fim.found
         assert fim.determinant == 2
-        # Verify: for each source column v, M·v + t lands in BMS_3 columns.
+        # Verify: for each source column v, M*v + t lands in BMS_3 columns.
         M = np.array([[int(fim.witness_matrix[r, c]) for c in range(3)] for r in range(3)])
         t = np.array([int(x) for x in fim.translation])
         bms_cols = {
@@ -603,9 +603,9 @@ class TestConformalArtifacts:
     def test_companion_smith_invariants(self):
         """
         Smith(companion(n)) = [1]*(n-1) + [max(1,n-2)].
-        n=3 → [1,1,1]  (full ℤ³, same as triangle)
-        n=4 → [1,1,1,2]  (index-2 sublattice, same as BMS_4)
-        n=5 → [1,1,1,1,3]  (index-3 sublattice, different from BMS_5=[1,1,1,1,2])
+        n=3 -> [1,1,1]  (full Z^3, same as triangle)
+        n=4 -> [1,1,1,2]  (index-2 sublattice, same as BMS_4)
+        n=5 -> [1,1,1,1,3]  (index-3 sublattice, different from BMS_5=[1,1,1,1,2])
         """
         expected = {3: [1, 1, 1], 4: [1, 1, 1, 2], 5: [1, 1, 1, 1, 3]}
         for n, smith in expected.items():

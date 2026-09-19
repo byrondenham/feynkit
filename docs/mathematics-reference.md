@@ -3,7 +3,7 @@
 This document gives a self-contained account of every mathematical object and algorithm implemented in
 the feynkit library. It is intended as a reference to be read alongside the primary
 source papers, and as a dissertation reference. Each section states the definition, the precise formula
-used in the code, the variable-naming conventions (symbol ↔ Python identifier), and the paper(s) to
+used in the code, the variable-naming conventions (symbol <-> Python identifier), and the paper(s) to
 consult for derivation or proof.
 
 ---
@@ -19,7 +19,7 @@ A **Feynman graph** $\Gamma$ consists of:
 - $E$ **internal edges**, each connecting two internal vertices or forming a self-loop.
   Each edge $e$ carries:
   - an index $e.\mathrm{idx} \in \mathbb{Z}_{>0}$ (unique);
-  - a mass $m_e \geq 0$ (possibly zero — "massless");
+  - a mass $m_e \geq 0$ (possibly zero, "massless");
   - a propagator exponent $\nu_e$ (default $1$; can be a symbol for IBP analysis).
 - Each external leg $j$ carries momentum $p_j$; the energy scale $\mu$ normalises kinematic invariants.
 
@@ -27,7 +27,7 @@ A **Feynman graph** $\Gamma$ consists of:
 
 $$L \;=\; E - V + 1.$$
 
-This is the number of independent loop momenta. *Ref:* Weinzierl (2022), §2.
+This is the number of independent loop momenta. *Ref:* Weinzierl (2022), section 2.
 
 ### 1.2 Schwinger Parameters
 
@@ -48,9 +48,9 @@ The **CNickel string** is a compact canonical encoding of a Feynman graph.
 
 - **Topology string:** vertices are listed in order; for each vertex the higher-numbered neighbours
   and external legs (coded `e`) are concatenated, separated by `|`.
-- **Mass color string:** one character per internal edge in the order they appear in the topology
+- **Mass colour string:** one character per internal edge in the order they appear in the topology
   string: `z` or `0` = massless; `n` = individual symbolic mass $m_{e.\mathrm{idx}}$;
-  digits `1`–`9` or letters `a`–`y` (except `n`, `s`) = shared labeled mass $m_c$; `s` = shared
+  digits `1`-`9` or letters `a`-`y` (except `n`, `s`) = shared labelled mass $m_c$; `s` = shared
   special mass $m_s$.
 
 Examples: `"11e|e|:zz"` (massless bubble), `"12e|2e|e|:zzz"` (massless triangle),
@@ -60,7 +60,7 @@ Examples: `"11e|e|:zz"` (massless bubble), `"12e|2e|e|:zzz"` (massless triangle)
 
 ## 2. Symanzik Polynomials
 
-*Primary references:* Symanzik (1971); Weinzierl (2022) §2.2.
+*Primary references:* Symanzik (1971); Weinzierl (2022) section 2.2.
 
 ### 2.1 First Symanzik Polynomial $U$
 
@@ -105,7 +105,7 @@ If two external legs are attached to the same internal vertex their contribution
 Each monomial of $F_0$ is square-free of degree $L+1$.  Mass monomials $a_e \cdot (\text{U-monomial})$
 have degree $L+1$ but are not generally square-free (degree 2 in $a_e$ possible when $e$ is a chord).
 
-**Momentum products** in code: `graph.momentum_products` is a dict `{(j,k): p_j·p_k}`.  Default
+**Momentum products** in code: `graph.momentum_products` is a dict `{(j,k): p_j*p_k}`.  Default
 symbols: `p{j}p{k}` (generic) or `s_{jk}/2` (Mandelstam). Energy scale `mu`; kinematic invariant
 stored as `p_jk / mu**2`.
 
@@ -130,7 +130,7 @@ positive integer coefficients (for massless graphs with positive kinematic invar
 
 ### 3.1 Schwinger Parametrisation
 
-*Ref:* Schwinger (1951); Weinzierl (2022) §2.3.
+*Ref:* Schwinger (1951); Weinzierl (2022) section 2.3.
 
 $$\boxed{I_\Gamma \;=\; \frac{e^{L\varepsilon\gamma_E}}{\prod_e \Gamma(\nu_e)}
 \int_0^\infty \prod_e \left(d\alpha_e\,\alpha_e^{\nu_e-1}\right)
@@ -145,7 +145,7 @@ In the code: `ParametrisationResult.prefactor`, `.measure`, `.integrand`; parame
 
 ### 3.2 Feynman Parametrisation
 
-*Ref:* Feynman (1949); Weinzierl (2022) §2.4.
+*Ref:* Feynman (1949); Weinzierl (2022) section 2.4.
 
 $$\boxed{I_\Gamma \;=\; \frac{e^{L\varepsilon\gamma_E}\,\Gamma\!\left(\Sigma\nu - \tfrac{L\,D}{2}\right)}{\prod_e \Gamma(\nu_e)}
 \int_\Sigma \prod_e \left(d x_e\,x_e^{\nu_e-1}\right)\delta\!\left(\sum x_e - 1\right)
@@ -159,7 +159,7 @@ where $\Sigma\nu = \sum_e \nu_e$.
 
 ### 3.3 Lee-Pomeransky Parametrisation
 
-*Ref:* Lee & Pomeransky (2013); Weinzierl (2022) §2.5.
+*Ref:* Lee & Pomeransky (2013); Weinzierl (2022) section 2.5.
 
 $$\boxed{I_\Gamma \;=\; \frac{e^{L\varepsilon\gamma_E}\,\Gamma(D/2)}{\Gamma\!\left((L+1)\tfrac{D}{2} - \Sigma\nu\right)\prod_e \Gamma(\nu_e)}
 \int_0^\infty \prod_e \left(d u_e\,u_e^{\nu_e-1}\right) G(u)^{-D/2}.}$$
@@ -190,7 +190,7 @@ into one object, making the GKZ structure transparent.
 
 ## 4. GKZ A-Hypergeometric System
 
-*Primary references:* GKZ (1989, 1994); de la Cruz (2019); Klausen (2020); Weinzierl (2022) §9.
+*Primary references:* GKZ (1989, 1994); de la Cruz (2019); Klausen (2020); Weinzierl (2022) section 9.
 
 ### 4.1 The A-Matrix
 
@@ -208,9 +208,9 @@ i.e.\ column $j$ is the vector $(1, \alpha_j^{(1)}, \ldots, \alpha_j^{(n)})^T \i
 
 The first (homogenising) row of all-ones encodes the grading structure.
 
-**Column ordering** in feynkit: columns are sorted in descending graded-reverse-lex order —
+**Column ordering** in feynkit: columns are sorted in descending graded-reverse-lex order:
 first by total degree $\sum_i \alpha_j^{(i)}$ (descending), then lex on $(-\alpha_j^{(1)}, \ldots,
--\alpha_j^{(n)})$ — so the ordering is deterministic and reproducible.
+-\alpha_j^{(n)})$, so the ordering is deterministic and reproducible.
 
 The A-matrix is accessed as `fi.gkz.a_matrix` (a SymPy `ImmutableMatrix`).
 
@@ -244,13 +244,13 @@ The GKZ ideal $H_A(\beta)$ also contains the **toric operators**
 
 $$\partial^u - \partial^v \quad \text{for all } u,v \in \mathbb{N}_0^N \text{ with } Au = Av.$$
 
-These are the generators of the toric ideal $I_A$ (see §6); together with the Euler operators they
-generate the full GKZ D-module. *Ref:* GKZ (1994) §3; SST (2000) §3.
+These are the generators of the toric ideal $I_A$ (see section 6); together with the Euler operators they
+generate the full GKZ D-module. *Ref:* GKZ (1994) section 3; SST (2000) section 3.
 
 ### 4.4 Proof That Feynman Integrals Are A-Hypergeometric
 
 **Theorem** (de la Cruz 2019, Thm 1; Klausen 2020, Thm 3.1):
-*The generalised Feynman integral $I_A(\nu, z)$ — with $z_j$ promoted to formal indeterminates — is
+*The generalised Feynman integral $I_A(\nu, z)$, with $z_j$ promoted to formal indeterminates, is
 annihilated by the GKZ system $H_A(\beta)$ with $\beta$ as above.*
 
 **Proof sketch:** Toric relations follow from homogeneity of the integrand under simultaneous rescaling
@@ -261,19 +261,19 @@ $z_j \to s^{a_j^{(r)}} z_j$; Euler relations follow from differentiation in $s$.
 $$\operatorname{rank} H_A(\beta) \;=\; \mathrm{vol}_0\!\bigl(\Delta_G\bigr) \quad\text{for very generic } \beta,$$
 
 where $\mathrm{vol}_0$ is the **normalised (lattice) volume** of the Newton polytope $\Delta_G$
-(see §5.3).  For physical (integer or half-integer) $D$ the rank can be lower — a "rank jump" —
+(see section 5.3).  For physical (integer or half-integer) $D$ the rank can be lower, a "rank jump"
 corresponding to linear relations among master integrals.
 
 The Lee-Pomeransky count of master integrals (Euler characteristic) satisfies
 $\chi \leq \mathrm{vol}_0(\Delta_G)$, with equality for generic kinematics.
 
-*Ref:* GKZ (1994) Thm 3.11; Klausen (2020) Thm 2.2; de la Cruz (2019) §2.
+*Ref:* GKZ (1994) Thm 3.11; Klausen (2020) Thm 2.2; de la Cruz (2019) section 2.
 
 ---
 
 ## 5. Newton Polytope
 
-*Ref:* GKZ (1994) §5–6; Klausen (2020) §2.
+*Ref:* GKZ (1994) section 5-6; Klausen (2020) section 2.
 
 ### 5.1 Definition
 
@@ -339,7 +339,7 @@ Accessed via `AConfiguration.smith_invariants`, `AConfiguration.intrinsic_model`
 
 ## 6. Toric Ideal
 
-*Ref:* Cox–Little–O'Shea (2015) Ch.\ 11; Sturmfels (1996); de la Cruz (2019) §2.3.
+*Ref:* Cox-Little-O'Shea (2015) Ch.\ 11; Sturmfels (1996); de la Cruz (2019) section 2.3.
 
 ### 6.1 Definition
 
@@ -442,7 +442,7 @@ Implemented in `feynkit/normal_forms/polytope_automorphisms.py`.
 
 ## 8. Symmetry Pairs
 
-*Ref:* Forsgård–Matusevich–Sobieska (FMS, 2019) arXiv:1703.03036; de la Cruz (2024).
+*Ref:* Forsgård-Matusevich-Sobieska (FMS, 2019) arXiv:1703.03036; de la Cruz (2024).
 
 ### 8.1 Definition
 
@@ -489,7 +489,7 @@ $\operatorname{Conv}(\mathcal{A})$ to itself with the same volume.  Therefore
 $|\det M| = \mathrm{Vol}(M\cdot\Delta)/\mathrm{Vol}(\Delta) = 1$.
 
 Configurations with non-trivial Smith invariants (e.g.\ BMS simplex with $d_n = 2$) can admit
-non-unimodular **finite-index** maps between two *different* configurations (see §9.4).
+non-unimodular **finite-index** maps between two *different* configurations (see section 9.4).
 
 ### 8.4 Connection to Classical Hypergeometric Identities
 
@@ -498,13 +498,13 @@ elements of the Kummer group of $\,_2F_1$ (quadratic transformations of Gauss's 
 function).  The 48 pairs of the massless triangle are the hyperoctahedral group $B_3$, reflecting
 the cross-polytope structure of the Newton polytope.
 
-*Ref:* de la Cruz (2024) §3.1, §4.
+*Ref:* de la Cruz (2024) section 3.1, section 4.
 
 ---
 
 ## 9. Unimodular and Affine Equivalence
 
-*Ref:* Liu & Cai (2025); GKZ (1994) §6.
+*Ref:* Liu & Cai (2025); GKZ (1994) section 6.
 
 ### 9.1 Unimodular Equivalence (Liu-Cai)
 
@@ -517,7 +517,7 @@ lattice.
 
 **Physical meaning:** Two Feynman integrals with unimodularly equivalent Newton polytopes have the same
 GKZ system up to a coordinate change in $z$-space (relabelling of monomials) and a reparametrisation
-$u \mapsto Mu + t$ of the integration variables — they are the *same* A-hypergeometric function.
+$u \mapsto Mu + t$ of the integration variables, they are the *same* A-hypergeometric function.
 
 Accessed via `fi.is_unimodular_equivalent_to(other)`, which returns a `PolytopeEquivalence` with
 fields `.equivalent` (bool), `.witness_map` ($U$), `.translation` ($t$), `.determinant`, `.vertex_correspondence`.
@@ -562,14 +562,14 @@ Accessed via `AConfiguration.finite_index_map_to(other)`, returning a `FiniteInd
 
 ## 10. Landau Singularities via Principal A-Determinant
 
-*Ref:* GKZ (1994) §10; Klausen (2022).
+*Ref:* GKZ (1994) section 10; Klausen (2022).
 
 ### 10.1 Principal A-Determinant and Its Edge Part
 
 The **principal A-determinant** $E_A(G)$ is a polynomial in the coefficients of $G$ whose zero locus
 encodes all singularities of the GKZ system (including Landau singularities of the Feynman integral).
 
-The **edge part** $E_A^{(1)}(G)$ — the physically relevant piece — is the product of discriminants
+The **edge part** $E_A^{(1)}(G)$, the physically relevant piece, is the product of discriminants
 over the **1-faces (edges)** of the Newton polytope:
 
 $$E_A^{(1)}(G) \;=\; \prod_{\tau \;\text{edge of}\; \Delta_G} \Delta_{A_\tau}\!\left(G\big|_\tau\right).$$
@@ -586,7 +586,7 @@ $$\Delta(P) \;=\; \frac{\operatorname{Res}(P, P')}{\operatorname{lc}(P)^{\deg P 
 
 where $P' = dP/dt$, $\operatorname{lc}(P)$ is the leading coefficient, and $\operatorname{Res}$ is the
 resultant.  The zero locus of $\Delta(P)$ (viewed as a polynomial in the kinematic variables $z$) is
-the set of kinematics at which the restricted polynomial $G|_\tau$ has a repeated root — the
+the set of kinematics at which the restricted polynomial $G|_\tau$ has a repeated root, the
 **Landau surface** associated with edge $\tau$.
 
 ### 10.3 Algorithm
@@ -609,7 +609,7 @@ the set of kinematics at which the restricted polynomial $G|_\tau$ has a repeate
   the threshold $(s - (m_1 + m_2)^2)$ (normal threshold).
 - **Massless triangle:** Three external legs at zero mass; $G|_\tau = p_i^2 \cdot t^{e_1} + \ldots$
   for each edge; discriminant factors give $p_i^2 = 0$ (IR singularities).
-- **BMS simplex ($n$ points):** Edge restrictions give $p_i^2 = 0$ for each external momentum — a
+- **BMS simplex ($n$ points):** Edge restrictions give $p_i^2 = 0$ for each external momentum, a
   novel result for the CFT correlation function integral, not previously catalogued.
 
 Accessed via `fi.landau` (module `feynkit/landau.py`); returns `LandauAnalysis` with
@@ -619,7 +619,7 @@ Accessed via `fi.landau` (module `feynkit/landau.py`); returns `LandauAnalysis` 
 
 ## 11. Conformal and BMS Configurations
 
-*Ref:* Bzowski–McFadden–Skenderis (2021) arXiv:2008.07543; Caloro (2024); feynkit `artifacts/conformal.py`.
+*Ref:* Bzowski-McFadden-Skenderis (2021) arXiv:2008.07543; Caloro (2024); feynkit `artifacts/conformal.py`.
 
 ### 11.1 Massless $n$-gon $C_n$
 
@@ -787,7 +787,7 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 
 1. **GKZ (1989).** I.M. Gelfand, M.M. Kapranov, A.V. Zelevinsky.
    *Hypergeometric functions and toric varieties.*
-   Funct.\ Anal.\ Appl.\ **23** (1989) 94–106.
+   Funct.\ Anal.\ Appl.\ **23** (1989) 94-106.
 
 2. **GKZ (1994).** I.M. Gelfand, M.M. Kapranov, A.V. Zelevinsky.
    *Discriminants, Resultants, and Multidimensional Determinants.*
@@ -806,9 +806,9 @@ All papers cited in the feynkit source and directly relevant to the implemented 
    Phys.\ Rev.\ **76** (1949) 769.
 
 6. **Symanzik (1971).** K. Symanzik.
-   Commun.\ Math.\ Phys.\ **18** (1971) 227–246.
+   Commun.\ Math.\ Phys.\ **18** (1971) 227-246.
 
-7. **Lee–Pomeransky (2013).** R.N. Lee, A.A. Pomeransky.
+7. **Lee-Pomeransky (2013).** R.N. Lee, A.A. Pomeransky.
    *Critical points and number of master integrals.*
    JHEP **11** (2013) 165.
 
@@ -831,10 +831,10 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 12. **de la Cruz (2024).** L. de la Cruz.
     *Polytope symmetries of Feynman integrals.*  arXiv:2406.xxxxx (2024).
 
-13. **Grinis–Kasprzyk (2013).** R. Grinis, A.M. Kasprzyk.
+13. **Grinis-Kasprzyk (2013).** R. Grinis, A.M. Kasprzyk.
     *Normal forms of convex lattice polytopes.*  arXiv:1301.6641.
 
-14. **Liu–Cai (2025).** Q. Liu, Z. Cai.
+14. **Liu-Cai (2025).** Q. Liu, Z. Cai.
     *On the Unimodular Isomorphism Problem of Convex Lattice Polytopes.*  arXiv:2506.23846.
 
 15. **BMS (2021).** A. Bzowski, P. McFadden, K. Skenderis.
@@ -852,7 +852,7 @@ All papers cited in the feynkit source and directly relevant to the implemented 
     *Feynman Integrals: A Comprehensive Treatment for Students and Researchers.*
     Springer, 2022.  arXiv:2201.03593.
 
-19. **Cox–Little–O'Shea (2015).** D. Cox, J. Little, D. O'Shea.
+19. **Cox-Little-O'Shea (2015).** D. Cox, J. Little, D. O'Shea.
     *Ideals, Varieties, and Algorithms.* 4th ed., Springer, 2015.
 
 20. **Sturmfels (1996).** B. Sturmfels.
@@ -860,4 +860,4 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 
 21. **Bitoun et al.\ (2019).** T. Bitoun, C. Bogner, R.P. Klausen, E. Panzer.
     *Feynman integral relations from parametric annihilators.*
-    Lett.\ Math.\ Phys.\ **109** (2019) 497–564.
+    Lett.\ Math.\ Phys.\ **109** (2019) 497-564.

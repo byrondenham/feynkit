@@ -12,7 +12,7 @@ import sympy as sp
 from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.algebra import compute_toric_ideal_generators
 
-# ── helpers ──────────────────────────────────────────────────────────────────
+# -- helpers ------------------------------------------------------------------
 
 
 def row(label, fi):
@@ -21,7 +21,7 @@ def row(label, fi):
     gens = compute_toric_ideal_generators(A)
     t = time.perf_counter() - t0
     r, c = A.shape
-    print(f"  {label:<44} {r}×{c:<5}  {len(gens):>5}  {t:.3f}s", flush=True)
+    print(f"  {label:<44} {r} x {c:<5}  {len(gens):>5}  {t:.3f}s", flush=True)
 
 
 def polygon(n, n_masses=0):
@@ -59,7 +59,7 @@ def polygon(n, n_masses=0):
 
 
 def banana(n_props):
-    """(n_props − 1)-loop banana: n_props parallel edges between 2 vertices."""
+    """(n_props - 1)-loop banana: n_props parallel edges between 2 vertices."""
     ms = sp.symbols(f"m1:{n_props + 1}", nonnegative=True)
     nus = sp.symbols(f"nu1:{n_props + 1}", positive=True)
     edges = [
@@ -72,15 +72,15 @@ def banana(n_props):
     return FeynmanIntegral(g, propagator_exponents={i + 1: nus[i] for i in range(n_props)})
 
 
-# ── header ────────────────────────────────────────────────────────────────────
+# -- header --------------------------------------------------------------------
 
 print()
 print(f"  {'diagram':<44} {'A':>5}       {'#gens':>5}   time")
-print("  " + "─" * 65)
+print("  " + "-" * 65)
 
-# ── series 1: massless polygons ───────────────────────────────────────────────
+# -- series 1: massless polygons -----------------------------------------------
 
-print("\n  ── massless polygons ──────────────────────────────────────")
+print("\n  -- massless polygons --------------------------------------")
 poly_names = {
     2: "bubble",
     3: "triangle",
@@ -93,32 +93,32 @@ poly_names = {
 for n in range(2, 9):
     row(f"massless {poly_names[n]}  ({n} props)", polygon(n, 0))
 
-# ── series 2: triangle + masses ───────────────────────────────────────────────
+# -- series 2: triangle + masses -----------------------------------------------
 
-print("\n  ── triangle: adding masses ────────────────────────────────")
+print("\n  -- triangle: adding masses --------------------------------")
 for k in range(4):
     row(f"triangle, {k} massive prop(s)", polygon(3, k))
 
-# ── series 3: box + masses ────────────────────────────────────────────────────
+# -- series 3: box + masses ----------------------------------------------------
 
-print("\n  ── box: adding masses ─────────────────────────────────────")
+print("\n  -- box: adding masses -------------------------------------")
 for k in range(5):
     row(f"box, {k} massive prop(s)", polygon(4, k))
 
-# ── series 4: pentagon + masses ───────────────────────────────────────────────
+# -- series 4: pentagon + masses -----------------------------------------------
 
-print("\n  ── pentagon: adding masses ────────────────────────────────")
+print("\n  -- pentagon: adding masses --------------------------------")
 for k in range(6):
     row(f"pentagon, {k} massive prop(s)", polygon(5, k))
 
-# ── series 5: hexagon + masses ────────────────────────────────────────────────
+# -- series 5: hexagon + masses ------------------------------------------------
 
-print("\n  ── hexagon: adding masses ─────────────────────────────────")
+print("\n  -- hexagon: adding masses ---------------------------------")
 for k in range(7):
     row(f"hexagon, {k} massive prop(s)", polygon(6, k))
 
-# ── series 6: banana (increasing loop order) ─────────────────────────────────
+# -- series 6: banana (increasing loop order) ---------------------------------
 
-print("\n  ── banana / sunrise (increasing loop order) ───────────────")
+print("\n  -- banana / sunrise (increasing loop order) ---------------")
 for n in range(2, 8):
     row(f"banana, {n} props  ({n - 1}-loop)", banana(n))

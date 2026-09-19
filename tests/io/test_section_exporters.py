@@ -65,9 +65,9 @@ class TestGkzExporters:
     def test_text_lists_dimensions_and_equations(self, triangle: FeynmanIntegral) -> None:
         gkz = triangle.gkz
         out = gkz_system_to_text(gkz)
-        assert f"A-matrix shape:        {gkz.a_matrix.rows} × {gkz.a_matrix.cols}" in out
+        assert f"A-matrix shape:        {gkz.a_matrix.rows} x {gkz.a_matrix.cols}" in out
         assert f"Euler equations ({len(gkz.euler_equations)})" in out
-        assert "β" in out
+        assert "beta" in out
 
     def test_euler_equation_latex_collapses_phi_arguments(self, triangle: FeynmanIntegral) -> None:
         eq = triangle.gkz.euler_equations[0]

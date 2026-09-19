@@ -15,7 +15,7 @@ def invert_variables(
     variables: list[sp.Symbol],
 ) -> sp.Expr:
     """
-    Apply inversion transformation: x_i → 1/x_i to all variables.
+    Apply inversion transformation: x_i -> 1/x_i to all variables.
 
     Parameters
     ----------
@@ -27,7 +27,7 @@ def invert_variables(
     Returns
     -------
     sp.Expr
-        Transformed expression with x_i → 1/x_i.
+        Transformed expression with x_i -> 1/x_i.
 
     Examples
     --------
@@ -64,7 +64,7 @@ def rescale_variables(
     --------
     >>> a1, a2, lambda_var = sp.symbols('a1 a2 lambda', positive=True)
     >>> expr = a1**2 + a2**2
-    >>> # Rescale: a1 → λ*a1, a2 → λ*a2
+    >>> # Rescale: a1 -> lambda*a1, a2 -> lambda*a2
     >>> result = rescale_variables(expr, {a1: lambda_var*a1, a2: lambda_var*a2})
     >>> print(result)
     lambda**2*a1**2 + lambda**2*a2**2

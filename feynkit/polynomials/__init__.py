@@ -1,7 +1,7 @@
 """
 Polynomial computation module for Feynman integrals.
 
-Provides utilities for manipulating Symanzik / Lee–Pomeransky polynomials
+Provides utilities for manipulating Symanzik / Lee-Pomeransky polynomials
 and related polynomial expressions. Computation of the U/F polynomials of a
 graph is handled by :class:`feynkit.FeynmanIntegral`; this module exposes
 the lower-level transforms and accessors.
@@ -17,7 +17,7 @@ extract_coefficient
 simplify_rational_function
     Simplify rational expressions.
 invert_variables
-    Apply variable inversion x_i → 1/x_i.
+    Apply variable inversion x_i -> 1/x_i.
 rescale_variables
     Apply variable rescaling.
 projective_transformation

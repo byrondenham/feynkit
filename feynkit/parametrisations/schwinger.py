@@ -17,7 +17,6 @@ from ..core.constants import (
 )
 from ..core.exceptions import ComputationError
 from ..core.graph import Graph
-from ..systems.gkz import construct_gkz_matrix
 from .base import Parametrisation, ParametrisationResult
 
 
@@ -201,16 +200,7 @@ class SchwingerParametrisation(Parametrisation):
         r"""
         GKZ A-matrix of the Schwinger representation written as an A-hypergeometric integral.
 
-        The integrand is a product of two polynomials, the dehomogenised
-        Symanzik polynomials U~ and F~, so the A-matrix has the block form::
-
-            1 ... 1 | 0 ... 0
-            0 ... 0 | 1 ... 1
-            -----------------
-              A_U   |   A_F
-
-        where A_U and A_F are the exponent matrices of the monomials of U~ and
-        F~, without their own homogenising rows (arXiv:2609.16107, section 3).
+        See :mod:`feynkit.systems.cayley` for the block structure and conventions.
 
         Returns
         -------
@@ -218,11 +208,8 @@ class SchwingerParametrisation(Parametrisation):
             Integer matrix of shape (N + 1) x (n + m) for N propagators, n
             monomials in U~ and m monomials in F~.
         """
-        (u_tilde, f_tilde), new_vars = self.dehomogenised_symanzik_polynomials()
+        from ..systems.cayley import cayley_matrix
 
-        a_u = construct_gkz_matrix(u_tilde, new_vars)[1:, :]
-        a_f = construct_gkz_matrix(f_tilde, new_vars)[1:, :]
-        n, m = a_u.cols, a_f.cols
-
-        head = sp.Matrix([[1] * n + [0] * m, [0] * n + [1] * m])
-        return sp.Matrix.vstack(head, sp.Matrix.hstack(a_u, a_f))
+        (u_tilde, f_tilde), u = self.dehomogenised_symanzik_polynomials()
+        matrix, _, _ = cayley_matrix(u_tilde, f_tilde, u)
+        return matrix

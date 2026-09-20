@@ -96,7 +96,7 @@ from feynkit.landau import (
 )
 from feynkit.normal_forms import PairingMatrixResult
 from feynkit.parametrisations import ParametrisationResult
-from feynkit.systems import GKZSystem
+from feynkit.systems import CayleyGKZSystem, GKZSystem
 from feynkit.types import (
     NewtonPolytope,
     PolytopeAutomorphisms,
@@ -138,5 +138,6 @@ __all__ = [
     "PolytopeAutomorphisms",
     "ParametrisationResult",
     "GKZSystem",
+    "CayleyGKZSystem",
     "PairingMatrixResult",
 ]

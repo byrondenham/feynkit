@@ -91,3 +91,47 @@ class TestSchwingerAMatrix:
     def test_entries_are_integers(self, massless_bubble: FeynmanIntegral) -> None:
         A = _schwinger(massless_bubble).get_A_matrix()
         assert all(isinstance(x, sp.Integer) for x in A)
+
+
+class TestFacade:
+    def test_schwinger_gkz_is_cached_and_typed(self, massless_triangle: FeynmanIntegral) -> None:
+        from feynkit import CayleyGKZSystem
+
+        sys_ = massless_triangle.schwinger_gkz
+        assert isinstance(sys_, CayleyGKZSystem)
+        assert massless_triangle.schwinger_gkz is sys_
+
+    def test_matrix_agrees_with_get_a_matrix(self, massless_triangle: FeynmanIntegral) -> None:
+        assert (
+            massless_triangle.schwinger_gkz.a_matrix == _schwinger(massless_triangle).get_A_matrix()
+        )
+
+    def test_exponents_and_dimension_are_the_integral_s(
+        self, massless_triangle: FeynmanIntegral
+    ) -> None:
+        sys_ = massless_triangle.schwinger_gkz
+        edges = massless_triangle.graph.get_internal_edges()
+        assert sys_.propagator_exponents == [
+            massless_triangle.propagator_exponents[e.idx] for e in edges
+        ]
+        assert sys_.dimension == massless_triangle.dimension
+        assert sys_.loop_count == massless_triangle.loop_count
+
+    def test_prefactor_is_schwinger_prefactor_times_gamma(
+        self, massless_triangle: FeynmanIntegral
+    ) -> None:
+        sys_ = massless_triangle.schwinger_gkz
+        nu = sum(sys_.propagator_exponents)
+        expected = massless_triangle.schwinger.prefactor * sp.gamma(
+            nu - massless_triangle.dimension / 2
+        )
+        assert sp.simplify(sys_.prefactor - expected) == 0
+
+    def test_sunrise_uses_loop_count_two(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+        sys_ = fi.schwinger_gkz
+        nu = sum(sys_.propagator_exponents)
+        half_d = fi.dimension / 2
+        assert sp.simplify(sys_.beta_parameters[0] - (nu - 3 * half_d)) == 0
+        assert sp.simplify(sys_.beta_parameters[1] - (2 * half_d - nu)) == 0
+        assert sp.simplify(sys_.prefactor / fi.schwinger.prefactor - sp.gamma(nu - 2 * half_d)) == 0

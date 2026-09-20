@@ -52,6 +52,7 @@ from .normal_forms.pairing_matrix import PairingMatrixResult, maximal_pairing_ma
 from .parametrisations.base import ParametrisationResult
 from .parametrisations.factory import AllParametrisations, _create_parametrisations
 from .polynomials.spanning_trees import gkz_exponent_vectors
+from .systems.cayley import CayleyGKZSystem, create_cayley_system
 from .systems.complete import GKZSystem, _create_gkz_system_direct
 from .systems.monomial import extract_monomial_support
 from .types import (
@@ -336,6 +337,27 @@ class FeynmanIntegral:
             support=support,
             a_matrix=a_matrix,
             parameters=list(s.lp_parameters),
+        )
+
+    @cached_property
+    def schwinger_gkz(self) -> CayleyGKZSystem:
+        """GKZ system of the Schwinger representation (two-block Cayley form).
+
+        Built from the dehomogenised Symanzik polynomials U~ and F~ with
+        alpha_N set to one (arXiv:2609.16107, section 3; Klausen 2023,
+        section 3.4). See :mod:`feynkit.systems.cayley` for conventions.
+        """
+        schwinger = self._all_parametrisations.schwinger
+        (u_tilde, f_tilde), u_vars = schwinger.dehomogenised_symanzik_polynomials()
+        edges = self._graph.get_internal_edges()
+        return create_cayley_system(
+            u_tilde,
+            f_tilde,
+            u_vars,
+            dimension=self._dimension,
+            propagator_exponents=[self._propagator_exponents[e.idx] for e in edges],
+            loop_count=self._loop_count,
+            prefactor=self.schwinger.prefactor,
         )
 
     @cached_property

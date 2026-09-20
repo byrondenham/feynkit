@@ -27,6 +27,7 @@ extract_exponents_from_support
     Extract exponent vectors from support.
 """
 
+from .cayley import CayleyGKZSystem, cayley_matrix, create_cayley_system
 from .complete import (
     GKZSystem,
     extract_coefficients_from_support,
@@ -43,7 +44,10 @@ from .monomial import (
 
 __all__ = [
     "GKZSystem",
+    "CayleyGKZSystem",
     "extract_monomial_support",
+    "cayley_matrix",
+    "create_cayley_system",
     "count_monomials",
     "get_max_degree",
     "filter_support_by_degree",

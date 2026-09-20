@@ -276,11 +276,11 @@ Klausen (2023), arXiv:2302.13184, section 3.4; Britto, Grimm, Hoefnagels (2026),
 arXiv:2606.09978, sections 2.2 and 8.1.
 
 Substituting $\alpha = (t u_1, \ldots, t u_{N-1}, t)$ into the Schwinger representation and
-integrating out $t$ gives, with $\nu = \sum_{i=1}^N \nu_i$ and $\beta = D/2$,
+integrating out $t$ gives, with $\nu = \sum_{i=1}^N \nu_i$,
 
-$$I_\Gamma \;=\; \frac{e^{L\epsilon\gamma_E}\,\Gamma(\nu - L\beta)}{\prod_{i=1}^{N}\Gamma(\nu_i)}
+$$I_\Gamma \;=\; \frac{e^{L\varepsilon\gamma_E}\,\Gamma(\nu - LD/2)}{\prod_{i=1}^{N}\Gamma(\nu_i)}
 \int_{u \geq 0} \prod_{i=1}^{N-1} du_i\, u_i^{\nu_i - 1}\,
-\tilde U(u)^{\nu - (L+1)\beta}\, \tilde F(u)^{L\beta - \nu},$$
+\tilde U(u)^{\nu - (L+1)D/2}\, \tilde F(u)^{LD/2 - \nu},$$
 
 where $\tilde U(u) = U(u_1, \ldots, u_{N-1}, 1)$ and likewise $\tilde F$. This is a generalised
 Euler integral in two polynomials. Its A-matrix is the Cayley configuration
@@ -289,11 +289,11 @@ $$A = \begin{pmatrix} 1 \cdots 1 & 0 \cdots 0 \\ 0 \cdots 0 & 1 \cdots 1 \\ A_{\
 
 and in the convention $\hat E_r \Phi = \beta_r \Phi$ of section 4.2 the parameter vector is
 
-$$\vec\beta = \bigl(\nu - (L+1)\beta,\; L\beta - \nu,\; -\nu_1, \ldots, -\nu_{N-1}\bigr).$$
+$$\vec\beta = \bigl(\nu - (L+1)D/2,\; LD/2 - \nu,\; -\nu_1, \ldots, -\nu_{N-1}\bigr).$$
 
 Each entry is the exponent of the corresponding polynomial or minus the exponent of $u_i$; the
 paper's worked examples use this, while its section 2.3 text carries the opposite sign on the first
-two entries, and its eq. 46 drops $L$ from $\Gamma(\nu - L\beta)$ and from the exponent of
+two entries, and its eq. 46 drops $L$ from $\Gamma(\nu - LD/2)$ and from the exponent of
 $\tilde F$. The $1/\Gamma(\nu_N)$ factor is kept.
 
 **Relation to the Lee-Pomeransky system.** Because $U$ has degree $L$ and $F$ degree $L+1$, the
@@ -306,13 +306,17 @@ triangular with $\det T = 1$, so the two configurations are unimodularly equival
 different coordinates; the Cayley form keeps the topological and kinematic coefficients apart.
 
 **Facet reduction.** Dropping the $\tilde U$ block gives the face subsystem with
-$A = (1 \cdots 1;\ A_{\tilde F})$ and $\vec\beta = (L\beta - \nu, -\nu_1, \ldots, -\nu_{N-1})$
-(the paper's eq. 54). Solutions of a face subsystem are solutions of the full system, not the
-converse (Britto, Grimm, Hoefnagels, section 2.2): rescaling the $\tilde F$ coefficients along an
-exponent row rescales $u$ and changes $\tilde U^{\nu - (L+1)\beta}$ unless that exponent vanishes.
-The reduced system annihilates $I_\Gamma$ itself only when $\nu = (L+1)\beta$ (their section 8.1)
-or on cut contours (Vanhove 2018, section 3.2). Its rank is not a bound on the number of master
-integrals.
+$A = (1 \cdots 1;\ A_{\tilde F})$ and $\vec\beta = (LD/2 - \nu, -\nu_1, \ldots, -\nu_{N-1})$
+(the paper's eq. 54). Britto, Grimm and Hoefnagels (arXiv:2606.09978, section 2.2, eqs. 19-20)
+show that the face subsystem is a true subsystem, its solutions solving the full system, when the
+parameter vector lies in the span of the face's columns. For the $\tilde F$ block that span has
+zero first coordinate, so the condition is $\nu = (L+1)D/2$, the same value at which the
+$\tilde U$ exponent vanishes (their section 8.1). Away from it, and off cut contours (Vanhove
+2018, section 3.2), the paper does not establish how the reduced system relates to the full one.
+Rescaling the $\tilde F$ coefficients along an exponent row rescales $u$ and changes
+$\tilde U^{\nu - (L+1)D/2}$ unless that exponent vanishes, so the $\tilde F$-block Euler equations
+do not annihilate $I_\Gamma$ at generic $D$. No claim is made that its rank bounds the number of
+master integrals.
 
 Accessed via `fi.schwinger_gkz` (a `CayleyGKZSystem`) with `.a_matrix`, `.beta_parameters`,
 `.euler_equations`, `.toric_ideal()` and `.restrict_to_f_block()`.

@@ -2,14 +2,6 @@
 
 ## Unreleased
 
-### Added
-
-- `FeynmanIntegral.schwinger_gkz`: the two-block Cayley GKZ system of the
-  Schwinger representation (Jimenez-Santacruz, Lopez-Arcos, Quintero Velez
-  2026; Klausen 2023, section 3.4), with its toric ideal and the face
-  subsystem on the F block. `SchwingerParametrisation.get_A_matrix` now
-  delegates to it.
-
 ### Breaking changes
 
 - Kinematic invariants. With `use_mandelstam=True` the external dot products
@@ -34,6 +26,14 @@
   (sum(nu) - D/2, nu_1, ..., nu_N), which does not satisfy those equations. A
   numerical homogeneity test now pins the correct values. The A-matrix, toric
   ideal and polytope data are unchanged.
+
+### Added
+
+- `FeynmanIntegral.schwinger_gkz`: the two-block Cayley GKZ system of the
+  Schwinger representation (Jimenez-Santacruz, Lopez-Arcos, Quintero Velez
+  2026; Klausen 2023, section 3.4), with its toric ideal and the face
+  subsystem on the F block. `SchwingerParametrisation.get_A_matrix` now
+  delegates to it.
 
 ## 0.2.0 (2026-09-19)
 

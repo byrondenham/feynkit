@@ -78,9 +78,9 @@ New dataclass `CayleyGKZSystem` in `feynkit/systems/cayley.py`:
 | `prefactor` | Schwinger prefactor times $\Gamma(\nu - L D/2)$ |
 | `dimension`, `propagator_exponents`, `loop_count` | Inputs, kept for reference |
 
-Column order is the $\tilde U$ block then the $\tilde F$ block, each in the
-graded reverse lexicographic order the rest of feynkit uses. Variable names
-are `w_1 ... w_n` and `z_1 ... z_m`.
+Column order is the $\tilde U$ block then the $\tilde F$ block, each in
+descending total degree then descending lexicographic order, the order the
+rest of feynkit uses. Variable names are `w_1 ... w_n` and `z_1 ... z_m`.
 
 ## Methods
 
@@ -91,17 +91,21 @@ are `w_1 ... w_n` and `z_1 ... z_m`.
   the paper's eq. 54 and its reduced box.
 
   What this reduction is, stated carefully. Britto, Grimm and Hoefnagels (arXiv:2606.09978,
-  section 2.2) show that the solutions of a face subsystem $(\mathcal{A}_F, \beta)$ lie in the
-  solution space of the full system, and treat the $\mathcal{U}$ facet only when its exponent
-  vanishes, $\nu = (L+1)D/2$ (section 8.1). The converse does not hold in general: rescaling the
-  $\tilde F$ coefficients along an exponent row rescales $u$, which changes
-  $\tilde U^{\nu - (L+1)D/2}$ unless that exponent is zero, so the $\tilde F$-block Euler
-  equations do not annihilate $\Phi$ at generic $D$. Vanhove (arXiv:1807.11466, section 3.2)
-  uses the corresponding object for the maximal cut, where the torus cycle has no boundary. The
-  docstring therefore says: the reduced system is a face subsystem whose solutions are solutions
-  of the full system; it annihilates the Feynman integral itself only when the $\tilde U$
-  exponent vanishes or on cut contours; the paper's comparison of its rank with the number of
-  master integrals is the paper's own observation, not a bound.
+  section 2.2, eqs. 19-20) show that a face subsystem is a true subsystem, its solutions
+  solving the full system, when the parameter vector lies in the span of the face's columns.
+  For the $\mathcal{F}$ block that span has zero first coordinate, so the condition is
+  $\nu = (L+1)D/2$, the same value at which the $\tilde U$ exponent vanishes (section 8.1).
+  Away from it, and off cut contours, the paper does not establish how the reduced system
+  relates to the full one. Rescaling the $\tilde F$ coefficients along an exponent row rescales
+  $u$, which changes $\tilde U^{\nu - (L+1)D/2}$ unless that exponent is zero, so the
+  $\tilde F$-block Euler equations do not annihilate $\Phi$ at generic $D$. Vanhove
+  (arXiv:1807.11466, section 3.2) uses the corresponding object for the maximal cut, where the
+  torus cycle has no boundary. The docstring therefore says: the reduced system is a face
+  subsystem; its solutions solve the full system when the parameter vector lies in the span of
+  the face's columns, which here means $\nu = (L+1)D/2$, the value at which the $\tilde U$
+  exponent vanishes; away from that value, and off cut contours, the paper does not establish
+  how the reduced system relates to the full one; no claim is made that its rank bounds the
+  number of master integrals.
 
 ## Facade
 

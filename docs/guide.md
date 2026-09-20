@@ -19,18 +19,18 @@ a `fk` command-line tool for instant analysis of any diagram.
 7. [Symanzik polynomials](#symanzik-polynomials)
 8. [Parametric representations](#parametric-representations)
 9. [GKZ system](#gkz-system)
-9a. [Schwinger-representation GKZ system](#schwinger-representation-gkz-system)
-10. [Newton polytope](#newton-polytope)
-11. [Toric ideal and IBP relations](#toric-ideal-and-ibp-relations)
-12. [Polytope equivalence](#polytope-equivalence)
-13. [Automorphism groups and symmetry pairs](#automorphism-groups-and-symmetry-pairs)
-14. [Deriving modified integrals](#deriving-modified-integrals)
-15. [AConfiguration: arbitrary GKZ inputs](#aconfiguration-arbitrary-gkz-inputs)
-16. [Landau singularities](#landau-singularities)
-17. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
-18. [The database](#the-database)
-19. [Visualisation and export](#visualisation-and-export)
-20. [Standard diagram library](#standard-diagram-library)
+10. [Schwinger-representation GKZ system](#schwinger-representation-gkz-system)
+11. [Newton polytope](#newton-polytope)
+12. [Toric ideal and IBP relations](#toric-ideal-and-ibp-relations)
+13. [Polytope equivalence](#polytope-equivalence)
+14. [Automorphism groups and symmetry pairs](#automorphism-groups-and-symmetry-pairs)
+15. [Deriving modified integrals](#deriving-modified-integrals)
+16. [AConfiguration: arbitrary GKZ inputs](#aconfiguration-arbitrary-gkz-inputs)
+17. [Landau singularities](#landau-singularities)
+18. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
+19. [The database](#the-database)
+20. [Visualisation and export](#visualisation-and-export)
+21. [Standard diagram library](#standard-diagram-library)
 
 ---
 
@@ -409,6 +409,7 @@ fi.schwinger            # ParametrisationResult (Schwinger form)
 fi.feynman              # ParametrisationResult (Feynman form)
 fi.lee_pomeransky       # ParametrisationResult (Lee-Pomeransky form)
 fi.gkz                  # GKZSystem
+fi.schwinger_gkz        # CayleyGKZSystem (Schwinger representation)
 fi.newton_polytope      # NewtonPolytope
 fi.toric_ideal          # ToricIdeal
 fi.polytope_automorphisms   # PolytopeAutomorphisms
@@ -580,9 +581,10 @@ print(reduced.a_matrix, reduced.beta_parameters)
 
 The parameter convention is the one used for `fi.gkz`; section 4.6 of the mathematics
 reference gives the derivation, the relation to the Lee-Pomeransky system and the limits of the
-reduction. In short: the reduced system's solutions are solutions of the full one, but it
-annihilates the Feynman integral itself only when the exponent of $\tilde U$ vanishes or on cut
-contours.
+reduction. In short: Britto, Grimm and Hoefnagels (arXiv:2606.09978) show that the reduced
+system's solutions solve the full one when the parameter vector lies in the span of the face's
+columns, which here means the exponent of $\tilde U$ vanishes; away from that point, and off cut
+contours, the relation between the reduced and full systems is not established.
 
 ---
 

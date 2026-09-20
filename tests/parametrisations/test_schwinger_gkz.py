@@ -135,3 +135,93 @@ class TestFacade:
         assert sp.simplify(sys_.beta_parameters[0] - (nu - 3 * half_d)) == 0
         assert sp.simplify(sys_.beta_parameters[1] - (2 * half_d - nu)) == 0
         assert sp.simplify(sys_.prefactor / fi.schwinger.prefactor - sp.gamma(nu - 2 * half_d)) == 0
+
+
+class TestEquivalenceWithLeePomeransky:
+    def test_cayley_matrix_is_unimodular_image_of_lp_matrix(
+        self, massless_triangle: FeynmanIntegral
+    ) -> None:
+        """Klausen (2023, section 3.4): the UF Cayley form is unimodularly equivalent to A_LP.
+
+        The map T from (ones, alpha_N, alpha_1, ..., alpha_{N-1}) to
+        (r0, r1, alpha_1, ..., alpha_{N-1}) is block upper triangular: rows
+        r0 and r1 take the 2 x 2 block [[L + 1, -1], [-L, 1]] on the (ones,
+        alpha_N) columns and -1 (resp. 1) on every alpha_i column with
+        i < N, since r0 and r1 depend on the full degree alpha_N + sum_{i <
+        N} alpha_i, not on alpha_N alone; the remaining rows are the
+        identity below that.
+        """
+        fi = massless_triangle
+        lp, cay = fi.gkz, fi.schwinger_gkz
+        n_lp = len(fi.symanzik.lp_parameters)
+        L = fi.loop_count
+
+        # Reorder LP columns to match the Cayley column order by monomial and total degree
+        # (U~ columns have degree L, F~ columns have degree L + 1, so degree disambiguates
+        # LP monomials that agree on their first N - 1 exponents).
+        lp_index = {alpha: j for j, (alpha, _) in enumerate(lp.support)}
+        blocks = [(e, L) for e, _ in cay.u_support] + [(e, L + 1) for e, _ in cay.f_support]
+        lp_cols = []
+        for e, degree in blocks:
+            matches = [alpha for alpha in lp_index if alpha[:-1] == e and sum(alpha) == degree]
+            assert len(matches) == 1, (e, degree, matches)
+            lp_cols.append(lp_index[matches[0]])
+        a_lp = lp.a_matrix.extract(list(range(lp.a_matrix.rows)), lp_cols)
+
+        # Rows of a_lp: ones, alpha_1, ..., alpha_N. Build T on (ones, alpha_N, alpha_1..alpha_{N-1}).
+        perm = [0, n_lp] + list(range(1, n_lp))
+        a_perm = a_lp.extract(perm, list(range(a_lp.cols)))
+        T = sp.eye(n_lp + 1)
+        T[0, 0], T[0, 1], T[1, 0], T[1, 1] = L + 1, -1, -L, 1
+        for j in range(2, n_lp + 1):
+            T[0, j] = -1
+            T[1, j] = 1
+        assert T.det() == 1
+        assert T * a_perm == cay.a_matrix
+
+    def test_column_counts_agree(self, massless_triangle: FeynmanIntegral) -> None:
+        assert massless_triangle.schwinger_gkz.a_matrix.cols == massless_triangle.gkz.a_matrix.cols
+
+
+class TestNumericalHomogeneity:
+    def test_bubble_euler_integral_scales_with_beta(self) -> None:
+        """Rescaling coefficients along a row of A multiplies Phi by lambda^beta_r.
+
+        Massive bubble at D = 3, nu = (1, 1): Phi(w, z) = int_0^inf du
+        (w1 u + w2)^(-1) (z1 u^2 + z2 u + z3)^(-1/2), which converges.
+        Expected beta = (nu - 2 D/2, D/2 - nu, -nu_1) = (-1, -1/2, -1).
+        """
+        import numpy as np
+        from scipy import integrate
+
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        sys_ = fi.schwinger_gkz
+        A = np.array(sys_.a_matrix.tolist(), dtype=float)
+        n = len(sys_.u_support)
+        u_exps = [e[0] for e, _ in sys_.u_support]
+        f_exps = [e[0] for e, _ in sys_.f_support]
+        D, nu = 3.0, (1.0, 1.0)
+        subs = {fi.dimension: D}
+        subs.update({fi.propagator_exponents[i]: nu[i - 1] for i in (1, 2)})
+        expected = [float(b.subs(subs)) for b in sys_.beta_parameters]
+
+        def phi(c: np.ndarray) -> float:
+            w, z = c[:n], c[n:]
+
+            def integrand(u: float) -> float:
+                u_tilde = sum(wj * u**e for wj, e in zip(w, u_exps, strict=True))
+                f_tilde = sum(zj * u**e for zj, e in zip(z, f_exps, strict=True))
+                return (
+                    u ** (nu[0] - 1)
+                    * u_tilde ** (nu[0] + nu[1] - D)
+                    * f_tilde ** (D / 2 - nu[0] - nu[1])
+                )
+
+            return integrate.quad(integrand, 0, np.inf, epsrel=1e-9, limit=200)[0]
+
+        c0 = np.array([1.1, 0.9, 1.3, 2.2, 0.7])
+        lam = 1.5
+        base = phi(c0)
+        for r in range(A.shape[0]):
+            measured = np.log(phi(c0 * lam ** A[r]) / base) / np.log(lam)
+            assert abs(measured - expected[r]) < 1e-4, (r, measured, expected[r])

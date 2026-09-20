@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sympy as sp
 
-from feynkit.systems.cayley import cayley_matrix
+from feynkit.systems.cayley import CayleyGKZSystem, cayley_matrix, create_cayley_system
 
 u, u1, u2, u3 = sp.symbols("u u1 u2 u3")
 s, t, m1, m2 = sp.symbols("s t m_1 m_2")
@@ -60,3 +60,78 @@ class TestCayleyMatrix:
         n = len(u_support)
         assert list(A[0, :n]) == [1] * n and list(A[0, n:]) == [0] * len(f_support)
         assert list(A[1, :n]) == [0] * n and list(A[1, n:]) == [1] * len(f_support)
+
+
+class TestParameters:
+    def _bubble(self, nu1: sp.Expr, nu2: sp.Expr) -> CayleyGKZSystem:
+        return create_cayley_system(
+            1 + u,
+            m2**2 + (s + m1**2 + m2**2) * u + m1**2 * u**2,
+            [u],
+            dimension=D,
+            propagator_exponents=[nu1, nu2],
+            loop_count=1,
+        )
+
+    def test_bubble_beta_matches_eq_53(self) -> None:
+        nu1, nu2 = sp.symbols("nu_1 nu_2", positive=True)
+        sys_ = self._bubble(nu1, nu2)
+        beta = D / 2
+        expected = [nu1 + nu2 - 2 * beta, beta - nu1 - nu2, -nu1]
+        assert [
+            sp.simplify(a - b) for a, b in zip(sys_.beta_parameters, expected, strict=True)
+        ] == [0, 0, 0]
+
+    def test_triangle_beta_at_unit_exponents(self) -> None:
+        sys_ = create_cayley_system(
+            1 + u1 + u2,
+            s * u1 + t * u2 + sp.Symbol("u_kin") * u1 * u2,
+            [u1, u2],
+            dimension=D,
+            propagator_exponents=[1, 1, 1],
+            loop_count=1,
+        )
+        beta = D / 2
+        expected = [3 - 2 * beta, beta - 3, -1, -1]
+        assert [
+            sp.simplify(a - b) for a, b in zip(sys_.beta_parameters, expected, strict=True)
+        ] == [0] * 4
+
+    def test_general_loop_number_enters_first_two_entries(self) -> None:
+        sys_ = create_cayley_system(
+            u1 + u2 + u1 * u2,
+            u1 * u2 * (u1 + u2 + 1),
+            [u1, u2],
+            dimension=D,
+            propagator_exponents=[1, 1, 1],
+            loop_count=2,
+        )
+        beta = D / 2
+        assert sp.simplify(sys_.beta_parameters[0] - (3 - 3 * beta)) == 0
+        assert sp.simplify(sys_.beta_parameters[1] - (2 * beta - 3)) == 0
+
+    def test_euler_equations_one_per_row(self) -> None:
+        sys_ = self._bubble(sp.Integer(1), sp.Integer(1))
+        assert len(sys_.euler_equations) == sys_.a_matrix.rows
+        lhs_symbols = set().union(*(eq.lhs.free_symbols for eq in sys_.euler_equations))
+        assert set(sys_.variables) <= lhs_symbols
+
+    def test_prefactor_multiplies_gamma_of_nu_minus_l_half_d(self) -> None:
+        nu1, nu2 = sp.symbols("nu_1 nu_2", positive=True)
+        base = sp.Symbol("P")
+        sys_ = create_cayley_system(
+            1 + u,
+            m2**2 + u,
+            [u],
+            dimension=D,
+            propagator_exponents=[nu1, nu2],
+            loop_count=1,
+            prefactor=base,
+        )
+        assert sp.simplify(sys_.prefactor - base * sp.gamma(nu1 + nu2 - D / 2)) == 0
+
+    def test_wrong_exponent_count_is_rejected(self) -> None:
+        import pytest
+
+        with pytest.raises(ValueError):
+            create_cayley_system(1 + u, u, [u], dimension=D, propagator_exponents=[1], loop_count=1)

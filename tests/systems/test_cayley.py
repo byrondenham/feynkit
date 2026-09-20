@@ -105,16 +105,27 @@ class TestParameters:
             dimension=D,
             propagator_exponents=[1, 1, 1],
             loop_count=2,
+            prefactor=sp.Integer(1),
         )
         beta = D / 2
         assert sp.simplify(sys_.beta_parameters[0] - (3 - 3 * beta)) == 0
         assert sp.simplify(sys_.beta_parameters[1] - (2 * beta - 3)) == 0
+        # Verify loop_count L=2 enters Gamma(nu - L*D/2) where nu=3
+        assert sp.simplify(sys_.prefactor - sp.gamma(3 - 2 * D / 2)) == 0
 
-    def test_euler_equations_one_per_row(self) -> None:
+    def test_euler_equations_pin_rows_of_a_and_beta(self) -> None:
         sys_ = self._bubble(sp.Integer(1), sp.Integer(1))
         assert len(sys_.euler_equations) == sys_.a_matrix.rows
-        lhs_symbols = set().union(*(eq.lhs.free_symbols for eq in sys_.euler_equations))
-        assert set(sys_.variables) <= lhs_symbols
+        variables = sys_.variables
+        phi = sp.Function("Phi")(*variables)
+        for r, eq in enumerate(sys_.euler_equations):
+            assert sp.simplify(eq.rhs - sys_.beta_parameters[r] * phi) == 0
+            lhs = sp.expand(eq.lhs)
+            for j, var in enumerate(variables):
+                coefficient = lhs.coeff(sp.Derivative(phi, var))
+                assert (
+                    sp.simplify(coefficient - sys_.a_matrix[r, j] * var) == 0
+                ), f"Row {r}, column {j} mismatch"
 
     def test_prefactor_multiplies_gamma_of_nu_minus_l_half_d(self) -> None:
         nu1, nu2 = sp.symbols("nu_1 nu_2", positive=True)

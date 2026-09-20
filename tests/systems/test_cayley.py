@@ -209,6 +209,8 @@ class TestToricIdeal:
         assert g in (sp.expand(z1 * z3 - z2**2), sp.expand(z2**2 - z1 * z3))
 
     def test_full_bubble_toric_ideal_uses_w_and_z(self) -> None:
+        from feynkit.algebra.toric import compute_toric_ideal_generators
+
         sys_ = create_cayley_system(
             1 + u,
             m2**2 + (s + m1**2 + m2**2) * u + m1**2 * u**2,
@@ -217,8 +219,14 @@ class TestToricIdeal:
             propagator_exponents=[1, 1],
             loop_count=1,
         )
-        gens = sys_.toric_ideal()
-        assert gens
-        used = set().union(*(g.free_symbols for g in gens))
-        assert used <= set(sys_.variables)
-        assert any(sym in used for sym in sys_.w_variables)
+        raw = compute_toric_ideal_generators(sys_.a_matrix)
+        standard = sp.symbols(f"z_1:{sys_.a_matrix.cols + 1}")
+        mapping = dict(zip(standard, sys_.variables, strict=True))
+        expected = {sp.expand(g.subs(mapping, simultaneous=True)) for g in raw}
+        got = {sp.expand(g) for g in sys_.toric_ideal()}
+        assert got == expected
+        assert raw  # the Cayley matrix of the bubble has a non-trivial kernel
+        # The first n columns are the U~ block: their variables are the w's.
+        n = len(sys_.u_support)
+        assert sys_.variables[:n] == sys_.w_variables
+        assert sys_.variables[n:] == sys_.z_variables

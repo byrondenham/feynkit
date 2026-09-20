@@ -31,6 +31,7 @@ from dataclasses import dataclass
 import sympy as sp
 
 from ..algebra.toric import compute_toric_ideal_generators
+from ..core.exceptions import ValidationError
 from .complete import GKZSystem
 from .euler import create_euler_equations
 from .monomial import extract_monomial_support
@@ -122,15 +123,19 @@ class CayleyGKZSystem:
 
         Returns the ordinary GKZ system with A = (1 ... 1; A_F) and
         beta = (L D/2 - nu, -nu_1, ..., -nu_{N-1}). Britto, Grimm and
-        Hoefnagels (arXiv:2606.09978, section 2.2) show that solutions of a
-        face subsystem are solutions of the full system, not the converse:
-        rescaling the F~ coefficients along an exponent row rescales u,
-        which changes U~^(nu - (L+1) D/2) unless that exponent vanishes. The
-        reduced system therefore annihilates the Feynman integral itself only
-        when nu = (L+1) D/2 (their section 8.1) or on cut contours (Vanhove,
-        arXiv:1807.11466, section 3.2). The paper's comparison of its rank
-        with the number of master integrals is the paper's observation, not
-        a bound.
+        Hoefnagels (arXiv:2606.09978, section 2.2, eqs. 19-20) show that the
+        face subsystem is a true subsystem, its solutions solving the full
+        system, when the parameter vector lies in the span of the face's
+        columns. For the F~ block that span has zero first coordinate, so
+        the condition is nu = (L+1) D/2, the same value at which the U~
+        exponent vanishes (their section 8.1). Away from it, and off cut
+        contours (Vanhove, arXiv:1807.11466, section 3.2), the paper does
+        not establish how the reduced system relates to the full one.
+        Rescaling the F~ coefficients along an exponent row rescales u,
+        which changes U~^(nu - (L+1) D/2) unless that exponent vanishes, so
+        the F~-block Euler equations do not annihilate the Feynman integral
+        at generic D. No claim is made that its rank bounds the number of
+        master integrals.
         """
         n = len(self.u_support)
         a_f = self.a_matrix[2:, n:]
@@ -165,7 +170,7 @@ def create_cayley_system(
     Gamma(nu - L D/2) from the t integration is multiplied on here.
     """
     if len(propagator_exponents) != len(u_variables) + 1:
-        raise ValueError("Expected one propagator exponent more than there are u variables")
+        raise ValidationError("Expected one propagator exponent more than there are u variables")
     a_matrix, u_support, f_support = cayley_matrix(u_tilde, f_tilde, u_variables)
     n, m = len(u_support), len(f_support)
     w = list(sp.symbols(f"w_1:{n + 1}"))

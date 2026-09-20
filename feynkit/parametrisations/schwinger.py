@@ -17,6 +17,7 @@ from ..core.constants import (
 )
 from ..core.exceptions import ComputationError
 from ..core.graph import Graph
+from ..systems.cayley import cayley_matrix
 from .base import Parametrisation, ParametrisationResult
 
 
@@ -69,6 +70,17 @@ class SchwingerParametrisation(Parametrisation):
         """Return the name of this parametrisation."""
         return "Schwinger"
 
+    @property
+    def prefactor(self) -> sp.Expr:
+        """exp(L epsilon gamma_E) / prod_i Gamma(nu_i), without computing the integrand."""
+        internal_edges = self.graph.get_internal_edges()
+        epsilon = sp.Symbol(DEFAULT_EPSILON, real=True)
+        gamma_e = sp.Symbol(DEFAULT_GAMMA_E, real=True)
+        gamma_product = sp.prod(
+            [sp.gamma(self.propagator_exponents[e.idx]) for e in internal_edges]
+        )
+        return sp.exp(sp.Integer(self.loop_count) * epsilon * gamma_e) / gamma_product
+
     def compute(self) -> ParametrisationResult:
         """
         Compute the Schwinger parametrisation.
@@ -113,17 +125,9 @@ class SchwingerParametrisation(Parametrisation):
             u_alpha = self.u_polynomial.subs(param_substitution)
             f_alpha = self.f_polynomial.subs(param_substitution)
 
-            # Define regularisation symbols
-            epsilon = sp.Symbol(DEFAULT_EPSILON, real=True)
-            gamma_e = sp.Symbol(DEFAULT_GAMMA_E, real=True)
-            loop_order = sp.Integer(self.loop_count)
-
             # === Compute prefactor ===
             # prefactor = exp(L*epsilon*gamma_E) / prod_i[Gamma(nu_i)]
-            gamma_product = sp.prod(
-                [sp.gamma(self.propagator_exponents[e.idx]) for e in internal_edges]
-            )
-            prefactor = sp.exp(loop_order * epsilon * gamma_e) / gamma_product
+            prefactor = self.prefactor
 
             # === Compute measure ===
             # measure = prod_i[d alpha_i alpha_i^(nu_i-1)]
@@ -197,7 +201,7 @@ class SchwingerParametrisation(Parametrisation):
         return (u_tilde, f_tilde), new_vars
 
     def get_A_matrix(self) -> sp.Matrix:
-        r"""
+        """
         GKZ A-matrix of the Schwinger representation written as an A-hypergeometric integral.
 
         See :mod:`feynkit.systems.cayley` for the block structure and conventions.
@@ -208,8 +212,6 @@ class SchwingerParametrisation(Parametrisation):
             Integer matrix of shape (N + 1) x (n + m) for N propagators, n
             monomials in U~ and m monomials in F~.
         """
-        from ..systems.cayley import cayley_matrix
-
         (u_tilde, f_tilde), u = self.dehomogenised_symanzik_polynomials()
         matrix, _, _ = cayley_matrix(u_tilde, f_tilde, u)
         return matrix

@@ -10,6 +10,8 @@ Classes
 -------
 GKZSystem
     Complete GKZ hypergeometric system with all components.
+CayleyGKZSystem
+    GKZ system of the Schwinger representation in Cayley form.
 
 Functions
 ---------
@@ -25,6 +27,10 @@ extract_coefficients_from_support
     Extract coefficients from support.
 extract_exponents_from_support
     Extract exponent vectors from support.
+cayley_matrix
+    Cayley matrix of a pair of dehomogenised Symanzik polynomials.
+create_cayley_system
+    Build the CayleyGKZSystem from the dehomogenised Symanzik polynomials.
 """
 
 from .cayley import CayleyGKZSystem, cayley_matrix, create_cayley_system
@@ -44,18 +50,18 @@ from .monomial import (
 
 __all__ = [
     "GKZSystem",
-    "CayleyGKZSystem",
-    "extract_monomial_support",
-    "cayley_matrix",
-    "create_cayley_system",
-    "count_monomials",
-    "get_max_degree",
-    "filter_support_by_degree",
-    "construct_gkz_matrix",
-    "validate_gkz_matrix",
+    "extract_coefficients_from_support",
+    "extract_exponents_from_support",
     "create_euler_operators",
     "create_euler_equations",
     "format_euler_equation",
-    "extract_coefficients_from_support",
-    "extract_exponents_from_support",
+    "CayleyGKZSystem",
+    "cayley_matrix",
+    "create_cayley_system",
+    "construct_gkz_matrix",
+    "validate_gkz_matrix",
+    "extract_monomial_support",
+    "count_monomials",
+    "get_max_degree",
+    "filter_support_by_degree",
 ]

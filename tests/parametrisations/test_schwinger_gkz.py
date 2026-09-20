@@ -127,6 +127,11 @@ class TestFacade:
         )
         assert sp.simplify(sys_.prefactor - expected) == 0
 
+    def test_schwinger_gkz_does_not_populate_cached_schwinger(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+        _ = fi.schwinger_gkz
+        assert "schwinger" not in fi.__dict__
+
     def test_sunrise_uses_loop_count_two(self) -> None:
         fi = FeynmanIntegral.from_cnickel("111e|e|:nnn")
         sys_ = fi.schwinger_gkz
@@ -138,9 +143,8 @@ class TestFacade:
 
 
 class TestEquivalenceWithLeePomeransky:
-    def test_cayley_matrix_is_unimodular_image_of_lp_matrix(
-        self, massless_triangle: FeynmanIntegral
-    ) -> None:
+    @pytest.mark.parametrize("cnickel", ["12e|2e|e|:zzz", "111e|e|:nnn"])
+    def test_cayley_matrix_is_unimodular_image_of_lp_matrix(self, cnickel: str) -> None:
         """Klausen (2023, section 3.4): the UF Cayley form is unimodularly equivalent to A_LP.
 
         The map T from (ones, alpha_N, alpha_1, ..., alpha_{N-1}) to
@@ -151,7 +155,7 @@ class TestEquivalenceWithLeePomeransky:
         N} alpha_i, not on alpha_N alone; the remaining rows are the
         identity below that.
         """
-        fi = massless_triangle
+        fi = FeynmanIntegral.from_cnickel(cnickel)
         lp, cay = fi.gkz, fi.schwinger_gkz
         n_lp = len(fi.symanzik.lp_parameters)
         L = fi.loop_count
@@ -179,8 +183,13 @@ class TestEquivalenceWithLeePomeransky:
         assert T.det() == 1
         assert T * a_perm == cay.a_matrix
 
-    def test_column_counts_agree(self, massless_triangle: FeynmanIntegral) -> None:
-        assert massless_triangle.schwinger_gkz.a_matrix.cols == massless_triangle.gkz.a_matrix.cols
+        # lp.beta_parameters is (-D/2, -nu_1, ..., -nu_N) in internal-edge order, so
+        # index n_lp is -nu_N; permute it the same way as the columns above.
+        beta_perm = sp.Matrix(
+            [lp.beta_parameters[0], lp.beta_parameters[n_lp]] + list(lp.beta_parameters[1:n_lp])
+        )
+        mapped = T * beta_perm
+        assert all(sp.simplify(mapped[i] - cay.beta_parameters[i]) == 0 for i in range(n_lp + 1))
 
 
 class TestNumericalHomogeneity:
@@ -191,6 +200,8 @@ class TestNumericalHomogeneity:
         (w1 u + w2)^(-1) (z1 u^2 + z2 u + z3)^(-1/2), which converges.
         Expected beta = (nu - 2 D/2, D/2 - nu, -nu_1) = (-1, -1/2, -1).
         """
+        import warnings
+
         import numpy as np
         from scipy import integrate
 
@@ -217,7 +228,9 @@ class TestNumericalHomogeneity:
                     * f_tilde ** (D / 2 - nu[0] - nu[1])
                 )
 
-            return integrate.quad(integrand, 0, np.inf, epsrel=1e-9, limit=200)[0]
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", integrate.IntegrationWarning)
+                return integrate.quad(integrand, 0, np.inf, epsrel=1e-9, limit=200)[0]
 
         c0 = np.array([1.1, 0.9, 1.3, 2.2, 0.7])
         lam = 1.5

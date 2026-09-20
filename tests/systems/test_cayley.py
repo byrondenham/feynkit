@@ -34,11 +34,13 @@ class TestCayleyMatrix:
     def test_massless_triangle_matches_paper(self) -> None:
         u_tilde = 1 + u1 + u2
         f_tilde = s * u1 + t * u2 + sp.Symbol("u_kin") * u1 * u2
-        A, _, _ = cayley_matrix(u_tilde, f_tilde, [u1, u2])
+        A, u_support, f_support = cayley_matrix(u_tilde, f_tilde, [u1, u2])
         expected = sp.Matrix(
             [[1, 1, 1, 0, 0, 0], [0, 0, 0, 1, 1, 1], [0, 1, 0, 1, 0, 1], [0, 0, 1, 0, 1, 1]]
         )
         assert _columns(A) == _columns(expected)
+        assert [e for e, _ in u_support] == [(1, 0), (0, 1), (0, 0)]
+        assert [e for e, _ in f_support] == [(1, 1), (1, 0), (0, 1)]
 
     def test_on_shell_massless_box_matches_paper(self) -> None:
         u_tilde = 1 + u1 + u2 + u3
@@ -54,12 +56,6 @@ class TestCayleyMatrix:
             ]
         )
         assert _columns(A) == _columns(expected)
-
-    def test_u_block_precedes_f_block(self) -> None:
-        A, u_support, f_support = cayley_matrix(1 + u, m2**2 + u, [u])
-        n = len(u_support)
-        assert list(A[0, :n]) == [1] * n and list(A[0, n:]) == [0] * len(f_support)
-        assert list(A[1, :n]) == [0] * n and list(A[1, n:]) == [1] * len(f_support)
 
 
 class TestParameters:
@@ -96,6 +92,20 @@ class TestParameters:
         assert [
             sp.simplify(a - b) for a, b in zip(sys_.beta_parameters, expected, strict=True)
         ] == [0] * 4
+
+    def test_on_shell_box_beta_at_unit_exponents(self) -> None:
+        sys_ = create_cayley_system(
+            1 + u1 + u2 + u3,
+            -s * u1 * u3 - t * u2,
+            [u1, u2, u3],
+            dimension=D,
+            propagator_exponents=[1, 1, 1, 1],
+            loop_count=1,
+        )
+        expected = [4 - 2 * D / 2, D / 2 - 4, -1, -1, -1]
+        assert [
+            sp.simplify(a - b) for a, b in zip(sys_.beta_parameters, expected, strict=True)
+        ] == [0] * 5
 
     def test_general_loop_number_enters_first_two_entries(self) -> None:
         sys_ = create_cayley_system(
@@ -144,7 +154,9 @@ class TestParameters:
     def test_wrong_exponent_count_is_rejected(self) -> None:
         import pytest
 
-        with pytest.raises(ValueError):
+        from feynkit.core.exceptions import ValidationError
+
+        with pytest.raises(ValidationError):
             create_cayley_system(1 + u, u, [u], dimension=D, propagator_exponents=[1], loop_count=1)
 
 

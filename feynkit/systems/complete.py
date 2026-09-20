@@ -32,7 +32,9 @@ class GKZSystem:
     support : List[Tuple[Tuple[int, ...], sp.Expr]]
         Monomial support: [(exponent_vector, coefficient), ...].
     beta_parameters : List[sp.Expr]
-        Parameter vector [beta_0, beta_1, ..., beta_n].
+        Parameter vector [beta_0, beta_1, ..., beta_n]. Systems produced by
+        `CayleyGKZSystem.restrict_to_f_block` carry the parameter of that
+        face, (L D/2 - nu, -nu_1, ...), not the Lee-Pomeransky form.
     euler_equations : List[sp.Equality]
         System of (n+1) Euler differential equations.
     dimension : sp.Expr
@@ -192,8 +194,8 @@ def _create_gkz_system_direct(
             f"Number of LP params ({len(lp_params)}) must match "
             f"number of propagator exponents ({len(propagator_exponents)})"
         )
-    # Sort descending by total degree, then descending lex, matches sp.Poly grevlex output
-    # so that z_j labels are consistent with the polynomial-based path.
+    # Sort descending by total degree, then descending lex (graded lex order), matches
+    # sp.Poly's graded lex output so that z_j labels are consistent with the polynomial-based path.
     sorted_vecs = sorted(exponent_vecs, key=lambda v: (-sum(v), tuple(-e for e in v)))
     n_vars = len(lp_params)
     a_matrix = construct_gkz_matrix_from_exponents(sorted_vecs, n_vars)

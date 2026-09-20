@@ -357,7 +357,7 @@ class FeynmanIntegral:
             dimension=self._dimension,
             propagator_exponents=[self._propagator_exponents[e.idx] for e in edges],
             loop_count=self._loop_count,
-            prefactor=self.schwinger.prefactor,
+            prefactor=self._all_parametrisations.schwinger.prefactor,
         )
 
     @cached_property

@@ -126,6 +126,11 @@ print("G =", sym.g)          # Lee-Pomeransky G = U + F
 r, m = fi.gkz.a_matrix.shape
 print(f"A is {r} x {m}")       # A is 4 x 6 for the triangle
 
+# Schwinger-representation (Cayley) GKZ system and its F-block reduction
+cay = fi.schwinger_gkz
+print(cay.a_matrix.shape, cay.beta_parameters)
+print(cay.restrict_to_f_block().a_matrix)
+
 # Newton polytope
 pts = fi.newton_polytope.points
 print(f"G has {len(pts)} monomials")
@@ -194,7 +199,7 @@ same CNickel string, the canonical form minimises the mass colouring lexicograph
 | `feynkit.core` | Graph data structures, Nickel/CNickel index, `from_cnickel` constructor |
 | `feynkit.polynomials` | Symanzik U and F via spanning-tree enumeration |
 | `feynkit.parametrisations` | Schwinger, Feynman, Lee-Pomeransky representations |
-| `feynkit.systems` | GKZ A-matrix, $\beta$ parameters, Euler operators |
+| `feynkit.systems` | GKZ A-matrix, beta parameters, Euler operators; Schwinger-representation Cayley system |
 | `feynkit.algebra` | Toric ideal generators (SymPy or 4ti2 backend), Gröbner bases, ideal quotients and intersections, syzygies |
 | `feynkit.normal_forms` | Unimodular equivalence (Liu-Cai), affine equivalence, polytope automorphism groups |
 | `feynkit.a_configuration` | Arbitrary GKZ A-configurations: equivalence, finite-index maps, Smith invariants, symmetry pairs |

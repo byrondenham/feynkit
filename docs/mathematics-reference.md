@@ -269,6 +269,54 @@ $\chi \leq \mathrm{vol}_0(\Delta_G)$, with equality for generic kinematics.
 
 *Ref:* GKZ (1994) Thm 3.11; Klausen (2020) Thm 2.2; de la Cruz (2019) section 2.
 
+### 4.6 The Schwinger-Representation (Cayley) System
+
+*Ref:* Jimenez-Santacruz, Lopez-Arcos, Quintero Velez (2026), arXiv:2609.16107, section 3;
+Klausen (2023), arXiv:2302.13184, section 3.4; Britto, Grimm, Hoefnagels (2026),
+arXiv:2606.09978, sections 2.2 and 8.1.
+
+Substituting $\alpha = (t u_1, \ldots, t u_{N-1}, t)$ into the Schwinger representation and
+integrating out $t$ gives, with $\nu = \sum_{i=1}^N \nu_i$ and $\beta = D/2$,
+
+$$I_\Gamma \;=\; \frac{e^{L\epsilon\gamma_E}\,\Gamma(\nu - L\beta)}{\prod_{i=1}^{N}\Gamma(\nu_i)}
+\int_{u \geq 0} \prod_{i=1}^{N-1} du_i\, u_i^{\nu_i - 1}\,
+\tilde U(u)^{\nu - (L+1)\beta}\, \tilde F(u)^{L\beta - \nu},$$
+
+where $\tilde U(u) = U(u_1, \ldots, u_{N-1}, 1)$ and likewise $\tilde F$. This is a generalised
+Euler integral in two polynomials. Its A-matrix is the Cayley configuration
+
+$$A = \begin{pmatrix} 1 \cdots 1 & 0 \cdots 0 \\ 0 \cdots 0 & 1 \cdots 1 \\ A_{\tilde U} & A_{\tilde F} \end{pmatrix},$$
+
+and in the convention $\hat E_r \Phi = \beta_r \Phi$ of section 4.2 the parameter vector is
+
+$$\vec\beta = \bigl(\nu - (L+1)\beta,\; L\beta - \nu,\; -\nu_1, \ldots, -\nu_{N-1}\bigr).$$
+
+Each entry is the exponent of the corresponding polynomial or minus the exponent of $u_i$; the
+paper's worked examples use this, while its section 2.3 text carries the opposite sign on the first
+two entries, and its eq. 46 drops $L$ from $\Gamma(\nu - L\beta)$ and from the exponent of
+$\tilde F$. The $1/\Gamma(\nu_N)$ factor is kept.
+
+**Relation to the Lee-Pomeransky system.** Because $U$ has degree $L$ and $F$ degree $L+1$, the
+block rows of the Cayley matrix are integer combinations of the Lee-Pomeransky rows:
+$r_0 = (L+1)\,\mathbf{1} - \sum_{i=1}^{N}\alpha_i$ and $r_1 = \mathbf{1} - r_0$. In the row basis
+(ones, $\alpha_N$, $\alpha_1, \ldots, \alpha_{N-1}$) the map $T$ has first row
+$(L+1, -1, \ldots, -1)$, second row $(-L, 1, \ldots, 1)$ and the identity below; it is block
+triangular with $\det T = 1$, so the two configurations are unimodularly equivalent
+(Klausen 2023, section 3.4). The two systems are therefore the same GKZ system in
+different coordinates; the Cayley form keeps the topological and kinematic coefficients apart.
+
+**Facet reduction.** Dropping the $\tilde U$ block gives the face subsystem with
+$A = (1 \cdots 1;\ A_{\tilde F})$ and $\vec\beta = (L\beta - \nu, -\nu_1, \ldots, -\nu_{N-1})$
+(the paper's eq. 54). Solutions of a face subsystem are solutions of the full system, not the
+converse (Britto, Grimm, Hoefnagels, section 2.2): rescaling the $\tilde F$ coefficients along an
+exponent row rescales $u$ and changes $\tilde U^{\nu - (L+1)\beta}$ unless that exponent vanishes.
+The reduced system annihilates $I_\Gamma$ itself only when $\nu = (L+1)\beta$ (their section 8.1)
+or on cut contours (Vanhove 2018, section 3.2). Its rank is not a bound on the number of master
+integrals.
+
+Accessed via `fi.schwinger_gkz` (a `CayleyGKZSystem`) with `.a_matrix`, `.beta_parameters`,
+`.euler_equations`, `.toric_ideal()` and `.restrict_to_f_block()`.
+
 ---
 
 ## 5. Newton Polytope

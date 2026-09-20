@@ -19,6 +19,7 @@ a `fk` command-line tool for instant analysis of any diagram.
 7. [Symanzik polynomials](#symanzik-polynomials)
 8. [Parametric representations](#parametric-representations)
 9. [GKZ system](#gkz-system)
+9a. [Schwinger-representation GKZ system](#schwinger-representation-gkz-system)
 10. [Newton polytope](#newton-polytope)
 11. [Toric ideal and IBP relations](#toric-ideal-and-ibp-relations)
 12. [Polytope equivalence](#polytope-equivalence)
@@ -552,6 +553,36 @@ for row in gkz.a_matrix.tolist():
 #   [1, 0, 0, 1, 1, 0]   <- exponent of u2
 #   [0, 1, 0, 1, 0, 1]   <- exponent of u3
 ```
+
+---
+
+## Schwinger-representation GKZ system
+
+`fi.schwinger_gkz` is the GKZ system obtained from the Schwinger representation instead of the
+Lee-Pomeransky polynomial (Jimenez-Santacruz, Lopez-Arcos, Quintero Velez 2026). Setting the last
+Schwinger parameter to one gives two polynomials, $\tilde U$ and $\tilde F$, and a two-block
+Cayley A-matrix whose first two rows mark the block of each polynomial.
+
+```python
+from feynkit import FeynmanIntegral
+
+fi = FeynmanIntegral.from_cnickel("11e|e|:nn")   # massive bubble
+sys_ = fi.schwinger_gkz
+
+print(sys_.a_matrix)          # 3 x 5: two block rows above the u exponents
+print(sys_.beta_parameters)   # (nu - D, D/2 - nu, -nu_1) with nu = nu_1 + nu_2
+print(sys_.w_variables, sys_.z_variables)   # coefficients of U~ and of F~
+print(sys_.toric_ideal())
+
+reduced = sys_.restrict_to_f_block()   # the paper's eq. 54: an ordinary GKZSystem
+print(reduced.a_matrix, reduced.beta_parameters)
+```
+
+The parameter convention is the one used for `fi.gkz`; section 4.6 of the mathematics
+reference gives the derivation, the relation to the Lee-Pomeransky system and the limits of the
+reduction. In short: the reduced system's solutions are solutions of the full one, but it
+annihilates the Feynman integral itself only when the exponent of $\tilde U$ vanishes or on cut
+contours.
 
 ---
 

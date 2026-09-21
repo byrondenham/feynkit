@@ -54,7 +54,9 @@
   databases and text reports, and the TikZ files of
   `examples/visualisation_example.py`, are written under `examples/output/`.
   `examples/toric_survey.py` now has a database of its own rather than sharing
-  `examples/feynkit_survey.py`'s, whose partial records it cannot read back.
+  `examples/feynkit_survey.py`'s, because its equivalence analysis iterates
+  every record in the database and sharing a file would report classes over
+  `feynkit_survey.py`'s conformal configurations too.
 - The two slow examples have an `--all` flag, as `examples/landau_analysis.py`
   already had, and their default runs take seconds rather than minutes.
   `examples/equivalence_survey.py` surveys the triangle, box and pentagon and
@@ -63,6 +65,9 @@
   finite-index and unimodular verdicts of phases 1 and 2, and takes the
   phase-2 affine-equivalence searches and the phase-3 sweep over 2,825,761
   candidate maps only under `--all`.
+- `FeynkitDatabase.summary()` now shows `0` for a cached toric ideal with no
+  generators, rather than the same `?` it shows for one that was never
+  computed.
 
 ### Fixed
 

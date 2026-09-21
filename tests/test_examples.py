@@ -17,21 +17,31 @@ import pytest
 
 EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
 EXAMPLE_SCRIPTS = sorted(EXAMPLES_DIR.glob("*.py"))
+assert EXAMPLE_SCRIPTS, "no example scripts found"
 
 pytestmark = pytest.mark.examples
+
+_TIMEOUT = 180
 
 
 @pytest.mark.parametrize("script", EXAMPLE_SCRIPTS, ids=lambda path: path.name)
 def test_example_runs(script: Path, tmp_path: Path) -> None:
     """The script runs to completion and leaves the working directory alone."""
-    result = subprocess.run(
-        [sys.executable, str(script)],
-        cwd=tmp_path,
-        timeout=180,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=tmp_path,
+            timeout=_TIMEOUT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode(errors="replace")
+        tail = (stdout or "")[-2000:]
+        pytest.fail(f"{script.name} did not finish within {_TIMEOUT}s\n-- stdout (tail) --\n{tail}")
     assert result.returncode == 0, (
         f"{script.name} exited with {result.returncode}\n"
         f"-- stdout (tail) --\n{result.stdout[-2000:]}\n"

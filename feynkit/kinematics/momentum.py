@@ -33,7 +33,9 @@ def create_momentum_products(
     -------
     Dict[Tuple[int, int], sp.Expr]
         Dictionary mapping pairs (i, j) with i < j to symbolic expressions.
-        - If use_mandelstam=True: s_{ij}/2 for n_external > 2, or s/2 for n_external = 2
+        - If use_mandelstam=True: the dot product written in the standard
+          invariants (external masses p_i^2 and planar s_{i..j-1}; see
+          `standard_invariants`)
         - If use_mandelstam=False: symbol 'p{i}p{j}' representing p_i * p_j
 
     Raises
@@ -69,12 +71,12 @@ def create_momentum_products(
     >>> # Mandelstam variables for 2 external legs
     >>> p_dot = create_momentum_products(n_external=2, use_mandelstam=True)
     >>> print(p_dot)
-    {(1, 2): s/2}
+    {(1, 2): -s}
 
     >>> # Mandelstam variables for 3 external legs
     >>> p_dot = create_momentum_products(n_external=3, use_mandelstam=True)
     >>> print(p_dot)
-    {(1, 2): s12/2, (1, 3): s13/2, (2, 3): s23/2}
+    {(1, 2): -p1^2/2 - p2^2/2 + p3^2/2, (1, 3): -p1^2/2 + p2^2/2 - p3^2/2, (2, 3): p1^2/2 - p2^2/2 - p3^2/2}
 
     References
     ----------

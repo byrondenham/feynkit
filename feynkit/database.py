@@ -612,8 +612,9 @@ class FeynkitDatabase:
         for r in rows:
             lbl = r["label"] or ""
             bi = {None: "?", 0: "no", 1: "yes"}[r["is_binomial"]]
+            n_gens = "?" if r["n_toric_gens"] is None else r["n_toric_gens"]
             base = (
-                f"  {r['n_rows']} x {r['n_cols']:<7} {r['n_toric_gens'] or '?':>6}"
+                f"  {r['n_rows']} x {r['n_cols']:<7} {n_gens:>6}"
                 f"  {r['loop_count'] or '?':>3}"
                 f"  {r['n_props'] or '?':>5}"
                 f"  {bi:>4}"

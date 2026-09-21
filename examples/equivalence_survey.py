@@ -273,7 +273,10 @@ def equivalence_analysis(db: FeynkitDatabase) -> None:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.split("Usage")[0].strip())
+    parser = argparse.ArgumentParser(
+        description=__doc__.split("Usage")[0].strip(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "db_path",
         nargs="?",

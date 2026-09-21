@@ -60,7 +60,10 @@ FLUSH = sys.stdout.flush
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.split("Run with")[0].strip())
+    parser = argparse.ArgumentParser(
+        description=__doc__.split("Run with")[0].strip(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--all",
         action="store_true",
@@ -170,7 +173,7 @@ for name, upper4 in upper_sets.items():
         if RUN_ALL:
             affine = str(cfg.is_affinely_equivalent_to(bms4).equivalent)
         else:
-            affine = "skipped, use --all"
+            affine = "? (skipped; use --all)"
         print(f"    affine==BMS_4={affine}  unimod==BMS_4={r_uni.equivalent}")
     except Exception as e:
         print(f"  {name}: error, {e}")
@@ -375,7 +378,11 @@ if RUN_ALL:
     G = u_1u_2u_3 + (sum_{{i<j}} u_iu_j) + u_4
   = one degree-(n-1) monomial prod_{{j!=k}} u_j
   + all C(n,2) degree-2 pairs
-  + one degree-1 monomial u_k  (k fixed, 4 choices by S4 symmetry)"""
+  + one degree-1 monomial u_k  (k fixed, 4 choices by S4 symmetry)
+
+  The Phase 3 companions break S_n to S_{{n-1}} (stabilising one variable),
+  suggesting no fully symmetric higher-dimensional analogue of the
+  triangle-triple-K pair exists."""
 else:
     _phase3_summary = (
         "  PHASE 3 (n=4, search range: M entries {-1,0,1}, det=+/-2): not run.\n"
@@ -399,7 +406,5 @@ print(f"""
 
   The canonical companion conformal_companion_a_config(n) remains the most
   natural and fully S_n-symmetric choice, but it is NOT connected to BMS_n
-  by any integer finite-index map for n>=4.  The Phase 3 companions break S_n
-  to S_{{n-1}} (stabilising one variable), suggesting no fully symmetric
-  higher-dimensional analogue of the triangle-triple-K pair exists.
+  by any integer finite-index map for n>=4.
 """)

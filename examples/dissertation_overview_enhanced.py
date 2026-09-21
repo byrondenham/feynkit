@@ -89,11 +89,11 @@ from feynkit.artifacts.dissertation import (
     triple_k_a_config,
 )
 from feynkit.normal_forms import (
+    hull_vertex_indices,
     is_canonical,
     is_point_config_equivalent,
     maximal_pairing_matrix,
 )
-from feynkit.normal_forms._invariants import hull_vertex_indices
 
 # -----------------------------------------------------------------------------
 # Formatting helpers
@@ -912,7 +912,7 @@ note(
 )
 
 sec("Hull vertex ordering (indices into A-columns)")
-hv_idx = hull_vertex_indices(cfg_tri)
+hv_idx = hull_vertex_indices(cfg_tri.affine_points)
 print(f"  Hull vertex column indices: {hv_idx}")
 note(
     "Identifying which columns of A are hull vertices restricts the "
@@ -1337,8 +1337,8 @@ print("  Summary: 4 integrals stored, indexed by (A shape, vol, Smith)")
 sec("Exact lookup by GKZ fingerprint")
 rec = db.lookup(fi_tri)
 print(f"  Lookup massless triangle  ->  label = {rec.label if rec else None}")
-rec_none = db.lookup(FeynmanIntegral.from_cnickel("12e|23e|3e|:zzz"))
-print(f"  Lookup unknown integral   ->  {rec_none}")
+rec_none = db.lookup(FeynmanIntegral.from_cnickel("13e|2e|3e|e|:zzzz"))
+print(f"  Lookup massless box       ->  {rec_none}  (not stored)")
 
 sec("Equivalence-based retrieval  (unimodular)")
 matches = db.find_equivalent(fi_tri, relation="unimodular")

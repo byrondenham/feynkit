@@ -27,12 +27,22 @@ Phase 2: Test an alternative upper monomial set for n=4, degree-2 pairs (even su
 
 Phase 3: Numpy-vectorised inverse-map search over small det=+/-2 matrices for n=4.
 
+The two slow pieces are the affine-equivalence checks of phase 2 (a brute-force
+search over affine bases, about seven minutes for each of the three candidates)
+and the phase-3 sweep over 2,825,761 candidate maps (another ten minutes or so),
+so both sit behind --all.  Expect --all to run for half an hour.
+
 Run with:
-    uv run python examples/higher_analogues_search.py
+    uv run python examples/higher_analogues_search.py          # phases 1 and 2
+    uv run python examples/higher_analogues_search.py --all    # everything
 """
 
+from __future__ import annotations
+
+import argparse
 import sys
 from itertools import product
+from typing import Any
 
 import numpy as np
 import sympy as sp
@@ -47,6 +57,19 @@ from feynkit.a_configuration import finite_index_map
 
 SEP = "-" * 72
 FLUSH = sys.stdout.flush
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.split("Run with")[0].strip())
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="also run the phase-2 affine-equivalence checks and the phase-3 sweep (half an hour)",
+    )
+    return parser.parse_args()
+
+
+RUN_ALL = _parse_args().all
 
 
 def print_section(title: str) -> None:
@@ -143,9 +166,12 @@ for name, upper4 in upper_sets.items():
         print(f"  {name}:")
         describe("", cfg)
         check_map("", cfg, "BMS_4", bms4)
-        r_aff = cfg.is_affinely_equivalent_to(bms4)
         r_uni = cfg.is_unimodular_equivalent_to(bms4)
-        print(f"    affine==BMS_4={r_aff.equivalent}  unimod==BMS_4={r_uni.equivalent}")
+        if RUN_ALL:
+            affine = str(cfg.is_affinely_equivalent_to(bms4).equivalent)
+        else:
+            affine = "skipped, use --all"
+        print(f"    affine==BMS_4={affine}  unimod==BMS_4={r_uni.equivalent}")
     except Exception as e:
         print(f"  {name}: error, {e}")
     print()
@@ -180,141 +206,96 @@ def even_sum_cols() -> list[tuple]:
 even_cols = even_sum_cols()
 print(f"  Even-sum columns from {{-1,0,1}}: {len(even_cols)} per column")
 
-# Build all matrices with 4 such columns: 41^4 ~ 2.8M
-# Use numpy batch computation
+# batch size for the det filter
+BATCH = 100_000
 
-# batch size for det computation
-BATCH = 50_000
 
-all_mats = []
-for c1 in even_cols:
-    for c2 in even_cols:
-        for c3 in even_cols:
-            for c4 in even_cols:
-                all_mats.append(c1 + c2 + c3 + c4)
-                if len(all_mats) == BATCH:
-                    break
-            else:
-                continue
-            break
-        else:
+def _companions_in_batch(batch: list[tuple[int, ...]], found: list[dict[str, Any]]) -> None:
+    """Append every Smith-[1,1,1,1] inverse image coming from one batch of maps M."""
+    arr = np.array(batch, dtype=np.float64).reshape(-1, 4, 4)  # (B, 4, 4)
+    dets = np.linalg.det(arr)
+    mask = np.abs(np.round(dets)) == 2
+    if not mask.any():
+        return
+    int_arr = np.array(batch, dtype=np.int64).reshape(-1, 4, 4)
+    for M in int_arr[mask]:  # shape (4,4)
+        det = int(round(np.linalg.det(M.astype(float))))
+        # Compute adj(M) = det * M^{-1}
+        adj = np.round(det * np.linalg.inv(M)).astype(np.int64)
+        # Try different translations t
+        for t_sum in (1, 3):
+            for t_idx in range(4):
+                t = np.zeros(4, dtype=np.int64)
+                t[t_idx] = t_sum
+                shifted = bms4_cols_np - t[np.newaxis, :]  # (8,4)
+                cand2 = (adj @ shifted.T).T  # (8,4)
+                if not np.all(cand2 % 2 == 0):
+                    continue
+                cand = cand2 // 2
+                # Build AConfiguration
+                hom = np.ones((1, 8), dtype=np.int64)
+                A_np = np.vstack([hom, cand.T])
+                try:
+                    cfg = AConfiguration(sp.Matrix(A_np.tolist()), is_homogenized=True)
+                    if cfg.smith_invariants == [1, 1, 1, 1]:
+                        found.append(
+                            {
+                                "M": M.tolist(),
+                                "t": t.tolist(),
+                                "det": det,
+                                "smith": cfg.smith_invariants,
+                                "vol": cfg.normalized_volume,
+                                "cols": cand.tolist(),
+                            }
+                        )
+                except Exception:
+                    pass
+
+
+def search_companions() -> tuple[list[dict[str, Any]], int]:
+    """Sweep every M in batches; return the companions found and how many M were checked."""
+    found: list[dict[str, Any]] = []
+    batch: list[tuple[int, ...]] = []
+    checked = 0
+    flat_gen = (
+        (c1 + c2 + c3 + c4)
+        for c1 in even_cols
+        for c2 in even_cols
+        for c3 in even_cols
+        for c4 in even_cols
+    )
+    for flat in flat_gen:
+        batch.append(flat)
+        if len(batch) < BATCH:
             continue
-        break
-    else:
-        continue
-    break
+        _companions_in_batch(batch, found)
+        checked += len(batch)
+        batch = []
+        if checked % 1_000_000 == 0:
+            print(
+                f"  ... {checked:,} checked, {len(found)} companions found so far",
+                flush=True,
+            )
+    if batch:  # the last, short batch
+        _companions_in_batch(batch, found)
+        checked += len(batch)
+    return found, checked
+
 
 # Full count:
 n_mats = len(even_cols) ** 4
 print(f"  Total matrices to check: {n_mats:,}")
-print("  Running batched det filter...", flush=True)
 
-found_companions = []
-
-batch_size = 100_000
-flat_gen = (
-    (c1 + c2 + c3 + c4)
-    for c1 in even_cols
-    for c2 in even_cols
-    for c3 in even_cols
-    for c4 in even_cols
-)
-
-batch = []
+found_companions: list[dict[str, Any]] = []
 checked = 0
 
-for flat in flat_gen:
-    batch.append(flat)
-    if len(batch) < batch_size:
-        continue
-    # Process batch
-    arr = np.array(batch, dtype=np.float64).reshape(-1, 4, 4)  # (B, 4, 4)
-    dets = np.linalg.det(arr)
-    mask = np.abs(np.round(dets)) == 2
-    if mask.any():
-        int_arr = np.array(batch, dtype=np.int64).reshape(-1, 4, 4)
-        for M_flat in int_arr[mask]:
-            M = M_flat  # shape (4,4)
-            det = int(round(np.linalg.det(M.astype(float))))
-            # Compute adj(M) = det * M^{-1}
-            adj = np.round(det * np.linalg.inv(M)).astype(np.int64)
-            # Try different translations t
-            for t_sum in [1, 3]:
-                for t_idx in range(4):
-                    t = np.zeros(4, dtype=np.int64)
-                    t[t_idx] = t_sum
-                    shifted = bms4_cols_np - t[np.newaxis, :]  # (8,4)
-                    cand2 = (adj @ shifted.T).T  # (8,4)
-                    if not np.all(cand2 % 2 == 0):
-                        continue
-                    cand = cand2 // 2
-                    # Build AConfiguration
-                    hom = np.ones((1, 8), dtype=np.int64)
-                    A_np = np.vstack([hom, cand.T])
-                    try:
-                        cfg = AConfiguration(sp.Matrix(A_np.tolist()), is_homogenized=True)
-                        if cfg.smith_invariants == [1, 1, 1, 1]:
-                            found_companions.append(
-                                {
-                                    "M": M.tolist(),
-                                    "t": t.tolist(),
-                                    "det": det,
-                                    "smith": cfg.smith_invariants,
-                                    "vol": cfg.normalized_volume,
-                                    "cols": cand.tolist(),
-                                }
-                            )
-                    except Exception:
-                        pass
-    checked += len(batch)
-    batch = []
-    if checked % 1_000_000 == 0:
-        print(
-            f"  ... {checked:,} checked, {len(found_companions)} companions found so far",
-            flush=True,
-        )
-
-# Process any remaining
-if batch:
-    arr = np.array(batch, dtype=np.float64).reshape(-1, 4, 4)
-    dets = np.linalg.det(arr)
-    mask = np.abs(np.round(dets)) == 2
-    if mask.any():
-        int_arr = np.array(batch, dtype=np.int64).reshape(-1, 4, 4)
-        for M_flat in int_arr[mask]:
-            M = M_flat
-            det = int(round(np.linalg.det(M.astype(float))))
-            adj = np.round(det * np.linalg.inv(M)).astype(np.int64)
-            for t_sum in [1, 3]:
-                for t_idx in range(4):
-                    t = np.zeros(4, dtype=np.int64)
-                    t[t_idx] = t_sum
-                    shifted = bms4_cols_np - t[np.newaxis, :]
-                    cand2 = (adj @ shifted.T).T
-                    if not np.all(cand2 % 2 == 0):
-                        continue
-                    cand = cand2 // 2
-                    hom = np.ones((1, 8), dtype=np.int64)
-                    A_np = np.vstack([hom, cand.T])
-                    try:
-                        cfg = AConfiguration(sp.Matrix(A_np.tolist()), is_homogenized=True)
-                        if cfg.smith_invariants == [1, 1, 1, 1]:
-                            found_companions.append(
-                                {
-                                    "M": M.tolist(),
-                                    "t": t.tolist(),
-                                    "det": det,
-                                    "smith": cfg.smith_invariants,
-                                    "vol": cfg.normalized_volume,
-                                    "cols": cand.tolist(),
-                                }
-                            )
-                    except Exception:
-                        pass
-    checked += len(batch)
-
-print(f"\n  Checked: {checked:,} matrices")
-print(f"  Found companions with Smith=[1,1,1,1]: {len(found_companions)}")
+if RUN_ALL:
+    print("  Running batched det filter...", flush=True)
+    found_companions, checked = search_companions()
+    print(f"\n  Checked: {checked:,} matrices")
+    print(f"  Found companions with Smith=[1,1,1,1]: {len(found_companions)}")
+else:
+    print(f"  [search skipped; rerun with --all to sweep all {n_mats:,} matrices]")
 
 if found_companions:
     seen = set()
@@ -353,7 +334,7 @@ if found_companions:
             f"finite_index_map -> BMS_4: found={fim.found}  det={fim.determinant}"
         )
         FLUSH()
-else:
+elif RUN_ALL:
     print("""
   No companion with Smith=[1,1,1,1] found among det=+/-2 matrices
   with entries {{-1,0,1}} and even column sums.
@@ -379,6 +360,28 @@ else:
 print_section("Summary")
 _n4_companion_found = len(found_companions) > 0
 _unique_count = len({tuple(sorted(tuple(row) for row in c["cols"])) for c in found_companions})
+
+if RUN_ALL:
+    _verdict = (
+        "yes  YES, full-lattice companions with det=2 map to BMS_4 DO EXIST."
+        if _n4_companion_found
+        else "no  No full-lattice companions found in this restricted search range."
+    )
+    _phase3_summary = f"""  PHASE 3 RESULT (n=4, search range: M entries {{-1,0,1}}, det=+/-2):
+    Found companions: {len(found_companions):,}  |  Unique column sets: {_unique_count}
+    {_verdict}
+
+  First candidate (up to S4 permutation) has G polynomial:
+    G = u_1u_2u_3 + (sum_{{i<j}} u_iu_j) + u_4
+  = one degree-(n-1) monomial prod_{{j!=k}} u_j
+  + all C(n,2) degree-2 pairs
+  + one degree-1 monomial u_k  (k fixed, 4 choices by S4 symmetry)"""
+else:
+    _phase3_summary = (
+        "  PHASE 3 (n=4, search range: M entries {-1,0,1}, det=+/-2): not run.\n"
+        "    Rerun with --all for the sweep and the companions it turns up."
+    )
+
 print(f"""
   The triangle/triple-K equivalence (n=3) arises from a unique lattice coincidence:
     Smith(A_candidate(3)) = [1,1,1]   (full Z^3 lattice)
@@ -392,15 +395,7 @@ print(f"""
   All A_candidate(n) ARE affinely equivalent to BMS_n (same Newton polytope
   shape over Q), but in a different arithmetic sublattice.
 
-  PHASE 3 RESULT (n=4, search range: M entries {{-1,0,1}}, det=+/-2):
-    Found companions: {len(found_companions):,}  |  Unique column sets: {_unique_count}
-    {"yes  YES, full-lattice companions with det=2 map to BMS_4 DO EXIST." if _n4_companion_found else "no  No full-lattice companions found in this restricted search range."}
-
-  First candidate (up to S4 permutation) has G polynomial:
-    G = u_1u_2u_3 + (sum_{{i<j}} u_iu_j) + u_4
-  = one degree-(n-1) monomial prod_{{j!=k}} u_j
-  + all C(n,2) degree-2 pairs
-  + one degree-1 monomial u_k  (k fixed, 4 choices by S4 symmetry)
+{_phase3_summary}
 
   The canonical companion conformal_companion_a_config(n) remains the most
   natural and fully S_n-symmetric choice, but it is NOT connected to BMS_n

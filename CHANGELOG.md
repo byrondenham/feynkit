@@ -42,6 +42,34 @@
   `Singular` binary is installed; SymPy is the fallback.
 - `feynkit.kinematics` now exports `KinematicInvariants` and
   `standard_invariants`.
+- An opt-in smoke test that runs every script in `examples/` and checks that it
+  exits 0 without writing into the working directory. It is skipped by default;
+  run it with `pytest -m examples`.
+- `hull_vertex_indices` is now exported from `feynkit.normal_forms`, so callers
+  no longer have to reach into the private `_invariants` module.
+
+### Changed
+
+- The examples keep their output out of the repository root: the survey
+  databases and text reports, and the TikZ files of
+  `examples/visualisation_example.py`, are written under `examples/output/`.
+  `examples/toric_survey.py` now has a database of its own rather than sharing
+  `examples/feynkit_survey.py`'s, whose partial records it cannot read back.
+- The two slow examples have an `--all` flag, as `examples/landau_analysis.py`
+  already had, and their default runs take seconds rather than minutes.
+  `examples/equivalence_survey.py` surveys the triangle, box and pentagon and
+  takes the 64 hexagon variants only under `--all`;
+  `examples/higher_analogues_search.py` keeps the lattice invariants and the
+  finite-index and unimodular verdicts of phases 1 and 2, and takes the
+  phase-2 affine-equivalence searches and the phase-3 sweep over 2,825,761
+  candidate maps only under `--all`.
+
+### Fixed
+
+- `examples/dissertation_overview_enhanced.py` died part way through: section 13
+  passed an `AConfiguration` to `hull_vertex_indices`, which wants an array of
+  points, and section 20 looked up a malformed cnickel string. It now runs to
+  the end.
 
 ### Removed
 

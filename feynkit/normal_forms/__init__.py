@@ -8,8 +8,10 @@ backed by a brute-force search).
 
 The pairing-matrix canonicalisation (Grinis-Kasprzyk-style) is exposed as
 :func:`maximal_pairing_matrix` together with :func:`is_canonical`.
+:func:`hull_vertex_indices` picks out the extreme points of a configuration.
 """
 
+from ._invariants import hull_vertex_indices
 from .affine_equivalence import (
     is_affinely_equivalent,
     is_point_config_equivalent,
@@ -29,6 +31,7 @@ from .polytope_automorphisms import (
 )
 
 __all__ = [
+    "hull_vertex_indices",
     "is_unimodular_equivalent",
     "is_affinely_equivalent",
     "is_point_config_equivalent",

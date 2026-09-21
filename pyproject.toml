@@ -62,9 +62,12 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = ["examples: runs every script in examples/; opt in with -m examples"]
 addopts = [
     "--strict-markers",
     "--strict-config",
+    "-m",
+    "not examples",
     "--cov=feynkit",
     "--cov-report=term-missing",
     "--cov-report=html",

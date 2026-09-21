@@ -1,9 +1,16 @@
 """Example: Visualising Newton polytope for a Feynman integral."""
 
+from __future__ import annotations
+
+from pathlib import Path
+
 import sympy as sp
 
 from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.visualisation import save_polytope_tikz
+
+OUT_DIR = Path(__file__).parent / "output"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Create triangle diagram
 m1, m2, m3 = sp.symbols("m1 m2 m3", nonnegative=True)
@@ -54,25 +61,25 @@ print("=" * 80)
 # Save standalone document (can be compiled with pdflatex)
 standalone_file = save_polytope_tikz(
     integral.newton_polytope.support,
-    "triangle_polytope_standalone.tex",
+    str(OUT_DIR / "triangle_polytope_standalone.tex"),
     title="Triangle Diagram Newton Polytope",
     standalone=True,
     show_labels=True,
     show_fill=False,
 )
 print(f"\nSaved standalone document: {standalone_file}")
-print("  Compile with: pdflatex triangle_polytope_standalone.tex")
+print(f"  Compile with: pdflatex {standalone_file}")
 
 # Save just the TikZ code (for inclusion in larger documents)
 code_file = save_polytope_tikz(
     integral.newton_polytope.support,
-    "triangle_polytope_code.tex",
+    str(OUT_DIR / "triangle_polytope_code.tex"),
     title="Triangle Diagram Newton Polytope",
     standalone=False,
     show_labels=True,
     show_fill=False,
 )
 print(f"\nSaved TikZ code: {code_file}")
-print("  Include in document with: \\input{triangle_polytope_code.tex}")
+print(f"  Include in document with: \\input{{{code_file}}}")
 
 print("\n" + "=" * 80)

@@ -10,7 +10,7 @@ Usage
 -----
     uv run python examples/toric_survey.py [db_path]
 
-Default db_path: feynkit_survey.db
+Default db_path: examples/output/toric_survey.db
 """
 
 from __future__ import annotations
@@ -245,7 +245,12 @@ def equivalence_analysis(db: FeynkitDatabase) -> None:
 
 
 def main() -> None:
-    db_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("feynkit_survey.db")
+    if len(sys.argv) > 1:
+        db_path = Path(sys.argv[1])
+    else:
+        out_dir = Path(__file__).parent / "output"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        db_path = out_dir / "toric_survey.db"
 
     print(flush=True)
     print("=" * W, flush=True)

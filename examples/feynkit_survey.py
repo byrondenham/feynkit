@@ -40,8 +40,9 @@ For every equivalence found the script exhibits:
  , the change of integration variables u_i = sum_j M_ij v_j + t_i
  , the resulting GKZ beta-parameter identity I_A(beta, z) = I_A(T*beta, z_P)
 
-All data is persisted in feynkit_survey.db so that re-runs skip already-computed
-integrals. Results are also written to feynkit_survey.txt.
+All data is persisted in examples/output/feynkit_survey.db so that re-runs skip
+already-computed integrals. Results are also written to
+examples/output/feynkit_survey.txt.
 
 Usage
 -----
@@ -75,8 +76,10 @@ from feynkit.core.graph import Graph
 # Output helpers
 # -----------------------------------------------------------------------------
 
-DB_PATH = Path(__file__).parent.parent / "feynkit_survey.db"
-OUT_PATH = Path(__file__).parent.parent / "feynkit_survey.txt"
+OUT_DIR = Path(__file__).parent / "output"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH = OUT_DIR / "feynkit_survey.db"
+OUT_PATH = OUT_DIR / "feynkit_survey.txt"
 
 _lines: list[str] = []
 

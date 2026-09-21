@@ -1,10 +1,11 @@
 """
 Equivalence-rich toric survey, resumable.
 
-For each n-gon (n = 3, 4, 5, 6) we insert EVERY mass placement: all C(n,k)
-ways of making exactly k out of n propagators massive, for k = 0, ..., n.
-Propagators in each variant carry a common symbol m so the Newton polytope
-depends only on WHICH edges are massive, not on the coefficient values.
+For each n-gon (n = 3, 4, 5, and 6 under --all) we insert EVERY mass placement:
+all C(n,k) ways of making exactly k out of n propagators massive, for
+k = 0, ..., n.  Propagators in each variant carry a common symbol m so the
+Newton polytope depends only on WHICH edges are massive, not on the
+coefficient values.
 
 Within each (n, k) family, all C(n,k) variants are unimodularly equivalent:
 they are related by a permutation of the Lee-Pomeransky parameters (a
@@ -21,18 +22,21 @@ Expected non-trivial classes (size >= 2):
   pentagon:  k=1 -> 5,  k=2 -> 10, k=3 -> 10, k=4 -> 5
   hexagon:   k=1 -> 6,  k=2 -> 15, k=3 -> 20, k=4 -> 15, k=5 -> 6
 
-Requires 4ti2 for the hexagon variants (install via pacman/brew/apt).
+The hexagon adds 64 of the 130 variants and dominates both the toric-ideal
+pass and the pairwise equivalence analysis, so it sits behind --all.  It also
+needs 4ti2 (install via pacman/brew/apt); the smaller polygons do not.
 
 Usage
 -----
-    uv run python examples/equivalence_survey.py [db_path]
+    uv run python examples/equivalence_survey.py [db_path]          # n = 3, 4, 5
+    uv run python examples/equivalence_survey.py --all [db_path]    # also n = 6
 
-Default db_path: feynkit_equiv_survey.db
+Default db_path: examples/output/feynkit_equiv_survey.db
 """
 
 from __future__ import annotations
 
-import sys
+import argparse
 import time
 from collections import defaultdict
 from itertools import combinations
@@ -126,20 +130,22 @@ def _mass_label(mass_set: frozenset[int], n: int) -> str:
     return f"k={len(mass_set)} edges=[{edges}]"
 
 
-def build_families(db: FeynkitDatabase) -> list[tuple[str, list[tuple[str, FeynmanIntegral]]]]:
+def build_families(
+    db: FeynkitDatabase, *, include_hexagon: bool
+) -> list[tuple[str, list[tuple[str, FeynmanIntegral]]]]:
     """
     Return all diagram families for the survey.
 
-    Polygon section: for each n in {3,4,5,6} and each k in {0,...,n}, all
-    C(n,k) mass placements.  Within each (n,k) group every variant is
-    unimodularly equivalent.
+    Polygon section: for each n in {3,4,5} (plus n=6 when include_hexagon is
+    set) and each k in {0,...,n}, all C(n,k) mass placements.  Within each
+    (n,k) group every variant is unimodularly equivalent.
 
     Banana section: massless n=3..7 and massive n=2..6.
     """
     families: list[tuple[str, list[tuple[str, FeynmanIntegral]]]] = []
 
-    # -- Polygons: n = 3, 4, 5, 6 ---------------------------------------------
-    for n in (3, 4, 5, 6):
+    # -- Polygons: n = 3, 4, 5, and 6 on request ------------------------------
+    for n in (3, 4, 5, 6) if include_hexagon else (3, 4, 5):
         name = _POLY_NAMES[n]
         for k in range(n + 1):
             placements = list(combinations(range(n), k))
@@ -266,13 +272,38 @@ def equivalence_analysis(db: FeynkitDatabase) -> None:
 # -- main ----------------------------------------------------------------------
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.split("Usage")[0].strip())
+    parser.add_argument(
+        "db_path",
+        nargs="?",
+        type=Path,
+        help="database to resume from (default: examples/output/feynkit_equiv_survey.db)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="also survey the hexagon variants (needs 4ti2; adds a couple of minutes)",
+    )
+    return parser.parse_args()
+
+
+def _default_db_path() -> Path:
+    out_dir = Path(__file__).parent / "output"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir / "feynkit_equiv_survey.db"
+
+
 def main() -> None:
-    db_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("feynkit_equiv_survey.db")
+    args = _parse_args()
+    db_path = args.db_path if args.db_path is not None else _default_db_path()
 
     print(flush=True)
     print("=" * W, flush=True)
     print("  FEYNKIT EQUIVALENCE-RICH SURVEY", flush=True)
     print(f"  database: {db_path}", flush=True)
+    if not args.all:
+        print("  hexagon variants skipped; rerun with --all to survey n = 6 too", flush=True)
     print("=" * W, flush=True)
 
     with FeynkitDatabase(db_path) as db:
@@ -285,7 +316,7 @@ def main() -> None:
             if rec.n_toric_gens is not None and rec.label is not None
         }
 
-        families = build_families(db)
+        families = build_families(db, include_hexagon=args.all)
 
         all_items = [(lbl, fi) for _, diags in families for lbl, fi in diags]
         total = len(all_items)

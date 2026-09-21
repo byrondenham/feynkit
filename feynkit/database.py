@@ -218,13 +218,24 @@ class FeynkitDatabase:
     # -- internal fast-path used by FeynmanIntegral ------------------------
 
     def _lookup_toric(self, points: list[tuple[int, ...]]) -> list[sp.Expr] | None:
-        """Return cached toric generators for these Newton points, or None."""
+        """
+        Return cached toric generators for these Newton points, or None.
+
+        A NULL ``n_toric_gens`` means no cached row: return None. A NULL
+        ``toric_gens`` with a zero count is an empty ideal, stored as such
+        by :meth:`store` and :meth:`_store_toric`: return ``[]``. A NULL
+        ``toric_gens`` with a positive count is an inconsistent row, as
+        written by earlier versions that skipped serialising an empty
+        ideal: return None rather than raising.
+        """
         fp = self._fingerprint(points)
         row = self._conn.execute(
             "SELECT toric_gens, n_toric_gens FROM integrals WHERE fingerprint=?", (fp,)
         ).fetchone()
         if row is None or row["n_toric_gens"] is None:
             return None
+        if row["toric_gens"] is None:
+            return [] if row["n_toric_gens"] == 0 else None
         return self._deser_exprs(row["toric_gens"])
 
     @staticmethod
@@ -375,7 +386,7 @@ class FeynkitDatabase:
                 len(fi.graph.get_internal_edges()),
                 fi.graph.external_legs,
                 len(gens),
-                self._ser_exprs(gens) if gens else None,
+                self._ser_exprs(gens),
                 int(is_bin) if is_bin is not None else None,
                 cn,
                 label,

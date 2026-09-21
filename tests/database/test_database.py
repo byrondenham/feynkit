@@ -94,3 +94,40 @@ class TestSummary:
     def test_summary_mentions_stored_count(self, db: FeynkitDatabase) -> None:
         db.store(FeynmanIntegral.from_cnickel("11e|e|:zz"))
         assert "1" in db.summary()
+
+
+class TestEmptyToricIdeal:
+    def test_facade_reads_back_an_empty_toric_ideal(self, db: FeynkitDatabase) -> None:
+        # The massless bubble has no toric ideal generators (an empty list,
+        # not a missing value); storing and re-reading it through the facade
+        # must not raise.
+        fi = FeynmanIntegral.from_cnickel("11e|e|:zz")
+        db.store(fi)
+        cached = FeynmanIntegral.from_cnickel("11e|e|:zz", database=db)
+        assert cached.toric_ideal.generators == []
+
+    def test_lookup_toric_treats_zero_count_as_an_empty_ideal(self, db: FeynkitDatabase) -> None:
+        fp = FeynkitDatabase._fingerprint([(1, 0), (0, 1), (1, 1)])
+        db._conn.execute(
+            """INSERT INTO integrals
+               (fingerprint, a_matrix, newton_points, n_rows, n_cols,
+                n_toric_gens, toric_gens, stored_at)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (fp, "[[1]]", "[[1,0],[0,1],[1,1]]", 1, 3, 0, None, db._now()),
+        )
+        db._conn.commit()
+        assert db._lookup_toric([(1, 0), (0, 1), (1, 1)]) == []
+
+    def test_lookup_toric_flags_a_positive_count_with_a_null_column(
+        self, db: FeynkitDatabase
+    ) -> None:
+        fp = FeynkitDatabase._fingerprint([(1, 0), (0, 1), (1, 1)])
+        db._conn.execute(
+            """INSERT INTO integrals
+               (fingerprint, a_matrix, newton_points, n_rows, n_cols,
+                n_toric_gens, toric_gens, stored_at)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (fp, "[[1]]", "[[1,0],[0,1],[1,1]]", 1, 3, 3, None, db._now()),
+        )
+        db._conn.commit()
+        assert db._lookup_toric([(1, 0), (0, 1), (1, 1)]) is None

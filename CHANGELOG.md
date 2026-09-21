@@ -70,6 +70,8 @@
   passed an `AConfiguration` to `hull_vertex_indices`, which wants an array of
   points, and section 20 looked up a malformed cnickel string. It now runs to
   the end.
+- A cached integral with an empty toric ideal (e.g. the massless bubble) no
+  longer raises on lookup.
 
 ### Removed
 

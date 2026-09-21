@@ -34,6 +34,22 @@
   2026; Klausen 2023, section 3.4), with its toric ideal and the face
   subsystem on the F block. `SchwingerParametrisation.get_A_matrix` now
   delegates to it.
+- `one_loop_landau_surfaces` and `one_loop_principal_a_determinant`: the
+  one-loop closed form of Dlapa, Helmer, Papathanasiou and Tellander (2023)
+  from the principal minors of the modified Cayley matrix, used to check the
+  face computation.
+- Singular is used for the elimination ideals of non-simplex faces when the
+  `Singular` binary is installed; SymPy is the fallback.
+- `feynkit.kinematics` now exports `KinematicInvariants` and
+  `standard_invariants`.
+
+### Removed
+
+- The unused `matplotlib` dependency.
+- `test_installation.py`, superseded by the test suite.
+- The empty `feynkit.utils` package.
+- The tracked LaTeX build files under `docs/` (`.aux`, `.fdb_latexmk`, `.fls`,
+  `.out`, `.toc`); these are now git-ignored.
 
 ## 0.2.0 (2026-09-19)
 
@@ -46,12 +62,6 @@
 
 ### Added
 
-- `one_loop_landau_surfaces` and `one_loop_principal_a_determinant`: the
-  one-loop closed form of Dlapa, Helmer, Papathanasiou and Tellander (2023)
-  from the principal minors of the modified Cayley matrix, used to check the
-  face computation.
-- Singular is used for the elimination ideals of non-simplex faces when the
-  `Singular` binary is installed; SymPy is the fallback.
 - `feynkit.algebra.ideal_quotient` and `feynkit.algebra.intersect_ideals`, computed
   by elimination.
 - `feynkit.algebra.compute_syzygy_module`, which returns generators of the first

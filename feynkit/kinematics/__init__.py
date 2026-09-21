@@ -16,6 +16,10 @@ create_mandelstam_variables
     Create Mandelstam variable symbols.
 mandelstam_constraints
     Generate kinematic constraints for Mandelstam variables.
+KinematicInvariants
+    Dataclass holding the standard independent invariants for n external legs.
+standard_invariants
+    Express the external dot products in the standard planar invariants.
 
 Examples
 --------
@@ -24,10 +28,15 @@ Examples
 >>> # Create momentum products for 3 external legs
 >>> p_dot = create_momentum_products(n_external=3, use_mandelstam=True)
 >>> print(p_dot)
-{(1, 2): s12/2, (1, 3): s13/2, (2, 3): s23/2}
+{(1, 2): -p1^2/2 - p2^2/2 + p3^2/2, (1, 3): -p1^2/2 + p2^2/2 - p3^2/2, (2, 3): p1^2/2 - p2^2/2 - p3^2/2}
 """
 
-from .mandelstam import create_mandelstam_variables, mandelstam_constraints
+from .mandelstam import (
+    KinematicInvariants,
+    create_mandelstam_variables,
+    mandelstam_constraints,
+    standard_invariants,
+)
 from .momentum import (
     create_momentum_products,
     get_momentum_product,
@@ -40,4 +49,6 @@ __all__ = [
     "validate_momentum_products_complete",
     "create_mandelstam_variables",
     "mandelstam_constraints",
+    "KinematicInvariants",
+    "standard_invariants",
 ]

@@ -142,3 +142,10 @@ examples/output/
 *.pdf
 !docs/**/*.tex
 !docs/**/*.pdf
+*.aux
+*.fls
+*.fdb_latexmk
+*.out
+*.toc
+*.synctex.gz
+*.db

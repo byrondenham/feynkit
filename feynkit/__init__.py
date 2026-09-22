@@ -96,6 +96,7 @@ from feynkit.landau import (
 )
 from feynkit.normal_forms import PairingMatrixResult
 from feynkit.parametrisations import ParametrisationResult
+from feynkit.polytope import Facet, PolytopeData, polytope_data
 from feynkit.systems import CayleyGKZSystem, GKZSystem
 from feynkit.types import (
     NewtonPolytope,
@@ -140,4 +141,8 @@ __all__ = [
     "GKZSystem",
     "CayleyGKZSystem",
     "PairingMatrixResult",
+    # Polytopes
+    "Facet",
+    "PolytopeData",
+    "polytope_data",
 ]

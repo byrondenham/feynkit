@@ -41,6 +41,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import sympy as sp
 
+from .polytope import faces as _faces
+from .polytope import lattice_coordinates as _lattice_coordinates
 from .systems.monomial import extract_monomial_support
 
 if TYPE_CHECKING:
@@ -115,69 +117,6 @@ class LandauAnalysis:
     skipped_faces: tuple[tuple[tuple[int, ...], ...], ...] = ()
 
 
-# --- face enumeration --------------------------------------------------------
-
-
-def _affine_rank(pts: np.ndarray) -> int:
-    if len(pts) <= 1:
-        return 0
-    diffs = (pts[1:] - pts[0]).astype(float)
-    return int(np.linalg.matrix_rank(diffs, tol=1e-9))
-
-
-def _faces(pts: np.ndarray) -> list[tuple[int, tuple[int, ...]]]:
-    """All faces of conv(pts) as (dimension, indices of the points on the face).
-
-    Includes the vertices and the polytope itself. Points that lie on a face
-    without being vertices are included in that face.
-    """
-    n_pts = len(pts)
-    if n_pts == 0:
-        return []
-    rank = _affine_rank(pts)
-    if rank == 0:
-        return [(0, tuple(range(n_pts)))]
-
-    # Work in coordinates of the affine hull so the hull is full-dimensional.
-    diffs = (pts - pts[0]).astype(float)
-    _, _, vt = np.linalg.svd(diffs, full_matrices=False)
-    coords = diffs @ vt[:rank].T
-
-    if rank == 1:
-        order = np.argsort(coords[:, 0])
-        lo, hi = int(order[0]), int(order[-1])
-        return [(0, (lo,)), (0, (hi,)), (1, tuple(range(n_pts)))]
-
-    from scipy.spatial import ConvexHull
-
-    hull = ConvexHull(coords)
-    facets: set[frozenset[int]] = set()
-    for eq in hull.equations:
-        normal, offset = eq[:-1], eq[-1]
-        on = frozenset(int(i) for i in range(n_pts) if abs(coords[i] @ normal + offset) < 1e-7)
-        facets.add(on)
-
-    faces: set[frozenset[int]] = set(facets)
-    frontier = set(facets)
-    while frontier:
-        new: set[frozenset[int]] = set()
-        for a in frontier:
-            for b in faces:
-                c = a & b
-                if c and c not in faces and c not in new:
-                    new.add(c)
-        faces |= new
-        frontier = new
-    faces.add(frozenset(range(n_pts)))
-
-    out: list[tuple[int, tuple[int, ...]]] = []
-    for face in faces:
-        idx = tuple(sorted(face))
-        out.append((_affine_rank(pts[list(idx)]), idx))
-    out.sort(key=lambda f: (f[0], f[1]))
-    return out
-
-
 # --- discriminants -----------------------------------------------------------
 
 
@@ -215,37 +154,6 @@ def _factor_list(expr: sp.Expr, kinematic_syms: set[sp.Symbol]) -> list[sp.Expr]
 
 
 # --- public API --------------------------------------------------------------
-
-
-def _lattice_coordinates(pts: np.ndarray) -> list[tuple[int, ...]]:
-    """Integer coordinates of the points in the lattice their differences span.
-
-    A Z-basis of the difference lattice comes from the Hermite normal form of
-    the difference matrix; coordinates are shifted to be non-negative.
-    """
-    if len(pts) == 1:
-        return [()]
-    from sympy.matrices.normalforms import hermite_normal_form
-
-    diffs = sp.Matrix([[int(x) for x in row] for row in (pts[1:] - pts[0])])
-    hnf = hermite_normal_form(diffs.T).T  # rows: Z-basis of the row lattice of diffs
-    basis = sp.Matrix([row for row in hnf.tolist() if any(x != 0 for x in row)])
-    if basis.rows == 0:
-        return [() for _ in pts]
-    coords: list[tuple[int, ...]] = []
-    for row in pts - pts[0]:
-        target = sp.Matrix([[int(x) for x in row]])
-        sol = (
-            basis.T.solve_least_squares(target.T)
-            if basis.rows < basis.cols
-            else basis.T.solve(target.T)
-        )
-        c = [sp.nsimplify(x) for x in sol]
-        if any(not x.is_integer for x in c):
-            raise ValueError("Point is not in the lattice spanned by the differences")
-        coords.append(tuple(int(x) for x in c))
-    mins = [min(c[i] for c in coords) for i in range(basis.rows)]
-    return [tuple(c[i] - mins[i] for i in range(basis.rows)) for c in coords]
 
 
 def _singular_binary() -> str | None:

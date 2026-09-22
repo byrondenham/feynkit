@@ -55,6 +55,7 @@ __all__ = [
     "landau_analysis",
     "landau_analysis_from_polynomial",
     "one_loop_landau_surfaces",
+    "one_loop_landau_surfaces_by_type",
     "one_loop_principal_a_determinant",
 ]
 
@@ -413,8 +414,10 @@ def one_loop_principal_a_determinant(integral: FeynmanIntegral) -> sp.Expr:
     return sp.Mul(*surfaces) if surfaces else sp.Integer(1)
 
 
-def one_loop_landau_surfaces(integral: FeynmanIntegral) -> tuple[sp.Expr, ...]:
-    """Irreducible factors of the one-loop principal A-determinant in closed form.
+def one_loop_landau_surfaces_by_type(
+    integral: FeynmanIntegral,
+) -> tuple[tuple[sp.Expr, ...], tuple[sp.Expr, ...]]:
+    """Irreducible factors of the one-loop closed form, split by type.
 
     Dlapa, Helmer, Papathanasiou and Tellander (2023, eq. 1LoopEA): with the
     modified Cayley matrix Y of size (n+1), Y_00 = 0, Y_0i = 1,
@@ -422,7 +425,15 @@ def one_loop_landau_surfaces(integral: FeynmanIntegral) -> tuple[sp.Expr, ...]:
     momentum flowing between propagators i and j, the reduced principal
     A-determinant is the product of the principal minors of Y that are not
     identically zero. Minors containing index 0 are Gram determinants
-    (second-type singularities), the others Cayley determinants (first type).
+    (second-type singularities); minors not containing index 0 are Cayley
+    determinants (first type).
+
+    Returns
+    -------
+    tuple[tuple[sp.Expr, ...], tuple[sp.Expr, ...]]
+        ``(first_type, second_type)``, each in first-encountered order over
+        the principal minors, smallest subsets first. A factor that arises
+        from minors of both kinds is listed under first type only.
 
     Raises
     ------
@@ -469,12 +480,30 @@ def one_loop_landau_surfaces(integral: FeynmanIntegral) -> tuple[sp.Expr, ...]:
     kinematic_syms = set().union(*(sp.sympify(x).free_symbols for x in masses)) | set().union(
         *(v.free_symbols for v in products.values())
     )
-    factors: dict[sp.Expr, None] = {}
+    first: dict[sp.Expr, None] = {}
+    second: dict[sp.Expr, None] = {}
     for size in range(1, n + 2):
         for subset in combinations(range(n + 1), size):
             minor = sp.expand(y.extract(list(subset), list(subset)).det())
             if minor == 0:
                 continue
+            target = second if 0 in subset else first
             for fac in _factor_list(minor, kinematic_syms):
-                factors.setdefault(fac, None)
-    return tuple(factors)
+                target.setdefault(fac, None)
+    return tuple(first), tuple(second)
+
+
+def one_loop_landau_surfaces(integral: FeynmanIntegral) -> tuple[sp.Expr, ...]:
+    """Irreducible factors of the one-loop principal A-determinant in closed form.
+
+    The union of the first and second-type factors of
+    :func:`one_loop_landau_surfaces_by_type`, first type first and with
+    second-type factors already listed under first type dropped.
+
+    Raises
+    ------
+    ValueError
+        If the integral has more than one loop.
+    """
+    first, second = one_loop_landau_surfaces_by_type(integral)
+    return first + tuple(s for s in second if s not in first)

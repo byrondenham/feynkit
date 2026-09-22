@@ -15,6 +15,7 @@ from feynkit import FeynmanIntegral, landau_analysis, landau_analysis_from_polyn
 from feynkit.landau import (
     _singular_binary,
     one_loop_landau_surfaces,
+    one_loop_landau_surfaces_by_type,
     one_loop_principal_a_determinant,
 )
 
@@ -171,3 +172,32 @@ class TestBanana:
             for e3 in (1, -1):
                 assert _monic((m[0] + e2 * m[1] + e3 * m[2]) ** 2 - s) in surfaces
         assert s in surfaces
+
+
+class TestOneLoopSurfaceTypes:
+    def test_massive_bubble_types(self, massive_bubble: FeynmanIntegral) -> None:
+        """Cayley minors (no index 0) against Gram minors (index 0 included).
+
+        subset (1,) gives m_1, (2,) gives m_2 and (1, 2) gives the Kallen
+        factor lambda(s, m_1^2, m_2^2), split into its two linear factors in
+        s: all three are first type. subset (0, 1, 2) gives s, the only
+        second-type factor; (0, 1) and (0, 2) are constants and contribute
+        nothing.
+        """
+        first, second = one_loop_landau_surfaces_by_type(massive_bubble)
+        m1, m2 = (e.get_mass() for e in massive_bubble.graph.get_internal_edges())
+        s = sp.Symbol("s", real=True)
+
+        assert m1 in first
+        assert m2 in first
+        assert s in second
+        assert all(s != f for f in first)
+
+        kallen = s**2 + m1**4 + m2**4 - 2 * s * m1**2 - 2 * s * m2**2 - 2 * m1**2 * m2**2
+        threshold_factors = [f for f in first if s in f.free_symbols]
+        assert len(threshold_factors) == 2
+        assert sp.expand(sp.prod(threshold_factors) - kallen) == 0
+
+        assert tuple(one_loop_landau_surfaces(massive_bubble)) == first + tuple(
+            x for x in second if x not in first
+        )

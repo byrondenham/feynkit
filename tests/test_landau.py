@@ -12,6 +12,7 @@ import pytest
 import sympy as sp
 
 from feynkit import FeynmanIntegral, landau_analysis, landau_analysis_from_polynomial
+from feynkit.kinematics.mandelstam import standard_invariants
 from feynkit.landau import (
     _singular_binary,
     one_loop_landau_surfaces,
@@ -201,3 +202,33 @@ class TestOneLoopSurfaceTypes:
         assert tuple(one_loop_landau_surfaces(massive_bubble)) == first + tuple(
             x for x in second if x not in first
         )
+
+    def test_massless_triangle_first_type_precedence(
+        self, massless_triangle: FeynmanIntegral
+    ) -> None:
+        """The three external masses arise from both Cayley and Gram minors.
+
+        Each size-2 Cayley minor (subsets {1, 2}, {1, 3}, {2, 3}, none
+        containing index 0) gives one of p1^2, p2^2, p3^2, and each size-3
+        Gram minor (subsets {0, 1, 2}, {0, 1, 3}, {0, 2, 3}) gives the same
+        factor again, so all three are first type only, per the "both
+        types" rule. The size-4 Gram minor {0, 1, 2, 3} gives a fourth,
+        genuinely second-type factor: the Kallen function of p1^2, p2^2 and
+        p3^2.
+        """
+        first, second = one_loop_landau_surfaces_by_type(massless_triangle)
+        p1sq, p2sq, p3sq = standard_invariants(3).external_masses
+
+        assert set(first) == {p1sq, p2sq, p3sq}
+
+        kallen = p1sq**2 + p2sq**2 + p3sq**2 - 2 * p1sq * p2sq - 2 * p1sq * p3sq - 2 * p2sq * p3sq
+        extra = [f for f in second if f not in first]
+        assert len(extra) == 1
+        gram = extra[0]
+        assert sp.expand(gram - kallen) == 0
+        assert set(second) == {p1sq, p2sq, p3sq, gram}
+
+        merged = one_loop_landau_surfaces(massless_triangle)
+        for p_sq in (p1sq, p2sq, p3sq):
+            assert merged.count(p_sq) == 1
+        assert tuple(merged) == first + (gram,)

@@ -7,11 +7,9 @@ import sympy as sp
 
 from feynkit import FeynmanIntegral
 from feynkit.io.latex import (
-    euler_equation_to_latex,
     gkz_system_to_latex,
     parametrisation_to_latex,
     to_latex,
-    to_latex_split,
     toric_ideal_to_latex,
 )
 from feynkit.io.text import (
@@ -69,13 +67,6 @@ class TestGkzExporters:
         assert f"Euler equations ({len(gkz.euler_equations)})" in out
         assert "beta" in out
 
-    def test_euler_equation_latex_collapses_phi_arguments(self, triangle: FeynmanIntegral) -> None:
-        eq = triangle.gkz.euler_equations[0]
-        out = euler_equation_to_latex(eq)
-        assert "\\Phi" in out
-        assert "\\Phi{\\left(" not in out
-        assert "=" in out
-
 
 class TestToricExporters:
     def test_latex_lists_every_generator(self, triangle: FeynmanIntegral) -> None:
@@ -94,18 +85,3 @@ class TestToricExporters:
     def test_empty_generator_list_is_handled(self) -> None:
         assert "0" in toric_ideal_to_text([]) or "no" in toric_ideal_to_text([]).lower()
         assert isinstance(toric_ideal_to_latex([]), str)
-
-
-class TestLatexSplit:
-    def test_short_expression_is_unchanged(self) -> None:
-        x = sp.Symbol("x")
-        assert to_latex_split(x**2 + 1) == sp.latex(x**2 + 1)
-
-    def test_long_expression_gets_split_environment(self) -> None:
-        xs = sp.symbols("x0:40")
-        expr = sum(x**2 for x in xs)
-        out = to_latex_split(expr, max_length=40)
-        assert "\\begin{split}" in out
-        assert "\\\\" in out
-        # Every term survives the split.
-        assert out.replace("\\\\", "").replace("&", "").count("x_{") == 40

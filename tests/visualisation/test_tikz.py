@@ -2,7 +2,8 @@
 
 graph_to_tikz lays the internal vertices out on a line for a two-vertex graph,
 on a triangle for a three-vertex graph and on a circle otherwise, then draws one
-propagator per internal edge and one dashed leg per external edge.
+propagator per internal edge, bending parallel propagators apart, and one dashed
+leg per external edge, pointing away from the centre of the diagram.
 """
 
 from __future__ import annotations
@@ -81,32 +82,19 @@ class TestTwoVertexGraph:
         assert "\\node[vertex] (v1) at (0, 0) {};" in code
         assert "\\node[vertex] (v2) at (3, 0) {};" in code
 
-    def test_parallel_propagators_are_currently_collapsed_to_one_line(
-        self, bubble_graph: Graph
-    ) -> None:
-        """The bubble has two internal edges, but only one line is drawn.
-
-        graph_to_tikz keys drawn edges on the unordered vertex pair, so the
-        second propagator between the same two vertices is dropped. This test
-        pins the current behaviour; phase 2 owns the fix, which should bend the
-        parallel propagators apart rather than deduplicate them.
-        """
+    def test_both_parallel_propagators_should_be_drawn(self, bubble_graph: Graph) -> None:
         internal_edges = [edge for edge in bubble_graph.edges if edge.is_internal]
         assert len(internal_edges) == 2
 
         code = graph_to_tikz(bubble_graph)
 
-        assert count_propagators(code) == 1
-        assert "\\draw[propagator] (v1) -- (v2);" in code
-
-    @pytest.mark.xfail(  # type: ignore[misc]
-        strict=True,
-        reason="parallel propagators are deduplicated in tikz.py; phase 2 owns the fix",
-    )
-    def test_both_parallel_propagators_should_be_drawn(self, bubble_graph: Graph) -> None:
-        code = graph_to_tikz(bubble_graph)
-
         assert count_propagators(code) == 2
+
+    def test_banana_draws_three_distinct_propagators(self) -> None:
+        graph = Graph.from_cnickel("111e|e|:nnn")
+        code = graph_to_tikz(graph)
+        assert count_propagators(code) == 3
+        assert code.count("bend") == 2  # one straight, two bent
 
     def test_two_external_legs_are_attached(self, bubble_graph: Graph) -> None:
         code = graph_to_tikz(bubble_graph)
@@ -141,6 +129,14 @@ class TestThreeVertexGraph:
         assert count_external_nodes(code) == 3
         for vertex in (1, 2, 3):
             assert f"\\draw[external_leg] (v{vertex}) -- (e{vertex});" in code
+
+    def test_external_legs_attach_at_their_own_vertex(self) -> None:
+        graph = Graph.from_cnickel("12e|2e|e|:zzz")
+        code = graph_to_tikz(graph)
+        for line in code.splitlines():
+            if "\\node[external]" in line:
+                # every external node is placed relative to a vertex: "at ($(vK)+(angle:1.5cm)$)"
+                assert "$(v" in line
 
 
 class TestFourVertexGraph:

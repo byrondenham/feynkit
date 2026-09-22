@@ -9,6 +9,8 @@ Functions
 ---------
 to_latex
     Convert SymPy expression to LaTeX.
+factor_energy_scale
+    Write an expression as a numerator over a power of the energy scale.
 graph_to_latex_table
     Generate LaTeX table of graph properties.
 edges_to_latex_table
@@ -37,6 +39,7 @@ save_text_report
 
 from .latex import (
     edges_to_latex_table,
+    factor_energy_scale,
     gkz_system_to_latex,
     graph_to_latex_table,
     parametrisation_to_latex,
@@ -56,6 +59,7 @@ from .text import (
 __all__ = [
     # LaTeX export
     "to_latex",
+    "factor_energy_scale",
     "graph_to_latex_table",
     "edges_to_latex_table",
     "parametrisation_to_latex",

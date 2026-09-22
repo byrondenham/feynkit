@@ -9,6 +9,7 @@ from typing import Any
 
 import sympy as sp
 
+from ..core.exceptions import ValidationError
 from ..core.graph import Graph
 from ..parametrisations.base import ParametrisationResult
 from ..systems.complete import GKZSystem
@@ -42,12 +43,61 @@ def to_latex(expr: sp.Expr, **kwargs: Any) -> str:
     # Set default options for better formatting
     if "fold_short_frac" not in kwargs:
         kwargs["fold_short_frac"] = False
-    if "mul_symbol" not in kwargs:
-        kwargs["mul_symbol"] = "dot"
     if "long_frac_ratio" not in kwargs:
         kwargs["long_frac_ratio"] = 2
 
     return str(sp.latex(expr, **kwargs))
+
+
+def factor_energy_scale(expr: sp.Expr, scale: sp.Symbol) -> tuple[sp.Expr, int]:
+    """
+    Write an expression as ``numerator / scale**power``.
+
+    The second Symanzik polynomial carries a factor ``1/mu**2`` on every term,
+    where ``mu`` is the energy scale; a report shows that factor once in front
+    of the polynomial rather than on each monomial.
+
+    Parameters
+    ----------
+    expr : sp.Expr
+        Expression to factorise.
+    scale : sp.Symbol
+        Energy scale to pull out.
+
+    Returns
+    -------
+    tuple[sp.Expr, int]
+        The numerator, which is free of ``scale``, and the power. The input and
+        zero are returned when ``scale`` does not occur in the expression.
+
+    Raises
+    ------
+    ValidationError
+        If ``scale`` occurs in a form that is not an overall power of a term,
+        so that no single power factors out.
+
+    Examples
+    --------
+    >>> import sympy as sp
+    >>> a, mu = sp.symbols('a mu')
+    >>> factor_energy_scale(a / mu**2 + 1 / mu**2, mu)
+    (a + 1, 2)
+    """
+    expr = sp.expand(expr)
+    if scale not in expr.free_symbols:
+        return expr, 0
+
+    complaint = f"Cannot factor a power of {scale} out of {expr}"
+    exponents = [term.as_coeff_exponent(scale)[1] for term in sp.Add.make_args(expr)]
+    if not all(exponent.is_Integer for exponent in exponents):
+        raise ValidationError(complaint)
+
+    power = -int(min(exponents))
+    numerator = sp.expand(expr * scale**power)
+    if scale in numerator.free_symbols:
+        raise ValidationError(complaint)
+
+    return numerator, power
 
 
 def euler_equation_to_latex(equation: sp.Equality) -> str:
@@ -580,6 +630,7 @@ def _create_analysis_document(
         "\\usepackage{geometry}",
         "\\usepackage{booktabs}",
         "\\usepackage{tikz}",
+        "\\usetikzlibrary{calc}",
         "\\usepackage{tikz-3dplot}",
         "\\usepackage{hyperref}",
         "\\usepackage{cleveref}",

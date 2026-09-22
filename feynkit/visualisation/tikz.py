@@ -5,8 +5,20 @@ Provides functions to generate TikZ/LaTeX code for visualising geometric
 structures associated with Feynman integrals.
 """
 
+import math
+
+from ..core.edge import Edge
 from ..core.exceptions import ValidationError
 from ..core.graph import Graph
+
+# Parallel propagators are bent apart by at most this angle, in degrees.
+MAX_BEND = 30.0
+# Two parallel propagators are bent apart by this angle instead, in degrees.
+PAIR_BEND = 20.0
+# Legs meeting at one vertex are spread by this angle, in degrees.
+LEG_SPREAD = 40.0
+# Distance from a vertex to the endpoint of its external legs.
+LEG_LENGTH = "1.5cm"
 
 
 class TikzDocument:
@@ -268,9 +280,141 @@ class TikzDocument:
         return self.get_code()
 
 
+def _format_angle(angle: float) -> str:
+    """Format an angle in degrees for a TikZ polar coordinate."""
+    return f"{round(angle, 1) + 0.0:g}"
+
+
+def _polar(angle: float, radius: float) -> tuple[float, float]:
+    """Cartesian coordinates of a point given in polar form, angle in degrees."""
+    return radius * math.cos(math.radians(angle)), radius * math.sin(math.radians(angle))
+
+
+def _bend_angles(count: int) -> list[float]:
+    """
+    Bend angles for a bundle of parallel propagators.
+
+    A single propagator is straight; two are bent apart symmetrically; more are
+    spread evenly over the full range, so that the middle one stays straight
+    when the count is odd.
+    """
+    if count == 1:
+        return [0.0]
+    if count == 2:
+        return [-PAIR_BEND, PAIR_BEND]
+    step = 2 * MAX_BEND / (count - 1)
+    return [-MAX_BEND + index * step for index in range(count)]
+
+
+def _vertex_layout(vertices: list[int]) -> tuple[list[str], dict[int, tuple[float, float]]]:
+    """
+    Place the internal vertices and return the node lines and their coordinates.
+
+    Two vertices sit on a horizontal line, three on a triangle and more on a
+    circle. The coordinates are kept alongside the TikZ strings so that the
+    external legs can be pointed away from the centre of the diagram.
+    """
+    if len(vertices) == 2:
+        places = ["(0, 0)", "(3, 0)"]
+        points = [(0.0, 0.0), (3.0, 0.0)]
+    elif len(vertices) == 3:
+        places = ["(90:2cm)", "(210:2cm)", "(330:2cm)"]
+        points = [_polar(90.0, 2.0), _polar(210.0, 2.0), _polar(330.0, 2.0)]
+    else:
+        step = 360 / len(vertices)
+        angles = [90 + index * step for index in range(len(vertices))]
+        places = [f"({angle}:2cm)" for angle in angles]
+        points = [_polar(angle, 2.0) for angle in angles]
+
+    lines = ["  % Internal vertices"]
+    positions: dict[int, tuple[float, float]] = {}
+    for vertex, place, point in zip(vertices, places, points, strict=True):
+        lines.append(f"  \\node[vertex] (v{vertex}) at {place} {{}};")
+        positions[vertex] = point
+    return lines, positions
+
+
+def _outward_angle(point: tuple[float, float], centre: tuple[float, float]) -> float:
+    """Direction in degrees pointing from the centre of the diagram to a vertex."""
+    dx, dy = point[0] - centre[0], point[1] - centre[1]
+    if math.hypot(dx, dy) < 1e-9:
+        # A vertex at the centre has no outward direction; point downwards, away
+        # from the self-loops, which are drawn above.
+        return -90.0
+    return math.degrees(math.atan2(dy, dx))
+
+
+def _propagator_lines(edges: list[Edge]) -> list[str]:
+    """
+    Draw every internal edge, bending parallel propagators apart.
+
+    Edges are grouped by the unordered pair of vertices they join, in order of
+    their index, so that a bundle of parallel propagators is drawn as a fan
+    rather than collapsed onto one line. A self-loop is drawn as a loop above
+    its vertex.
+    """
+    bundles: dict[tuple[int, int], int] = {}
+    for edge in edges:
+        pair = (min(edge.v1, edge.v2), max(edge.v1, edge.v2))
+        bundles[pair] = bundles.get(pair, 0) + 1
+
+    lines = ["  % Internal propagators"]
+    for (first, second), count in bundles.items():
+        if first == second:
+            lines.extend([f"  \\draw[propagator] (v{first}) to[loop above] (v{first});"] * count)
+            continue
+        for bend in _bend_angles(count):
+            if bend == 0.0:
+                lines.append(f"  \\draw[propagator] (v{first}) -- (v{second});")
+                continue
+            side = "left" if bend > 0 else "right"
+            option = f"bend {side}={_format_angle(abs(bend))}"
+            lines.append(f"  \\draw[propagator] (v{first}) to[{option}] (v{second});")
+    return lines
+
+
+def _external_leg_lines(
+    edges: list[Edge],
+    positions: dict[int, tuple[float, float]],
+) -> list[str]:
+    """
+    Attach each external leg to its own vertex, pointing away from the centre.
+
+    Legs meeting at the same vertex are spread symmetrically about that
+    direction. The endpoints are placed with the ``calc`` library, so that the
+    leg is drawn relative to the vertex wherever the vertex happens to sit.
+    """
+    centre = (
+        sum(x for x, _ in positions.values()) / len(positions),
+        sum(y for _, y in positions.values()) / len(positions),
+    )
+    legs = [
+        (number, edge.v1 if edge.v1 in positions else edge.v2)
+        for number, edge in enumerate(edges, start=1)
+    ]
+    at_vertex: dict[int, list[int]] = {}
+    for number, vertex in legs:
+        at_vertex.setdefault(vertex, []).append(number)
+
+    lines = ["  % External legs"]
+    for number, vertex in legs:
+        siblings = at_vertex[vertex]
+        offset = (siblings.index(number) - (len(siblings) - 1) / 2) * LEG_SPREAD
+        angle = _format_angle(_outward_angle(positions[vertex], centre) + offset)
+        lines.append(
+            f"  \\node[external] (e{number}) at ($(v{vertex})+({angle}:{LEG_LENGTH})$) {{}};"
+        )
+        lines.append(f"  \\draw[external_leg] (v{vertex}) -- (e{number});")
+    return lines
+
+
 def graph_to_tikz(graph: Graph) -> str:
     """
     Generate a TikZ diagram of a Feynman graph.
+
+    Every internal edge is drawn, with parallel propagators bent apart, and
+    every external leg points away from the centre of the diagram. The figure
+    needs the ``calc`` TikZ library, as its comment header records.
 
     Parameters
     ----------
@@ -282,13 +426,8 @@ def graph_to_tikz(graph: Graph) -> str:
     str
         TikZ code wrapped in a figure environment.
     """
-    internal_vertices = set()
-    for edge in graph.edges:
-        if edge.is_internal:
-            internal_vertices.add(edge.v1)
-            internal_vertices.add(edge.v2)
-
-    num_internal = len(internal_vertices)
+    internal_edges = graph.get_internal_edges()
+    vertices = sorted({vertex for edge in internal_edges for vertex in (edge.v1, edge.v2)})
 
     lines = [
         "\\begin{figure}[htbp]",
@@ -299,53 +438,16 @@ def graph_to_tikz(graph: Graph) -> str:
         "  propagator/.style={thick},",
         "  external_leg/.style={dashed}",
         "]",
+        "  % needs \\usetikzlibrary{calc}",
         "",
     ]
 
-    if num_internal == 2:
-        lines.extend(
-            [
-                "  % Internal vertices",
-                "  \\node[vertex] (v1) at (0, 0) {};",
-                "  \\node[vertex] (v2) at (3, 0) {};",
-            ]
-        )
-    elif num_internal == 3:
-        lines.extend(
-            [
-                "  % Internal vertices",
-                "  \\node[vertex] (v1) at (90:2cm) {};",
-                "  \\node[vertex] (v2) at (210:2cm) {};",
-                "  \\node[vertex] (v3) at (330:2cm) {};",
-            ]
-        )
-    else:
-        angle_step = 360 / num_internal
-        lines.append("  % Internal vertices")
-        for i, v in enumerate(sorted(internal_vertices)):
-            angle = 90 + i * angle_step
-            lines.append(f"  \\node[vertex] (v{v}) at ({angle}:2cm) {{}};")
-
+    vertex_lines, positions = _vertex_layout(vertices)
+    lines.extend(vertex_lines)
     lines.append("")
-    lines.append("  % Internal propagators")
-    drawn_edges: set[tuple[int, int]] = set()
-    for edge in graph.edges:
-        if edge.is_internal:
-            edge_key = (min(edge.v1, edge.v2), max(edge.v1, edge.v2))
-            if edge_key not in drawn_edges:
-                lines.append(f"  \\draw[propagator] (v{edge.v1}) -- (v{edge.v2});")
-                drawn_edges.add(edge_key)
-
+    lines.extend(_propagator_lines(internal_edges))
     lines.append("")
-    lines.append("  % External legs")
-    external_count = 0
-    for edge in graph.edges:
-        if not edge.is_internal:
-            internal_v = edge.v1 if edge.v1 in internal_vertices else edge.v2
-            external_count += 1
-            angle = 90 + (external_count - 1) * (360 / graph.external_legs)
-            lines.append(f"  \\node[external] (e{external_count}) at ({angle}:3.5cm) {{}};")
-            lines.append(f"  \\draw[external_leg] (v{internal_v}) -- (e{external_count});")
+    lines.extend(_external_leg_lines(graph.get_external_edges(), positions))
 
     lines.extend(
         [

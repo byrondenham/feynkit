@@ -17,6 +17,8 @@ MAX_BEND = 30.0
 PAIR_BEND = 20.0
 # Legs meeting at one vertex are spread by this angle, in degrees.
 LEG_SPREAD = 40.0
+# Successive self-loops at one vertex take these sides in turn.
+LOOP_SIDES = ("above", "below", "left", "right")
 # Distance from a vertex to the endpoint of its external legs.
 LEG_LENGTH = "1.5cm"
 
@@ -306,13 +308,49 @@ def _bend_angles(count: int) -> list[float]:
     return [-MAX_BEND + index * step for index in range(count)]
 
 
-def _vertex_layout(vertices: list[int]) -> tuple[list[str], dict[int, tuple[float, float]]]:
+def _walk_order(vertices: list[int], edges: list[Edge]) -> list[int]:
+    """
+    Order the vertices along a walk over the internal edges.
+
+    A depth-first walk from the lowest-numbered vertex, taking the lowest
+    neighbour first, appends each vertex as it is reached. Laying the vertices
+    out in this order draws a one-loop graph as a polygon, where the label order
+    would run the propagators across the middle of the diagram. Vertices the
+    walk does not reach keep their label order at the end.
+    """
+    neighbours: dict[int, list[int]] = {vertex: [] for vertex in vertices}
+    for edge in edges:
+        if edge.v1 == edge.v2:
+            continue
+        neighbours[edge.v1].append(edge.v2)
+        neighbours[edge.v2].append(edge.v1)
+
+    order: list[int] = []
+    seen: set[int] = set()
+    for start in vertices:
+        stack = [start]
+        while stack:
+            vertex = stack.pop()
+            if vertex in seen:
+                continue
+            seen.add(vertex)
+            order.append(vertex)
+            stack.extend(sorted(neighbours[vertex], reverse=True))
+    return order
+
+
+def _vertex_layout(
+    vertices: list[int],
+    edges: list[Edge],
+) -> tuple[list[str], dict[int, tuple[float, float]]]:
     """
     Place the internal vertices and return the node lines and their coordinates.
 
     Two vertices sit on a horizontal line, three on a triangle and more on a
-    circle. The coordinates are kept alongside the TikZ strings so that the
-    external legs can be pointed away from the centre of the diagram.
+    circle, taken in the order of a walk over the internal edges so that
+    neighbouring vertices are placed next to one another. The coordinates are
+    kept alongside the TikZ strings so that the external legs can be pointed
+    away from the centre of the diagram.
     """
     if len(vertices) == 2:
         places = ["(0, 0)", "(3, 0)"]
@@ -328,7 +366,7 @@ def _vertex_layout(vertices: list[int]) -> tuple[list[str], dict[int, tuple[floa
 
     lines = ["  % Internal vertices"]
     positions: dict[int, tuple[float, float]] = {}
-    for vertex, place, point in zip(vertices, places, points, strict=True):
+    for vertex, place, point in zip(_walk_order(vertices, edges), places, points, strict=True):
         lines.append(f"  \\node[vertex] (v{vertex}) at {place} {{}};")
         positions[vertex] = point
     return lines, positions
@@ -350,8 +388,8 @@ def _propagator_lines(edges: list[Edge]) -> list[str]:
 
     Edges are grouped by the unordered pair of vertices they join, in order of
     their index, so that a bundle of parallel propagators is drawn as a fan
-    rather than collapsed onto one line. A self-loop is drawn as a loop above
-    its vertex.
+    rather than collapsed onto one line. Self-loops are drawn as loops around
+    their vertex, taking a fresh side for each one.
     """
     bundles: dict[tuple[int, int], int] = {}
     for edge in edges:
@@ -361,7 +399,9 @@ def _propagator_lines(edges: list[Edge]) -> list[str]:
     lines = ["  % Internal propagators"]
     for (first, second), count in bundles.items():
         if first == second:
-            lines.extend([f"  \\draw[propagator] (v{first}) to[loop above] (v{first});"] * count)
+            for index in range(count):
+                side = LOOP_SIDES[index % len(LOOP_SIDES)]
+                lines.append(f"  \\draw[propagator] (v{first}) to[loop {side}] (v{first});")
             continue
         for bend in _bend_angles(count):
             if bend == 0.0:
@@ -442,7 +482,7 @@ def graph_to_tikz(graph: Graph) -> str:
         "",
     ]
 
-    vertex_lines, positions = _vertex_layout(vertices)
+    vertex_lines, positions = _vertex_layout(vertices, internal_edges)
     lines.extend(vertex_lines)
     lines.append("")
     lines.extend(_propagator_lines(internal_edges))

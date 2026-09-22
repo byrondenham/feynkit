@@ -1,13 +1,15 @@
 """Tests for the TikZ output of feynkit.visualisation.tikz and the polytope writer.
 
 graph_to_tikz lays the internal vertices out on a line for a two-vertex graph,
-on a triangle for a three-vertex graph and on a circle otherwise, then draws one
+on a triangle for a three-vertex graph and on a circle otherwise, in the order of
+a walk over the internal edges, then draws one
 propagator per internal edge, bending parallel propagators apart, and one dashed
 leg per external edge, pointing away from the centre of the diagram.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Generator
 from pathlib import Path
 
@@ -158,6 +160,24 @@ class TestFourVertexGraph:
         assert count_propagators(code) == len(internal_edges) == 4
         for edge in internal_edges:
             assert f"\\draw[propagator] (v{edge.v1}) -- (v{edge.v2});" in code
+
+    def test_box_edges_join_angularly_adjacent_vertices(self) -> None:
+        """The circle is walked along the internal edges, so the box whose
+        cnickel lists the edges out of cyclic order still draws as a square
+        rather than as two diameters crossing at the centre."""
+        graph = Graph.from_cnickel("12e|3e|3e|e|:zzzz")
+        code = graph_to_tikz(graph)
+
+        angles: dict[int, float] = {}
+        for line in code.splitlines():
+            found = re.search(r"\\node\[vertex\] \(v(\d+)\) at \(([-\d.]+):2cm\)", line)
+            if found:
+                angles[int(found.group(1))] = float(found.group(2))
+
+        assert len(angles) == 4
+        for edge in graph.get_internal_edges():
+            gap = abs(angles[edge.v1] - angles[edge.v2]) % 360
+            assert min(gap, 360 - gap) == pytest.approx(90.0)
 
     def test_four_external_legs_are_attached(self, box_graph: Graph) -> None:
         code = graph_to_tikz(box_graph)

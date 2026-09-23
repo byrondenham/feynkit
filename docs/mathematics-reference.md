@@ -520,12 +520,16 @@ Accessed as `fi.symmetry_pairs` (list of `SymmetryPair` objects); each has `.lin
 
 ### 8.2 Transformation Identity for Feynman Integrals
 
-**Theorem** (FMS 2019, Thm 4.2; de la Cruz 2024):
+**Theorem** (FMS 2019, Cor. 4.1; de la Cruz 2024):
 *For each symmetry pair $(M,t,P)$ of $\mathcal{A}$, the generalised Feynman integral satisfies*
 
 $$I_A(\beta, z_P) \;=\; I_A(T\beta,\; z),$$
 
-*where $z_P = (z_{P(1)},\ldots,z_{P(N)})$ is the permuted kinematic vector, $I_A = \int u^{\nu-1} G^{-D/2}\,du$ is taken without Gamma prefactors, and the prefactor $R(\beta) = 1$.*
+*where $z_P = (z_{P(1)},\ldots,z_{P(N)})$ is the permuted kinematic vector, $I_A(\beta, z) = \int_{\mathbb{R}_+^n} u^{-\beta'} G_z(u)^{\beta_0}\, du/u$ is the integral without Gamma prefactors, with $G_z(u) = \sum_j z_j u^{\alpha_j}$ and $\beta = (\beta_0, \beta')$, and the prefactor $R(\beta) = 1$.*
+
+FMS (Cor. 4.1) and de la Cruz (2024, eq. 14) print the permutation on the other side; section 5.1
+of the [literature review](literature-review.md) explains why the substitution in the FMS proof gives
+the form above.
 
 Specialising $z$ to physical kinematic values gives a concrete functional identity between two
 (possibly equal) Feynman integrals at different values of $\beta$.  The transformation

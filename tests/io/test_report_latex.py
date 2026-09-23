@@ -248,6 +248,19 @@ def test_symmetry_identity_permutes_the_coefficients_on_the_left(latex: str) -> 
     assert "I(\\beta, z) = I(T\\beta" not in latex
 
 
+def test_symmetry_identity_notes_the_form_printed_in_the_references(latex: str) -> None:
+    # FMS (Cor. 4.1) and de la Cruz (eq. 14) print x P on the right; the
+    # substitution in the proof of Cor. 4.1 gives x P^-1, the form stated here.
+    assert (
+        "Forsg\\aa rd, Matusevich and Sobieska~\\cite{fms2019} and de la Cruz"
+        "~\\cite{delacruz2024} print the permutation on the other side, but the "
+        "substitution in the proof of Corollary~4.1 of~\\cite{fms2019} gives the form "
+        "stated here."
+    ) in latex
+    assert "\\bibitem{fms2019} J. Forsg\\aa rd" in latex
+    assert "1703.03036" in CITATIONS["fms2019"]
+
+
 def test_symmetry_identity_is_self_contained_without_the_gkz_section(
     triangle: FeynmanIntegral,
 ) -> None:

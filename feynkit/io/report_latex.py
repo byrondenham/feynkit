@@ -58,6 +58,10 @@ CITATIONS: dict[str, str] = {
         "L. de la Cruz, \\emph{Feynman integrals as A-hypergeometric functions}, "
         "JHEP 12 (2019) 123, arXiv:1907.00507."
     ),
+    "fms2019": (
+        "J. Forsg\\aa rd, L.F. Matusevich and A. Sobieska, \\emph{On transformations of "
+        "A-hypergeometric functions}, Funkcialaj Ekvacioj 62 (2019) 319, arXiv:1703.03036."
+    ),
     "delacruz2024": (
         "L. de la Cruz, \\emph{Polytope symmetries of Feynman integrals}, "
         "Phys. Lett. B 854 (2024) 138744, arXiv:2404.03564."
@@ -759,9 +763,11 @@ def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) 
         "integer matrices $T$ and permutations $\\sigma$ of the columns of $A$ such that $T$ "
         "takes column $j$ of $A$ to column $\\sigma(j)$. Each gives the identity "
         f"$I_A(\\beta, z_\\sigma) = I_A(T\\beta, z)${integral}, with "
-        f"$z_\\sigma = (z_{{\\sigma(1)}}, \\ldots, z_{{\\sigma({n_columns})}})$"
-        f"{doc.cite('delacruz2024')}; for $I$ itself the prefactors at $\\beta$ and "
-        "$T\\beta$ enter as well. "
+        f"$z_\\sigma = (z_{{\\sigma(1)}}, \\ldots, z_{{\\sigma({n_columns})}})$. "
+        f"Forsg\\aa rd, Matusevich and Sobieska{doc.cite('fms2019')} and de la Cruz"
+        f"{doc.cite('delacruz2024')} print the permutation on the other side, but the "
+        f"substitution in the proof of Corollary~4.1 of{doc.cite('fms2019')} gives the form "
+        "stated here. For $I$ itself the prefactors at $\\beta$ and $T\\beta$ enter as well. "
         + ("They are" if len(pairs) == len(shown) else f"The first {len(shown)} are")
         + ", with $\\sigma$ listed as $(\\sigma(1), \\sigma(2), \\ldots)$:"
     )

@@ -7,9 +7,10 @@ Symanzik polynomials, the parametric representations with the convergence
 region, the Newton polytope with the rank statement, the GKZ system, the
 symmetries, the Landau surfaces, the Schwinger-representation system and the
 references. Each section is rendered by its own function and omitted when the
-report does not carry it. Citations are collected while the sections are
-rendered, so the bibliography lists exactly the works the text cites, in the
-order of first citation.
+report does not carry it. Citations and the width of the widest matrix are
+collected while the sections are rendered, so the bibliography lists exactly
+the works the text cites, in the order of first citation, and the preamble
+allows exactly as many matrix columns as the document needs.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from typing import NamedTuple
 
 import sympy as sp
 
-from .latex import factor_energy_scale, to_latex, to_latex_split
+from .latex import factor_energy_scale, to_latex, to_latex_lines, to_latex_split
 from .report import (
     GKZ,
     AnalysisReport,
@@ -50,8 +51,8 @@ CITATIONS: dict[str, str] = {
         "GKZ hypergeometric systems}, JHEP 04 (2020) 121, arXiv:1910.08651."
     ),
     "klausen2023": (
-        "R.P. Klausen, \\emph{Hypergeometric Feynman Integrals}, PhD thesis, 2023, "
-        "arXiv:2302.13184."
+        "R.P. Klausen, \\emph{Hypergeometric Feynman Integrals}, PhD thesis, Johannes Gutenberg "
+        "University Mainz, 2022, arXiv:2302.13184."
     ),
     "delacruz2019": (
         "L. de la Cruz, \\emph{Feynman integrals as A-hypergeometric functions}, "
@@ -112,18 +113,8 @@ CITATIONS: dict[str, str] = {
 }
 
 
-_PREAMBLE = """\\documentclass[11pt,a4paper]{article}
-\\usepackage[utf8]{inputenc}
-\\usepackage[T1]{fontenc}
-\\usepackage{amsmath,amssymb}
-\\setcounter{MaxMatrixCols}{64}
-\\usepackage[margin=2.5cm]{geometry}
-\\usepackage{booktabs,array,longtable}
-\\usepackage{tikz}
-\\usetikzlibrary{calc}
-\\usepackage{tikz-3dplot}
-\\usepackage[hidelinks]{hyperref}
-\\allowdisplaybreaks"""
+# amsmath matrices stop at this many columns unless MaxMatrixCols is raised.
+_AMSMATH_MATRIX_COLUMNS = 10
 
 _MAX_PAIRS_SHOWN = 10
 
@@ -140,23 +131,63 @@ _ESCAPES: dict[int, str] = {
     ord("^"): "\\textasciicircum{}",
 }
 
+# The Lee-Pomeransky integral without its prefactor, the function the GKZ
+# system annihilates.
+_EULER_MELLIN = (
+    "I_A(\\beta, z) = \\int_{\\mathbb{R}_{+}^{N}} \\prod_{e} \\mathrm{d}u_e\\, "
+    "u_e^{\\nu_e - 1}\\, G(z, u)^{-D/2}"
+)
+
 
 # --- small helpers -----------------------------------------------------------
 
 
-class _Cites:
-    """Collect citation keys in the order the text first cites them."""
+class _Document:
+    """What the preamble and the bibliography need to know about the sections.
+
+    The sections cite through :meth:`cite` and print matrices through
+    :meth:`matrix`, so that the bibliography lists the works cited, in the
+    order of first citation, and the preamble allows the widest matrix.
+    """
 
     def __init__(self) -> None:
         self.keys: list[str] = []
+        self.widest_matrix = 0
 
-    def __call__(self, *keys: str) -> str:
+    def cite(self, *keys: str) -> str:
         for key in keys:
             if key not in CITATIONS:
                 raise KeyError(f"No bibliography entry for {key!r}")
             if key not in self.keys:
                 self.keys.append(key)
         return "~\\cite{" + ",".join(keys) + "}"
+
+    def matrix(self, matrix: sp.Matrix) -> str:
+        self.widest_matrix = max(self.widest_matrix, matrix.cols)
+        rows = [
+            " & ".join(to_latex(matrix[r, c]) for c in range(matrix.cols))
+            for r in range(matrix.rows)
+        ]
+        return "\\begin{bmatrix}\n" + " \\\\\n".join(rows) + "\n\\end{bmatrix}"
+
+    def preamble(self) -> str:
+        columns = max(_AMSMATH_MATRIX_COLUMNS, self.widest_matrix)
+        return "\n".join(
+            [
+                "\\documentclass[11pt,a4paper]{article}",
+                "\\usepackage[utf8]{inputenc}",
+                "\\usepackage[T1]{fontenc}",
+                "\\usepackage{amsmath,amssymb}",
+                f"\\setcounter{{MaxMatrixCols}}{{{columns}}}",
+                "\\usepackage[margin=2.5cm]{geometry}",
+                "\\usepackage{booktabs,array,longtable}",
+                "\\usepackage{tikz}",
+                "\\usetikzlibrary{calc}",
+                "\\usepackage{tikz-3dplot}",
+                "\\usepackage[hidelinks]{hyperref}",
+                "\\allowdisplaybreaks",
+            ]
+        )
 
     def bibliography(self) -> str:
         items = [f"\\bibitem{{{key}}} {CITATIONS[key]}" for key in self.keys]
@@ -208,32 +239,13 @@ def _count(n: int, singular: str, plural: str | None = None) -> str:
     return f"{n} {singular if n == 1 else (plural or singular + 's')}"
 
 
-def _matrix(matrix: sp.Matrix) -> str:
-    rows = [
-        " & ".join(to_latex(matrix[r, c]) for c in range(matrix.cols)) for r in range(matrix.rows)
-    ]
-    return "\\begin{bmatrix}\n" + " \\\\\n".join(rows) + "\n\\end{bmatrix}"
-
-
 def _vector(entries: Sequence[sp.Expr]) -> str:
     return "\\left(" + ", ".join(to_latex(e) for e in entries) + "\\right)"
 
 
-def _lines(expr: sp.Expr) -> list[str]:
-    """The lines :func:`to_latex_split` breaks a long sum into; one line if short.
-
-    Every line after the first starts with its sign.
-    """
-    body = to_latex_split(expr)
-    head, tail = "\\begin{split}\n", "\n\\end{split}"
-    if body.startswith(head) and body.endswith(tail):
-        return body[len(head) : -len(tail)].split(" \\\\\n& ")
-    return [body]
-
-
 def _scaled_lines(expr: sp.Expr, scale: sp.Expr) -> list[str]:
     """The lines of ``expr`` written as ``(1/scale)(...)``."""
-    lines = _lines(expr)
+    lines = to_latex_lines(expr)
     lines[0] = f"\\frac{{1}}{{{to_latex(scale)}}}\\bigl({lines[0]}"
     lines[-1] += "\\bigr)"
     return lines
@@ -247,6 +259,50 @@ def _equation(lhs: str, lines: Sequence[str]) -> str:
         continued = "".join(f" \\\\\n&\\quad {{}}{line}" for line in lines[1:])
         body = f"\\begin{{split}}\n{lhs} &= {lines[0]}{continued}\n\\end{{split}}"
     return "\\begin{equation*}\n" + body + "\n\\end{equation*}"
+
+
+def _factor_lines(factors: Sequence[sp.Expr]) -> str:
+    """An ``align*`` with each factor on its own line, long factors broken further."""
+    rows = []
+    for factor in factors:
+        lines = to_latex_lines(factor, max_length=100)
+        rows.append("&" + lines[0])
+        rows.extend("&\\quad {}" + line for line in lines[1:])
+    return "\\begin{align*}\n" + " \\\\\n".join(rows) + "\n\\end{align*}"
+
+
+def _factors(expr: sp.Expr) -> list[sp.Expr]:
+    """Split a product into its factors that are sums, or powers of sums, and the rest.
+
+    The rest, a monomial with its coefficient, stays in one piece; a bare
+    number is folded into the first sum instead, so that no line of the
+    display is a lone constant.
+    """
+    sums: list[sp.Expr] = []
+    rest: list[sp.Expr] = []
+    for arg in sp.Mul.make_args(expr):
+        base = arg.base if isinstance(arg, sp.Pow) else arg
+        (sums if isinstance(base, sp.Add) else rest).append(arg)
+    monomial = sp.Mul(*rest)
+    if not sums:
+        return [monomial]
+    if monomial == 1:
+        return sums
+    if monomial.is_Number and isinstance(sums[0], sp.Add):
+        return [sp.expand(monomial * sums[0]), *sums[1:]]
+    return [monomial, *sums]
+
+
+def _factor_list(kind: str, factors: Sequence[sp.Expr]) -> str:
+    """'the <kind> factors are' followed by their display, or a note that there are none."""
+    if not factors:
+        return f"there are no {kind} factors"
+    return f"the {kind} factors are\n" + _factor_lines(factors)
+
+
+def _sorted(factors: Sequence[sp.Expr]) -> list[sp.Expr]:
+    """Distinct factors in a deterministic order."""
+    return sorted(dict.fromkeys(factors), key=sp.default_sort_key)
 
 
 def _signed_terms(terms: Sequence[tuple[int, str]]) -> str:
@@ -317,9 +373,13 @@ def _graph(identity: Identity) -> str:
     label = re.search(r"\\label\{([^}]*)\}", identity.graph_tikz)
     shown = f"Figure~\\ref{{{label.group(1)}}} shows the graph. " if label else ""
     rows = [
-        f"{e} & {_math(nu)} & {_math(mass)} \\\\"
-        for e, (nu, mass) in enumerate(
-            zip(identity.edge_exponents, identity.edge_masses, strict=True), start=1
+        f"{e} & {v1}--{v2} & {_math(nu)} & {_math(mass)} \\\\"
+        for e, (v1, v2), nu, mass in zip(
+            identity.edge_indices,
+            identity.edge_endpoints,
+            identity.edge_exponents,
+            identity.edge_masses,
+            strict=True,
         )
     ]
     return "\n".join(
@@ -332,16 +392,18 @@ def _graph(identity: Identity) -> str:
             f"$N = {identity.propagators}$ propagators and "
             f"{_count(identity.external_legs, 'external leg')}.",
             "\\begin{center}",
-            "\\begin{tabular}{ccc}",
+            "\\begin{tabular}{cccc}",
             "\\toprule",
-            "$e$ & $\\nu_e$ & $m_e$ \\\\",
+            "$e$ & Vertices & $\\nu_e$ & $m_e$ \\\\",
             "\\midrule",
             *rows,
             "\\bottomrule",
             "\\end{tabular}",
             "\\end{center}",
-            "Propagator $e$ carries the exponent $\\nu_e$ and the mass $m_e$ shown in the table; "
-            "massless propagators have $m_e = 0$.",
+            "Propagator $e$ joins the vertices listed and carries the exponent $\\nu_e$ and the "
+            "mass $m_e$ shown in the table; massless propagators have $m_e = 0$. The figure "
+            "labels each propagator with its index $e$, which also names its parameters $a_e$ "
+            "and $u_e$.",
         ]
     )
 
@@ -361,32 +423,41 @@ def _kinematics(conventions: Conventions) -> str:
     return f"the {noun} {listed}: {clause}"
 
 
-def _conventions(conventions: Conventions, cite: _Cites) -> str:
+def _conventions(report: AnalysisReport, doc: _Document) -> str:
+    conventions = report.conventions
     dimension = conventions.dimension
     is_d = isinstance(dimension, sp.Symbol) and dimension.name == "D"
     in_d = "$D$" if is_d else f"$D = {to_latex(dimension)}$"
+    nu_total = sp.Add(*report.identity.edge_exponents)
     return "\n".join(
         [
             "\\section{Conventions}",
-            f"The integral $I$ is evaluated in {in_d} dimensions with the metric signature "
-            "$(+,-,\\ldots,-)$ and propagators $1/(-q^2 + m^2)^{\\nu}$; dimensional "
-            "regularisation sets $D = D_0 - 2\\epsilon$ for an even integer $D_0$ chosen when "
-            "the result is expanded. The energy scale $\\mu$ keeps the Symanzik polynomials "
+            "The integral is",
+            "\\begin{equation*}",
+            "I = e^{L \\epsilon \\gamma_E} \\left(\\mu^2\\right)^{\\nu - L D/2} \\int "
+            "\\prod_{r=1}^{L} \\frac{\\mathrm{d}^D k_r}{i \\pi^{D/2}} \\prod_{e} "
+            "\\frac{1}{\\left(-q_e^2 + m_e^2\\right)^{\\nu_e}}",
+            "\\end{equation*}",
+            f"in {in_d} dimensions{doc.cite('weinzierl2022')}, with loop momenta $k_r$, the "
+            "momentum $q_e$ of propagator $e$ fixed by momentum conservation at the vertices, "
+            "the metric signature $(+,-,\\ldots,-)$ and $\\nu = \\sum_e \\nu_e$, here "
+            f"$\\nu = {to_latex(nu_total)}$. Dimensional regularisation sets "
+            "$D = D_0 - 2\\epsilon$ for an even integer $D_0$ chosen when the result is "
+            "expanded. The energy scale $\\mu$ makes $I$ and the Symanzik polynomials "
             "dimensionless. External momenta are incoming, and the kinematics is written in "
             f"{_kinematics(conventions)}. The second Symanzik polynomial is "
             "$F = -\\sum_{T_2} s_{T_2} \\prod_{e \\notin T_2} a_e + U \\sum_e m_e^2 a_e$, "
             "divided by $\\mu^2$, the sum running over spanning two-forests $T_2$ and "
             "$s_{T_2}$ being the square of the momentum flowing from one tree of $T_2$ to the "
-            f"other{cite('weinzierl2022')}.",
+            f"other{doc.cite('weinzierl2022')}.",
         ]
     )
 
 
-def _polynomials(report: AnalysisReport, cite: _Cites) -> str:
+def _polynomials(report: AnalysisReport, doc: _Document) -> str:
     polynomials = report.polynomials
-    conventions = report.conventions
     power = polynomials.f_scale_power
-    scale = conventions.energy_scale
+    scale = report.conventions.energy_scale
     if power:
         f_lines = _scaled_lines(polynomials.f_numerator, scale**power)
         # G carries the same 1/mu^power on its F terms; factor it out the same way.
@@ -396,21 +467,21 @@ def _polynomials(report: AnalysisReport, cite: _Cites) -> str:
             sp.Add(*[t for t in terms if scale in t.free_symbols]), scale
         )
         g_f_lines = _scaled_lines(f_part, scale**g_power)
-        g_lines = [*_lines(u_part), "+ " + g_f_lines[0], *g_f_lines[1:]]
+        g_lines = [*to_latex_lines(u_part), "+ " + g_f_lines[0], *g_f_lines[1:]]
     else:
-        f_lines = _lines(polynomials.f_numerator)
-        g_lines = _lines(polynomials.g)
+        f_lines = to_latex_lines(polynomials.f_numerator)
+        g_lines = to_latex_lines(polynomials.g)
     rows = [
         f"{entry.index} & {_math(entry.monomial)} & {_math(entry.coefficient)} \\\\"
         for entry in polynomials.z_table
     ]
-    n_edges = report.identity.propagators
+    rank = polynomials.monomials_g - polynomials.codimension
     return "\n".join(
         [
             "\\section{Symanzik polynomials}",
             "In the Schwinger parameters $a_e$ the first Symanzik polynomial, the sum over "
             "spanning trees $T$ of $\\prod_{e \\notin T} a_e$, is",
-            _equation("U", _lines(polynomials.u)),
+            _equation("U", to_latex_lines(polynomials.u)),
             "and the second is",
             _equation("F", f_lines),
             "In the Lee-Pomeransky parameters $u_e$ their sum is",
@@ -429,10 +500,12 @@ def _polynomials(report: AnalysisReport, cite: _Cites) -> str:
             "\\endlastfoot",
             *rows,
             "\\end{longtable}",
-            f"The configuration has codimension ${polynomials.monomials_g} - {n_edges} - 1 = "
-            f"{polynomials.codimension}$, against "
+            f"The configuration has codimension ${polynomials.monomials_g} - "
+            f"\\operatorname{{rank}} A = {polynomials.monomials_g} - {rank} = "
+            f"{polynomials.codimension}$, with $A$ the matrix whose columns are the exponent "
+            "vectors of the monomials of $G$ below a row of ones, against "
             f"{_count(polynomials.independent_invariants, 'independent kinematic invariant')} "
-            f"in the coefficients{cite('klausen2023')}.",
+            f"in the coefficients{doc.cite('klausen2023')}.",
         ]
     )
 
@@ -461,22 +534,21 @@ def _representation(
 
 
 def _representations(
-    representations: Representations, identity: Identity, dimension: sp.Expr, cite: _Cites
+    report: AnalysisReport, representations: Representations, doc: _Document
 ) -> str:
     schwinger = representations.schwinger
     feynman = representations.feynman
     lee_pomeransky = representations.lee_pomeransky
-    templates = _integrand_templates(identity.loop_count, dimension)
+    templates = _integrand_templates(report.identity.loop_count, report.conventions.dimension)
     # The Schwinger result names its parameters alpha_e; the document uses a_e
     # throughout, the names of the Feynman result and of U and F.
     rename = dict(zip(schwinger.parameters, feynman.parameters, strict=True))
-    nu_total = sp.Add(*identity.edge_exponents)
 
     parts = [
         "\\section{Parametric representations}",
         "\\subsection{Schwinger representation}",
         "With the Schwinger parameters $a_e$ integrated over $[0, \\infty)$"
-        f"{cite('weinzierl2022')},",
+        f"{doc.cite('weinzierl2022')},",
         _representation(
             schwinger.prefactor,
             feynman.parameters,
@@ -486,7 +558,7 @@ def _representations(
         ),
         "\\subsection{Feynman representation}",
         "With the same parameters restricted to the simplex $\\sum_e a_e = 1$"
-        f"{cite('weinzierl2022')},",
+        f"{doc.cite('weinzierl2022')},",
         _representation(
             feynman.prefactor,
             feynman.parameters,
@@ -494,10 +566,9 @@ def _representations(
             "\\delta\\Bigl(1 - \\sum_{e} a_{e}\\Bigr)",
             templates.feynman,
         ),
-        f"where $\\nu = {to_latex(nu_total)}$ is the sum of the exponents.",
         "\\subsection{Lee-Pomeransky representation}",
         "With the Lee-Pomeransky parameters $u_e$ integrated over $[0, \\infty)$"
-        f"{cite('leepomeransky2013')},",
+        f"{doc.cite('leepomeransky2013')},",
         _representation(
             lee_pomeransky.prefactor,
             lee_pomeransky.parameters,
@@ -507,27 +578,31 @@ def _representations(
         ),
         "\\paragraph{Convergence.}",
     ]
+    euclidean = "For Euclidean kinematics, where every coefficient of $G$ has positive real part"
     if representations.convergence is None:
         parts.append(
-            "The Newton polytope $P$ of $G$ is not full-dimensional, so the Lee-Pomeransky "
-            f"integral converges nowhere{cite('klausen2023')}."
+            f"The Newton polytope $P$ of $G$ is not full-dimensional. {euclidean}, the "
+            "Lee-Pomeransky integral therefore converges absolutely for no $D$ and $\\nu_e$"
+            f"{doc.cite('klausen2023')}."
         )
         return "\n".join(parts)
     lines = " \\\\\n".join(f"{to_latex(c)} &> 0" for c in representations.convergence)
     parts += [
-        "The Lee-Pomeransky integral converges when $(\\nu_1, \\ldots, \\nu_N)$ lies in the "
-        "interior of $(D/2)\\,P$, with $P$ the Newton polytope of $G$, that is when for every "
-        "facet $m_j \\cdot x \\le b_j$ of $P$ the real part of "
-        "$b_j D/2 - \\sum_e m_{je} \\nu_e$ is positive:",
+        f"{euclidean}, and for $\\mathrm{{Re}}\\,D > 0$, the Lee-Pomeransky integral converges "
+        "absolutely when the real parts of $(\\nu_1, \\ldots, \\nu_N)$, divided by "
+        "$\\mathrm{Re}(D/2)$, lie in the interior of the Newton polytope $P$ of $G$, that is "
+        "when for every facet $m_j \\cdot x \\le b_j$ of $P$ the real part of "
+        f"$b_j D/2 - \\sum_e m_{{je}} \\nu_e$ is positive{doc.cite('klausen2023')}:",
         "\\begin{align*}",
         lines,
         "\\end{align*}",
-        f"It converges nowhere when $P$ is not full-dimensional{cite('klausen2023')}.",
+        "For such kinematics it converges absolutely for no $D$ and $\\nu_e$ when $P$ is not "
+        "full-dimensional.",
     ]
     return "\n".join(parts)
 
 
-def _polytope(polytope: Polytope, cite: _Cites) -> str:
+def _polytope(polytope: Polytope, doc: _Document) -> str:
     data = polytope.data
     counts = [
         _count(n, singular, plural)
@@ -565,49 +640,52 @@ def _polytope(polytope: Polytope, cite: _Cites) -> str:
         "",
         "For generic coefficients and non-resonant $\\beta$ the holonomic rank of the GKZ "
         "system equals the normalised volume, here "
-        f"{volume}{cite('adolphson1994', 'chestnov2022')}. The rank equals the volume for "
+        f"{volume}{doc.cite('adolphson1994', 'chestnov2022')}. The rank equals the volume for "
         "every $\\beta$ exactly when the toric ring $\\mathbb{C}[\\mathbb{N}A]$ is "
-        "Cohen-Macaulay, with $A$ the matrix whose columns are the exponent vectors of $G$ "
-        f"below a row of ones{cite('mmw2005')}. This holds when the graph is one-particle "
+        f"Cohen-Macaulay{doc.cite('mmw2005')}. This holds when the graph is one-particle "
         "irreducible and one-vertex irreducible, its external momenta are generic enough that "
-        "no monomial of "
-        "$G$ cancels, and its propagators are all massive, all massless, or such that every "
-        "vertex reaches an external leg along massive propagators alone; the configuration is "
-        "then normal and so Cohen-Macaulay"
-        f"{cite('klausen2023', 'tellander2023', 'walther2022')}. The number of master "
+        "no monomial of $G$ cancels, and its propagators are all massive, all massless, or "
+        "such that every vertex reaches an external leg along massive propagators alone; the "
+        "configuration is then normal and so Cohen-Macaulay"
+        f"{doc.cite('klausen2023', 'tellander2023', 'walther2022')}. The number of master "
         "integrals is, up to sign, the Euler characteristic of the complement of "
         "$\\{G = 0\\}$ in the torus, at most the normalised volume and equal to it for "
         "generic coefficients; graph-polynomial coefficients are rarely generic"
-        f"{cite('bbkp2017')}. feynkit computes neither the holonomic rank at the physical "
+        f"{doc.cite('bbkp2017')}. feynkit computes neither the holonomic rank at the physical "
         "point nor the Euler characteristic, and produces no series solutions, Pfaffian "
         "system or restriction to physical kinematics.",
     ]
     return "\n".join(parts)
 
 
-def _gkz(gkz: GKZ, cite: _Cites) -> str:
+def _gkz(gkz: GKZ, doc: _Document) -> str:
     operators = []
     for r, (row, beta_r) in enumerate(gkz.euler_rows):
         terms = _signed_terms([(a, f"\\theta_{{{j}}}") for j, a in enumerate(row, start=1)])
         operators.append(f"E_{{{r}}} &= {_append_signed(terms, -beta_r)}")
     parts = [
         "\\section{GKZ system}",
+        "\\label{sec:gkz-system}",
         "Writing $G = \\sum_j z_j u^{\\alpha_j}$ and treating the coefficients $z_j$ as "
-        "independent variables turns $I$ into the generalised integral $I(\\beta, z)$. Its "
-        "GKZ system has the matrix",
+        "independent variables gives the Euler-Mellin integral",
         "\\begin{equation*}",
-        "A = " + _matrix(gkz.a_matrix),
+        _EULER_MELLIN + ",",
+        "\\end{equation*}",
+        "the Lee-Pomeransky integral without its prefactor, which the GKZ system annihilates. "
+        "The system has the matrix",
+        "\\begin{equation*}",
+        "A = " + doc.matrix(gkz.a_matrix),
         "\\end{equation*}",
         "whose column $j$ is $(1, \\alpha_j)$. The parameter vector is "
         "$\\beta = (-D/2, -\\nu_1, \\ldots, -\\nu_N)$, the value the Euler equations require "
-        f"for the Lee-Pomeransky integral{cite('delacruz2019', 'klausen2020')}. Here",
+        f"for the Lee-Pomeransky integral{doc.cite('delacruz2019', 'klausen2020')}. Here",
         "\\begin{equation*}",
         "\\beta = " + _vector(gkz.beta) + ".",
         "\\end{equation*}",
         "The Euler operators are built from $\\theta_j = z_j \\partial_{z_j}$, which measures "
         "the degree in $z_j$. The operators $E_r = \\sum_j A_{rj}\\theta_j - \\beta_r$ "
-        "annihilate the integral: row $0$ states that $I$ is homogeneous of degree $-D/2$ in "
-        "the $z_j$, and row $i$ that it has degree $-\\nu_i$ under "
+        "annihilate $I_A$: row $0$ states that $I_A$ is homogeneous of degree $-D/2$ in the "
+        "$z_j$, and row $i$ that it has degree $-\\nu_i$ under "
         "$z_j \\mapsto \\lambda^{A_{ij}} z_j$, which a rescaling of $u_i$ absorbs:",
         "\\begin{align*}",
         " \\\\\n".join(operators),
@@ -620,10 +698,9 @@ def _gkz(gkz: GKZ, cite: _Cites) -> str:
     parts += [
         f"The toric ideal of $A$ is generated by {_count(len(generators), 'binomial')}. Each "
         "binomial $z^{k} - z^{l}$, with $Ak = Al$, gives the operator "
-        "$\\partial^{k} - \\partial^{l}$; these annihilators of the generalised integral form "
-        "an analogue of integration-by-parts relations for it"
-        f"{cite('chestnov2022')}, and the specialisation to physical coefficients is a "
-        "separate step. The generators are",
+        "$\\partial^{k} - \\partial^{l}$; these annihilators of $I_A$ form an analogue of "
+        f"integration-by-parts relations for it{doc.cite('chestnov2022')}, and the "
+        "specialisation to physical coefficients is a separate step. The generators are",
         "\\begin{gather*}",
         " \\\\\n".join(to_latex_split(g) for g in generators),
         "\\end{gather*}",
@@ -631,9 +708,9 @@ def _gkz(gkz: GKZ, cite: _Cites) -> str:
     return "\n".join(parts)
 
 
-def _symmetries(symmetries: Symmetries, polytope: Polytope | None, cite: _Cites) -> str:
+def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) -> str:
     orbits = symmetries.vertex_orbits
-    if polytope is not None:
+    if report.polytope is not None:
         listed = _words(
             ["$\\{" + ", ".join(f"v_{{{i + 1}}}" for i in orbit) + "\\}$" for orbit in orbits]
         )
@@ -646,6 +723,14 @@ def _symmetries(symmetries: Symmetries, polytope: Polytope | None, cite: _Cites)
         action = (
             f"acts on the vertices of $P$ with {_count(len(orbits), 'orbit')} of "
             f"{'size' if len(orbits) == 1 else 'sizes'} {sizes}"
+        )
+    if report.gkz is not None:
+        integral = "the Euler-Mellin integral $I_A$ of Section~\\ref{sec:gkz-system}"
+    else:
+        integral = (
+            f"the Euler-Mellin integral ${_EULER_MELLIN}$, the Lee-Pomeransky integral "
+            "without its prefactor, with $G = \\sum_j z_j u^{\\alpha_j}$ and "
+            "$\\beta = (-D/2, -\\nu_1, \\ldots, -\\nu_N)$"
         )
     preserving = symmetries.coefficient_preserving
     pairs = symmetries.symmetry_pairs
@@ -661,13 +746,15 @@ def _symmetries(symmetries: Symmetries, polytope: Polytope | None, cite: _Cites)
         parts.append("The configuration has no symmetry pairs.")
         return "\n".join(parts)
     shown = pairs[:_MAX_PAIRS_SHOWN]
+    n_columns = report.polynomials.monomials_g
     parts.append(
         f"The configuration has {_count(len(pairs), 'symmetry pair')} $(T, \\sigma)$: "
         "integer matrices $T$ and permutations $\\sigma$ of the columns of $A$ such that $T$ "
         "takes column $j$ of $A$ to column $\\sigma(j)$. Each gives the identity "
-        "$I(\\beta, z) = I(T\\beta, z_\\sigma)$ with "
-        "$z_\\sigma = (z_{\\sigma(1)}, z_{\\sigma(2)}, \\ldots)$"
-        f"{cite('delacruz2024')}. "
+        f"$I_A(\\beta, z_\\sigma) = I_A(T\\beta, z)$ for {integral}, with "
+        f"$z_\\sigma = (z_{{\\sigma(1)}}, \\ldots, z_{{\\sigma({n_columns})}})$"
+        f"{doc.cite('delacruz2024')}; for $I$ itself the prefactors at $\\beta$ and "
+        "$T\\beta$ enter as well. "
         + ("They are" if len(pairs) == len(shown) else f"The first {len(shown)} are")
         + ", with $\\sigma$ listed as $(\\sigma(1), \\sigma(2), \\ldots)$:"
     )
@@ -675,7 +762,7 @@ def _symmetries(symmetries: Symmetries, polytope: Polytope | None, cite: _Cites)
         sigma = ", ".join(str(j + 1) for j in pair.column_permutation)
         parts += [
             "\\begin{equation*}",
-            f"T_{{{k}}} = {_matrix(pair.homogenized_map)}, \\qquad \\sigma_{{{k}}} = ({sigma})",
+            f"T_{{{k}}} = {doc.matrix(pair.homogenized_map)}, \\qquad \\sigma_{{{k}}} = ({sigma})",
             "\\end{equation*}",
         ]
     if len(pairs) > len(shown):
@@ -684,32 +771,45 @@ def _symmetries(symmetries: Symmetries, polytope: Polytope | None, cite: _Cites)
     return "\n".join(parts)
 
 
-def _landau(landau: Landau, cite: _Cites) -> str:
+def _landau(landau: Landau, doc: _Document) -> str:
     intro = (
         "The reduced principal $A$-determinant of $G$, each irreducible kinematic factor taken "
         "once, is the product of the discriminants of $G$ restricted to the faces of $P$"
-        f"{cite('gkz1994', 'dhpt2023', 'fmt2023')}."
+        f"{doc.cite('gkz1994', 'dhpt2023', 'fmt2023')}."
     )
     parts = ["\\section{Landau surfaces}"]
     if landau.by_dimension:
-        parts += [intro + " Those other than one are, by face dimension:", "\\begin{itemize}"]
-        for dimension, factors in landau.by_dimension:
-            parts.append(f"\\item Dimension {dimension}: " + ", ".join(_math(f) for f in factors))
+        parts += [
+            intro + " The discriminants other than one factor as follows, by face dimension, "
+            "one factor per line:",
+            "\\begin{itemize}",
+        ]
+        for dimension, discriminants in landau.by_dimension:
+            factors = _sorted([f for d in discriminants for f in _factors(d)])
+            parts += [f"\\item Dimension {dimension}:", _factor_lines(factors)]
         parts.append("\\end{itemize}")
     else:
         parts.append(intro + " Every face discriminant is one.")
     if landau.first_type or landau.second_type:
-        first = _words([_math(f) for f in landau.first_type])
-        second = _words([_math(f) for f in landau.second_type])
-        parts.append(
-            "By comparison with the closed form from the modified Cayley matrix, the "
-            f"first-type (Cayley) factors are {first}, and the second-type (Gram) factors are "
-            f"{second}{cite('dhpt2023')}."
+        first = _sorted(landau.first_type)
+        second = _sorted(landau.second_type)
+        text = (
+            "By comparison with the closed form from the modified Cayley matrix"
+            f"{doc.cite('dhpt2023')}, {_factor_list('first-type (Cayley)', first)}\nand "
+            f"{_factor_list('second-type (Gram)', second)}"
         )
+        shared = len(set(first) & set(second))
+        if shared:
+            text += (
+                "\nA factor can arise from both a Cayley minor and a Gram minor, which is why "
+                f"{_count(shared, 'factor')} {'appears' if shared == 1 else 'appear'} in both "
+                "lists."
+            )
+        parts.append(text)
     parts.append(
         "The factors are candidate codimension-one singular loci on all sheets of the "
         "integral: a point on one of them may or may not be singular on the physical sheet, "
-        f"and the list is not guaranteed complete{cite('fmt2023')}. The coefficients are "
+        f"and the list is not guaranteed complete{doc.cite('fmt2023')}. The coefficients are "
         "specialised to physical kinematics before each face discriminant is computed, so "
         "beyond one loop this is the principal Landau determinant rather than the principal "
         "$A$-determinant of the generic polynomial; multiplicities are dropped."
@@ -725,11 +825,15 @@ def _landau(landau: Landau, cite: _Cites) -> str:
     return "\n".join(parts)
 
 
-def _schwinger(schwinger: Schwinger, identity: Identity, dimension: sp.Expr, cite: _Cites) -> str:
+def _schwinger(report: AnalysisReport, schwinger: Schwinger, doc: _Document) -> str:
     system = schwinger.system
     f_block = schwinger.f_block
-    loops = identity.loop_count
-    condition = sp.Eq(sp.Add(*identity.edge_exponents), (loops + 1) * dimension / 2, evaluate=False)
+    loops = report.identity.loop_count
+    condition = sp.Eq(
+        sp.Add(*report.identity.edge_exponents),
+        (loops + 1) * report.conventions.dimension / 2,
+        evaluate=False,
+    )
     check = "verified" if schwinger.columns_match else "not verified"
     return "\n".join(
         [
@@ -737,9 +841,9 @@ def _schwinger(schwinger: Schwinger, identity: Identity, dimension: sp.Expr, cit
             "The Schwinger representation gives a second GKZ system on the Cayley "
             "configuration of $(\\tilde U, \\tilde F)$, the Symanzik polynomials with "
             "$a_N = 1$ and $a_e = u_e$ otherwise"
-            f"{cite('jimenez2026', 'klausen2023')}:",
+            f"{doc.cite('jimenez2026', 'klausen2023')}:",
             "\\begin{gather*}",
-            "A_{\\text{Cayley}} = " + _matrix(system.a_matrix) + ", \\\\",
+            "A_{\\text{Cayley}} = " + doc.matrix(system.a_matrix) + ", \\\\",
             "\\beta_{\\text{Cayley}} = " + _vector(system.beta_parameters) + ".",
             "\\end{gather*}",
             "It is unimodularly equivalent to the Lee-Pomeransky configuration, the matrix "
@@ -747,21 +851,20 @@ def _schwinger(schwinger: Schwinger, identity: Identity, dimension: sp.Expr, cit
             "$\\beta_{\\text{LP}} = (-D/2, -\\nu_1, \\ldots, -\\nu_N)$ of the GKZ system of $G$, "
             "through",
             "\\begin{equation*}",
-            "T = " + _matrix(schwinger.lp_to_cayley) + ",",
+            "T = " + doc.matrix(schwinger.lp_to_cayley) + ",",
             "\\end{equation*}",
             "which maps the parameter vectors as $\\beta_{\\text{Cayley}} = T "
             "\\beta_{\\text{LP}}$ and the columns of $A_{\\text{LP}}$ to those of "
             "$A_{\\text{Cayley}}$ up to order; the column correspondence is "
             f"{check} for this integral. Restricting to the $\\tilde F$ block gives the system",
             "\\begin{gather*}",
-            "A_F = " + _matrix(f_block.a_matrix) + ", \\\\",
+            "A_F = " + doc.matrix(f_block.a_matrix) + ", \\\\",
             "\\beta_F = " + _vector(f_block.beta_parameters) + ";",
             "\\end{gather*}",
             "its solutions solve the full system when $\\beta_{\\text{Cayley}}$ lies in the span "
-            "of the face's "
-            "columns, which for the $\\tilde F$ block means $\\nu = (L+1)D/2$, with $\\nu$ the "
-            f"sum of the exponents, here ${to_latex(condition)}${cite('britto2026')}. Away "
-            "from that value the relation between the two systems is not established.",
+            "of the face's columns, which for the $\\tilde F$ block means $\\nu = (L+1)D/2$, "
+            f"here ${to_latex(condition)}${doc.cite('britto2026')}. Away from that value the "
+            "relation between the two systems is not established.",
         ]
     )
 
@@ -785,7 +888,7 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
     str
         The document source, ASCII only, compilable with pdflatex.
     """
-    cite = _Cites()
+    doc = _Document()
     if title is None:
         heading = f"Feynman integral \\texttt{{{_escape(report.identity.cnickel)}}}"
     else:
@@ -794,30 +897,24 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
     sections = [
         _summary(report),
         _graph(report.identity),
-        _conventions(report.conventions, cite),
-        _polynomials(report, cite),
+        _conventions(report, doc),
+        _polynomials(report, doc),
     ]
     if report.representations is not None:
-        sections.append(
-            _representations(
-                report.representations, report.identity, report.conventions.dimension, cite
-            )
-        )
+        sections.append(_representations(report, report.representations, doc))
     if report.polytope is not None:
-        sections.append(_polytope(report.polytope, cite))
+        sections.append(_polytope(report.polytope, doc))
     if report.gkz is not None:
-        sections.append(_gkz(report.gkz, cite))
+        sections.append(_gkz(report.gkz, doc))
     if report.symmetries is not None:
-        sections.append(_symmetries(report.symmetries, report.polytope, cite))
+        sections.append(_symmetries(report, report.symmetries, doc))
     if report.landau is not None:
-        sections.append(_landau(report.landau, cite))
+        sections.append(_landau(report.landau, doc))
     if report.schwinger is not None:
-        sections.append(
-            _schwinger(report.schwinger, report.identity, report.conventions.dimension, cite)
-        )
+        sections.append(_schwinger(report, report.schwinger, doc))
 
     document = [
-        _PREAMBLE,
+        doc.preamble(),
         "",
         f"\\title{{{heading}}}",
         "\\date{}",
@@ -827,7 +924,7 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
         "",
         "\n\n".join(sections),
         "",
-        cite.bibliography(),
+        doc.bibliography(),
         "",
         "\\end{document}",
         "",

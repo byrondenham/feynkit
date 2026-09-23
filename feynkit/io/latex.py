@@ -142,9 +142,76 @@ def euler_equation_to_latex(equation: sp.Equality) -> str:
     return latex_str
 
 
+def to_latex_lines(expr: sp.Expr, max_length: int = 80) -> list[str]:
+    """
+    Break the LaTeX of a long sum into lines at its top-level signs.
+
+    A line break falls only before a ``+`` or ``-`` outside every brace group
+    and every ``\\left ... \\right`` pair, so fractions, exponents, function
+    arguments and parenthesised factors are never split apart and every line
+    balances its delimiters. Terms are packed greedily into lines of about
+    ``max_length`` characters.
+
+    Parameters
+    ----------
+    expr : sp.Expr
+        Expression to convert.
+    max_length : int, default 80
+        Approximate maximum characters per line.
+
+    Returns
+    -------
+    list[str]
+        The lines; a single line when the expression is short or has no
+        top-level sign to break at. Every line after the first starts with its
+        sign, ``+ `` or ``- ``.
+    """
+    latex_str = to_latex(expr)
+    if len(latex_str) <= max_length:
+        return [latex_str]
+
+    chunks: list[str] = []
+    depth = 0
+    start = 0
+    i = 0
+    while i < len(latex_str):
+        if latex_str.startswith("\\left", i) and not latex_str[i + 5 : i + 6].isalpha():
+            depth += 1
+            i += 5
+            continue
+        if latex_str.startswith("\\right", i) and not latex_str[i + 6 : i + 7].isalpha():
+            depth -= 1
+            i += 6
+            continue
+        ch = latex_str[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+        elif depth == 0 and i > start and latex_str.startswith((" + ", " - "), i):
+            chunks.append(latex_str[start:i])
+            start = i
+        i += 1
+    chunks.append(latex_str[start:])
+
+    lines: list[str] = []
+    current = chunks[0]
+    for chunk in chunks[1:]:
+        if len(current) + len(chunk) > max_length:
+            lines.append(current)
+            current = chunk.strip()
+        else:
+            current += chunk
+    lines.append(current)
+    return lines
+
+
 def to_latex_split(expr: sp.Expr, max_length: int = 80) -> str:
     """
     Convert expression to LaTeX with manual line breaking for long expressions.
+
+    The lines are those of :func:`to_latex_lines`, joined into a ``split``
+    environment, which must sit inside ``equation*`` or ``align*``.
 
     Parameters
     ----------
@@ -158,40 +225,9 @@ def to_latex_split(expr: sp.Expr, max_length: int = 80) -> str:
     str
         LaTeX with split environment if needed.
     """
-    latex_str = to_latex(expr)
-
-    # If short enough, return as is
-    if len(latex_str) <= max_length:
-        return latex_str
-
-    # Break only at top-level "+" / "-" (brace depth zero) so that fractions,
-    # exponents and function arguments are never split apart.
-    chunks: list[str] = []
-    depth = 0
-    start = 0
-    for i, ch in enumerate(latex_str):
-        if ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-        elif depth == 0 and i > start and latex_str.startswith((" + ", " - "), i):
-            chunks.append(latex_str[start:i])
-            start = i
-    chunks.append(latex_str[start:])
-
-    if len(chunks) == 1:
-        return latex_str
-
-    lines: list[str] = []
-    current = chunks[0]
-    for chunk in chunks[1:]:
-        if len(current) + len(chunk) > max_length:
-            lines.append(current)
-            current = chunk.strip()
-        else:
-            current += chunk
-    lines.append(current)
-
+    lines = to_latex_lines(expr, max_length)
+    if len(lines) == 1:
+        return lines[0]
     body = " \\\\\n& ".join(lines)
     return "\\begin{split}\n" + body + "\n\\end{split}"
 

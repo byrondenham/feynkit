@@ -18,6 +18,7 @@ from feynkit.io import (
 from feynkit.io.latex import (
     _create_analysis_document,
     euler_equation_to_latex,
+    to_latex_lines,
     to_latex_split,
 )
 from feynkit.io.text import _create_analysis_report
@@ -207,3 +208,40 @@ class TestLatexSplit:
         assert "\\\\" in out
         # Every term survives the split.
         assert out.replace("\\\\", "").replace("&", "").count("x_{") == 40
+
+    def test_long_products_split_with_balanced_delimiters(self) -> None:
+        # The sums inside \left( ... \right) sit at brace depth zero, so a
+        # splitter that counts only braces would break inside them and leave
+        # a \left without its \right on the line.
+        xs = sp.symbols("x0:12")
+        ys = sp.symbols("y0:12")
+        s, t = sp.symbols("s t")
+        expr = s * sp.Add(*xs) * sp.Add(*ys) + t * sp.Add(*xs[:6]) * sp.Add(*ys[6:])
+        out = to_latex_split(expr, max_length=40)
+        assert "\\begin{split}" in out
+        body = out.removeprefix("\\begin{split}\n").removesuffix("\n\\end{split}")
+        lines = body.split(" \\\\\n")
+        assert len(lines) == 2
+        for line in lines:
+            assert line.count("\\left") == line.count("\\right") > 0
+
+    def test_long_product_is_never_broken_inside_its_factors(self) -> None:
+        xs = sp.symbols("x0:20")
+        expr = sp.Symbol("s") * sp.Add(*xs) * (sp.Add(*xs[:10]) - 1)
+        for line in to_latex_lines(expr, max_length=40):
+            assert line.count("\\left") == line.count("\\right")
+
+
+class TestLatexLines:
+    def test_short_expression_is_one_line(self) -> None:
+        x = sp.Symbol("x")
+        assert to_latex_lines(x**2 + 1) == [sp.latex(x**2 + 1)]
+
+    def test_lines_are_the_rows_of_the_split(self) -> None:
+        xs = sp.symbols("x0:40")
+        expr = sum(x**2 for x in xs)
+        lines = to_latex_lines(expr, max_length=40)
+        assert len(lines) > 1
+        assert all(line.startswith(("+ ", "- ")) for line in lines[1:])
+        body = " \\\\\n& ".join(lines)
+        assert to_latex_split(expr, max_length=40) == "\\begin{split}\n" + body + "\n\\end{split}"

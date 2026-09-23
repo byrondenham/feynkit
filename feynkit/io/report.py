@@ -91,6 +91,10 @@ class Identity:
         Coloured and bare Nickel indices of the topology.
     loop_count, propagators, external_legs
         L, the number of internal edges and the number of external legs.
+    edge_indices, edge_endpoints
+        The index e of each internal edge, which names its parameters a_e and
+        u_e and its exponent nu_e, and the two vertices it joins, in
+        internal-edge order. The indices need not run from 1 to N.
     edge_masses, edge_exponents
         The mass m_e and the exponent nu_e of each internal edge, in
         internal-edge order; a massless edge has mass 0.
@@ -103,6 +107,8 @@ class Identity:
     loop_count: int
     propagators: int
     external_legs: int
+    edge_indices: tuple[int, ...]
+    edge_endpoints: tuple[tuple[int, int], ...]
     edge_masses: tuple[sp.Expr, ...]
     edge_exponents: tuple[sp.Expr, ...]
     graph_tikz: str
@@ -175,8 +181,9 @@ class Polynomials:
     z_table
         One entry per monomial of G, in GKZ column order.
     codimension
-        ``monomials_g - N - 1`` for N internal edges, the codimension of the
-        A-configuration (Klausen 2023, Table A.4).
+        ``monomials_g - rank A``, the codimension of the A-configuration
+        (Klausen 2023, Table A.4); it is ``monomials_g - N - 1`` for N internal
+        edges when the Newton polytope is full-dimensional.
     independent_invariants
         The number of distinct kinematic symbols, masses and invariants, in
         the coefficients of G; mu is not counted.
@@ -346,6 +353,8 @@ def _identity(fi: FeynmanIntegral) -> Identity:
         loop_count=fi.loop_count,
         propagators=len(edges),
         external_legs=fi.graph.external_legs,
+        edge_indices=tuple(e.idx for e in edges),
+        edge_endpoints=tuple((e.v1, e.v2) for e in edges),
         edge_masses=tuple(sp.sympify(e.get_mass()) for e in edges),
         edge_exponents=tuple(exponents[e.idx] for e in edges),
         graph_tikz=fi.tikz(),
@@ -397,7 +406,7 @@ def _polynomials(fi: FeynmanIntegral) -> Polynomials:
         monomials_f=monomials_f,
         monomials_g=len(z_table),
         z_table=z_table,
-        codimension=len(z_table) - len(parameters) - 1,
+        codimension=len(z_table) - int(fi.gkz.a_matrix.rank()),
         independent_invariants=len(invariants),
     )
 

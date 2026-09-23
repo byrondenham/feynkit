@@ -382,6 +382,11 @@ def _outward_angle(point: tuple[float, float], centre: tuple[float, float]) -> f
     return math.degrees(math.atan2(dy, dx))
 
 
+def _edge_label(edge: Edge) -> str:
+    """A node that labels a propagator with its edge index, halfway along it."""
+    return f"node[midway, auto, font=\\scriptsize] {{${edge.idx}$}}"
+
+
 def _propagator_lines(edges: list[Edge]) -> list[str]:
     """
     Draw every internal edge, bending parallel propagators apart.
@@ -389,27 +394,33 @@ def _propagator_lines(edges: list[Edge]) -> list[str]:
     Edges are grouped by the unordered pair of vertices they join, in order of
     their index, so that a bundle of parallel propagators is drawn as a fan
     rather than collapsed onto one line. Self-loops are drawn as loops around
-    their vertex, taking a fresh side for each one.
+    their vertex, taking a fresh side for each one. Each propagator carries its
+    edge index as a label, the index of its parameters a_e and u_e, inside its
+    own draw command.
     """
-    bundles: dict[tuple[int, int], int] = {}
+    bundles: dict[tuple[int, int], list[Edge]] = {}
     for edge in edges:
         pair = (min(edge.v1, edge.v2), max(edge.v1, edge.v2))
-        bundles[pair] = bundles.get(pair, 0) + 1
+        bundles.setdefault(pair, []).append(edge)
 
     lines = ["  % Internal propagators"]
-    for (first, second), count in bundles.items():
+    for (first, second), bundle in bundles.items():
         if first == second:
-            for index in range(count):
+            for index, edge in enumerate(bundle):
                 side = LOOP_SIDES[index % len(LOOP_SIDES)]
-                lines.append(f"  \\draw[propagator] (v{first}) to[loop {side}] (v{first});")
+                lines.append(
+                    f"  \\draw[propagator] (v{first}) to[loop {side}] {_edge_label(edge)} "
+                    f"(v{first});"
+                )
             continue
-        for bend in _bend_angles(count):
+        for edge, bend in zip(bundle, _bend_angles(len(bundle)), strict=True):
+            label = _edge_label(edge)
             if bend == 0.0:
-                lines.append(f"  \\draw[propagator] (v{first}) -- (v{second});")
+                lines.append(f"  \\draw[propagator] (v{first}) -- {label} (v{second});")
                 continue
             side = "left" if bend > 0 else "right"
             option = f"bend {side}={_format_angle(abs(bend))}"
-            lines.append(f"  \\draw[propagator] (v{first}) to[{option}] (v{second});")
+            lines.append(f"  \\draw[propagator] (v{first}) to[{option}] {label} (v{second});")
     return lines
 
 

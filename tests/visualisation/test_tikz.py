@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from feynkit import FeynmanIntegral, Graph
+from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.visualisation import graph_to_tikz, save_polytope_tikz
 
 
@@ -27,6 +27,22 @@ def count_vertices(code: str) -> int:
 def count_propagators(code: str) -> int:
     """Number of internal propagator lines in the TikZ code."""
     return code.count("\\draw[propagator]")
+
+
+def straight_propagator(code: str, v1: int, v2: int) -> bool:
+    """Whether a straight propagator line joins v1 to v2, with or without its label."""
+    pattern = rf"^\s*\\draw\[propagator\] \(v{v1}\) -- (node\[[^]]*\] \{{[^}}]*\}} )?\(v{v2}\);$"
+    return any(re.match(pattern, line) for line in code.splitlines())
+
+
+def propagator_labels(code: str) -> list[str]:
+    """The labels carried by the propagator lines, in drawing order."""
+    labels = []
+    for line in code.splitlines():
+        if "\\draw[propagator]" in line:
+            found = re.search(r"node\[[^]]*\] \{\$([^$]*)\$\}", line)
+            labels.append(found.group(1) if found else "")
+    return labels
 
 
 def count_external_nodes(code: str) -> int:
@@ -106,6 +122,31 @@ class TestTwoVertexGraph:
         assert "\\draw[external_leg] (v2) -- (e2);" in code
 
 
+class TestPropagatorLabels:
+    @pytest.mark.parametrize(  # type: ignore[misc]
+        "cnickel", ["11e|e|:zz", "12e|2e|e|:zzz", "111e|e|:nnn", "12e|3e|3e|e|:zzzz"]
+    )
+    def test_every_propagator_is_labelled_with_its_index(self, cnickel: str) -> None:
+        graph = Graph.from_cnickel(cnickel)
+        labels = propagator_labels(graph_to_tikz(graph))
+        assert sorted(labels) == sorted(str(e.idx) for e in graph.get_internal_edges())
+
+    def test_labels_follow_the_edge_indices_not_their_positions(self) -> None:
+        graph = Graph(
+            internal_vertices=2,
+            external_legs=2,
+            edges=[
+                Edge(idx=2, v1=1, v2=2, is_internal=True),
+                Edge(idx=3, v1=2, v2=1, is_internal=True),
+                Edge(idx=4, v1=1, v2=3, is_internal=False),
+                Edge(idx=5, v1=2, v2=4, is_internal=False),
+            ],
+        )
+        code = graph_to_tikz(graph)
+        assert count_propagators(code) == 2
+        assert propagator_labels(code) == ["2", "3"]
+
+
 class TestThreeVertexGraph:
     def test_three_vertices_are_placed_on_a_triangle(self, triangle_graph: Graph) -> None:
         """The fixed layout puts the vertices at 90, 210 and 330 degrees."""
@@ -123,7 +164,7 @@ class TestThreeVertexGraph:
 
         assert count_propagators(code) == len(internal_edges) == 3
         for edge in internal_edges:
-            assert f"\\draw[propagator] (v{edge.v1}) -- (v{edge.v2});" in code
+            assert straight_propagator(code, edge.v1, edge.v2)
 
     def test_three_external_legs_are_attached(self, triangle_graph: Graph) -> None:
         code = graph_to_tikz(triangle_graph)
@@ -159,7 +200,7 @@ class TestFourVertexGraph:
 
         assert count_propagators(code) == len(internal_edges) == 4
         for edge in internal_edges:
-            assert f"\\draw[propagator] (v{edge.v1}) -- (v{edge.v2});" in code
+            assert straight_propagator(code, edge.v1, edge.v2)
 
     def test_box_edges_join_angularly_adjacent_vertices(self) -> None:
         """The circle is walked along the internal edges, so the box whose

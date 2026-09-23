@@ -108,6 +108,23 @@ class TestIdentity:
         edges = bubble.graph.get_internal_edges()
         assert identity.edge_masses == tuple(e.get_mass() for e in edges)
         assert identity.edge_exponents == tuple(bubble.propagator_exponents[e.idx] for e in edges)
+        assert identity.edge_indices == tuple(e.idx for e in edges)
+        assert identity.edge_endpoints == tuple((e.v1, e.v2) for e in edges)
+
+    def test_edge_indices_need_not_start_at_one(self) -> None:
+        graph = Graph(
+            internal_vertices=2,
+            external_legs=2,
+            edges=[
+                Edge(idx=2, v1=1, v2=2, is_internal=True),
+                Edge(idx=3, v1=2, v2=1, is_internal=True),
+                Edge(idx=4, v1=1, v2=3, is_internal=False),
+                Edge(idx=5, v1=2, v2=4, is_internal=False),
+            ],
+        )
+        identity = AnalysisReport.from_integral(FeynmanIntegral(graph), []).identity
+        assert identity.edge_indices == (2, 3)
+        assert identity.edge_endpoints == ((1, 2), (2, 1))
 
     def test_massless_edges_have_zero_mass(self, triangle_report: AnalysisReport) -> None:
         assert triangle_report.identity.edge_masses == (0, 0, 0)
@@ -180,9 +197,26 @@ class TestPolynomials:
         p = triangle_report.polynomials
         assert (p.degree_u, p.degree_f) == (1, 2)
         assert p.monomials_g == len(triangle.gkz.support)
-        assert p.codimension == p.monomials_g - 3 - 1
+        # The polytope is full-dimensional, so rank A = N + 1 = 4.
+        assert p.codimension == p.monomials_g - triangle.gkz.a_matrix.rank() == p.monomials_g - 4
         assert p.f_scale_power == 2
         assert sp.expand(p.f_numerator / triangle.graph.energy_scale**2 - triangle.symanzik.f) == 0
+
+    def test_codimension_uses_the_rank_of_a(self) -> None:
+        # A massless vacuum bubble has G = u_1 + u_2, a segment in the plane:
+        # A has rank 2, not N + 1 = 3, and the codimension is 2 - 2 = 0.
+        graph = Graph(
+            internal_vertices=2,
+            external_legs=0,
+            edges=[
+                Edge(idx=1, v1=1, v2=2, is_internal=True, mass=0),
+                Edge(idx=2, v1=1, v2=2, is_internal=True, mass=0),
+            ],
+        )
+        fi = FeynmanIntegral(graph, use_mandelstam=False)
+        p = AnalysisReport.from_integral(fi, []).polynomials
+        assert fi.gkz.a_matrix.rank() == 2
+        assert (p.monomials_g, p.codimension) == (2, 0)
 
     def test_monomials_f_counts_the_support_not_the_terms(
         self,

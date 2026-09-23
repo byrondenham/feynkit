@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 import sympy as sp
@@ -84,6 +85,82 @@ def _fmt_euler(eq: sp.Eq) -> str:
     beta = sp.expand(eq.rhs / phi_atoms[0]) if phi_atoms else eq.rhs
 
     return " + ".join(lhs_parts) + "  =  " + str(beta)
+
+
+# -----------------------------------------------------------------------------
+# Maps between two configurations
+# -----------------------------------------------------------------------------
+
+
+def _column_permutation(
+    src_pts: Sequence[Sequence[int]],
+    tgt_pts: Sequence[Sequence[int]],
+    M: sp.Matrix,
+    t: sp.Matrix,
+) -> list[int] | None:
+    """P, counted from 0, with M a_j + t = b_P(j) for every column; None if P is no bijection."""
+    free: dict[tuple[sp.Expr, ...], list[int]] = {}
+    for k, b in enumerate(tgt_pts):
+        free.setdefault(tuple(sp.Integer(int(x)) for x in b), []).append(k)
+    perm = []
+    for a in src_pts:
+        slots = free.get(tuple(M * sp.Matrix([int(x) for x in a]) + t))
+        if not slots:
+            return None
+        perm.append(slots.pop(0))
+    return perm if len(perm) == len(tgt_pts) else None
+
+
+def _gkz_identity(
+    src_pts: Sequence[Sequence[int]],
+    tgt_pts: Sequence[Sequence[int]],
+    M: sp.Matrix,
+    t: sp.Matrix | None,
+    beta: Sequence[sp.Expr],
+    perm: Sequence[int] | None = None,
+) -> tuple[list[int], sp.Expr, list[sp.Expr]] | None:
+    """
+    P, |det M| and T beta for I_A(beta, z_P) = |det M| I_B(T beta, z).
+
+    Here M a_j + t = b_P(j) for every column a_j of A, P counts from 0 and
+    T = [[1, 0], [t, M]]; the substitution u_i = prod_k v_k^(M_ki) proves it.
+    Returns None when M is singular or the map is not a bijection between the
+    columns, since then no identity follows.  ``perm`` is used as P when given.
+    """
+    M = sp.Matrix(M)
+    n = M.rows
+    t_col = sp.zeros(n, 1) if t is None else sp.Matrix(t).reshape(n, 1)
+    det = M.det()
+    if det == 0:
+        return None
+    if perm is None:
+        P = _column_permutation(src_pts, tgt_pts, M, t_col)
+    else:
+        P = list(perm) if sorted(perm) == list(range(len(tgt_pts))) else None
+    if P is None:
+        return None
+    T = sp.Matrix.vstack(sp.Matrix([[1] + [0] * n]), t_col.row_join(M))
+    return P, abs(det), list(T * sp.Matrix(list(beta)))
+
+
+def _substitution(M: sp.Matrix) -> list[str]:
+    """The substitution u_i = prod_k v_k^(M_ki), one string per u_i."""
+    lines = []
+    for i in range(M.cols):
+        factors = []
+        for k in range(M.rows):
+            e = M[k, i]
+            if e == 0:
+                continue
+            v = f"v_{k + 1}"
+            if e == 1:
+                factors.append(v)
+            elif e.is_Integer and e > 0:
+                factors.append(f"{v}^{e}")
+            else:
+                factors.append(f"{v}^({e})")
+        lines.append(f"u_{i + 1}  =  {' '.join(factors)}")
+    return lines
 
 
 # -----------------------------------------------------------------------------
@@ -299,7 +376,7 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
             f"  {'finite_index':<22} n/a  (different monomial counts: {cfg1.n_points} vs {cfg2.n_points})"
         )
 
-    # -- change of variables for any found map --------------------------------
+    # -- witness maps and the identities they give ----------------------------
     any_found = any(r.equivalent for _, r in results) or fi_res.found
     if not any_found:
         print()
@@ -310,65 +387,55 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
         _rule("=")
         return
 
+    # A map of the hull vertices implies no GKZ identity unless every column is
+    # a vertex, and then point_config holds too and prints the identity itself.
+    pts1 = cfg1.affine_points.tolist()
+    pts2 = cfg2.affine_points.tolist()
+    beta1 = list(fi1.gkz.beta_parameters)
+    z2 = list(fi2.gkz.z_variables)
+    all_vertices = all(len(c.newton_polytope_points) == c.n_points for c in (cfg1, cfg2))
+
+    def _witness(relation: str, M: sp.Matrix, t: sp.Matrix | None) -> None:
+        _sec(f"Witness map  [{relation}]")
+        print(f"  Linear map M  ({M.rows} x {M.cols}):")
+        _matrix(M)
+        if t is not None:
+            print(f"  Translation t  =  {list(t)}")
+        print()
+
+    def _identity(M: sp.Matrix, t: sp.Matrix | None, perm: list[int] | None = None) -> None:
+        identity = _gkz_identity(pts1, pts2, M, t, beta1, perm)
+        if identity is None:
+            print("  M is singular or not a bijection on the columns: no GKZ identity follows.")
+            return
+        P, factor, t_beta = identity
+        print("  M a_j + t = b_P(j) for each column a_j of A (b_k: columns of B, from 1):")
+        print(f"    P       =  {[k + 1 for k in P]}")
+        print("  Substitution u_i = prod_k v_k^(M_ki), u of diagram A, v of diagram B:")
+        for line in _substitution(M):
+            print(f"    {line}")
+        print("  GKZ identity I_A(beta, z_P) = |det M| I_B(T beta, z), no Gamma prefactors:")
+        print(f"    |det M| =  {factor}")
+        print(f"    z_P     =  ({', '.join(str(z2[k]) for k in P)})")
+        print(f"    beta    =  {beta1}")
+        print(f"    T beta  =  {t_beta}")
+
     for relation, res in results:
         if not res.equivalent or res.witness_map is None:
             continue
-        _sec(f"Change of variables  [{relation}]")
-        M = res.witness_map
-        t = res.translation
-        n = M.rows
-        print(f"  Linear map M  ({M.rows} x {M.cols}):")
-        _matrix(M)
-        if t is not None:
-            t_list = [t[i, 0] for i in range(n)] if t.cols == 1 else [t[0, i] for i in range(n)]
-            print(f"  Translation t  =  {t_list}")
-        print()
-        src_vars = [sp.Symbol(f"u_{i+1}") for i in range(n)]
-        tgt_vars = [sp.Symbol(f"v_{i+1}") for i in range(n)]
-        print("  u_i (diagram A)  =  sum_j M_ij v_j + t_i  (diagram B variables v_j):")
-        for i, ui in enumerate(src_vars):
-            expr = sum(M[i, j] * tgt_vars[j] for j in range(n))
-            if t is not None:
-                ti_val = t[i, 0] if t.cols == 1 else t[0, i]
-                if ti_val != 0:
-                    expr = expr + ti_val
-            print(f"    {ui}  =  {sp.simplify(expr)}")
-        print()
-        beta1 = list(fi1.gkz.beta_parameters)
-        t_vals = (
-            [t[i, 0] for i in range(n)]
-            if t is not None and t.cols == 1
-            else [t[0, i] for i in range(n)] if t is not None else [sp.Integer(0)] * n
-        )
-        T_rows = [[sp.Integer(1)] + [sp.Integer(0)] * n]
-        for i in range(n):
-            T_rows.append([t_vals[i]] + [M[i, j] for j in range(n)])
-        T_hom = sp.Matrix(T_rows)
-        transformed = list(T_hom * sp.Matrix(beta1))
-        print("  GKZ identity  I_A(beta, z_P) = I_A(T*beta, z):")
-        print(f"    beta    =  {beta1}")
-        print(f"    T*beta  =  {[str(x) for x in transformed]}")
+        _witness(relation, res.witness_map, res.translation)
+        if relation == "point_config":
+            _identity(res.witness_map, res.translation)
+        elif all_vertices:
+            print("  Relates the Newton polytopes only; every column is a vertex, so")
+            print("  point_config gives the identity.")
+        else:
+            print("  Relates the Newton polytopes only; not every column is a vertex, so")
+            print("  no GKZ identity follows.")
 
     if fi_res.found and fi_res.witness_matrix is not None:
-        M, t = fi_res.witness_matrix, fi_res.translation
-        n = M.rows
-        _sec(f"Change of variables  [finite_index, det = {fi_res.determinant}]")
-        print(f"  Linear map M  ({M.rows} x {M.cols}):")
-        _matrix(M)
-        if t is not None:
-            t_list = [t[i, 0] for i in range(n)] if t.cols == 1 else [t[0, i] for i in range(n)]
-            print(f"  Translation t  =  {t_list}")
-        print()
-        src_vars = [sp.Symbol(f"u_{i+1}") for i in range(n)]
-        tgt_vars = [sp.Symbol(f"v_{i+1}") for i in range(n)]
-        print("  u_i (A)  =  sum_j M_ij v_j + t_i  (B variables v_j):")
-        for i, ui in enumerate(src_vars):
-            expr = sum(M[i, j] * tgt_vars[j] for j in range(n))
-            if t is not None:
-                ti_val = t[i, 0] if t.cols == 1 else t[0, i]
-                if ti_val != 0:
-                    expr = expr + ti_val
-            print(f"    {ui}  =  {sp.simplify(expr)}")
+        _witness("finite_index", fi_res.witness_matrix, fi_res.translation)
+        _identity(fi_res.witness_matrix, fi_res.translation, fi_res.column_permutation)
 
     db.close()
     _rule("=")

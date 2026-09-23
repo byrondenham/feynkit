@@ -35,11 +35,12 @@ ambient dimension:
   - Point-configuration equivalence (affine map on all A-columns)
   - Finite-index integer map (|det| > 1)
 
-For every equivalence found the script exhibits:
- , the linear map M and translation t
- , the change of integration variables u_i = sum_j M_ij v_j + t_i
- , the resulting GKZ beta-parameter identity I_A(beta, z_P) = I_A(T*beta, z),
-   for I_A without Gamma prefactors
+For every equivalence found the script prints the linear map M and the
+translation t.  When the map sends every column a_j of A to a column b_P(j) of
+B (point_config and finite_index), it also prints P, the substitution
+u_i = prod_k v_k^(M_ki) of the integration variables, and the identity
+I_A(beta, z_P) = |det M| I_B(T beta, z) for the integrals without Gamma
+prefactors.  The hull-only relations give no identity.
 
 All data is persisted in examples/output/feynkit_survey.db so that re-runs skip
 already-computed integrals. Results are also written to
@@ -339,6 +340,7 @@ class EquivResult:
     det: int | sp.Expr | None = None
     M: sp.Matrix | None = None
     t: sp.Matrix | None = None
+    perm: list[int] | None = None
     reason: str = ""
 
 
@@ -355,6 +357,9 @@ def _check_pair(r1: DiagramRecord, r2: DiagramRecord) -> list[EquivResult]:
     ]:
         try:
             res = method(c2)
+            perm = None
+            if relation == "point_config" and res.equivalent:
+                perm = _column_permutation(c1, c2, res.witness_map, res.translation)
             results.append(
                 EquivResult(
                     r1.label,
@@ -364,6 +369,7 @@ def _check_pair(r1: DiagramRecord, r2: DiagramRecord) -> list[EquivResult]:
                     det=res.determinant,
                     M=res.witness_map,
                     t=res.translation,
+                    perm=perm,
                 )
             )
         except Exception as exc:
@@ -391,6 +397,7 @@ def _check_pair(r1: DiagramRecord, r2: DiagramRecord) -> list[EquivResult]:
                 det=fi_res.determinant if fi_res.found else None,
                 M=fi_res.witness_matrix if fi_res.found else None,
                 t=fi_res.translation if fi_res.found else None,
+                perm=fi_res.column_permutation if fi_res.found else None,
             )
         )
     except Exception as exc:
@@ -399,21 +406,39 @@ def _check_pair(r1: DiagramRecord, r2: DiagramRecord) -> list[EquivResult]:
     return results
 
 
-def _change_of_vars_lines(
-    M: sp.Matrix,
-    t: sp.Matrix | None,
-    src_vars: list[sp.Symbol],
-    tgt_vars: list[sp.Symbol],
-) -> list[str]:
+def _column_permutation(
+    c1: AConfiguration, c2: AConfiguration, M: sp.Matrix, t: sp.Matrix
+) -> list[int] | None:
+    """P, counted from 0, with M a_j + t = b_P(j) for every column; None if P is no bijection."""
+    free: dict[tuple, list[int]] = {}
+    for k, b in enumerate(c2.affine_points.tolist()):
+        free.setdefault(tuple(sp.Integer(x) for x in b), []).append(k)
+    perm = []
+    for a in c1.affine_points.tolist():
+        slots = free.get(tuple(M * sp.Matrix(a) + sp.Matrix(t).reshape(M.rows, 1)))
+        if not slots:
+            return None
+        perm.append(slots.pop(0))
+    return perm if len(perm) == c2.n_points else None
+
+
+def _substitution_lines(M: sp.Matrix) -> list[str]:
+    """The substitution u_i = prod_k v_k^(M_ki), one line per u_i."""
     lines = []
-    n = M.rows
-    for i, ui in enumerate(src_vars):
-        expr: sp.Expr = sum(M[i, j] * tgt_vars[j] for j in range(n))
-        if t is not None:
-            ti_val = t[i, 0] if t.cols == 1 else t[0, i]
-            if ti_val != 0:
-                expr = expr + ti_val
-        lines.append(f"  {ui}  =  {sp.simplify(expr)}")
+    for i in range(M.cols):
+        factors = []
+        for k in range(M.rows):
+            e = M[k, i]
+            if e == 0:
+                continue
+            v = f"v_{k + 1}"
+            if e == 1:
+                factors.append(v)
+            elif e.is_Integer and e > 0:
+                factors.append(f"{v}^{e}")
+            else:
+                factors.append(f"{v}^({e})")
+        lines.append(f"    u_{i + 1}  =  {' '.join(factors)}")
     return lines
 
 
@@ -544,17 +569,19 @@ def main() -> None:
                 _emit(f"    {er.relation:<18}  {status}{det_str}{reason_str}")
             _emit()
 
-    # -- Change-of-variables for each found map -------------------------------
-    _header("EXPLICIT CHANGES OF VARIABLES FOR FOUND MAPS")
+    # -- Witness maps and the identities they give -----------------------------
+    _header("WITNESS MAPS AND GKZ IDENTITIES FOR FOUND MAPS")
     _emit()
 
     seen: set[tuple[str, str, str]] = set()
+    by_label = {r.label: r for r in records}
 
     for er in all_equiv:
         key = (er.label_a, er.label_b, er.relation)
         if key in seen or er.M is None:
             continue
         seen.add(key)
+        src_rec, tgt_rec = by_label[er.label_a], by_label[er.label_b]
 
         _sec(
             f"{er.relation}  :  {er.label_a}  ->  {er.label_b}"
@@ -566,49 +593,42 @@ def main() -> None:
         _emit()
 
         if er.t is not None:
-            t_list = (
-                er.t.T.tolist()[0] if er.t.shape[1] != 1 else [er.t[i, 0] for i in range(er.t.rows)]
-            )
-            _emit(f"  Translation t  =  {t_list}")
+            _emit(f"  Translation t  =  {list(er.t)}")
             _emit()
 
-        n = er.M.rows
-        src_vars = [sp.Symbol(f"u_{i + 1}") for i in range(n)]
-        tgt_vars = [sp.Symbol(f"v_{i + 1}") for i in range(n)]
-        _emit("  Change of integration variables  (u = source diagram, v = target):")
-        _emit("    u_i  =  sum_j M_ij v_j  +  t_i")
-        try:
-            for line in _change_of_vars_lines(er.M, er.t, src_vars, tgt_vars):
-                _emit(line)
-        except Exception as exc:
-            _emit(f"  [error: {exc}]")
-        _emit()
-
-        # beta-parameter identity (only for Feynman integral source records)
-        src_rec = next((r for r in records if r.label == er.label_a), None)
-        if src_rec and src_rec.beta:
-            n = er.M.rows
-            t_vals: list = []
-            if er.t is not None:
-                t_vals = (
-                    [er.t[i, 0] for i in range(n)]
-                    if er.t.cols == 1
-                    else [er.t[0, i] for i in range(n)]
-                )
+        # Hull-only relations say nothing about the columns that are not vertices.
+        if er.relation in ("unimodular", "affine_polytope"):
+            if src_rec.n_pts == src_rec.n_verts and tgt_rec.n_pts == tgt_rec.n_verts:
+                _emit("  Relates the Newton polytopes only; every column is a vertex, so")
+                _emit("  point_config gives the identity.")
             else:
-                t_vals = [sp.Integer(0)] * n
-            M_list = [[er.M[i, j] for j in range(n)] for i in range(n)]
-            T_rows = [[1] + [0] * n]
-            for i in range(n):
-                T_rows.append([t_vals[i]] + M_list[i])
-            T_hom = sp.Matrix(T_rows)
-            beta_vec = sp.Matrix(list(src_rec.beta))
-            transformed = list(T_hom * beta_vec)
-            _emit("  GKZ integral identity  I_A(beta, z_P) = I_A(T*beta, z):")
-            _emit(f"    beta      =  {src_rec.beta}")
-            _emit(f"    T*beta    =  {[str(x) for x in transformed]}")
-            _emit("  [T*beta gives the beta-parameters of the target integral]")
+                _emit("  Relates the Newton polytopes only; not every column is a vertex, so")
+                _emit("  no GKZ identity follows.")
             _emit()
+            continue
+
+        det_M = er.M.det()
+        if er.perm is None or det_M == 0:
+            _emit("  M is singular or not a bijection on the columns: no GKZ identity follows.")
+            _emit()
+            continue
+
+        _emit("  M a_j + t = b_P(j) for each column a_j of A (b_k: columns of B, from 1):")
+        _emit(f"    P        =  {[k + 1 for k in er.perm]}")
+        _emit(f"  Substitution u_i = prod_k v_k^(M_ki), u of {er.label_a}, v of {er.label_b}:")
+        for line in _substitution_lines(er.M):
+            _emit(line)
+        _emit("  GKZ identity I_A(beta, z_P) = |det M| I_B(T beta, z), no Gamma prefactors:")
+        _emit(f"    |det M|  =  {abs(det_M)}")
+        _emit(f"    z_P      =  ({', '.join(f'z_{k + 1}' for k in er.perm)})")
+        # beta is known only for Feynman integrals
+        if src_rec.beta:
+            n = er.M.rows
+            t_col = sp.zeros(n, 1) if er.t is None else sp.Matrix(er.t).reshape(n, 1)
+            T_hom = sp.Matrix.vstack(sp.Matrix([[1] + [0] * n]), t_col.row_join(er.M))
+            _emit(f"    beta     =  {src_rec.beta}")
+            _emit(f"    T beta   =  {list(T_hom * sp.Matrix(src_rec.beta))}")
+        _emit()
 
     # -- Pattern analysis -----------------------------------------------------
     _header("PATTERN ANALYSIS")

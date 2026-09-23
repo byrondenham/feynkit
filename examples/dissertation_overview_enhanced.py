@@ -680,11 +680,10 @@ note(
     "A symmetry pair (M, t, P) satisfies the column-permutation identity "
     "T * A = A * Pi_P, where T = [[1, 0^T],[t, M]] in GL_{L+1}(Z) and Pi_P "
     "is a column permutation matrix.  This gives the integral identity "
-    "I_A(beta, z_P) = I_A(T*beta, z), for I_A without Gamma prefactors.  "
-    "Unimodular pairs (|det M| = 1) are "
-    "exact symmetries; non-unimodular pairs (|det M| > 1) are finite-index "
-    "self-embeddings and give Forsgård-Matusevich-Sobieska type identities "
-    "(de la Cruz 2024, Section 4)."
+    "I_A(beta, z_P) = I_A(T*beta, z), for I_A without Gamma prefactors "
+    "(FMS 2019; de la Cruz 2024, Section 4).  Every pair has det M = +/-1, "
+    "since P has finite order k and so M^k = I.  Maps with |det M| > 1 relate "
+    "two different configurations (finite_index_map)."
 )
 
 unimod_pairs = [s for s in sp_list if s.is_unimodular]
@@ -692,12 +691,12 @@ nonuni_pairs = [s for s in sp_list if not s.is_unimodular]
 
 sec(f"Triangle symmetry pairs  ({len(sp_list)} total)")
 print(f"  Unimodular   (|det| = 1): {len(unimod_pairs)}   -> exact symmetries of I_A")
-print(f"  Finite-index (|det| > 1): {len(nonuni_pairs)}   -> sublattice transformation formulas")
+print(f"  Finite-index (|det| > 1): {len(nonuni_pairs)}   -> none for a self-map")
 note(
     "The 48 unimodular pairs match |Aut(P)| = 48, confirming that every "
-    "polytope automorphism produces a valid integral identity.  The "
-    "non-unimodular pairs generalise the classical Pfaff, Euler, and Kummer "
-    "transformations of _2F_1 to the multivariate GKZ setting.",
+    "polytope automorphism produces a valid integral identity.  Pairs like "
+    "these carry the classical transformations: FMS (Example 4.2) obtain the "
+    "Pfaff transformation of 2F1 from a pair with det M = +/-1.",
     4,
 )
 

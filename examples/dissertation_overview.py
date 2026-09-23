@@ -302,8 +302,8 @@ print("  A symmetry pair (M, t, P) satisfies  T*A = A*Pi_P")
 print("  where T = [[1, 0^T], [t, M]] in GL_{n+1}(Z)  and  Pi_P is a column permutation.")
 print("  It gives the integral identity, for I_A without Gamma prefactors:")
 print("    I_A(beta, z_P) = I_A(T beta, z),  z_P = (z_{P(0)}, ..., z_{P(N-1)})")
-print("  Unimodular maps (|det M| = 1) are polytope automorphisms;")
-print("  non-unimodular maps (|det M| > 1) are finite-index self-embeddings.")
+print("  Every pair has det M = +/-1: P has finite order k, so M^k = I.")
+print("  Maps with |det M| > 1 relate two different configurations (finite_index_map).")
 
 sp_list = fi_tri.symmetry_pairs
 

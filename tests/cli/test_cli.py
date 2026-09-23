@@ -48,3 +48,20 @@ class TestPairwise:
         out = _run(capsys, tmp_path, "12e|2e|e|:nzz", "12e|2e|e|:znz")
         assert "Equivalence checks" in out
         assert "unimodular" in out
+
+    def test_identity_printed_with_permutation_and_factor(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        # Swapping u_1 and u_2 sends the columns of A onto those of B.
+        out = _run(capsys, tmp_path, "12e|2e|e|:nzz", "12e|2e|e|:znz")
+        identity = "GKZ identity I_A(beta, z_P) = |det M| I_B(T beta, z)"
+        # Printed for point_config and finite_index, not for the hull-only relations.
+        assert out.count(identity) == 2
+        assert out.count("Relates the Newton polytopes only") == 2
+        assert "point_config gives the identity" in out
+        assert "P       =  [3, 1, 4, 2, 6, 5, 7]" in out
+        assert "z_P     =  (z_3, z_1, z_4, z_2, z_6, z_5, z_7)" in out
+        assert "|det M| =  1" in out
+        assert "T beta  =  [-D/2, -nu_2, -nu_1, -nu_3]" in out
+        assert "u_1  =  v_2" in out
+        assert "sum_j M_ij" not in out

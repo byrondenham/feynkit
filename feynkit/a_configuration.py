@@ -441,8 +441,9 @@ class AConfiguration:
         I_A(beta, z_P) = I_A(T beta, z) for the associated Feynman integral
         without its prefactor (de la Cruz 2024).
 
-        Unimodular maps (|det M| = 1) are the polytope automorphisms.
-        Non-unimodular maps (|det M| > 1) are finite-index self-embeddings.
+        Every returned pair has det M = +/-1: P has finite order k, so
+        T^k A = A, and as A has full rank, M^k = I.  Maps with |det M| > 1
+        relate two different configurations; see :func:`finite_index_map`.
         """
         return symmetry_pairs(self)
 
@@ -608,11 +609,13 @@ def symmetry_pairs(
 
     An integer affine self-map x -> Mx + t sends every point in the
     configuration to another point in the configuration bijectively, with M
-    an invertible integer matrix (det M != 0, not restricted to +/-1).
+    an invertible integer matrix.  Such a map has det M = +/-1: P has finite
+    order k, so T^k A = A, and as A has full rank, M^k = I.  Maps with
+    |det M| > 1 relate two different configurations; see
+    :func:`finite_index_map`.
 
     Each result is a :class:`SymmetryPair` encoding the linear map M,
     translation t, induced column permutation P, and determinant |det M|.
-    Unimodular automorphisms (|det M| = 1) are a subset of the output.
 
     For Feynman integrals, each symmetry pair gives (de la Cruz 2024):
 

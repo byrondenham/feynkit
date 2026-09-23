@@ -318,10 +318,9 @@ print(len(gauts))                      # 2  (Z/2: swap the two vertices)
 cp = coefficient_preserving_indices(fi, auts)
 print(len(cp))                         # 6  (= 3! edge perms, all monomials have coeff 1)
 
-# Symmetry pairs: all integer affine maps (including finite-index) between point configs
+# Symmetry pairs: integer affine self-maps of the point configuration
 pairs = fi.symmetry_pairs
-uni  = [p for p in pairs if p.is_unimodular]     # |det| = 1
-fi_p = [p for p in pairs if not p.is_unimodular]  # |det| > 1
+uni  = [p for p in pairs if p.is_unimodular]     # all of them: a self-map has |det| = 1
 ```
 
 ---

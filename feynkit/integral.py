@@ -397,10 +397,11 @@ class FeynmanIntegral:
         where z_P = (z_{P(0)}, ..., z_{P(N-1)}) and I_A is the Lee-Pomeransky
         integral without its prefactor (de la Cruz 2024).
 
-        The unimodular subset (``pair.is_unimodular``) coincides with the
+        Every pair is unimodular (``pair.is_unimodular``): P has finite
+        order k, so M^k = I and det M = +/-1.  The pairs coincide with the
         polytope automorphism group from :attr:`polytope_automorphisms`.
-        Non-unimodular pairs (``|det M| > 1``) give transformation identities
-        between different parameter regimes of the same integral.
+        Maps with |det M| > 1 relate two different configurations; see
+        :func:`feynkit.a_configuration.finite_index_map`.
 
         Notes
         -----

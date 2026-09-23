@@ -841,14 +841,15 @@ background, physical interpretation, and full results for standard diagrams.
 
 ### Symmetry pairs
 
-`fi.symmetry_pairs` returns all integer affine maps between the point configuration and itself,
-including finite-index maps (|det| > 1). Each `SymmetryPair` records:
+`fi.symmetry_pairs` returns all integer affine maps between the point configuration and itself.
+Each has $|\det M| = 1$: $P$ has finite order $k$, so $M^k = I$. Maps with $|\det M| > 1$ relate two
+different configurations (`finite_index_map`). Each `SymmetryPair` records:
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `witness_matrix` | `sp.ImmutableMatrix` | The integer linear map M |
 | `translation` | `sp.ImmutableMatrix` | Translation vector t |
-| `determinant` | `int` | \|det(M)\|, 1 for unimodular, >1 for finite-index |
+| `determinant` | `int` | \|det(M)\|, always 1 for a self-map |
 | `is_unimodular` | `bool` | Shorthand for `determinant == 1` |
 | `column_permutation` | `list[int]` | Induced permutation on A-matrix columns |
 

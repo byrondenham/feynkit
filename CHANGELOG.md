@@ -81,6 +81,14 @@
   as I_A(beta, z) = I_A(T beta, z_P), which fails whenever P is not an
   involution. It now reads I_A(beta, z_P) = I_A(T beta, z), with
   z_P = (z_{P(1)}, ..., z_{P(N)}) and I_A the integral without Gamma prefactors.
+- For a map between two diagrams, `fk` and `examples/feynkit_survey.py` printed
+  I_A(beta, z_P) = I_A(T*beta, z), which lacks the factor |det M| and names A
+  where the target B is meant. They also gave the exponent map
+  u_i = sum_j M_ij v_j + t_i as the change of variables. They now print P, the
+  substitution u_i = prod_k v_k^(M_ki) and I_A(beta, z_P) = |det M| I_B(T beta, z),
+  and only for maps of every column (point_config, finite_index); a map of the
+  hull vertices gives no identity. The docstrings no longer say that
+  `symmetry_pairs` can return maps with |det M| > 1.
 
 ### Removed
 

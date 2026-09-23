@@ -271,26 +271,28 @@ def _factor_lines(factors: Sequence[sp.Expr]) -> str:
     return "\\begin{align*}\n" + " \\\\\n".join(rows) + "\n\\end{align*}"
 
 
-def _factors(expr: sp.Expr) -> list[sp.Expr]:
-    """Split a product into its factors that are sums, or powers of sums, and the rest.
+def _factors(expr: sp.Expr, scale: sp.Symbol) -> list[sp.Expr]:
+    """The factors of a face discriminant that the document lists, one per line.
 
-    The rest, a monomial with its coefficient, stays in one piece; a bare
-    number is folded into the first sum instead, so that no line of the
-    display is a lone constant.
+    This is a display rule; the discriminants stored in ``Landau.by_dimension``
+    stay exact. The product is split into its sums, or powers of sums, and a
+    monomial. A factor free of every symbol but the energy scale mu, that is a
+    number or a power of mu, is dropped: it only reflects the normalisation of
+    the coefficients z_j = c / mu^k and vanishes nowhere. The monomial
+    therefore loses its numerical coefficient and its power of mu, so that
+    -p_1^2 / mu^2 is listed as p_1^2 and mu s as s. A sum is never altered,
+    even one that contains mu alongside kinematic symbols.
     """
     sums: list[sp.Expr] = []
-    rest: list[sp.Expr] = []
+    monomial: list[sp.Expr] = []
     for arg in sp.Mul.make_args(expr):
+        if arg.free_symbols <= {scale}:
+            continue
         base = arg.base if isinstance(arg, sp.Pow) else arg
-        (sums if isinstance(base, sp.Add) else rest).append(arg)
-    monomial = sp.Mul(*rest)
-    if not sums:
-        return [monomial]
-    if monomial == 1:
-        return sums
-    if monomial.is_Number and isinstance(sums[0], sp.Add):
-        return [sp.expand(monomial * sums[0]), *sums[1:]]
-    return [monomial, *sums]
+        (sums if isinstance(base, sp.Add) else monomial).append(arg)
+    if monomial:
+        return [sp.Mul(*monomial), *sums]
+    return sums
 
 
 def _factor_list(kind: str, factors: Sequence[sp.Expr]) -> str:
@@ -586,7 +588,9 @@ def _representations(
             f"{doc.cite('klausen2023')}."
         )
         return "\n".join(parts)
-    lines = " \\\\\n".join(f"{to_latex(c)} &> 0" for c in representations.convergence)
+    lines = " \\\\\n".join(
+        f"\\mathrm{{Re}}\\left({to_latex(c)}\\right) &> 0" for c in representations.convergence
+    )
     parts += [
         f"{euclidean}, and for $\\mathrm{{Re}}\\,D > 0$, the Lee-Pomeransky integral converges "
         "absolutely when the real parts of $(\\nu_1, \\ldots, \\nu_N)$, divided by "
@@ -725,13 +729,15 @@ def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) 
             f"{'size' if len(orbits) == 1 else 'sizes'} {sizes}"
         )
     if report.gkz is not None:
-        integral = "the Euler-Mellin integral $I_A$ of Section~\\ref{sec:gkz-system}"
+        definition = ""
+        integral = " for the Euler-Mellin integral $I_A$ of Section~\\ref{sec:gkz-system}"
     else:
-        integral = (
-            f"the Euler-Mellin integral ${_EULER_MELLIN}$, the Lee-Pomeransky integral "
-            "without its prefactor, with $G = \\sum_j z_j u^{\\alpha_j}$ and "
-            "$\\beta = (-D/2, -\\nu_1, \\ldots, -\\nu_N)$"
+        definition = (
+            f"Write $G = \\sum_j z_j u^{{\\alpha_j}}$ and let ${_EULER_MELLIN}$ be the "
+            "Lee-Pomeransky integral without its prefactor, where "
+            "$\\beta = (-D/2, -\\nu_1, \\ldots, -\\nu_N)$. "
         )
+        integral = ""
     preserving = symmetries.coefficient_preserving
     pairs = symmetries.symmetry_pairs
     parts = [
@@ -748,10 +754,11 @@ def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) 
     shown = pairs[:_MAX_PAIRS_SHOWN]
     n_columns = report.polynomials.monomials_g
     parts.append(
-        f"The configuration has {_count(len(pairs), 'symmetry pair')} $(T, \\sigma)$: "
+        f"{definition}The configuration has {_count(len(pairs), 'symmetry pair')} "
+        "$(T, \\sigma)$: "
         "integer matrices $T$ and permutations $\\sigma$ of the columns of $A$ such that $T$ "
         "takes column $j$ of $A$ to column $\\sigma(j)$. Each gives the identity "
-        f"$I_A(\\beta, z_\\sigma) = I_A(T\\beta, z)$ for {integral}, with "
+        f"$I_A(\\beta, z_\\sigma) = I_A(T\\beta, z)${integral}, with "
         f"$z_\\sigma = (z_{{\\sigma(1)}}, \\ldots, z_{{\\sigma({n_columns})}})$"
         f"{doc.cite('delacruz2024')}; for $I$ itself the prefactors at $\\beta$ and "
         "$T\\beta$ enter as well. "
@@ -771,28 +778,33 @@ def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) 
     return "\n".join(parts)
 
 
-def _landau(landau: Landau, doc: _Document) -> str:
+def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
     intro = (
         "The reduced principal $A$-determinant of $G$, each irreducible kinematic factor taken "
         "once, is the product of the discriminants of $G$ restricted to the faces of $P$"
         f"{doc.cite('gkz1994', 'dhpt2023', 'fmt2023')}."
     )
+    by_dimension = [
+        (dimension, _sorted([f for d in discriminants for f in _factors(d, scale)]))
+        for dimension, discriminants in landau.by_dimension
+    ]
+    listed = [(dimension, factors) for dimension, factors in by_dimension if factors]
     parts = ["\\section{Landau surfaces}"]
-    if landau.by_dimension:
+    if listed:
         parts += [
-            intro + " The discriminants other than one factor as follows, by face dimension, "
-            "one factor per line:",
+            intro + " Each discriminant that is not identically one factorises as follows, by "
+            "face dimension, with one factor per line; numerical factors and powers of the "
+            "energy scale $\\mu$, which only normalise the coefficients $z_j$, are left out:",
             "\\begin{itemize}",
         ]
-        for dimension, discriminants in landau.by_dimension:
-            factors = _sorted([f for d in discriminants for f in _factors(d)])
+        for dimension, factors in listed:
             parts += [f"\\item Dimension {dimension}:", _factor_lines(factors)]
         parts.append("\\end{itemize}")
     else:
-        parts.append(intro + " Every face discriminant is one.")
+        parts.append(intro + " No face discriminant has a kinematic factor.")
     if landau.first_type or landau.second_type:
-        first = _sorted(landau.first_type)
-        second = _sorted(landau.second_type)
+        first = _sorted([f for x in landau.first_type for f in _factors(x, scale)])
+        second = _sorted([f for x in landau.second_type for f in _factors(x, scale)])
         text = (
             "By comparison with the closed form from the modified Cayley matrix"
             f"{doc.cite('dhpt2023')}, {_factor_list('first-type (Cayley)', first)}\nand "
@@ -909,7 +921,7 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
     if report.symmetries is not None:
         sections.append(_symmetries(report, report.symmetries, doc))
     if report.landau is not None:
-        sections.append(_landau(report.landau, doc))
+        sections.append(_landau(report.landau, report.conventions.energy_scale, doc))
     if report.schwinger is not None:
         sections.append(_schwinger(report, report.schwinger, doc))
 

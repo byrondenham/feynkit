@@ -29,9 +29,14 @@ def count_propagators(code: str) -> int:
     return code.count("\\draw[propagator]")
 
 
-def straight_propagator(code: str, v1: int, v2: int) -> bool:
-    """Whether a straight propagator line joins v1 to v2, with or without its label."""
-    pattern = rf"^\s*\\draw\[propagator\] \(v{v1}\) -- (node\[[^]]*\] \{{[^}}]*\}} )?\(v{v2}\);$"
+def straight_propagator(code: str, v1: int, v2: int, label: int | None = None) -> bool:
+    """Whether a straight propagator line joins v1 to v2.
+
+    Without ``label`` the line may carry any label node or none; with it, the
+    line must carry exactly that label.
+    """
+    node = r"(node\[[^]]*\] \{[^}]*\} )?" if label is None else rf"node\[[^]]*\] \{{\${label}\$\}} "
+    pattern = rf"^\s*\\draw\[propagator\] \(v{v1}\) -- {node}\(v{v2}\);$"
     return any(re.match(pattern, line) for line in code.splitlines())
 
 
@@ -130,6 +135,17 @@ class TestPropagatorLabels:
         graph = Graph.from_cnickel(cnickel)
         labels = propagator_labels(graph_to_tikz(graph))
         assert sorted(labels) == sorted(str(e.idx) for e in graph.get_internal_edges())
+
+    def test_each_label_sits_on_its_own_edge(self) -> None:
+        # The box's four propagators join four different vertex pairs, so each
+        # label can be matched to the one draw command between its endpoints.
+        graph = Graph.from_cnickel("12e|3e|3e|e|:zzzz")
+        code = graph_to_tikz(graph)
+        for edge in graph.get_internal_edges():
+            first, second = sorted((edge.v1, edge.v2))
+            assert straight_propagator(code, first, second, label=edge.idx), edge.idx
+            others = [e.idx for e in graph.get_internal_edges() if e.idx != edge.idx]
+            assert not any(straight_propagator(code, first, second, label=k) for k in others)
 
     def test_labels_follow_the_edge_indices_not_their_positions(self) -> None:
         graph = Graph(

@@ -322,3 +322,55 @@ def test_edge_table_of_a_graph_whose_indices_start_at_two() -> None:
     assert "\n3 & 2--1 & $\\nu_{3}$ & $m_{3}$ \\\\" in table
     assert "{$2$}" in table and "{$3$}" in table  # the figure labels the same indices
     assert "U = a_{2} + a_{3}" in latex
+
+
+def _landau_rows(latex: str) -> list[str]:
+    """The display rows of the Landau section, one factor or continuation each."""
+    landau = latex.split("\\section{Landau surfaces}")[1].split("\\section")[0]
+    return [line.removesuffix(" \\\\") for line in landau.splitlines() if line.startswith("&")]
+
+
+@pytest.mark.parametrize(  # type: ignore[misc]
+    "cnickel", ["11e|e|:nn", "12e|2e|e|:nzz", "111e|e|:nnn"]
+)
+def test_landau_factor_lines_carry_no_energy_scale(cnickel: str) -> None:
+    # The face discriminants carry powers of mu and numerical factors from
+    # the coefficients z_j = c / mu^k; neither is a Landau factor, so the
+    # display drops them, and mu never appears on a factor line.
+    integral = FeynmanIntegral.from_cnickel(cnickel)
+    rows = _landau_rows(render_latex(AnalysisReport.from_integral(integral, ["landau"])))
+    assert rows
+    for row in rows:
+        assert "\\mu" not in row, row
+        symbols = re.sub(r"\\[a-zA-Z]+", "", row)
+        assert re.search(r"[a-z]", symbols), row
+
+
+def test_vertex_coefficients_list_their_kinematic_symbol(latex: str) -> None:
+    # The triangle's vertex coefficients are -p_i^2 / mu^2; the factor shown
+    # is p_i^2.
+    two = latex.split("\\item Dimension 0:")[1].split("\\item")[0]
+    rows = [line.removesuffix(" \\\\") for line in two.splitlines() if line.startswith("&")]
+    assert rows == ["&p^{2}_{1}", "&p^{2}_{2}", "&p^{2}_{3}"]
+
+
+def test_landau_introduction_reads_plainly(latex: str) -> None:
+    assert "Each discriminant that is not identically one factorises as follows" in latex
+    assert "other than one factor as follows" not in latex
+
+
+def test_convergence_rows_take_the_real_part(latex: str) -> None:
+    rows = [line for line in latex.splitlines() if "&> 0" in line]
+    assert rows
+    for row in rows:
+        assert row.startswith("\\mathrm{Re}\\left(") and row.rstrip(" \\").endswith("\\right) &> 0")
+
+
+def test_self_contained_symmetry_identity_uses_one_with_clause(
+    triangle: FeynmanIntegral,
+) -> None:
+    latex = render_latex(AnalysisReport.from_integral(triangle, ["symmetries"]))
+    symmetries = latex.split("\\section{Symmetries}")[1].split("\\begin{equation*}")[0]
+    identity = symmetries.split("Each gives the identity")[1].split(".")[0]
+    assert identity.count(" with ") == 1
+    assert "be the Lee-Pomeransky integral without its prefactor" in symmetries

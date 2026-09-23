@@ -32,6 +32,7 @@ of any diagram.
 19. [The database](#the-database)
 20. [Visualisation and export](#visualisation-and-export)
 21. [Standard diagram library](#standard-diagram-library)
+22. [References](#references)
 
 ---
 
@@ -678,7 +679,9 @@ lists one such expression per facet:
 from feynkit.io import AnalysisReport
 
 report = AnalysisReport.from_integral(fi, ["representations"])
-print(report.representations.convergence)   # nu_1, D/2 - nu_1, ...: each needs Re > 0
+print(report.representations.convergence)
+# (-D/2 + nu_1 + nu_2 + nu_3, nu_3, nu_2, D/2 - nu_1, nu_1, D/2 - nu_2, D/2 - nu_3,
+#  D - nu_1 - nu_2 - nu_3): each needs a positive real part
 ```
 
 ---
@@ -806,7 +809,7 @@ for h in compute_syzygy_module(gens, zs):
     assert sp.expand(sum(c * g for c, g in zip(h, gens, strict=True))) == 0
 ```
 
-`ideal_quotient` and `intersect_ideals` return a reduced grevlex Gröbner
+`ideal_quotient` and `intersect_ideals` return a reduced grevlex Groebner
 basis, with the zero ideal returned as an empty list and the whole ring as
 `[1]`. Both are computed by elimination with an auxiliary variable, so they
 are exact but slow for large ideals.
@@ -1418,10 +1421,10 @@ The document has twelve parts:
     configuration and its reduction to the $\tilde F$ block.
 12. References, the works cited in order of first citation.
 
-Parts 6 to 11 appear when their sections are built. The document also states what feynkit does
-not compute: the holonomic rank at the physical point, the Euler characteristic that counts the
-master integrals, series solutions, a Pfaffian system and the restriction of the GKZ system to
-physical kinematics.
+Parts 6 to 11 appear when their sections are built. When the `polytope` section is built, the
+document also states what feynkit does not compute: the holonomic rank at the physical point, the
+Euler characteristic that counts the master integrals, series solutions, a Pfaffian system and the
+restriction of the GKZ system to physical kinematics.
 
 The LaTeX source is ASCII and needs only standard TeX Live packages (amsmath, booktabs, longtable,
 geometry, lmodern, TikZ with tikz-3dplot, hyperref). The test `tests/io/test_report_compile.py`
@@ -1625,15 +1628,15 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
    Researchers.* Springer. [arXiv:2201.03593](https://arxiv.org/abs/2201.03593)
 
 2. de la Cruz, L. (2019). Feynman integrals as A-hypergeometric functions. *JHEP* **12**, 123.
-   [arXiv:1907.01007](https://arxiv.org/abs/1907.01007)
+   [arXiv:1907.00507](https://arxiv.org/abs/1907.00507)
 
 3. Lee, R.N. and Pomeransky, A.A. (2013). Critical points and master integrals. *JHEP* **11**,
    165. [arXiv:1308.6676](https://arxiv.org/abs/1308.6676)
 
 4. Gelfand, I.M., Kapranov, M.M., Zelevinsky, A.V. (1994). *Discriminants, Resultants and
-   Multidimensional Determinants.* Birkhäuser.
+   Multidimensional Determinants.* Birkhaeuser.
 
-5. Sturmfels, B. (1996). *Gröbner Bases and Convex Polytopes.* American Mathematical Society.
+5. Sturmfels, B. (1996). *Groebner Bases and Convex Polytopes.* American Mathematical Society.
 
 6. Bogner, C. et al. (2017). Loopedia, a database for loop integrals.
    [arXiv:1709.01266](https://arxiv.org/abs/1709.01266)

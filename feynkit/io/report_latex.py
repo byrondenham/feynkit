@@ -118,7 +118,7 @@ class _Document(Citations):
                 "\\usepackage{tikz}",
                 "\\usetikzlibrary{calc}",
                 "\\usepackage{tikz-3dplot}",
-                "\\usepackage[hidelinks]{hyperref}",
+                "\\usepackage[hidelinks,pdfusetitle]{hyperref}",
                 "\\allowdisplaybreaks",
             ]
         )

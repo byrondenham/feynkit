@@ -86,9 +86,10 @@ def create_euler_equations(
     """
     Generate Euler differential equations for the GKZ hypergeometric system.
 
-    The Euler equations (also called A-hypergeometric equations or Horn equations) are
-    a system of linear partial differential equations that the Feynman integral satisfies.
-    Each row of the A-matrix gives one Euler operator equation.
+    The Euler (homogeneity) equations are first-order linear partial differential
+    equations that the Feynman integral satisfies; with the toric operators they
+    make up the A-hypergeometric system. Each row of the A-matrix gives one Euler
+    operator equation.
 
     Parameters
     ----------

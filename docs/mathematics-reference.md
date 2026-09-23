@@ -250,11 +250,13 @@ generate the full GKZ D-module. *Ref:* GKZ (1994) section 3; SST (2000) section 
 ### 4.4 Proof That Feynman Integrals Are A-Hypergeometric
 
 **Theorem** (de la Cruz 2019, Thm 1; Klausen 2020, Thm 3.1):
-*The generalised Feynman integral $I_A(\nu, z)$, with $z_j$ promoted to formal indeterminates, is
-annihilated by the GKZ system $H_A(\beta)$ with $\beta$ as above.*
+*The generalised Feynman integral $I_A(\beta, z)$, with $\beta = (-D/2, -\nu)$ as above and the $z_j$
+promoted to formal indeterminates, is annihilated by the GKZ system $H_A(\beta)$.*
 
-**Proof sketch:** Toric relations follow from homogeneity of the integrand under simultaneous rescaling
-$z_j \to s^{a_j^{(r)}} z_j$; Euler relations follow from differentiation in $s$.
+**Proof sketch:** Euler relations follow from the homogeneity of the integral under the rescaling
+$z_j \to s^{A_{rj}} z_j$, differentiated in $s$ at $s = 1$.  Toric relations follow because $\partial_j$
+brings down the monomial $u^{\alpha_j}$ and lowers the power of $G$ by one, so $\partial^u$ and
+$\partial^v$ give the same integrand when $Au = Av$.
 
 ### 4.5 Holonomic Rank and Master Integral Count
 
@@ -351,19 +353,23 @@ massive banana graphs).
 
 ### 5.3 Normalised Volume
 
-The **normalised (lattice) volume** of a full-dimensional polytope $P \subset \mathbb{R}^n$ is
+The **normalised (lattice) volume** that feynkit computes for a full-dimensional polytope
+$P = \operatorname{Conv}(\mathcal{A}) \subset \mathbb{R}^n$ is measured in the lattice $L$ spanned by
+the differences of the points of $\mathcal{A}$:
 
-$$\mathrm{vol}_0(P) \;=\; n!\,\mathrm{Vol}(P),$$
+$$\mathrm{vol}_0(P) \;=\; \frac{n!\,\mathrm{Vol}(P)}{[\mathbb{Z}^n : L]},$$
 
-where $\mathrm{Vol}$ is ordinary Euclidean volume.  For a lattice simplex $\sigma$ with vertices
-$v_0,\ldots,v_n$, $\mathrm{vol}_0(\sigma) = |\det(v_1-v_0, \ldots, v_n-v_0)|$.
+where $\mathrm{Vol}$ is ordinary Euclidean volume and the index $[\mathbb{Z}^n : L]$ is the product of
+the Smith invariants (section 5.4).  When the points span $\mathbb{Z}^n$ the index is 1 and
+$\mathrm{vol}_0(P) = n!\,\mathrm{Vol}(P)$; for a lattice simplex with vertices $v_0,\ldots,v_n$ this is
+$|\det(v_1-v_0, \ldots, v_n-v_0)|$.  In general $\mathrm{vol}_0$ is the sum of $\mathrm{vol}_0$ over any
+triangulation into simplices that are unimodular in $L$, each of normalised volume 1.
 
-For a general convex lattice polytope, $\mathrm{vol}_0$ equals the sum of $\mathrm{vol}_0$ over any
-triangulation into primitive simplices (each of unit normalised volume).
+$\mathrm{vol}_0(\Delta_G)$ equals the GKZ holonomic rank for generic $\beta$.  For example, the BMS
+simplex of section 11.2 has $n!\,\mathrm{Vol} = 2^n$ and index 2, so $\mathrm{vol}_0 = 2^{n-1}$
+(`polytope_data` gives 4, 8 and 16 for $n = 3, 4, 5$).
 
-$\mathrm{vol}_0(\Delta_G)$ equals the GKZ holonomic rank for generic $\beta$.
-
-Accessed as `fi.newton_polytope.normalised_volume` (via `AConfiguration.normalized_volume`).
+Accessed as `polytope_data(points).normalized_volume` or `AConfiguration.normalized_volume`.
 
 ### 5.4 Smith Normal Form and Intrinsic Lattice Model
 
@@ -424,9 +430,10 @@ feynkit chooses automatically between the two backends (`backend="auto"` in
 ### 6.3 Physical Interpretation
 
 Each generator $z^u - z^v \in I_A$ gives the toric operator $\partial^u - \partial^v$ of section 4.3,
-which annihilates the integral.  Since $\partial_j I_A(\beta, z) = \beta_0\, I_A(\beta - a_j, z)$, with
-$a_j$ the $j$-th column of $A$, a toric operator relates integrals with shifted propagator exponents and
-dimension.  These relations are an analogue of integration-by-parts (IBP) relations, not IBP relations
+which annihilates the integral.  For the integral $I_A(\beta, z)$ without Gamma prefactors (defined in
+section 8.2), $\partial_j I_A(\beta, z) = \beta_0\, I_A(\beta - a_j, z)$, with
+$a_j$ the $j$-th column of $A$, so a toric operator relates integrals with shifted propagator exponents
+and dimension.  These relations are an analogue of integration-by-parts (IBP) relations, not IBP relations
 themselves (Chestnov et al.\ 2022).  They hold for independent coefficients $z_j$;
 specialising to physical kinematics is a separate step, which feynkit does not perform.
 
@@ -579,8 +586,8 @@ lattice.
 **Physical meaning:** When the map takes every column of $\mathcal{A}$ onto a column of $\mathcal{B}$,
 not only the hull vertices, the two GKZ systems agree up to a relabelling $P$ of the $z_j$ and the
 change $\beta \mapsto T\beta$, and the integrals satisfy $I_A(\beta, z_P) = I_B(T\beta, z)$, the identity
-of section 9.4 with $|\det M| = 1$.  The map $\alpha \mapsto U\alpha + t$ acts on the exponents, not on the
-integration variables: the substitution is $u_i = \prod_k v_k^{U_{ki}}$, which sends $u^\alpha$ to
+of section 9.4 with $M = U$ and $|\det U| = 1$.  The map $\alpha \mapsto U\alpha + t$ acts on the
+exponents, not on the integration variables: the substitution is $u_i = \prod_k v_k^{U_{ki}}$, which sends $u^\alpha$ to
 $v^{U\alpha}$, so that $G$ becomes $v^{-t}$ times the polynomial of $\mathcal{B}$ with permuted
 coefficients; the translation enters only through this monomial factor.  A map of the hull vertices
 alone implies all this only when every column is a vertex; section 9.3 checks all columns.
@@ -594,11 +601,15 @@ configurations): build labelled polytope graphs, enumerate MST isomorphisms, sol
 ### 9.2 Affine Equivalence
 
 Two configurations are **affinely equivalent** (over $\mathbb{Q}$) if there exists $M \in GL_n(\mathbb{Q})$
-and $t \in \mathbb{Q}^n$ mapping one to the other.  This is a weaker relation; some GKZ structural
-properties (holonomic rank, series solutions) are invariant only under unimodular equivalence.
+and $t \in \mathbb{Q}^n$ mapping one to the other.
 
 Accessed via `fi.is_affinely_equivalent_to(other)`.  The algorithm checks equivalence of the hull
-vertices only (not the full monomial support).
+vertices only (not the full monomial support), which is a weaker relation: the interior points need
+not correspond, so the two GKZ systems can differ.  When the map takes every column onto a column
+(section 9.3), the GKZ systems agree up to a relabelling of the $z_j$, $\beta \mapsto T\beta$ and the
+factor $|\det M|$ in the identity, and the generic holonomic rank, the normalised volume in the lattice the points span
+(section 5.3), is the same.  What a rational map need not preserve is the ambient lattice
+$\mathbb{Z}^n$, so the Smith invariants of the two configurations can differ (section 11.3).
 
 ### 9.3 Point-Configuration Equivalence
 
@@ -626,8 +637,11 @@ $u_i = \prod_k v_k^{M_{ki}}$ gives
 
 $$I_A(\beta, z_P) \;=\; |\det M|\; I_B(T\beta,\; z),$$
 
-with $T$ as in section 8.1 and $I_A$, $I_B$ the integrals without Gamma prefactors of section 8.2.
-For a self-map it is the identity of section 8.2.
+with $T = \begin{pmatrix} 1 & \mathbf{0}^T \\ t & M \end{pmatrix}$ built as in section 8.1 and
+$I_A$, $I_B$ the integrals without Gamma prefactors of section 8.2.  Unlike there,
+$T \notin GL_{n+1}(\mathbb{Z})$: its entries are integers for a finite-index map but $T^{-1}$ has
+rational entries, and for the rational maps of section 9.3 $T$ itself has rational entries.  For a
+self-map the identity is that of section 8.2.
 
 Example: The massless triangle (Smith invariants $[1,1,1]$) maps to the triple-K integral (Smith
 invariants $[1,1,2]$) via $M = \bigl(\begin{smallmatrix}0&1&1\\1&0&1\\1&1&0\end{smallmatrix}\bigr)$

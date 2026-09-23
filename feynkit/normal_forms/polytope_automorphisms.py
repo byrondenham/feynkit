@@ -5,7 +5,7 @@ The automorphism group Aut(P) consists of all unimodular affine maps
 (U, t) with U in GL_n(Z), |det U| = 1, t in Z ^n, that send P to itself.
 The identity (I, 0) is always a member; for a generic polytope it is the
 only member.  Symmetric integrals (triangles, bananas, boxes) have larger
-groups that are directly visible in their GKZ/IBP structure.
+groups that are directly visible in their GKZ structure.
 
 The algorithm extends the Liu-Cai basis-search used for equivalence testing
 (_direct_basis_search in affine_equivalence.py): instead of returning on the
@@ -293,9 +293,12 @@ def coefficient_preserving_indices(
 
     A unimodular automorphism (U, t) is *coefficient-preserving* if, when
     applied to the support of G, each monomial maps to another monomial with
-    the same coefficient.  This is the condition relevant for functional
-    equations of the GKZ system: the integral satisfies a symmetry relation
-    I(z) = I(sigma*z) exactly when sigma is coefficient-preserving.
+    the same coefficient.  Every automorphism that maps the monomials of G
+    onto themselves, with sigma the induced permutation, gives the identity
+    I_A(beta, z_sigma) = I_A(T beta, z) for the integral without Gamma
+    prefactors.  For a coefficient-preserving one z_sigma = z at the physical
+    point, so the identity relates the integral at beta and at T beta; it
+    does not relate different kinematic points.
 
     Parameters
     ----------

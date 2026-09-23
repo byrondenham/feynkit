@@ -24,9 +24,10 @@ complete_graph_a_config(n)
     massless_polygon_a_config(3).
 
 conformal_companion_a_config(n)
-    Candidate companion A-configuration to bms_simplex_a_config(n), designed to
-    admit a det=2 finite-index map to BMS_n.  For n=3 this is exactly the
-    massless triangle.  The 2n monomials are:
+    Candidate companion A-configuration to bms_simplex_a_config(n).  Every
+    affine map of its columns onto those of BMS_n has |det M| = 2/(n-2), so
+    only for n=3, where it is exactly the massless triangle, is there an
+    integer (finite-index, det 2) map.  The 2n monomials are:
       - n lower monomials prod_{j!=i} u_j  (degree n-1, same as BMS_n lower)
       - n upper monomials u_i            (degree 1, standard basis)
     G polynomial: sum_i prod_{j!=i} u_j + sum_i p_i^2 u_i
@@ -242,8 +243,11 @@ def conformal_companion_a_config(n: int) -> AConfiguration:
 
     G polynomial: G(u) = sum_i prod_{j!=i} u_j  +  sum_i p_i^2 u_i
 
-    This is the natural higher-dimensional analogue of the triangle A-configuration
-    when searching for companions related to BMS_n by a finite-index (det=2) affine map.
+    It is the natural higher-dimensional analogue of the triangle A-configuration.
+    An affine map of all its columns onto those of BMS_n exists for every n, with
+    |det M| = 2/(n-2): integer (a finite-index map of index 2) only for n=3, and
+    rational for n >= 4, so no integer map exists there (section 11.3 of the
+    mathematics reference).
 
     Parameters
     ----------

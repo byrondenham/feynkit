@@ -115,6 +115,9 @@
   than with `\cdot`.
 - `graph_to_tikz` places each external leg outward from its own vertex and
   lays out one-loop graphs as polygons along the walk of internal edges.
+  It draws a self-loop as a loop, where it used to draw a line from the vertex
+  to itself, and several self-loops at one vertex take the sides above, below,
+  left and right in turn.
 - `docs/triangle_analysis.tex`, `.pdf` and `.txt` are regenerated from the new
   report. They describe the same graph as before, the triangle with three
   distinct masses (`12e|2e|e|:nnn`).
@@ -172,6 +175,16 @@
   M^k = I. The `finite_index_map` docstring had the index the wrong way round:
   the image M Z^n of the source lattice has index |det M| in the target
   lattice Z^n.
+- `docs/automorphism_groups.md` and the `coefficient_preserving_indices`
+  docstring claimed functional equations I(z) = I(sigma . z) between kinematic
+  points. A coefficient-preserving automorphism gives
+  I_A(beta, z) = I_A(T beta, z), a relation between parameter vectors at one
+  kinematic point. The literature review no longer says the IBP-like relations
+  are the polytope-symmetry relations, the Euler equations are no longer called
+  Horn equations, and the conformal companion's map to BMS_n is no longer said
+  to have det 2 for every n. The mathematics reference now defines the
+  normalised volume in the lattice the points span, as feynkit computes it.
+  The guide cited de la Cruz (2019) as arXiv:1907.01007; it is 1907.00507.
 
 ### Removed
 

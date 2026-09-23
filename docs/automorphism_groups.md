@@ -3,34 +3,40 @@
 ## 1. Introduction
 
 The Lee-Pomeransky polynomial $G(u; z)$ encodes a Feynman integral as a GKZ
-hypergeometric function: up to a Gamma-function prefactor,
+hypergeometric function: up to a Gamma-function prefactor it is
 
 $$
-I(z) = \int_{\mathbb{R}^n_{>0}} \prod_i u_i^{\nu_i - 1} \, G(u; z)^{-\nu_0} \, du,
+I_A(\beta, z) = \int_{\mathbb{R}^n_{>0}} \prod_i u_i^{\nu_i - 1} \, G(u; z)^{-D/2} \, du,
+\qquad \beta = (-D/2, -\nu_1, \ldots, -\nu_n),
 $$
 
-where $z = (z_1, \ldots, z_m)$ are the kinematic parameters (masses and
-momentum invariants) appearing as coefficients of the monomials of $G$, and
-$\nu_0$ is a combination of propagator exponents and the spacetime dimension.
-The Newton polytope $P = \mathrm{Newt}(G) \subset \mathbb{R}^n$ controls
-the combinatorics of the GKZ $D$-module associated with $I(z)$: the holonomic
-rank, the number of master integrals in the IBP sense, equals the normalised
-volume $\mathrm{vol}(P)$, and the set of GKZ exponents is read off from
-the face structure of $P$.
+where $z = (z_1, \ldots, z_m)$ are the coefficients of the monomials of $G$,
+functions of the masses and momentum invariants. The Newton polytope
+$P = \mathrm{Newt}(G) \subset \mathbb{R}^n$ controls the combinatorics of the
+GKZ $D$-module associated with $I_A$: for generic coefficients and non-resonant
+$\beta$ its holonomic rank equals the normalised volume $\mathrm{vol}(P)$, and
+the set of GKZ exponents is read off from the face structure of $P$. The number
+of master integrals is, up to sign, the Euler characteristic of the complement
+of $\{G = 0\}$ in the torus: at most $\mathrm{vol}(P)$, and equal to it for
+generic coefficients, which graph polynomials rarely have (Bitoun, Bogner,
+Klausen, Panzer 2019).
 
-A unimodular automorphism of $P$ is a lattice-preserving bijection $P \to P$.
-Any such map $\sigma$ permutes the monomials of $G$ and, if it also permutes
-them in a coefficient-preserving way, yields a functional equation
+A unimodular automorphism of $P$ is a lattice-preserving affine bijection
+$(U, t)$ of $P$. When it maps the monomials of $G$ onto themselves, with $\sigma$
+the induced permutation of their indices, it gives the identity
 
 $$
-I(z) = I(\sigma \cdot z),
+I_A(\beta, z_\sigma) = I_A(T\beta, z), \qquad
+T = \begin{pmatrix} 1 & 0 \\ t & U \end{pmatrix}, \quad
+z_\sigma = (z_{\sigma(1)}, \ldots, z_{\sigma(m)})
 $$
 
-where $\sigma \cdot z$ is the rearrangement of kinematic parameters induced by
-the monomial permutation. These symmetry relations are the polytope-automorphism
-analogues of Ward identities: they collapse the parameter space and can reduce
-the number of independent kinematic configurations that must be evaluated
-numerically.
+(section 8.2 of the mathematics reference, after Forsgaard, Matusevich and
+Sobieska 2019 and de la Cruz 2024, who print the permutation on the other side).
+If the map also preserves the coefficients, then $z_\sigma = z$ and the identity
+reads $I_A(\beta, z) = I_A(T\beta, z)$: it relates the integral at two parameter
+vectors, that is two sets of propagator exponents and dimensions, at the same
+kinematic point. It does not relate the integral at different kinematic points.
 
 feynkit computes these automorphism groups exactly, via the Liu-Cai algorithm
 applied to the Newton polytope of $G$.
@@ -65,7 +71,7 @@ $$
 
 where $G = \sum_\alpha c_\alpha \, u^\alpha$. The GKZ A-matrix is the matrix
 whose columns are the homogenised exponent vectors $(1, \alpha)^T$; it encodes
-all the operator equations (box operators, Euler operators) satisfied by $I(z)$.
+all the operator equations (box operators, Euler operators) satisfied by $I_A$.
 
 ### Unimodular automorphisms
 
@@ -155,10 +161,10 @@ $$
 c_\alpha = c_{U\alpha + t} \quad \text{for all } \alpha \in \mathrm{supp}(G).
 $$
 
-This is the physically significant subgroup: when $(U, t)$ is
-coefficient-preserving, the rearrangement $z \mapsto \sigma \cdot z$ of
-kinematic parameters leaves $G$ invariant and therefore gives the exact
-functional equation $I(z) = I(\sigma \cdot z)$.
+This is the subgroup whose identities hold at the physical point: when
+$(U, t)$ is coefficient-preserving, $z_\sigma = z$, so the identity of section 1
+reads $I_A(\beta, z) = I_A(T\beta, z)$, a relation between the integral at
+$\beta$ and at $T\beta$.
 
 With generic symbolic kinematics (all masses and Mandelstam invariants
 independent symbols), each monomial of $G$ typically has a distinct coefficient,
@@ -234,20 +240,19 @@ symmetry is reduced, in agreement with the table above.
 
 ## 6. Physical Interpretation
 
-The holonomic rank of the GKZ $D$-module equals the normalised volume
-$\mathrm{vol}(P)$, which is a unimodular invariant. Two Feynman integrals
-whose Newton polytopes are unimodularly equivalent therefore have the same
-number of master integrals; a polytope automorphism provides a concrete
-isomorphism between their GKZ systems.
+For generic coefficients and non-resonant $\beta$ the holonomic rank of the
+GKZ $D$-module equals the normalised volume $\mathrm{vol}(P)$, a unimodular
+invariant, so two configurations related by a unimodular map of all their
+points have GKZ systems of the same generic rank. The number of master
+integrals, the Euler characteristic, is at most $\mathrm{vol}(P)$ and depends
+on the coefficients, so equal volumes alone do not give equal counts.
 
-Coefficient-preserving automorphisms go further: they produce exact functional
-equations $I(z) = I(\sigma \cdot z)$ that hold as identities of analytic
-functions, not merely as equalities of dimension counts. At a special kinematic
-point where the coefficient-preserving group has order $k$, the kinematic
-parameter space is reduced by a factor of $k$: any numerical evaluation of $I$
-at $k$ related kinematic configurations can be recycled from a single evaluation.
-This is directly useful in multi-loop computations where $I$ is numerically
-expensive.
+Coefficient-preserving automorphisms give exact identities
+$I_A(\beta, z) = I_A(T\beta, z)$ between the integral at two parameter vectors
+and the same kinematic point. At a point where the coefficient-preserving group
+has order $k$, they relate $I_A$ at up to $k$ parameter vectors $T\beta$, so
+its value at one of them gives the others; for the full integral the Gamma
+prefactors at $\beta$ and $T\beta$ enter as well.
 
 The vertex orbits of $\mathrm{Aut}(P)$ partition the monomials of $G$ into
 equivalence classes under the full symmetry group. When all monomials in an

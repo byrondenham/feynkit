@@ -43,6 +43,7 @@ from ..parametrisations.base import ParametrisationResult
 from ..polytope import PolytopeData, polytope_data
 from ..systems.cayley import CayleyGKZSystem
 from ..systems.complete import GKZSystem
+from ..systems.monomial import extract_monomial_support
 from .latex import factor_energy_scale
 
 if TYPE_CHECKING:
@@ -226,6 +227,11 @@ class Polytope:
     figure
         TikZ source, or None when the polytope has too many vertices to
         draw legibly.
+
+    Point indices in ``data`` (``vertex_indices``, ``faces``, each facet's
+    ``point_indices``) follow the order of ``newton_polytope.points``, which
+    is not the z-index order of ``gkz.support`` that :class:`ZEntry` uses: the
+    two enumerate the same monomials independently and need not agree.
     """
 
     data: PolytopeData
@@ -269,6 +275,10 @@ class Symmetries:
         G, the subgroup relevant for functional equations.
     symmetry_pairs
         Every integer affine self-map of the A-configuration.
+
+    ``vertex_orbits`` indexes the hull-vertex list that the automorphism
+    computation extracts from the polytope's points, not the z-index order of
+    ``gkz.support``.
     """
 
     automorphism_order: int
@@ -372,6 +382,11 @@ def _polynomials(fi: FeynmanIntegral) -> Polynomials:
     invariants = {s for entry in z_table for s in entry.coefficient.free_symbols} - {scale}
 
     f_expanded = sp.expand(symanzik.f)
+    monomials_f = (
+        0
+        if f_expanded == 0
+        else len(extract_monomial_support(f_expanded, list(symanzik.schwinger_parameters)))
+    )
     return Polynomials(
         u=symanzik.u,
         f_numerator=numerator,
@@ -379,7 +394,7 @@ def _polynomials(fi: FeynmanIntegral) -> Polynomials:
         g=symanzik.g,
         degree_u=int(sp.Poly(symanzik.u_lp, *parameters).total_degree()),
         degree_f=int(sp.Poly(symanzik.f_lp, *parameters).total_degree()),
-        monomials_f=0 if f_expanded == 0 else len(sp.Add.make_args(f_expanded)),
+        monomials_f=monomials_f,
         monomials_g=len(z_table),
         z_table=z_table,
         codimension=len(z_table) - len(parameters) - 1,

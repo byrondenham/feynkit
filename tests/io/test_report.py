@@ -18,6 +18,7 @@ from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.core.exceptions import ValidationError
 from feynkit.io.report import SECTION_NAMES, AnalysisReport
 from feynkit.landau import landau_analysis, one_loop_landau_surfaces_by_type
+from feynkit.systems.monomial import extract_monomial_support
 
 SUMMARY_LABELS = (
     "Loops",
@@ -69,6 +70,11 @@ def sunrise() -> FeynmanIntegral:
 
 
 @pytest.fixture(scope="module")  # type: ignore[misc]
+def box() -> FeynmanIntegral:
+    return FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+
+
+@pytest.fixture(scope="module")  # type: ignore[misc]
 def bubble_report(bubble: FeynmanIntegral) -> AnalysisReport:
     return AnalysisReport.from_integral(bubble)
 
@@ -81,6 +87,14 @@ def triangle_report(triangle: FeynmanIntegral) -> AnalysisReport:
 @pytest.fixture(scope="module")  # type: ignore[misc]
 def sunrise_report(sunrise: FeynmanIntegral) -> AnalysisReport:
     return AnalysisReport.from_integral(sunrise)
+
+
+@pytest.fixture(scope="module")  # type: ignore[misc]
+def box_report(box: FeynmanIntegral) -> AnalysisReport:
+    # Only the always-built sections (identity, conventions, polynomials) are
+    # needed here, so the automorphism and Landau computations, the slow part
+    # of a full box report, are skipped.
+    return AnalysisReport.from_integral(box, [])
 
 
 class TestIdentity:
@@ -132,6 +146,34 @@ class TestPolynomials:
         for e in table:
             assert e.monomial == sp.Mul(*[v**k for v, k in zip(u, e.exponent, strict=True)])
 
+    def test_z_table_indices_match_the_a_matrix_columns(
+        self, triangle_report: AnalysisReport
+    ) -> None:
+        """Catches a z-index / A-matrix-column misalignment.
+
+        The exponent test above compares against ``gkz.support`` directly,
+        the very list the z-table is built from, so it cannot see a index
+        shift against the matrix the GKZ section renders. Column j - 1 of
+        the report's own ``gkz.a_matrix`` (built independently, from
+        ``fi.gkz.a_matrix``) must carry the same exponent as ``z_table[j-1]``.
+        """
+        table = triangle_report.polynomials.z_table
+        assert triangle_report.gkz is not None
+        a_matrix = triangle_report.gkz.a_matrix
+        for j in range(1, len(table) + 1):
+            assert table[j - 1].exponent == tuple(int(x) for x in a_matrix.col(j - 1))[1:]
+
+    def test_z_table_coefficients_match_g_independently(
+        self, triangle_report: AnalysisReport, triangle: FeynmanIntegral
+    ) -> None:
+        """Coefficients checked against a fresh `sp.Poly` of G, not against
+        `newton_polytope.support`, the dict the implementation itself reads.
+        """
+        lp_parameters = triangle.symanzik.lp_parameters
+        g_poly = sp.Poly(sp.expand(triangle.symanzik.g), *lp_parameters)
+        for entry in triangle_report.polynomials.z_table:
+            assert entry.coefficient == g_poly.coeff_monomial(entry.monomial)
+
     def test_degrees_counts_codimension(
         self, triangle_report: AnalysisReport, triangle: FeynmanIntegral
     ) -> None:
@@ -142,8 +184,50 @@ class TestPolynomials:
         assert p.f_scale_power == 2
         assert sp.expand(p.f_numerator / triangle.graph.energy_scale**2 - triangle.symanzik.f) == 0
 
-    def test_monomials_of_f(self, triangle_report: AnalysisReport) -> None:
-        assert triangle_report.polynomials.monomials_f == 3
+    def test_monomials_f_counts_the_support_not_the_terms(
+        self,
+        bubble_report: AnalysisReport,
+        triangle_report: AnalysisReport,
+        box_report: AnalysisReport,
+    ) -> None:
+        """A monomial support entry can be several `Add` terms.
+
+        The box's F has monomials with composite coefficients (sums of
+        several kinematic products), so `sp.expand(F)` splits some of them
+        into more than one term; counting terms would overcount. Expected
+        numbers verified independently with `extract_monomial_support`
+        before pinning: bubble 3 of 5, triangle 3 of 6, box 6 of 10.
+        """
+        assert (bubble_report.polynomials.monomials_f, bubble_report.polynomials.monomials_g) == (
+            3,
+            5,
+        )
+        assert (
+            triangle_report.polynomials.monomials_f,
+            triangle_report.polynomials.monomials_g,
+        ) == (3, 6)
+        assert (box_report.polynomials.monomials_f, box_report.polynomials.monomials_g) == (
+            6,
+            10,
+        )
+
+    def test_monomials_f_matches_extract_monomial_support(
+        self, box: FeynmanIntegral, box_report: AnalysisReport
+    ) -> None:
+        f_expanded = sp.expand(box.symanzik.f)
+        support = extract_monomial_support(f_expanded, list(box.symanzik.schwinger_parameters))
+        assert box_report.polynomials.monomials_f == len(support)
+
+    def test_monomials_f_never_exceeds_monomials_g(
+        self,
+        bubble_report: AnalysisReport,
+        triangle_report: AnalysisReport,
+        sunrise_report: AnalysisReport,
+        box_report: AnalysisReport,
+    ) -> None:
+        """G = U + F, so G has at least as many monomials as F."""
+        for report in (bubble_report, triangle_report, sunrise_report, box_report):
+            assert report.polynomials.monomials_f <= report.polynomials.monomials_g
 
     def test_independent_invariants_massless_triangle(
         self, triangle_report: AnalysisReport

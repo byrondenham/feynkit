@@ -16,8 +16,9 @@ import pytest
 import sympy as sp
 
 from feynkit import Edge, FeynmanIntegral, Graph
+from feynkit.io._report_shared import integrand_templates
 from feynkit.io.report import AnalysisReport
-from feynkit.io.report_latex import CITATIONS, _integrand_templates, render_latex
+from feynkit.io.report_latex import CITATIONS, render_latex
 from feynkit.normal_forms._invariants import hull_vertex_indices, to_integer_points
 from feynkit.polytope import polytope_data
 
@@ -184,7 +185,7 @@ def test_integrand_templates_match_the_computed_integrands(cnickel: str) -> None
     # the Feynman exponents.
     integral = FeynmanIntegral.from_cnickel(cnickel)
     u, f, g, nu = sp.symbols("U F G nu")
-    templates = _integrand_templates(integral.loop_count, integral.dimension)
+    templates = integrand_templates(integral.loop_count, integral.dimension)
     symanzik = integral.symanzik
     edges = integral.graph.get_internal_edges()
     nu_total = sum(integral.propagator_exponents[e.idx] for e in edges)

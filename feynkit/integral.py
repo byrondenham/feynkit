@@ -31,6 +31,7 @@ Examples
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
@@ -510,43 +511,59 @@ class FeynmanIntegral:
 
         return visualise_newton_polytope(self.newton_polytope.support, **kwargs)
 
-    def to_latex(self, **kwargs: Any) -> str:
-        """Self-contained LaTeX analysis document for the integral."""
-        from .io.latex import _create_analysis_document
+    def to_latex(
+        self,
+        sections: Collection[str] | None = None,
+        *,
+        title: str | None = None,
+        max_face_points: int = 12,
+    ) -> str:
+        """
+        The analysis report of the integral as a LaTeX document.
 
-        s = self.symanzik
-        return _create_analysis_document(
-            graph=self._graph,
-            u_polynomial=s.u,
-            f_polynomial=s.f,
-            gkz_system=self.gkz,
-            parametrisation_results={
-                "Schwinger": self.schwinger,
-                "Feynman": self.feynman,
-                "Lee-Pomeransky": self.lee_pomeransky,
-            },
-            toric_generators=self.toric_ideal.generators,
-            **kwargs,
-        )
+        Parameters
+        ----------
+        sections
+            Names of the report sections to include, from
+            :data:`feynkit.io.report.SECTION_NAMES`; all of them by default.
+            The graph, the conventions and the Symanzik polynomials are
+            always included.
+        title
+            Document title; by default "Feynman integral" followed by the
+            CNickel string.
+        max_face_points
+            Faces of the Newton polytope with more monomials than this are
+            left out of the Landau analysis and listed as skipped.
 
-    def to_text(self, **kwargs: Any) -> str:
-        """Plain-text analysis report for the integral."""
-        from .io.text import _create_analysis_report
+        Returns
+        -------
+        str
+            A complete ``article`` document, compilable with pdflatex.
+        """
+        from .io.report import AnalysisReport
+        from .io.report_latex import render_latex
 
-        s = self.symanzik
-        return _create_analysis_report(
-            graph=self._graph,
-            u_polynomial=s.u,
-            f_polynomial=s.f,
-            gkz_system=self.gkz,
-            parametrisation_results={
-                "Schwinger": self.schwinger,
-                "Feynman": self.feynman,
-                "Lee-Pomeransky": self.lee_pomeransky,
-            },
-            toric_generators=self.toric_ideal.generators,
-            **kwargs,
-        )
+        report = AnalysisReport.from_integral(self, sections, max_face_points=max_face_points)
+        return render_latex(report, title=title)
+
+    def to_text(
+        self,
+        sections: Collection[str] | None = None,
+        *,
+        title: str | None = None,
+        max_face_points: int = 12,
+    ) -> str:
+        """
+        The analysis report of the integral as plain text.
+
+        It states the facts of :meth:`to_latex` in the same order, in ASCII.
+        The parameters are those of :meth:`to_latex`.
+        """
+        from .io.report import AnalysisReport
+        from .io.report_text import render_text
+
+        report = AnalysisReport.from_integral(self, sections, max_face_points=max_face_points)
+        return render_text(report, title=title)
 
     # -------- Comparison --------
 

@@ -47,7 +47,7 @@ kinematics
 visualisation
     TikZ generation and Newton polytope rendering.
 io
-    LaTeX and text formatters.
+    The analysis report, its LaTeX and text renderers, and formatters.
 
 References
 ----------
@@ -86,6 +86,7 @@ from feynkit.core import (
 )
 from feynkit.database import FeynkitDatabase
 from feynkit.integral import FeynmanIntegral
+from feynkit.io.report import AnalysisReport
 from feynkit.landau import (
     FaceDiscriminant,
     LandauAnalysis,
@@ -117,6 +118,8 @@ __all__ = [
     "Graph",
     # Unified facade
     "FeynmanIntegral",
+    # Analysis report
+    "AnalysisReport",
     # Conformal artifacts
     "massless_polygon_a_config",
     "bms_simplex_a_config",

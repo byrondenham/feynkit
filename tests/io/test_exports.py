@@ -6,22 +6,25 @@ from pathlib import Path
 import pytest
 import sympy as sp
 
+import feynkit
+import feynkit.io
 from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.io import (
+    AnalysisReport,
     edges_to_latex_table,
     edges_to_text,
     factor_energy_scale,
     graph_to_latex_table,
     graph_to_text,
+    render_latex,
+    render_text,
     to_latex,
 )
 from feynkit.io.latex import (
-    _create_analysis_document,
     euler_equation_to_latex,
     to_latex_lines,
     to_latex_split,
 )
-from feynkit.io.text import _create_analysis_report
 
 
 @pytest.fixture  # type: ignore
@@ -39,6 +42,12 @@ def simple_graph() -> Generator[Graph, None, None]:
 def triangle() -> FeynmanIntegral:
     """Massless triangle, used by the LaTeX helper tests."""
     return FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+
+
+@pytest.fixture(scope="module")  # type: ignore[misc]
+def bubble() -> FeynmanIntegral:
+    """Massless bubble, whose analysis documents the facade tests render."""
+    return FeynmanIntegral.from_cnickel("11e|e|:zz")
 
 
 class TestLatexExport:
@@ -77,22 +86,14 @@ class TestLatexExport:
         assert "\\Phi{\\left(" not in out
         assert "=" in out
 
-    def test_create_analysis_document(self, simple_graph: Graph) -> None:
-        """Test creating complete LaTeX document."""
-        U = sp.Symbol("U")
-        F = sp.Symbol("F")
+    def test_create_analysis_document(self, bubble: FeynmanIntegral) -> None:
+        """The facade renders the analysis report as a LaTeX document."""
+        doc = bubble.to_latex()
 
-        doc = _create_analysis_document(
-            graph=simple_graph,
-            u_polynomial=U,
-            f_polynomial=F,
-            title="Test Analysis",
-        )
-
-        assert "\\documentclass" in doc
+        assert doc.startswith("\\documentclass")
         assert "\\begin{document}" in doc
-        assert "\\end{document}" in doc
-        assert "Test Analysis" in doc
+        assert doc.rstrip().endswith("\\end{document}")
+        assert f"\\title{{Feynman integral \\texttt{{{bubble.cnickel}}}}}" in doc
 
 
 class TestTextExport:
@@ -114,66 +115,102 @@ class TestTextExport:
         assert "Internal" in text
         assert "External" in text
 
-    def test_create_analysis_report(self, simple_graph: Graph) -> None:
-        """Test creating complete text report."""
-        U = sp.Symbol("U")
-        F = sp.Symbol("F")
+    def test_create_analysis_report(self, bubble: FeynmanIntegral) -> None:
+        """The facade renders the analysis report as plain text."""
+        report = bubble.to_text()
 
-        report = _create_analysis_report(
-            graph=simple_graph,
-            u_polynomial=U,
-            f_polynomial=F,
-            title="Test Report",
-        )
-
-        assert "Test Report" in report
-        assert "SYMANZIK POLYNOMIALS" in report
-        assert "U =" in report
-        assert "F =" in report
+        title = f"Feynman integral {bubble.cnickel}"
+        assert report.startswith(f"{title}\n{'=' * len(title)}\n")
+        assert "    U = a_1 + a_2\n" in report
+        assert "\nReferences\n----------\n" in report
 
 
 class TestFileSaving:
     """Test file saving functions."""
 
-    def test_save_latex_document(self, simple_graph: Graph, tmp_path: Path) -> None:
-        """Test saving LaTeX document to file."""
+    def test_save_latex_document(self, bubble: FeynmanIntegral, tmp_path: Path) -> None:
+        """The LaTeX document is written to the file named, unchanged."""
         from feynkit.io import save_latex_document
 
-        U = sp.Symbol("U")
-        F = sp.Symbol("F")
-
-        doc = _create_analysis_document(
-            graph=simple_graph,
-            u_polynomial=U,
-            f_polynomial=F,
-        )
-
+        doc = bubble.to_latex()
         output_file = tmp_path / "test.tex"
-        _result = save_latex_document(doc, str(output_file))
 
-        assert output_file.exists()
-        content = output_file.read_text()
-        assert "\\documentclass" in content
+        assert save_latex_document(doc, str(output_file)) == str(output_file)
+        content = output_file.read_text(encoding="utf-8")
+        assert content == doc
+        assert content.startswith("\\documentclass") and bubble.cnickel in content
 
-    def test_save_text_report(self, simple_graph: Graph, tmp_path: Path) -> None:
-        """Test saving text report to file."""
+    def test_save_text_report(self, bubble: FeynmanIntegral, tmp_path: Path) -> None:
+        """The text report is written to the file named, unchanged."""
         from feynkit.io import save_text_report
 
-        U = sp.Symbol("U")
-        F = sp.Symbol("F")
-
-        report = _create_analysis_report(
-            graph=simple_graph,
-            u_polynomial=U,
-            f_polynomial=F,
-        )
-
+        report = bubble.to_text()
         output_file = tmp_path / "test.txt"
-        _result = save_text_report(report, str(output_file))
 
-        assert output_file.exists()
-        content = output_file.read_text()
-        assert "FEYNMAN GRAPH" in content
+        assert save_text_report(report, str(output_file)) == str(output_file)
+        content = output_file.read_text(encoding="utf-8")
+        assert content == report
+        assert content.startswith(f"Feynman integral {bubble.cnickel}\n")
+
+
+class TestAnalysisFacade:
+    """FeynmanIntegral.to_latex and to_text build the report and render it."""
+
+    def test_documents_render_the_full_report(self, bubble: FeynmanIntegral) -> None:
+        report = AnalysisReport.from_integral(bubble)
+        assert bubble.to_latex() == render_latex(report)
+        assert bubble.to_text() == render_text(report)
+
+    def test_sections_and_title_pass_through(self, bubble: FeynmanIntegral) -> None:
+        report = AnalysisReport.from_integral(bubble, ["gkz"])
+        latex = bubble.to_latex(["gkz"], title="Bubble")
+        text = bubble.to_text(["gkz"], title="Bubble")
+        assert latex == render_latex(report, title="Bubble")
+        assert text == render_text(report, title="Bubble")
+        assert "\\section{GKZ system}" in latex and "\\section{Landau surfaces}" not in latex
+        assert text.startswith("Bubble\n======\n") and "\nLandau surfaces\n" not in text
+
+    def test_max_face_points_passes_through(self) -> None:
+        # The massless bubble's polytope is a simplex, whose faces need no
+        # elimination; the massive bubble's two largest faces exceed two points.
+        massive_bubble = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        for document in (
+            massive_bubble.to_latex(["landau"], max_face_points=2),
+            massive_bubble.to_text(["landau"], max_face_points=2),
+        ):
+            assert "2 faces were skipped as too large to eliminate" in " ".join(document.split())
+        assert "skipped" not in massive_bubble.to_text(["landau"])
+
+    def test_old_keyword_arguments_are_rejected(self, bubble: FeynmanIntegral) -> None:
+        with pytest.raises(TypeError):
+            bubble.to_latex(author="someone")  # type: ignore[call-arg]
+        with pytest.raises(TypeError):
+            bubble.to_text(author="someone")  # type: ignore[call-arg]
+
+    def test_report_api_is_exported(self) -> None:
+        from feynkit.io.report import AnalysisReport as defined
+        from feynkit.io.report_latex import render_latex as latex_renderer
+        from feynkit.io.report_text import render_text as text_renderer
+
+        assert feynkit.AnalysisReport is defined and "AnalysisReport" in feynkit.__all__
+        assert feynkit.io.AnalysisReport is defined
+        assert feynkit.io.render_latex is latex_renderer
+        assert feynkit.io.render_text is text_renderer
+        for name in ("AnalysisReport", "render_latex", "render_text"):
+            assert name in feynkit.io.__all__
+
+    def test_old_document_generators_are_gone(self) -> None:
+        import feynkit.io.latex
+        import feynkit.io.text
+
+        for module, suffix, document in (
+            (feynkit.io.latex, "latex", "_create_analysis_document"),
+            (feynkit.io.text, "text", "_create_analysis_report"),
+        ):
+            assert not hasattr(module, document)
+            for part in ("parametrisation", "gkz_system", "toric_ideal"):
+                name = f"{part}_to_{suffix}"
+                assert not hasattr(module, name) and not hasattr(feynkit.io, name), name
 
 
 class TestLatexHelpers:

@@ -145,7 +145,9 @@ class TestStructure:
         self, massive_bubble: FeynmanIntegral
     ) -> None:
         sym = massive_bubble.symanzik
-        la_poly = landau_analysis_from_polynomial(sym.g, list(sym.lp_parameters))
+        la_poly = landau_analysis_from_polynomial(
+            sym.g, list(sym.lp_parameters), scale=massive_bubble.graph.energy_scale
+        )
         la_int = landau_analysis(massive_bubble)
         assert la_poly.landau_surfaces == la_int.landau_surfaces
 
@@ -173,6 +175,32 @@ class TestBanana:
             for e3 in (1, -1):
                 assert _monic((m[0] + e2 * m[1] + e3 * m[2]) ** 2 - s) in surfaces
         assert s in surfaces
+
+
+class TestEnergyScaleExcluded:
+    """Task 5b: mu scales every coefficient of F but is not itself a singular locus."""
+
+    @pytest.mark.parametrize(
+        "cnickel",
+        [
+            "11e|e|:nn",
+            pytest.param("12e|2e|e|:nzz", marks=requires_singular),
+            pytest.param("111e|e|:nnn", marks=requires_singular),
+        ],
+    )
+    def test_no_surface_is_pure_energy_scale(self, cnickel: str) -> None:
+        fi = FeynmanIntegral.from_cnickel(cnickel)
+        mu = fi.graph.energy_scale
+        surfaces = landau_analysis(fi).landau_surfaces
+        assert all(not (f.free_symbols <= {mu}) for f in surfaces)
+
+    def test_massive_bubble_surfaces_match_closed_form_exactly(
+        self, massive_bubble: FeynmanIntegral
+    ) -> None:
+        """With mu dropped, the full surface sets agree, up to sign, with no filtering needed."""
+        faces = {_monic(f) for f in landau_analysis(massive_bubble).landau_surfaces}
+        closed = {_monic(f) for f in one_loop_landau_surfaces(massive_bubble)}
+        assert faces == closed
 
 
 class TestOneLoopSurfaceTypes:

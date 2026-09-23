@@ -42,18 +42,6 @@ def _monic(expr: sp.Expr) -> sp.Expr:
     return sp.Poly(expr, *sorted(expr.free_symbols, key=str)).monic().as_expr()
 
 
-def _kinematic_symbols(fi: FeynmanIntegral) -> set[sp.Symbol]:
-    """Masses and invariants of the integral, without the energy scale."""
-    return (
-        fi.symanzik.f.free_symbols - set(fi.symanzik.schwinger_parameters) - {fi.graph.energy_scale}
-    )
-
-
-def _factor_set(factors: tuple[sp.Expr, ...], kinematic: set[sp.Symbol]) -> set[sp.Expr]:
-    """The given factors that carry kinematics, normalised up to a constant."""
-    return {_monic(f) for f in factors if f.free_symbols & kinematic}
-
-
 @pytest.fixture(scope="module")  # type: ignore[misc]
 def bubble() -> FeynmanIntegral:
     return FeynmanIntegral.from_cnickel("11e|e|:nn")
@@ -401,21 +389,18 @@ class TestLandau:
         assert bubble_report.landau is not None
         assert bubble_report.landau.analysis.landau_surfaces == direct.landau_surfaces
 
-    def test_types_cover_the_kinematic_surfaces(
-        self, bubble_report: AnalysisReport, bubble: FeynmanIntegral
-    ) -> None:
+    def test_types_cover_the_kinematic_surfaces(self, bubble_report: AnalysisReport) -> None:
         """The closed form and the face computation give the same surfaces.
 
-        Both are compared as sets of irreducible factors normalised up to a
-        constant, and restricted to the factors carrying kinematics: the face
-        computation also reports the energy scale, which is not a surface.
+        Compared as sets of irreducible factors normalised up to a
+        constant; both already exclude the energy scale, so no further
+        filtering is needed.
         """
         landau = bubble_report.landau
         assert landau is not None
-        kinematic = _kinematic_symbols(bubble)
-        assert _factor_set(landau.first_type + landau.second_type, kinematic) == _factor_set(
-            landau.analysis.landau_surfaces, kinematic
-        )
+        closed = {_monic(f) for f in landau.first_type + landau.second_type}
+        faces = {_monic(f) for f in landau.analysis.landau_surfaces}
+        assert closed == faces
 
     def test_first_and_second_type_come_from_the_closed_form(
         self, bubble_report: AnalysisReport, bubble: FeynmanIntegral

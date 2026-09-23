@@ -102,12 +102,16 @@ class LandauAnalysis:
     Attributes
     ----------
     face_discriminants
-        One entry per face of the Newton polytope of G, all dimensions.
+        One entry per face of the Newton polytope of G, all dimensions,
+        with the exact discriminant computed for that face.
     principal_a_determinant
-        Product of the distinct irreducible kinematic factors of all face
-        discriminants (the reduced principal A-determinant).
+        Product of ``landau_surfaces`` (the reduced principal A-determinant).
     landau_surfaces
-        Those factors, one per candidate singular surface.
+        The distinct irreducible factors of the face discriminants that
+        carry kinematics, one per candidate singular surface. A factor
+        built from the energy scale alone is not a singular surface (see
+        ``landau_analysis_from_polynomial``'s ``scale`` argument) and is
+        excluded, even though the face discriminants themselves keep it.
     skipped_faces
         Exponent sets of faces that were too large to eliminate.
     """
@@ -307,6 +311,7 @@ def landau_analysis_from_polynomial(
     lp_parameters: list[sp.Symbol],
     *,
     max_face_points: int = 12,
+    scale: sp.Symbol | None = None,
 ) -> LandauAnalysis:
     """Reduced principal A-determinant of a polynomial in the given variables.
 
@@ -319,6 +324,15 @@ def landau_analysis_from_polynomial(
     max_face_points
         Faces of dimension two or more with more monomials than this are
         not eliminated and are reported in ``skipped_faces``.
+    scale
+        The energy scale mu, if ``g_poly`` carries one. Every coefficient
+        of F is homogeneous of the same negative degree in mu, so it can
+        survive factorisation as a standalone factor of a face
+        discriminant; that factor is not a kinematic singularity and is
+        left out of ``landau_surfaces`` and ``principal_a_determinant``.
+        Face discriminants are unaffected and keep mu where it occurs, for
+        instance a vertex coefficient m_1^2 / mu^2 is still that
+        coefficient.
     """
     g_poly = sp.expand(g_poly)
     if g_poly == 0:
@@ -327,6 +341,7 @@ def landau_analysis_from_polynomial(
     if not support:
         return LandauAnalysis((), sp.Integer(1), ())
     kinematic_syms: set[sp.Symbol] = g_poly.free_symbols - set(lp_parameters)
+    surface_syms = kinematic_syms - ({scale} if scale is not None else set())
     exps = np.array([list(e) for e, _ in support], dtype=int)
 
     faces: list[FaceDiscriminant] = []
@@ -354,7 +369,7 @@ def landau_analysis_from_polynomial(
             )
         )
 
-    e_a, surfaces = _reduced([f.discriminant for f in faces], kinematic_syms)
+    e_a, surfaces = _reduced([f.discriminant for f in faces], surface_syms)
     return LandauAnalysis(tuple(faces), e_a, surfaces, tuple(skipped))
 
 
@@ -366,7 +381,10 @@ def landau_analysis(integral: FeynmanIntegral, *, max_face_points: int = 12) -> 
     """
     sym = integral.symanzik
     return landau_analysis_from_polynomial(
-        sym.g, list(sym.lp_parameters), max_face_points=max_face_points
+        sym.g,
+        list(sym.lp_parameters),
+        max_face_points=max_face_points,
+        scale=integral.graph.energy_scale,
     )
 
 
@@ -433,7 +451,9 @@ def one_loop_landau_surfaces_by_type(
     tuple[tuple[sp.Expr, ...], tuple[sp.Expr, ...]]
         ``(first_type, second_type)``, each in first-encountered order over
         the principal minors, smallest subsets first. A factor that arises
-        from minors of both kinds is listed under first type only.
+        from minors of both kinds is listed in both tuples;
+        :func:`one_loop_landau_surfaces` merges them and lists it under
+        first type only.
 
     Raises
     ------

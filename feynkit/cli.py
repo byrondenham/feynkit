@@ -345,7 +345,7 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
             T_rows.append([t_vals[i]] + [M[i, j] for j in range(n)])
         T_hom = sp.Matrix(T_rows)
         transformed = list(T_hom * sp.Matrix(beta1))
-        print("  GKZ identity  I_A(beta, z) = I_A(T*beta, z_P):")
+        print("  GKZ identity  I_A(beta, z_P) = I_A(T*beta, z):")
         print(f"    beta    =  {beta1}")
         print(f"    T*beta  =  {[str(x) for x in transformed]}")
 

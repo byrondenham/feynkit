@@ -77,6 +77,10 @@
   the end.
 - A cached integral with an empty toric ideal (e.g. the massless bubble) no
   longer raises on lookup.
+- The symmetry-pair identity was stated with the permutation on the wrong side,
+  as I_A(beta, z) = I_A(T beta, z_P), which fails whenever P is not an
+  involution. It now reads I_A(beta, z_P) = I_A(T beta, z), with
+  z_P = (z_{P(1)}, ..., z_{P(N)}) and I_A the integral without Gamma prefactors.
 
 ### Removed
 

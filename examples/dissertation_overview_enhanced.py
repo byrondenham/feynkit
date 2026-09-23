@@ -680,7 +680,8 @@ note(
     "A symmetry pair (M, t, P) satisfies the column-permutation identity "
     "T * A = A * Pi_P, where T = [[1, 0^T],[t, M]] in GL_{L+1}(Z) and Pi_P "
     "is a column permutation matrix.  This gives the integral identity "
-    "I_A(beta, z) = I_A(T*beta, z_P).  Unimodular pairs (|det M| = 1) are "
+    "I_A(beta, z_P) = I_A(T*beta, z), for I_A without Gamma prefactors.  "
+    "Unimodular pairs (|det M| = 1) are "
     "exact symmetries; non-unimodular pairs (|det M| > 1) are finite-index "
     "self-embeddings and give Forsgård-Matusevich-Sobieska type identities "
     "(de la Cruz 2024, Section 4)."
@@ -706,7 +707,7 @@ print("  Linear map M =")
 sp.pprint(s0.linear_map)
 print(f"  Translation t = {s0.translation.T.tolist()[0]}")
 print(f"  Column permutation Pi = {s0.column_permutation}")
-print("  Identity: I_A(beta, z) = I_A(T*beta, z_Pi)")
+print("  Identity: I_A(beta, z_Pi) = I_A(T*beta, z)")
 note(
     "The column permutation Pi relabels the monomials of G; the linear map M "
     "acts on the LP exponent space; together they define the variable change "

@@ -408,6 +408,52 @@ class TestSymmetryPairs:
         result = identity.transform_beta(beta)
         assert result == beta
 
+    def test_identity_permutes_the_coefficients_on_the_left(self):
+        """
+        Every pair of the 2-simplex gives I_A(beta, z_P) = I_A(T beta, z).
+
+        For G = z1 + z2 u1 + z3 u2, substituting u1 = (z1/z2) x1, u2 = (z1/z3) x2
+        and evaluating two Euler beta integrals gives
+
+            int u1^nu1 u2^nu2 (z1 + z2 u1 + z3 u2)^(-s) du1 du2/(u1 u2)
+                = Gamma(nu1) Gamma(nu2) Gamma(s - nu1 - nu2)/Gamma(s)
+                  * z1^(nu1 + nu2 - s) z2^(-nu1) z3^(-nu2)
+
+        for z_j > 0 and Re nu1, Re nu2, Re(s - nu1 - nu2) > 0.  This is
+        I_A(beta, z) at beta = (-s, -nu1, -nu2), with no Gamma prefactors.  The
+        symmetry group is S_3 and its two 3-cycles fix the direction: for them
+        I_A(beta, z) = I_A(T beta, z_P) fails.
+        """
+
+        def euler_mellin(beta, coeffs):
+            b0, b1, b2 = beta
+            z1, z2, z3 = coeffs
+            return (
+                sp.gamma(-b1)
+                * sp.gamma(-b2)
+                * sp.gamma(b1 + b2 - b0)
+                / sp.gamma(-b0)
+                * z1 ** (b0 - b1 - b2)
+                * z2**b1
+                * z3**b2
+            )
+
+        z = sp.symbols("z1:4", positive=True)
+        s, nu1, nu2 = sp.symbols("s nu1 nu2")
+        beta = [-s, -nu1, -nu2]
+        pairs = symmetry_pairs([(0, 0), (1, 0), (0, 1)])
+        three_cycles = [p for p in pairs if all(k != j for j, k in enumerate(p.column_permutation))]
+        assert len(pairs) == 6
+        assert len(three_cycles) == 2
+        for pair in pairs:
+            z_P = [z[k] for k in pair.column_permutation]
+            ratio = euler_mellin(beta, z_P) / euler_mellin(pair.transform_beta(beta), z)
+            assert sp.simplify(ratio) == 1, pair.column_permutation
+        for pair in three_cycles:
+            z_P = [z[k] for k in pair.column_permutation]
+            ratio = euler_mellin(beta, z) / euler_mellin(pair.transform_beta(beta), z_P)
+            assert sp.simplify(ratio) != 1, pair.column_permutation
+
     def test_method_on_aconfiguration(self, triangle):
         pairs_fn = symmetry_pairs(triangle)
         pairs_method = triangle.symmetry_pairs()

@@ -392,9 +392,10 @@ class FeynmanIntegral:
         where T = [[1, 0^T], [t, M]] is an invertible integer matrix and P is
         a column permutation.  Each pair gives the Feynman-integral identity:
 
-            I_A(beta, z) = I_A(T beta, z_P)
+            I_A(beta, z_P) = I_A(T beta, z)
 
-        where z_P = (z_{P(0)}, ..., z_{P(N-1)}) (de la Cruz 2024).
+        where z_P = (z_{P(0)}, ..., z_{P(N-1)}) and I_A is the Lee-Pomeransky
+        integral without its prefactor (de la Cruz 2024).
 
         The unimodular subset (``pair.is_unimodular``) coincides with the
         polytope automorphism group from :attr:`polytope_automorphisms`.

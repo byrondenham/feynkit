@@ -523,9 +523,9 @@ Accessed as `fi.symmetry_pairs` (list of `SymmetryPair` objects); each has `.lin
 **Theorem** (FMS 2019, Thm 4.2; de la Cruz 2024):
 *For each symmetry pair $(M,t,P)$ of $\mathcal{A}$, the generalised Feynman integral satisfies*
 
-$$I_A(\beta, z) \;=\; I_A(T\beta,\; z_P),$$
+$$I_A(\beta, z_P) \;=\; I_A(T\beta,\; z),$$
 
-*where $z_P = (z_{P(1)},\ldots,z_{P(N)})$ is the permuted kinematic vector and the prefactor $R(\beta) = 1$.*
+*where $z_P = (z_{P(1)},\ldots,z_{P(N)})$ is the permuted kinematic vector, $I_A = \int u^{\nu-1} G^{-D/2}\,du$ is taken without Gamma prefactors, and the prefactor $R(\beta) = 1$.*
 
 Specialising $z$ to physical kinematic values gives a concrete functional identity between two
 (possibly equal) Feynman integrals at different values of $\beta$.  The transformation

@@ -137,9 +137,10 @@ class SymmetryPair:
     For Feynman integrals each symmetry pair gives the transformation identity
     (FMS 2019; de la Cruz 2024):
 
-        I_A(beta, z) = I_A(T beta, z_P)
+        I_A(beta, z_P) = I_A(T beta, z)
 
-    where z_P = (z_{P(0)}, ..., z_{P(N-1)}) and the prefactor R(beta) = 1.
+    where z_P = (z_{P(0)}, ..., z_{P(N-1)}), I_A is the Euler-Mellin integral
+    without Gamma prefactors, and the prefactor R(beta) = 1.
 
     Attributes
     ----------
@@ -175,8 +176,8 @@ class SymmetryPair:
         """
         Apply T to the GKZ parameter vector beta.
 
-        Returns T beta as a list, giving the parameter vector of the
-        transformed integral I_A(T beta, z_P).
+        Returns T beta as a list, the parameter vector on the right of
+        I_A(beta, z_P) = I_A(T beta, z).
         """
         T = sp.Matrix(self.homogenized_map.tolist())
         b = beta if isinstance(beta, sp.Matrix) else sp.Matrix(list(beta))
@@ -437,8 +438,8 @@ class AConfiguration:
 
         Each returned :class:`SymmetryPair` (M, t, P) satisfies T*A = A*Pi_P
         where T = [[1, 0^T], [t, M]] and gives the transformation identity
-        I_A(beta, z) = I_A(T beta, z_P) for the associated Feynman integral
-        (de la Cruz 2024).
+        I_A(beta, z_P) = I_A(T beta, z) for the associated Feynman integral
+        without its prefactor (de la Cruz 2024).
 
         Unimodular maps (|det M| = 1) are the polytope automorphisms.
         Non-unimodular maps (|det M| > 1) are finite-index self-embeddings.
@@ -615,9 +616,10 @@ def symmetry_pairs(
 
     For Feynman integrals, each symmetry pair gives (de la Cruz 2024):
 
-        I_A(beta, z) = I_A(T beta, z_P),   T = [[1, 0^T], [t, M]]
+        I_A(beta, z_P) = I_A(T beta, z),   T = [[1, 0^T], [t, M]]
 
-    where z_P = (z_{P(0)}, ..., z_{P(N-1)}) and the prefactor R(beta) = 1.
+    where z_P = (z_{P(0)}, ..., z_{P(N-1)}), I_A is the Euler-Mellin integral
+    without Gamma prefactors, and the prefactor R(beta) = 1.
 
     Parameters
     ----------

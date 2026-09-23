@@ -108,7 +108,8 @@ Fields, grouped by section:
    step.
 9. Symmetries. $\mathrm{Aut}(P)$ order and vertex orbits, graph
    automorphisms, coefficient-preserving subgroup, and the identities
-   $I(\beta, z) = I(T\beta, z_P)$ from symmetry pairs (de la Cruz 2024).
+   $I_A(\beta, z_P) = I_A(T\beta, z)$ from symmetry pairs, for $I_A$ without
+   its prefactor (de la Cruz 2024).
 10. Landau surfaces. The reduced principal A-determinant by face dimension,
     labelled first-type or second-type for one-loop graphs by comparison with
     the closed form, with the caveats from the Landau module docstring.

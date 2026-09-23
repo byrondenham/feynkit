@@ -38,7 +38,8 @@ ambient dimension:
 For every equivalence found the script exhibits:
  , the linear map M and translation t
  , the change of integration variables u_i = sum_j M_ij v_j + t_i
- , the resulting GKZ beta-parameter identity I_A(beta, z) = I_A(T*beta, z_P)
+ , the resulting GKZ beta-parameter identity I_A(beta, z_P) = I_A(T*beta, z),
+   for I_A without Gamma prefactors
 
 All data is persisted in examples/output/feynkit_survey.db so that re-runs skip
 already-computed integrals. Results are also written to
@@ -603,7 +604,7 @@ def main() -> None:
             T_hom = sp.Matrix(T_rows)
             beta_vec = sp.Matrix(list(src_rec.beta))
             transformed = list(T_hom * beta_vec)
-            _emit("  GKZ integral identity  I_A(beta, z) = I_A(T*beta, z_P):")
+            _emit("  GKZ integral identity  I_A(beta, z_P) = I_A(T*beta, z):")
             _emit(f"    beta      =  {src_rec.beta}")
             _emit(f"    T*beta    =  {[str(x) for x in transformed]}")
             _emit("  [T*beta gives the beta-parameters of the target integral]")

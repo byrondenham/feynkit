@@ -9,10 +9,11 @@ and P is the induced column permutation.  The condition is T*A = A*Pi_P.
 Each pair gives a transformation identity for the generalised Feynman
 integral (Forsgård-Matusevich-Sobieska 2019; de la Cruz 2024):
 
-    I_A(beta, z) = I_A(T beta, z_P),      prefactor R(beta) = 1
+    I_A(beta, z_P) = I_A(T beta, z),      prefactor R(beta) = 1
 
-where z_P = (z_{P(0)}, ..., z_{P(N-1)}) and the GKZ parameter vector beta is
-transformed by the full homogenised matrix T.
+where z_P = (z_{P(0)}, ..., z_{P(N-1)}), I_A is the integral without Gamma
+prefactors, and the GKZ parameter vector beta is transformed by the full
+homogenised matrix T.
 
 Classical hypergeometric symmetries are instances of this:
   - The eightfold Kummer group of _2F_1 arises from the 8 symmetry pairs
@@ -150,7 +151,7 @@ print(f"\n  Verification T*A = A*Pi_P for pair [7]: {ta_eq_ap}")
 # Section 3: beta transformation in detail
 # ------------------------------------------------------------------------------
 
-print_section("beta transformation: I_A(beta, z) = I_A(T beta, z_P)")
+print_section("beta transformation: I_A(beta, z_P) = I_A(T beta, z)")
 
 fi = FeynmanIntegral.from_cnickel("11e|e|:nz")
 pairs = fi.symmetry_pairs
@@ -160,17 +161,17 @@ D, nu1, nu2 = sp.Symbol("D"), sp.Symbol("nu_1"), sp.Symbol("nu_2")
 print(f"""
 For the one-mass bubble with beta = {beta}:
 
-The identity I_A(beta, z) = I_A(T beta, z_P) is a functional equation relating
-the generalised Feynman integral at parameter beta to the same integral
-evaluated at the permuted kinematic point z_P but with modified parameters
-T beta.  Specialising to physical z recovers a relation between two concrete
-integrals.
+The identity I_A(beta, z_P) = I_A(T beta, z) is a functional equation relating
+the generalised Feynman integral at parameter beta and the permuted kinematic
+point z_P to the same integral at the original point z but with modified
+parameters T beta.  Specialising to physical z recovers a relation between
+two concrete integrals.
 """)
 
 for i, p in enumerate(pairs):
     tb = p.transform_beta(beta)
     perm = list(p.column_permutation)
-    print(f"  [{i}]  I(beta, z) = I({tb},  z_P={perm})")
+    print(f"  [{i}]  I(beta, z_P) = I({tb}, z),  P = {perm}")
 
 
 # ------------------------------------------------------------------------------

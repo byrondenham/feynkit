@@ -31,7 +31,7 @@ T = \begin{pmatrix} 1 & 0 \\ t & U \end{pmatrix}, \quad
 z_\sigma = (z_{\sigma(1)}, \ldots, z_{\sigma(m)})
 $$
 
-(section 8.2 of the mathematics reference, after Forsgaard, Matusevich and
+(section 8.2 of the mathematics reference, after Forsgård, Matusevich and
 Sobieska 2019 and de la Cruz 2024, who print the permutation on the other side).
 If the map also preserves the coefficients, then $z_\sigma = z$ and the identity
 reads $I_A(\beta, z) = I_A(T\beta, z)$: it relates the integral at two parameter

@@ -66,7 +66,7 @@ def compute_toric_ideal_generators(
     Raises
     ------
     ComputationError
-        If Groebner basis computation fails or the requested backend is unavailable.
+        If Gröbner basis computation fails or the requested backend is unavailable.
 
     Notes
     -----
@@ -97,7 +97,7 @@ def compute_toric_ideal_generators(
 
     The ``"4ti2"`` backend calls the external ``markov`` binary from the 4ti2
     software package.  It computes the minimal Markov basis of I_A, which is
-    the minimal generating set of the toric ideal, smaller than the Groebner
+    the minimal generating set of the toric ideal, smaller than the Gröbner
     basis for n>=4 (e.g. 10 vs 11 for the box, 30 vs 36 for the pentagon).
     Install with ``sudo pacman -S 4ti2`` (Arch) or ``sudo apt install 4ti2``.
 
@@ -127,7 +127,7 @@ def compute_toric_ideal_generators(
     ----------
     .. [1] Cox, D., Little, J., O'Shea, D. (2015). "Ideals, Varieties, and
             Algorithms." 4th ed., Springer.
-    .. [2] Sturmfels, B. (1996). "Groebner Bases and Convex Polytopes."
+    .. [2] Sturmfels, B. (1996). "Gröbner Bases and Convex Polytopes."
             American Mathematical Society.
     .. [3] Schabinger, R.M. (2012). "A new algorithm for the generation of
             unitarity-compatible integration by parts relations."
@@ -158,7 +158,7 @@ def _compute_4ti2_backend(a_matrix: sp.Matrix, binary: str) -> list[sp.Expr]:
     """Compute minimal toric ideal generators by calling the 4ti2 markov binary.
 
     The markov basis is the minimal generating set of I_A (the Markov basis),
-    which is smaller than or equal to the Groebner basis for any term order.
+    which is smaller than or equal to the Gröbner basis for any term order.
     For n-gons: groebner gives 2/11/36/91/196 while markov gives 2/10/30/70/140
     for n=3..7, so the difference is significant for larger diagrams.
     """
@@ -295,7 +295,7 @@ def is_binomial_ideal(generators: list[sp.Expr]) -> bool:
 
     Notes
     -----
-    Toric ideals are always binomial in theory, but Groebner basis computation
+    Toric ideals are always binomial in theory, but Gröbner basis computation
     might produce polynomials with more terms depending on the term order.
 
     Examples

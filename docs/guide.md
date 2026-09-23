@@ -809,7 +809,7 @@ for h in compute_syzygy_module(gens, zs):
     assert sp.expand(sum(c * g for c, g in zip(h, gens, strict=True))) == 0
 ```
 
-`ideal_quotient` and `intersect_ideals` return a reduced grevlex Groebner
+`ideal_quotient` and `intersect_ideals` return a reduced grevlex Gröbner
 basis, with the zero ideal returned as an empty list and the whole ring as
 `[1]`. Both are computed by elimination with an auxiliary variable, so they
 are exact but slow for large ideals.
@@ -1634,9 +1634,9 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
    165. [arXiv:1308.6676](https://arxiv.org/abs/1308.6676)
 
 4. Gelfand, I.M., Kapranov, M.M., Zelevinsky, A.V. (1994). *Discriminants, Resultants and
-   Multidimensional Determinants.* Birkhaeuser.
+   Multidimensional Determinants.* Birkhäuser.
 
-5. Sturmfels, B. (1996). *Groebner Bases and Convex Polytopes.* American Mathematical Society.
+5. Sturmfels, B. (1996). *Gröbner Bases and Convex Polytopes.* American Mathematical Society.
 
 6. Bogner, C. et al. (2017). Loopedia, a database for loop integrals.
    [arXiv:1709.01266](https://arxiv.org/abs/1709.01266)

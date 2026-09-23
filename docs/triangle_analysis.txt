@@ -1,164 +1,475 @@
-======================================================================
-                    Triangle Graph Analysis Report
-======================================================================
+Feynman integral 12e|2e|e|:nnn
+==============================
 
-======================================================================
-FEYNMAN GRAPH PROPERTIES
-======================================================================
-Internal vertices:     3
-External legs:         3
-Internal propagators:  3
-Loop number:           1
+Summary
+-------
 
+    Loops                   1
+    Propagators             3
+    External legs           3
+    Monomials of F          6
+    Monomials of G          9
+    Independent invariants  6
+    Codimension             5
+    Polytope vertices       6
+    Normalised volume       7
+    Polytope automorphisms  6
+    Toric generators        14
+    Landau surfaces         14
 
-======================================================================
-EDGE LIST
-======================================================================
-Idx   Type       From  To    Mass                 Name
-----------------------------------------------------------------------
-1     Internal   1     2     m1                   propagator_12
-2     Internal   2     3     m2                   propagator_23
-3     Internal   3     1     m3                   propagator_31
-4     External   1     4     ---                  external_1
-5     External   2     5     ---                  external_2
-6     External   3     6     ---                  external_3
-======================================================================
+Graph
+-----
 
-======================================================================
-SYMANZIK POLYNOMIALS
-======================================================================
+It has L = 1 loop, N = 3 propagators and 3 external legs.
 
-First Symanzik Polynomial (U):
-  U = a_1 + a_2 + a_3
+    e  Vertices  nu_e  m_e
+    -  --------  ----  ---
+    1  1-2       nu_1  m_1
+    2  1-3       nu_2  m_2
+    3  2-3       nu_3  m_3
 
-Second Symanzik Polynomial (F):
-  F = (a_1**2*m1**2 + a_1*a_2*m1**2 + a_1*a_2*m2**2 + a_1*a_2*s12/2 + a_1*a_2*s23/2 + a_1*a_3*m1**2 + a_1*a_3*m3**2 + a_1*a_3*s12/2 + a_1*a_3*s13/2 + a_2**2*m2**2 + a_2*a_3*m2**2 + a_2*a_3*m3**2 + a_2*a_3*s13/2 + a_2*a_3*s23/2 + a_3**2*m3**2)/mu**2
+Propagator e joins the vertices listed and carries the exponent nu_e and the
+mass m_e shown in the table; massless propagators have m_e = 0. Its index e
+also names its parameters a_e and u_e.
 
+Conventions
+-----------
 
-======================================================================
-SCHWINGER PARAMETRISATION
-======================================================================
+The integral is
 
-Description: Schwinger parametrisation with 3 alpha parameters. Each $\alpha \in [0, \infty)$. Integration domain is $\mathbb{R}_+^{3}$.
+    I = exp(L epsilon gamma_E) (mu^2)^(nu - L D/2)
+        * int prod_{r=1}^{L} d^D k_r/(i pi^(D/2))
+        * prod_e 1/(-q_e^2 + m_e^2)^nu_e
 
-Parameters (3):
-  alpha_1, alpha_2, alpha_3
+in D dimensions [weinzierl2022], with loop momenta k_r, the momentum q_e of
+propagator e fixed by momentum conservation at the vertices, the metric
+signature (+,-,...,-) and nu = sum_e nu_e, here nu = nu_1 + nu_2 + nu_3.
+Dimensional regularisation sets D = D_0 - 2 epsilon for an even integer D_0
+chosen when the result is expanded. The energy scale mu makes I and the
+Symanzik polynomials dimensionless. External momenta are incoming, and the
+kinematics is written in the invariants p1^2, p2^2 and p3^2: the external
+masses p_i^2. The second Symanzik polynomial is F = -sum_{T_2} s_{T_2}
+prod_{e not in T_2} a_e + U sum_e m_e^2 a_e, divided by mu^2, the sum running
+over spanning two-forests T_2 and s_{T_2} being the square of the momentum
+flowing from one tree of T_2 to the other [weinzierl2022].
 
-Prefactor:
-  exp(epsilon*gamma_E)/(gamma(nu1)*gamma(nu2)*gamma(nu3))
+Symanzik polynomials
+--------------------
 
-Measure:
-  alpha_1**(nu1 - 1)*alpha_2**(nu2 - 1)*alpha_3**(nu3 - 1)
+In the Schwinger parameters a_e the first Symanzik polynomial, the sum over
+spanning trees T of prod_{e not in T} a_e, is
 
-Integrand:
-  exp((-2*alpha_1**2*m1**2 - 2*alpha_1*alpha_2*m1**2 - 2*alpha_1*alpha_2*m2**2 - alpha_1*alpha_2*s12 - alpha_1*alpha_2*s23 - 2*alpha_1*alpha_3*m1**2 - 2*alpha_1*alpha_3*m3**2 - alpha_1*alpha_3*s12 - alpha_1*alpha_3*s13 - 2*alpha_2**2*m2**2 - 2*alpha_2*alpha_3*m2**2 - 2*alpha_2*alpha_3*m3**2 - alpha_2*alpha_3*s13 - alpha_2*alpha_3*s23 - 2*alpha_3**2*m3**2)/(2*mu**2*(alpha_1 + alpha_2 + alpha_3)))/(alpha_1 + alpha_2 + alpha_3)**(D/2)
+    U = a_1 + a_2 + a_3
 
-======================================================================
+and the second is
 
-======================================================================
-FEYNMAN PARAMETRISATION
-======================================================================
+    F = (1/mu^2)*(a_1^2*m_1^2 + a_1*a_2*m_1^2 + a_1*a_2*m_2^2 - a_1*a_2*p1^2
+        + a_1*a_3*m_1^2 + a_1*a_3*m_3^2 - a_1*a_3*p2^2 + a_2^2*m_2^2
+        + a_2*a_3*m_2^2 + a_2*a_3*m_3^2 - a_2*a_3*p3^2 + a_3^2*m_3^2)
 
-Description: Feynman parametrisation with 3 parameters on the unit simplex. Constraint: $\sum_i a_i = 1$, all $a_i \geq 0$.
+In the Lee-Pomeransky parameters u_e their sum is
 
-Parameters (3):
-  a_1, a_2, a_3
+    G = U + F = u_1 + u_2 + u_3
+                + (1/mu^2)*(m_1^2*u_1^2 + m_1^2*u_1*u_2 + m_1^2*u_1*u_3
+                + m_2^2*u_1*u_2 + m_2^2*u_2^2 + m_2^2*u_2*u_3
+                + m_3^2*u_1*u_3 + m_3^2*u_2*u_3 + m_3^2*u_3^2
+                - p1^2*u_1*u_2 - p2^2*u_1*u_3 - p3^2*u_2*u_3)
 
-Prefactor:
-  exp(epsilon*gamma_E)*gamma(-D/2 + nu1 + nu2 + nu3)/(gamma(nu1)*gamma(nu2)*gamma(nu3))
+U has degree L = 1 and F degree L+1 = 2; F has 6 monomials and G has 9. The
+coefficients of G are the GKZ variables z_j, here at their physical values:
 
-Measure:
-  a_1**(nu1 - 1)*a_2**(nu2 - 1)*a_3**(nu3 - 1)
+    j  Monomial  z_j
+    -  --------  -----------------------------------
+    1  u_1^2     m_1^2/mu^2
+    2  u_1*u_2   m_1^2/mu^2 + m_2^2/mu^2 - p1^2/mu^2
+    3  u_1*u_3   m_1^2/mu^2 + m_3^2/mu^2 - p2^2/mu^2
+    4  u_2^2     m_2^2/mu^2
+    5  u_2*u_3   m_2^2/mu^2 + m_3^2/mu^2 - p3^2/mu^2
+    6  u_3^2     m_3^2/mu^2
+    7  u_1       1
+    8  u_2       1
+    9  u_3       1
 
-Integrand:
-  (2*mu**2)**(-D/2 + nu1 + nu2 + nu3)*(a_1 + a_2 + a_3)**(-D + nu1 + nu2 + nu3)*(2*a_1**2*m1**2 + 2*a_1*a_2*m1**2 + 2*a_1*a_2*m2**2 + a_1*a_2*s12 + a_1*a_2*s23 + 2*a_1*a_3*m1**2 + 2*a_1*a_3*m3**2 + a_1*a_3*s12 + a_1*a_3*s13 + 2*a_2**2*m2**2 + 2*a_2*a_3*m2**2 + 2*a_2*a_3*m3**2 + a_2*a_3*s13 + a_2*a_3*s23 + 2*a_3**2*m3**2)**(D/2 - nu1 - nu2 - nu3)
+The configuration has codimension 9 - rank A = 9 - 4 = 5, with A the matrix
+whose columns are the exponent vectors of the monomials of G below a row of
+ones, against 6 independent kinematic invariants in the coefficients
+[klausen2023].
 
-Constraints (1):
-  [0] Eq(a_1 + a_2 + a_3, 1)
+Parametric representations
+--------------------------
 
-======================================================================
+Schwinger representation
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-======================================================================
-LEE-POMERANSKY PARAMETRISATION
-======================================================================
+With the Schwinger parameters a_e integrated over [0, infinity)
+[weinzierl2022],
 
-Description: Lee-Pomeransky parametrisation with 3 $u$ parameters. Each $u \in [0, \infty)$. Uses combined polynomial $G = U + F$. Integration domain is $\mathbb{R}_+^{3}$.
+    I = exp(epsilon*gamma_E)/(Gamma(nu_1)*Gamma(nu_2)*Gamma(nu_3))
+        * int_{R_+^3} da_1 da_2 da_3
+        * a_1^(nu_1 - 1)*a_2^(nu_2 - 1)*a_3^(nu_3 - 1)
+        * exp(-F/U)/U^(D/2)
 
-Parameters (3):
-  u_1, u_2, u_3
+Feynman representation
+~~~~~~~~~~~~~~~~~~~~~~
 
-Prefactor:
-  exp(epsilon*gamma_E)*gamma(D/2)/(gamma(nu1)*gamma(nu2)*gamma(nu3)*gamma(D - nu1 - nu2 - nu3))
+With the same parameters restricted to the simplex sum_e a_e = 1
+[weinzierl2022],
 
-Measure:
-  u_1**(nu1 - 1)*u_2**(nu2 - 1)*u_3**(nu3 - 1)
+    I = exp(epsilon*gamma_E)*Gamma(-D/2 + nu_1 + nu_2 + nu_3)
+        / (Gamma(nu_1)*Gamma(nu_2)*Gamma(nu_3))
+        * int_{R_+^3} da_1 da_2 da_3
+        * delta(1 - sum_e a_e)
+        * a_1^(nu_1 - 1)*a_2^(nu_2 - 1)*a_3^(nu_3 - 1)
+        * F^(D/2 - nu)*U^(-D + nu)
 
-Integrand:
-  (sqrt(2)*mu)**D/(2*m1**2*u_1**2 + 2*m1**2*u_1*u_2 + 2*m1**2*u_1*u_3 + 2*m2**2*u_1*u_2 + 2*m2**2*u_2**2 + 2*m2**2*u_2*u_3 + 2*m3**2*u_1*u_3 + 2*m3**2*u_2*u_3 + 2*m3**2*u_3**2 + 2*mu**2*(u_1 + u_2 + u_3) + s12*u_1*u_2 + s12*u_1*u_3 + s13*u_1*u_3 + s13*u_2*u_3 + s23*u_1*u_2 + s23*u_2*u_3)**(D/2)
+Lee-Pomeransky representation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-======================================================================
+With the Lee-Pomeransky parameters u_e integrated over [0, infinity)
+[leepomeransky2013],
 
-======================================================================
-GKZ HYPERGEOMETRIC SYSTEM
-======================================================================
+    I = exp(epsilon*gamma_E)*Gamma(D/2)
+        / (Gamma(nu_1)*Gamma(nu_2)*Gamma(nu_3)*Gamma(D - nu_1 - nu_2 - nu_3))
+        * int_{R_+^3} du_1 du_2 du_3
+        * u_1^(nu_1 - 1)*u_2^(nu_2 - 1)*u_3^(nu_3 - 1)
+        * G^(-D/2)
 
-Number of variables:   9
-Number of equations:   4
-Number of monomials:   9
-A-matrix shape:        4 × 9
+Convergence. For Euclidean kinematics, where every coefficient of G has
+positive real part, and for Re D > 0, the Lee-Pomeransky integral converges
+absolutely when the real parts of (nu_1, ..., nu_N), divided by Re(D/2), lie in
+the interior of the Newton polytope P of G, that is when for every facet
+m_j . x <= b_j of P the real part of b_j D/2 - sum_e m_{je} nu_e is positive
+[klausen2023]:
 
-A-matrix:
-Matrix([[1, 1, 1, 1, 1, 1, 1, 1, 1], [2, 1, 1, 1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 2, 1, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 2, 1]])
+    Re(-D/2 + nu_1 + nu_2 + nu_3) > 0
+    Re(nu_3) > 0
+    Re(nu_2) > 0
+    Re(nu_1) > 0
+    Re(D - nu_1 - nu_2 - nu_3) > 0
 
-Parameter vector β (4 components):
-  -D/2 + nu1 + nu2 + nu3, nu1, nu2, nu3
+For such kinematics it converges absolutely for no D and nu_e when P is not
+full-dimensional.
 
-Euler equations (4):
-  [0] Eq(z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_4) + z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_7) + z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_9), (-D/2 + nu1 + nu2 + nu3)*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9))
-  [1] Eq(2*z_1*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_1) + z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_2) + z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_3) + z_4*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_4), nu1*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9))
-  [2] Eq(z_2*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_2) + 2*z_5*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_5) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_6) + z_7*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_7), nu2*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9))
-  [3] Eq(z_3*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_3) + z_6*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_6) + 2*z_8*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_8) + z_9*Derivative(Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9), z_9), nu3*Phi(z_1, z_2, z_3, z_4, z_5, z_6, z_7, z_8, z_9))
+Newton polytope
+---------------
 
-Monomial support:
-  [0] u^(2, 0, 0): m1**2/mu**2
-  [1] u^(1, 1, 0): (m1**2 + m2**2 + s12/2 + s23/2)/mu**2
-  [2] u^(1, 0, 1): (m1**2 + m3**2 + s12/2 + s13/2)/mu**2
-  [3] u^(1, 0, 0): 1
-  [4] u^(0, 2, 0): m2**2/mu**2
-  [5] u^(0, 1, 1): (m2**2 + m3**2 + s13/2 + s23/2)/mu**2
-  [6] u^(0, 1, 0): 1
-  [7] u^(0, 0, 2): m3**2/mu**2
-  [8] u^(0, 0, 1): 1
+The Newton polytope P of G is the convex hull of the exponent vectors of its
+monomials. It has dimension 3 in R^3 and normalised volume 7, with 6 vertices,
+9 edges and 5 facets. Its vertices are v_1 = (1, 0, 0), v_2 = (0, 1, 0),
+v_3 = (0, 0, 1), v_4 = (2, 0, 0), v_5 = (0, 2, 0) and v_6 = (0, 0, 2).
 
-======================================================================
+For generic coefficients and non-resonant beta the holonomic rank of the GKZ
+system equals the normalised volume, here 7 [adolphson1994, chestnov2022]. The
+rank equals the volume for every beta exactly when the toric ring C[NA] is
+Cohen-Macaulay [mmw2005]. This holds when the graph is one-particle irreducible
+and one-vertex irreducible, its external momenta are generic enough that no
+monomial of G cancels, and its propagators are all massive, all massless, or
+such that every vertex reaches an external leg along massive propagators alone;
+the configuration is then normal and so Cohen-Macaulay
+[klausen2023, tellander2023, walther2022]. The number of master integrals is,
+up to sign, the Euler characteristic of the complement of {G = 0} in the torus,
+at most the normalised volume and equal to it for generic coefficients;
+graph-polynomial coefficients are rarely generic [bbkp2017]. feynkit computes
+neither the holonomic rank at the physical point nor the Euler characteristic,
+and produces no series solutions, Pfaffian system or restriction to physical
+kinematics.
 
-======================================================================
-TORIC IDEAL AND IBP RELATIONS
-======================================================================
+GKZ system
+----------
 
-Number of generators: 14
+Writing G = sum_j z_j u^alpha_j and treating the coefficients z_j as
+independent variables gives the Euler-Mellin integral
 
-These generators encode integration-by-parts (IBP) relations among
-the monomial coefficients of the Lee-Pomeransky polynomial.
+    I_A(beta, z) = int_{R_+^N} prod_e du_e u_e^(nu_e - 1) G(z, u)^(-D/2),
 
-Generators (each equation = 0):
+the Lee-Pomeransky integral without its prefactor, which the GKZ system
+annihilates. The system has the matrix
 
-  [0] z_1*z_5 - z_2**2 = 0
-  [1] z_1*z_6 - z_2*z_3 = 0
-  [2] z_1*z_7 - z_2*z_4 = 0
-  [3] z_1*z_8 - z_3**2 = 0
-  [4] z_1*z_9 - z_3*z_4 = 0
-  [5] z_2*z_6 - z_3*z_5 = 0
-  [6] z_2*z_7 - z_4*z_5 = 0
-  [7] z_2*z_8 - z_3*z_6 = 0
-  [8] z_2*z_9 - z_4*z_6 = 0
-  [9] z_3*z_7 - z_4*z_6 = 0
-  [10] z_3*z_9 - z_4*z_8 = 0
-  [11] z_5*z_8 - z_6**2 = 0
-  [12] z_5*z_9 - z_6*z_7 = 0
-  [13] z_6*z_9 - z_7*z_8 = 0
+        [1  1  1  1  1  1  1  1  1]
+        [                         ]
+        [2  1  1  0  0  0  1  0  0]
+    A = [                         ]
+        [0  1  0  2  1  0  0  1  0]
+        [                         ]
+        [0  0  1  0  1  2  0  0  1]
 
-Each generator represents a syzygy (polynomial relation) among the
-monomials, which corresponds to an IBP identity for the Feynman integral.
+whose column j is (1, alpha_j). The parameter vector is
+beta = (-D/2, -nu_1, ..., -nu_N), the value the Euler equations require for the
+Lee-Pomeransky integral [delacruz2019, klausen2020]. Here
 
-======================================================================
+    beta = (-D/2, -nu_1, -nu_2, -nu_3).
+
+The Euler operators are built from theta_j = z_j d/dz_j, which measures the
+degree in z_j. The operators E_r = sum_j A_{rj} theta_j - beta_r annihilate
+I_A: row 0 states that I_A is homogeneous of degree -D/2 in the z_j, and row i
+that it has degree -nu_i under z_j -> lambda^(A_{ij}) z_j, which a rescaling of
+u_i absorbs:
+
+    E_0 = theta_1 + theta_2 + theta_3 + theta_4 + theta_5 + theta_6 + theta_7
+          + theta_8 + theta_9 + D/2
+    E_1 = 2 theta_1 + theta_2 + theta_3 + theta_7 + nu_1
+    E_2 = theta_2 + 2 theta_4 + theta_5 + theta_8 + nu_2
+    E_3 = theta_3 + theta_5 + 2 theta_6 + theta_9 + nu_3
+
+The toric ideal of A is generated by 14 binomials. Each binomial z^k - z^l,
+with A k = A l, gives the operator (d/dz)^k - (d/dz)^l; these annihilators of
+I_A form an analogue of integration-by-parts relations for it [chestnov2022],
+and the specialisation to physical coefficients is a separate step. The
+generators are
+
+    z_5*z_9 - z_6*z_8
+    z_4*z_6 - z_5^2
+    z_4*z_9 - z_5*z_8
+    z_3*z_9 - z_6*z_7
+    z_2*z_5 - z_3*z_4
+    z_2*z_6 - z_3*z_5
+    z_2*z_9 - z_3*z_8
+    z_2*z_8 - z_4*z_7
+    z_2*z_9 - z_5*z_7
+    z_1*z_4 - z_2^2
+    z_1*z_5 - z_2*z_3
+    z_1*z_8 - z_2*z_7
+    z_1*z_6 - z_3^2
+    z_1*z_9 - z_3*z_7
+
+Symmetries
+----------
+
+The group Aut(P) of unimodular affine maps taking P to itself has order 6 and
+acts on the vertices listed in the Newton polytope section with orbits
+{v_1, v_2, v_3} and {v_4, v_5, v_6}. The graph has 6 automorphisms. Of the
+polytope automorphisms, 1 preserves the coefficients of G.
+
+The configuration has 6 symmetry pairs (T, sigma): integer matrices T and
+permutations sigma of the columns of A such that T takes column j of A to
+column sigma(j). Each gives the identity I_A(beta, z_sigma) = I_A(T beta, z)
+for the Euler-Mellin integral I_A of the GKZ system section, with
+z_sigma = (z_{sigma(1)}, ..., z_{sigma(9)}). Forsgaard, Matusevich and Sobieska
+[fms2019] and de la Cruz [delacruz2024] print the permutation on the other
+side, but the substitution in the proof of Corollary 4.1 of [fms2019] gives the
+form stated here. For I itself the prefactors at beta and T beta enter as well.
+They are, with sigma listed as (sigma(1), sigma(2), ...):
+
+          [1  0  0  0]
+          [          ]
+          [0  1  0  0]
+    T_1 = [          ], sigma_1 = (1, 2, 3, 4, 5, 6, 7, 8, 9)
+          [0  0  1  0]
+          [          ]
+          [0  0  0  1]
+
+          [1  0  0  0]
+          [          ]
+          [0  1  0  0]
+    T_2 = [          ], sigma_2 = (1, 3, 2, 6, 5, 4, 7, 9, 8)
+          [0  0  0  1]
+          [          ]
+          [0  0  1  0]
+
+          [1  0  0  0]
+          [          ]
+          [0  0  1  0]
+    T_3 = [          ], sigma_3 = (4, 2, 5, 1, 3, 6, 8, 7, 9)
+          [0  1  0  0]
+          [          ]
+          [0  0  0  1]
+
+          [1  0  0  0]
+          [          ]
+          [0  0  0  1]
+    T_4 = [          ], sigma_4 = (4, 5, 2, 6, 3, 1, 8, 9, 7)
+          [0  1  0  0]
+          [          ]
+          [0  0  1  0]
+
+          [1  0  0  0]
+          [          ]
+          [0  0  1  0]
+    T_5 = [          ], sigma_5 = (6, 3, 5, 1, 2, 4, 9, 7, 8)
+          [0  0  0  1]
+          [          ]
+          [0  1  0  0]
+
+          [1  0  0  0]
+          [          ]
+          [0  0  0  1]
+    T_6 = [          ], sigma_6 = (6, 5, 3, 4, 2, 1, 9, 8, 7)
+          [0  0  1  0]
+          [          ]
+          [0  1  0  0]
+
+Landau surfaces
+---------------
+
+The reduced principal A-determinant of G, each irreducible kinematic factor
+taken once, is the product of the discriminants of G restricted to the faces of
+P [gkz1994, dhpt2023, fmt2023]. Each discriminant that is not identically one
+factorises as follows, by face dimension, with one factor per line; numerical
+factors and powers of the energy scale mu, which only normalise the
+coefficients z_j, are left out:
+
+- Dimension 0:
+    m_1^2
+    m_2^2
+    m_3^2
+- Dimension 1:
+    m_1^2 - 2*m_1*m_2 + m_2^2 - p1^2
+    m_1^2 + 2*m_1*m_2 + m_2^2 - p1^2
+    m_1^2 - 2*m_1*m_3 + m_3^2 - p2^2
+    m_1^2 + 2*m_1*m_3 + m_3^2 - p2^2
+    m_2^2 - 2*m_2*m_3 + m_3^2 - p3^2
+    m_2^2 + 2*m_2*m_3 + m_3^2 - p3^2
+- Dimension 2:
+    p1^2
+    p2^2
+    p3^2
+    m_1^2 - 2*m_1*m_2 + m_2^2 - p1^2
+    m_1^2 + 2*m_1*m_2 + m_2^2 - p1^2
+    m_1^2 - 2*m_1*m_3 + m_3^2 - p2^2
+    m_1^2 + 2*m_1*m_3 + m_3^2 - p2^2
+    m_2^2 - 2*m_2*m_3 + m_3^2 - p3^2
+    m_2^2 + 2*m_2*m_3 + m_3^2 - p3^2
+    m_1^4*p3^2 + m_1^2*m_2^2*p1^2 - m_1^2*m_2^2*p2^2 - m_1^2*m_2^2*p3^2
+        - m_1^2*m_3^2*p1^2 + m_1^2*m_3^2*p2^2 - m_1^2*m_3^2*p3^2
+        - m_1^2*p1^2*p3^2 - m_1^2*p2^2*p3^2 + m_1^2*(p3^2)^2 + m_2^4*p2^2
+        - m_2^2*m_3^2*p1^2 - m_2^2*m_3^2*p2^2 + m_2^2*m_3^2*p3^2
+        - m_2^2*p1^2*p2^2 + m_2^2*(p2^2)^2 - m_2^2*p2^2*p3^2 + m_3^4*p1^2
+        + m_3^2*(p1^2)^2 - m_3^2*p1^2*p2^2 - m_3^2*p1^2*p3^2 + p1^2*p2^2*p3^2
+- Dimension 3:
+    (p1^2)^2 - 2*p1^2*p2^2 - 2*p1^2*p3^2 + (p2^2)^2 - 2*p2^2*p3^2 + (p3^2)^2
+    m_1^4*p3^2 + m_1^2*m_2^2*p1^2 - m_1^2*m_2^2*p2^2 - m_1^2*m_2^2*p3^2
+        - m_1^2*m_3^2*p1^2 + m_1^2*m_3^2*p2^2 - m_1^2*m_3^2*p3^2
+        - m_1^2*p1^2*p3^2 - m_1^2*p2^2*p3^2 + m_1^2*(p3^2)^2 + m_2^4*p2^2
+        - m_2^2*m_3^2*p1^2 - m_2^2*m_3^2*p2^2 + m_2^2*m_3^2*p3^2
+        - m_2^2*p1^2*p2^2 + m_2^2*(p2^2)^2 - m_2^2*p2^2*p3^2 + m_3^4*p1^2
+        + m_3^2*(p1^2)^2 - m_3^2*p1^2*p2^2 - m_3^2*p1^2*p3^2 + p1^2*p2^2*p3^2
+
+By comparison with the closed form from the modified Cayley matrix [dhpt2023],
+the first-type (Cayley) factors are
+
+    m_1
+    m_2
+    m_3
+    m_1^2 - 2*m_1*m_2 + m_2^2 - p1^2
+    m_1^2 + 2*m_1*m_2 + m_2^2 - p1^2
+    m_1^2 - 2*m_1*m_3 + m_3^2 - p2^2
+    m_1^2 + 2*m_1*m_3 + m_3^2 - p2^2
+    m_2^2 - 2*m_2*m_3 + m_3^2 - p3^2
+    m_2^2 + 2*m_2*m_3 + m_3^2 - p3^2
+    m_1^4*p3^2 + m_1^2*m_2^2*p1^2 - m_1^2*m_2^2*p2^2 - m_1^2*m_2^2*p3^2
+        - m_1^2*m_3^2*p1^2 + m_1^2*m_3^2*p2^2 - m_1^2*m_3^2*p3^2
+        - m_1^2*p1^2*p3^2 - m_1^2*p2^2*p3^2 + m_1^2*(p3^2)^2 + m_2^4*p2^2
+        - m_2^2*m_3^2*p1^2 - m_2^2*m_3^2*p2^2 + m_2^2*m_3^2*p3^2
+        - m_2^2*p1^2*p2^2 + m_2^2*(p2^2)^2 - m_2^2*p2^2*p3^2 + m_3^4*p1^2
+        + m_3^2*(p1^2)^2 - m_3^2*p1^2*p2^2 - m_3^2*p1^2*p3^2 + p1^2*p2^2*p3^2
+
+and the second-type (Gram) factors are
+
+    p1^2
+    p2^2
+    p3^2
+    (p1^2)^2 - 2*p1^2*p2^2 - 2*p1^2*p3^2 + (p2^2)^2 - 2*p2^2*p3^2 + (p3^2)^2
+
+The factors are candidate codimension-one singular loci on all sheets of the
+integral: a point on one of them may or may not be singular on the physical
+sheet, and the list is not guaranteed complete [fmt2023]. The coefficients are
+specialised to physical kinematics before each face discriminant is computed,
+so beyond one loop this is the principal Landau determinant rather than the
+principal A-determinant of the generic polynomial; multiplicities are dropped.
+
+Schwinger-representation system
+-------------------------------
+
+The Schwinger representation gives a second GKZ system on the Cayley
+configuration of (U~, F~), the Symanzik polynomials with a_N = 1 and a_e = u_e
+otherwise [jimenez2026, klausen2023]:
+
+               [1  1  1  0  0  0  0  0  0]
+               [                         ]
+               [0  0  0  1  1  1  1  1  1]
+    A_Cayley = [                         ]
+               [1  0  0  2  1  0  1  0  0]
+               [                         ]
+               [0  1  0  0  1  2  0  1  0]
+
+    beta_Cayley = (-D + nu_1 + nu_2 + nu_3, D/2 - nu_1 - nu_2 - nu_3, -nu_1,
+                   -nu_2).
+
+It is unimodularly equivalent to the Lee-Pomeransky configuration, the matrix
+A_LP and parameter vector beta_LP = (-D/2, -nu_1, ..., -nu_N) of the GKZ system
+of G, through
+
+        [2   -1  -1  -1]
+        [              ]
+        [-1  1   1   1 ]
+    T = [              ]
+        [0   1   0   0 ]
+        [              ]
+        [0   0   1   0 ]
+
+which maps the parameter vectors as beta_Cayley = T beta_LP and the columns of
+A_LP to those of A_Cayley up to order; the column correspondence is verified
+for this integral. Restricting to the F~ block gives the system
+
+          [1  1  1  1  1  1]
+          [                ]
+    A_F = [2  1  0  1  0  0]
+          [                ]
+          [0  1  2  0  1  0]
+
+    beta_F = (D/2 - nu_1 - nu_2 - nu_3, -nu_1, -nu_2);
+
+its solutions solve the full system when beta_Cayley lies in the span of the
+face's columns, which for the F~ block means nu = (L+1)D/2, here
+nu_1 + nu_2 + nu_3 = D [britto2026]. Away from that value the relation between
+the two systems is not established.
+
+References
+----------
+
+[weinzierl2022] S. Weinzierl, Feynman Integrals: A Comprehensive Treatment for
+    Students and Researchers, Springer, 2022, arXiv:2201.03593.
+[klausen2023] R.P. Klausen, Hypergeometric Feynman Integrals, PhD thesis,
+    Johannes Gutenberg University Mainz, 2022, arXiv:2302.13184.
+[leepomeransky2013] R.N. Lee and A.A. Pomeransky, Critical points and number of
+    master integrals, JHEP 11 (2013) 165, arXiv:1308.6676.
+[adolphson1994] A. Adolphson, Hypergeometric functions and rings generated by
+    monomials, Duke Math. J. 73 (1994) 269-290.
+[chestnov2022] V. Chestnov, F. Gasparotto, M.K. Mandal, P. Mastrolia, S.J.
+    Matsubara-Heo, H.J. Munch and N. Takayama, Macaulay matrix for Feynman
+    integrals: linear relations and intersection numbers, JHEP 09 (2022) 187,
+    arXiv:2204.12983.
+[mmw2005] L.F. Matusevich, E. Miller and U. Walther, Homological methods for
+    hypergeometric families, J. Amer. Math. Soc. 18 (2005) 919,
+    arXiv:math/0406383.
+[tellander2023] F. Tellander and M. Helmer, Cohen-Macaulay property of Feynman
+    integrals, Commun. Math. Phys. 399 (2023) 1021-1037, arXiv:2108.01410.
+[walther2022] U. Walther, On Feynman graphs, matroids, and GKZ-systems, Lett.
+    Math. Phys. 112 (2022) 120, arXiv:2206.05378.
+[bbkp2017] T. Bitoun, C. Bogner, R.P. Klausen and E. Panzer, Feynman integral
+    relations from parametric annihilators, Lett. Math. Phys. 109 (2019)
+    497-564, arXiv:1712.09215.
+[delacruz2019] L. de la Cruz, Feynman integrals as A-hypergeometric functions,
+    JHEP 12 (2019) 123, arXiv:1907.00507.
+[klausen2020] R.P. Klausen, Hypergeometric series representations of Feynman
+    integrals by GKZ hypergeometric systems, JHEP 04 (2020) 121,
+    arXiv:1910.08651.
+[fms2019] J. Forsgaard, L.F. Matusevich and A. Sobieska, On transformations of
+    A-hypergeometric functions, Funkcialaj Ekvacioj 62 (2019) 319,
+    arXiv:1703.03036.
+[delacruz2024] L. de la Cruz, Polytope symmetries of Feynman integrals, Phys.
+    Lett. B 854 (2024) 138744, arXiv:2404.03564.
+[gkz1994] I.M. Gelfand, M.M. Kapranov and A.V. Zelevinsky, Discriminants,
+    Resultants, and Multidimensional Determinants, Birkhaeuser, 1994.
+[dhpt2023] C. Dlapa, M. Helmer, G. Papathanasiou and F. Tellander, Symbol
+    alphabets from the Landau singular locus, JHEP 10 (2023) 161,
+    arXiv:2304.02629.
+[fmt2023] C. Fevola, S. Mizera and S. Telen, Landau singularities revisited:
+    computational algebraic geometry for Feynman integrals, Phys. Rev. Lett.
+    132 (2024) 101601, arXiv:2311.14669.
+[jimenez2026] M. Jimenez-Santacruz, C. Lopez-Arcos and A. Quintero Velez,
+    Canonical differential equations for Feynman integrals from
+    A-hypergeometric systems in the Schwinger representation, arXiv:2609.16107.
+[britto2026] R. Britto, T.W. Grimm and A. Hoefnagels, Resonance and
+    differential reduction of Feynman integrals, JHEP 09 (2026) 018,
+    arXiv:2606.09978.

@@ -21,7 +21,7 @@ Quick Start
 >>> integral = FeynmanIntegral(graph)
 >>> integral.symanzik.u                     # Symanzik U
 >>> integral.gkz.a_matrix                   # GKZ A-matrix
->>> integral.toric_ideal.generators         # IBP relations
+>>> integral.toric_ideal.generators         # toric ideal of A
 >>> integral.is_affinely_equivalent_to(other)
 >>> integral.to_latex()                     # full analysis document
 >>>

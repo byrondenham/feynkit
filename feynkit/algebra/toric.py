@@ -3,8 +3,10 @@ Toric ideal computation for Feynman integrals.
 
 This module provides algebraic methods for analysing Feynman integrals through
 toric ideal theory. The toric ideal associated with the GKZ A-matrix encodes
-polynomial relations among the monomial coefficients, which correspond to
-integration-by-parts (IBP) identities for Feynman integrals.
+polynomial relations among the monomial coefficients. Each binomial z^u - z^v
+gives the operator d^u - d^v, with d_j = d/dz_j, which annihilates the
+generalised Feynman integral: an analogue of integration-by-parts (IBP)
+relations, not an IBP relation itself (Chestnov et al. 2022).
 """
 
 from __future__ import annotations
@@ -31,9 +33,10 @@ def compute_toric_ideal_generators(
     """
     Compute generators of the toric ideal associated with the A-matrix.
 
-    The toric ideal I_A a subset of mathbb{C}[z_1, ..., z_m] consists of all polynomial relations
+    The toric ideal I_A in C[z_1, ..., z_m] consists of all polynomial relations
     among the variables z_j that are compatible with the monomial structure
-    encoded by A. These relations correspond to IBP identities for Feynman integrals.
+    encoded by A. Its binomials give the toric operators of the GKZ system,
+    an analogue of IBP relations rather than IBP relations.
 
     Parameters
     ----------

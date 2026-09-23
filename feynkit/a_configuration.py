@@ -467,8 +467,8 @@ def finite_index_map(
     onto some target point, with no constraint on |det M|.
 
     If |det M| = 1, the map is unimodular (a lattice isomorphism).  If
-    |det M| > 1, the map is a finite-index embedding: the target lattice is
-    a sublattice of index |det M| in the image of the source lattice.
+    |det M| > 1, the map is a finite-index embedding: the image M Z^n of the
+    source lattice is a sublattice of index |det M| in the target lattice Z^n.
 
     Parameters
     ----------

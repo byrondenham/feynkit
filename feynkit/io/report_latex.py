@@ -110,6 +110,7 @@ class _Document(Citations):
                 "\\documentclass[11pt,a4paper]{article}",
                 "\\usepackage[utf8]{inputenc}",
                 "\\usepackage[T1]{fontenc}",
+                "\\usepackage{lmodern}",
                 "\\usepackage{amsmath,amssymb}",
                 f"\\setcounter{{MaxMatrixCols}}{{{columns}}}",
                 "\\usepackage[margin=2.5cm]{geometry}",

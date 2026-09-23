@@ -107,7 +107,8 @@ class TikzDocument:
         TikzDocument
             Self for method chaining.
         """
-        indent_str = "    " * indent
+        # A blank line gets no indent, so the output has no trailing whitespace.
+        indent_str = "    " * indent if line else ""
         self.lines.append(f"{indent_str}{line}")
         return self
 

@@ -230,10 +230,9 @@ Observations:
     5 vertices of K_5.  This combinatorial structure is preserved by all 120
     symmetry pairs.
 
-  - No non-unimodular pairs appear for any of these physical configurations.
-    This is consistent with each configuration spanning its full ambient lattice
-    (Smith invariants all equal to 1), which forces det(M) = +/-1 for any
-    self-map.
+  - No non-unimodular pairs appear, and none can: for any full-dimensional
+    configuration, whatever its Smith invariants, the permutation P has finite
+    order k, so M^k = I and det(M) = +/-1 for every self-map.
 """)
 
 

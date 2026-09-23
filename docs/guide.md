@@ -2,9 +2,10 @@
 
 Feynkit is a Python library for symbolic computation of Feynman integrals. Starting from a graph
 description it computes Symanzik polynomials, parametric representations, the GKZ hypergeometric
-system, the Newton polytope, and the toric ideal (IBP generators). It can compare polytopes by
-unimodular, affine, or point-configuration equivalence, detect Landau singularities, and provides
-a `fk` command-line tool for instant analysis of any diagram.
+system, the Newton polytope, and the toric ideal. It can compare polytopes by unimodular, affine,
+or point-configuration equivalence, detect Landau singularities, write the results up as an
+analysis report in LaTeX or plain text, and provides a `fk` command-line tool for instant analysis
+of any diagram.
 
 ---
 
@@ -21,7 +22,7 @@ a `fk` command-line tool for instant analysis of any diagram.
 9. [GKZ system](#gkz-system)
 10. [Schwinger-representation GKZ system](#schwinger-representation-gkz-system)
 11. [Newton polytope](#newton-polytope)
-12. [Toric ideal and IBP relations](#toric-ideal-and-ibp-relations)
+12. [Toric ideal](#toric-ideal)
 13. [Polytope equivalence](#polytope-equivalence)
 14. [Automorphism groups and symmetry pairs](#automorphism-groups-and-symmetry-pairs)
 15. [Deriving modified integrals](#deriving-modified-integrals)
@@ -102,7 +103,7 @@ Section flags:
 | `-s` | `--symanzik` | Symanzik polynomials U, F, G |
 | `-p` | `--params` | Parametrisations (Schwinger, Feynman, Lee-Pom.) |
 | `-g` | `--gkz` | GKZ A-matrix and Euler equations |
-| `-t` | `--toric` | Toric ideal (IBP generators in z-space) |
+| `-t` | `--toric` | Toric ideal of the A-matrix |
 | `-n` | `--newton` | Newton polytope (vertices, volume, Smith invariants) |
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
 
@@ -172,16 +173,17 @@ The pairwise mode:
 Feynkit works with Feynman integrals in the **Lee-Pomeransky representation**:
 
 ```
-I ~ int [du] G(u)^(d/2-E/2) prod u_i^(nu_i-1)
+I ~ int [du] prod u_e^(nu_e - 1) G(u)^(-D/2)
 ```
 
 where `G = U + F` is the Lee-Pomeransky polynomial, `U` is the first Symanzik polynomial
-(spanning trees), `F` is the second (spanning 2-forests weighted by momenta), `E` is the total
-propagator degree, and `d` is the spacetime dimension.
+(spanning trees), `F` is the second (spanning 2-forests weighted by momenta), `nu_e` is the
+exponent of propagator `e`, and `D` is the spacetime dimension.
 
 The monomial support of `G` defines the **Newton polytope**. Its column-homogenised form is the
-**GKZ A-matrix**. The kernel of the monomial map `z -> u^A` is the **toric ideal**, whose
-generators are the IBP (integration-by-parts) relations.
+**GKZ A-matrix**. The kernel of the monomial map `z -> u^A` is the **toric ideal**. Each of its
+binomials gives a differential operator in the coefficients `z_j` that annihilates the integral
+(section 12).
 
 ---
 
@@ -417,6 +419,18 @@ fi.graph_automorphisms      # list[list[int]], vertex permutations
 fi.symmetry_pairs           # list[SymmetryPair], all integer affine maps
 ```
 
+The polytope data and the analysis report are built on request and not cached:
+
+```python
+from feynkit import polytope_data
+from feynkit.io import AnalysisReport
+
+polytope_data(fi.newton_polytope.points)   # PolytopeData: faces, facets, volume (section 11)
+AnalysisReport.from_integral(fi)           # every fact the analysis report states (section 20)
+fi.to_latex()                              # the report as a LaTeX document
+fi.to_text()                               # the report as plain text
+```
+
 ---
 
 ## Symanzik polynomials
@@ -613,16 +627,69 @@ for pt in pts:
     print(pt)
 ```
 
-The polytope dimension equals `loops + 1` (one row per LP parameter plus the homogenisation row,
-minus one for the affine span). For a 1-loop triangle this is 1, so the Newton polytope is a
-line segment.
+The points live in $\mathbb{R}^N$, one coordinate per Lee-Pomeransky parameter in internal-edge
+order, and the polytope is usually full-dimensional: the massless triangle's has dimension 3 and
+the massless box's dimension 4.
+
+### Faces, facets and convergence
+
+`polytope_data` takes the points and returns a `PolytopeData` with the face lattice, the facet
+inequalities and the normalised volume:
+
+```python
+from feynkit import FeynmanIntegral, polytope_data
+
+fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")   # massless triangle
+data = polytope_data(fi.newton_polytope.points)
+print(data.dimension, data.is_full_dimensional)      # 3 True
+print(data.normalized_volume)                         # 4
+print(data.f_vector)                                  # (6, 12, 8, 1), an octahedron
+for facet in data.facets:
+    print(facet.normal, facet.offset)                 # m . x <= b
+```
+
+`PolytopeData` fields:
+
+| Attribute | Description |
+|-----------|-------------|
+| `points` | The points as given, not only the vertices |
+| `ambient_dimension`, `dimension` | Number of coordinates and affine dimension |
+| `is_full_dimensional` | Whether the two dimensions agree |
+| `vertex_indices`, `vertices` | The vertices, as indices into `points` and as points |
+| `faces` | Every face as (dimension, indices of its points), vertices and polytope included |
+| `f_vector` | Number of faces of each dimension, from 0 up |
+| `facets` | The facets as `Facet` inequalities; empty unless the polytope is full-dimensional |
+| `normalized_volume` | Volume in the lattice the point differences span; a unimodular simplex has 1 |
+
+A `Facet` holds the primitive integer outward normal `normal` ($m$), the right-hand side `offset`
+($b$) and the indices `point_indices` of the points with $m \cdot x = b$.
+
+The facets give the convergence region of the Lee-Pomeransky integral (Klausen 2023,
+arXiv:2302.13184, section 3.3). For Euclidean kinematics, where every coefficient of $G$ has
+positive real part, and $\mathrm{Re}\, D > 0$, the integral converges absolutely when
+
+$$b\, \mathrm{Re}(D/2) - m \cdot \mathrm{Re}(\nu) > 0$$
+
+for every facet, with $\nu = (\nu_1, \ldots, \nu_N)$ in the same edge order. When the polytope is
+not full-dimensional, the integral converges for no $D$ and $\nu$. The analysis report (section 20)
+lists one such expression per facet:
+
+```python
+from feynkit.io import AnalysisReport
+
+report = AnalysisReport.from_integral(fi, ["representations"])
+print(report.representations.convergence)   # nu_1, D/2 - nu_1, ...: each needs Re > 0
+```
 
 ---
 
-## Toric ideal and IBP relations
+## Toric ideal
 
-The toric ideal is the ideal of polynomial relations among the monomials of G. Its generators
-correspond to IBP (integration-by-parts) identities for the integral family.
+The toric ideal is the ideal of polynomial relations among the monomials of G. Each binomial
+generator $z^k - z^l$ gives the operator $\partial^k - \partial^l$ in the coefficients $z_j$, which
+annihilates the integral with the $z_j$ treated as independent. These operators are an analogue of
+integration-by-parts (IBP) relations, not IBP relations (Chestnov et al. 2022,
+arXiv:2204.12983); see section 6.3 of the mathematics reference.
 
 ```python
 ti = fi.toric_ideal
@@ -826,7 +893,8 @@ result = is_affinely_equivalent(pts_a, pts_b)
 
 Feynkit computes the unimodular automorphism group of the Newton polytope of G,
 the graph automorphism group (vertex permutations), the coefficient-preserving
-subgroup, and the full set of symmetry pairs (including finite-index maps).
+subgroup, and the full set of symmetry pairs, the integer affine self-maps of the
+point configuration.
 
 See [`docs/automorphism_groups.md`](automorphism_groups.md) for the mathematical
 background, physical interpretation, and full results for standard diagrams.
@@ -843,21 +911,22 @@ background, physical interpretation, and full results for standard diagrams.
 
 `fi.symmetry_pairs` returns all integer affine maps between the point configuration and itself.
 Each has $|\det M| = 1$: $P$ has finite order $k$, so $M^k = I$. Maps with $|\det M| > 1$ relate two
-different configurations (`finite_index_map`). Each `SymmetryPair` records:
+different configurations (`finite_index_map`). Each pair gives the identity
+$I_A(\beta, z_P) = I_A(T\beta, z)$ for the integral without Gamma prefactors, with
+$z_P = (z_{P(1)}, \ldots, z_{P(N)})$; section 8 of the mathematics reference states it with its
+conventions. Each `SymmetryPair` records:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `witness_matrix` | `sp.ImmutableMatrix` | The integer linear map M |
+| `linear_map` | `sp.ImmutableMatrix` | The integer linear map M |
 | `translation` | `sp.ImmutableMatrix` | Translation vector t |
 | `determinant` | `int` | \|det(M)\|, always 1 for a self-map |
 | `is_unimodular` | `bool` | Shorthand for `determinant == 1` |
-| `column_permutation` | `list[int]` | Induced permutation on A-matrix columns |
+| `column_permutation` | `tuple[int, ...]` | Induced permutation on A-matrix columns |
 
 ```python
 pairs = fi.symmetry_pairs
-uni  = [p for p in pairs if p.is_unimodular]
-fi_p = [p for p in pairs if not p.is_unimodular]
-print(f"{len(uni)} unimodular, {len(fi_p)} finite-index")
+print(len(pairs), all(p.is_unimodular for p in pairs))   # 48 True for the massless triangle
 ```
 
 ### Quick example
@@ -970,10 +1039,11 @@ print(fi_res.found, fi_res.determinant)
 ```python
 from feynkit import symmetry_pairs, AConfiguration
 
-pairs = symmetry_pairs(cfg)
-uni   = [p for p in pairs if p.is_unimodular]
-fi_p  = [p for p in pairs if not p.is_unimodular]
+pairs = symmetry_pairs(cfg)   # every pair has |det M| = 1
 ```
+
+For maps with $|\det M| > 1$ between two different configurations use `finite_index_map`
+(see Equivalence above).
 
 ### Intrinsic lattice model
 
@@ -1025,6 +1095,19 @@ la = landau_analysis_from_polynomial(G, [u1, u2, u3])
 For one-loop graphs `one_loop_landau_surfaces(fi)` returns the same factors from the principal
 minors of the modified Cayley matrix (Dlapa, Helmer, Papathanasiou, Tellander 2023). It is fast,
 needs no Groebner basis, and is what the test-suite checks the face computation against.
+
+`one_loop_landau_surfaces_by_type(fi)` splits the same factors by kind of minor. Principal minors
+that leave out the bordering first row and column of the modified Cayley matrix give first-type
+(Cayley) factors, and those that keep it give second-type (Gram) factors. A factor that arises
+from both kinds is listed in both.
+
+```python
+from feynkit import one_loop_landau_surfaces_by_type
+
+first, second = one_loop_landau_surfaces_by_type(fi)   # massive bubble
+print(first)    # m_1, m_2, s - (m_1 + m_2)^2, s - (m_1 - m_2)^2
+print(second)   # s
+```
 
 ### Backends
 
@@ -1262,23 +1345,90 @@ print(tikz_code)
 tikz_code = fi.visualise_polytope()
 ```
 
-### LaTeX analysis document
+### Analysis report
 
-Produces a self-contained `.tex` file with all polynomials, the GKZ system, parametrisations,
-and toric generators formatted for publication:
-
-```python
-latex = fi.to_latex()
-with open("analysis.tex", "w") as f:
-    f.write(latex)
-```
-
-### Plain text report
+`AnalysisReport` (in `feynkit.io`) holds everything feynkit computes for one integral, section by
+section, as a frozen dataclass. `render_latex` turns it into a LaTeX `article` and `render_text`
+into plain ASCII text stating the same facts in the same order. `fi.to_latex()` and `fi.to_text()`
+build the report and render it in one call:
 
 ```python
-report = fi.to_text()
-print(report)
+from pathlib import Path
+from feynkit import FeynmanIntegral
+
+fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")   # massive triangle
+Path("triangle.tex").write_text(fi.to_latex())        # compile with pdflatex
+print(fi.to_text())
 ```
+
+Both methods take the same arguments:
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `sections` | all | Names of the sections to build, from `SECTION_NAMES` |
+| `title` | "Feynman integral" and the CNickel string | Document title; `to_latex` escapes it |
+| `max_face_points` | 12 | Faces of the Newton polytope with more monomials are left out of the Landau analysis and listed as skipped |
+
+The section names, in `feynkit.io.report.SECTION_NAMES`, are `identity`, `conventions`,
+`polynomials`, `representations`, `polytope`, `gkz`, `symmetries`, `landau` and `schwinger`. The
+first three are always built. The rest are built only when named, so a survey can ask for a short
+report without the automorphism and Landau computations:
+
+```python
+latex = fi.to_latex(["polytope", "gkz"], title="Massive triangle")
+```
+
+To render one report twice, or to read its facts directly, build it once and pass it to the
+renderers. `AnalysisReport.from_integral` takes the same `sections` and `max_face_points`, and
+`figure_max_vertices` (default 12): a polytope with more vertices gets no figure.
+
+```python
+from feynkit.io import AnalysisReport, render_latex, render_text
+
+report = AnalysisReport.from_integral(fi)
+print(report.summary())            # the summary table as (label, value) rows
+latex = render_latex(report)
+text = render_text(report, title="Massive triangle")
+```
+
+The document has twelve parts:
+
+1. The title; no author, date or abstract.
+2. A summary table: loops, propagators, external legs, the monomial counts of $F$ and $G$,
+   independent invariants, codimension, polytope vertices, normalised volume,
+   $|\mathrm{Aut}(P)|$, toric generators and Landau surfaces.
+3. The graph: a TikZ figure and a table of the propagators with their endpoints, exponents and
+   masses.
+4. Conventions: the momentum-space integral and its normalisation, $D = D_0 - 2\epsilon$, the
+   metric, the kinematic invariants and the definition of $F$.
+5. The Symanzik polynomials $U$, $F$ (with its $1/\mu^2$ factored out) and $G$, their degrees and
+   monomial counts, the coefficients $z_j$ at their physical values, and the codimension against
+   the number of independent invariants.
+6. The Schwinger, Feynman and Lee-Pomeransky representations, written in $U$, $F$ and $G$, and the
+   convergence region of the last as one inequality per facet (section 11).
+7. The Newton polytope: vertices, dimension, normalised volume, face counts, a figure, and the
+   conditions under which the holonomic rank equals the volume.
+8. The GKZ system: $A$, $\beta = (-D/2, -\nu_1, \ldots, -\nu_N)$, one Euler operator per row of $A$
+   and the toric generators.
+9. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
+   coefficient-preserving subgroup, and the symmetry pairs with the identity each gives.
+10. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
+    into first and second type for one-loop graphs, with the skipped faces and the caveats.
+11. The Schwinger-representation system (section 10), its equivalence to the Lee-Pomeransky
+    configuration and its reduction to the $\tilde F$ block.
+12. References, the works cited in order of first citation.
+
+Parts 6 to 11 appear when their sections are built. The document also states what feynkit does
+not compute: the holonomic rank at the physical point, the Euler characteristic that counts the
+master integrals, series solutions, a Pfaffian system and the restriction of the GKZ system to
+physical kinematics.
+
+The LaTeX source is ASCII and needs only standard TeX Live packages (amsmath, booktabs, longtable,
+geometry, lmodern, TikZ with tikz-3dplot, hyperref). The test `tests/io/test_report_compile.py`
+compiles the reports of the massive bubble, the massless triangle and the massless box with
+pdflatex and checks that they have no errors, overfull lines or undefined references. It is
+skipped when pdflatex is not installed, and the box also needs Singular. The files
+`docs/triangle_analysis.tex`, `.pdf` and `.txt` are the report of the massive triangle.
 
 ---
 

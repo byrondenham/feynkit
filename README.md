@@ -7,7 +7,7 @@
 
 Feynkit computes every standard representation of a Feynman integral from a single graph
 description: Symanzik polynomials, Schwinger / Feynman / Lee-Pomeransky parametrisations, the
-GKZ hypergeometric system, the Newton polytope, and the toric ideal (IBP generators). It assigns
+GKZ hypergeometric system, the Newton polytope, and the toric ideal. It assigns
 a canonical **Nickel / CNickel index** to every graph and can construct diagrams directly from
 that index. It can compare integrals by unimodular, affine, or point-configuration equivalence,
 compute the principal A-determinant whose factors are the candidate Landau singularities, and cache results in a
@@ -66,7 +66,7 @@ Section flags (omit all to run every section):
 | `-s` / `--symanzik` | Symanzik polynomials U, F, G |
 | `-p` / `--params` | Integral parametrisations (Schwinger, Feynman, Lee-Pom.) |
 | `-g` / `--gkz` | GKZ A-matrix and Euler equations |
-| `-t` / `--toric` | Toric ideal (IBP generators in z-space) |
+| `-t` / `--toric` | Toric ideal of the A-matrix |
 | `-n` / `--newton` | Newton polytope (vertices, volume, Smith invariants) |
 | `-S` / `--symmetries` | Polytope automorphisms and symmetry pairs |
 
@@ -135,7 +135,7 @@ print(cay.restrict_to_f_block().a_matrix)
 pts = fi.newton_polytope.points
 print(f"G has {len(pts)} monomials")
 
-# Toric ideal (IBP generators)
+# Toric ideal of the A-matrix
 ti = fi.toric_ideal
 print(f"{len(ti.generators)} generator(s)")
 for gen in ti.generators:
@@ -150,6 +150,18 @@ Or skip the boilerplate entirely using CNickel:
 ```python
 fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")   # massless triangle
 fi = FeynmanIntegral.from_cnickel("111e|e|:nnn")      # massive sunrise
+```
+
+`fi.to_latex()` writes these results up as an analysis report, a LaTeX article that also covers
+the convergence region, the symmetries and the Landau surfaces, states its conventions, cites a
+source for each claim and says what feynkit does not compute. It compiles with pdflatex.
+`fi.to_text()` gives the same report as plain text, and
+[`docs/triangle_analysis.pdf`](docs/triangle_analysis.pdf) is the report of the massive triangle.
+
+```python
+from pathlib import Path
+fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")   # massive triangle
+Path("triangle.tex").write_text(fi.to_latex())
 ```
 
 ---
@@ -202,12 +214,13 @@ same CNickel string, the canonical form minimises the mass colouring lexicograph
 | `feynkit.systems` | GKZ A-matrix, beta parameters, Euler operators; Schwinger-representation Cayley system |
 | `feynkit.algebra` | Toric ideal generators (SymPy or 4ti2 backend), Gröbner bases, ideal quotients and intersections, syzygies |
 | `feynkit.normal_forms` | Unimodular equivalence (Liu-Cai), affine equivalence, polytope automorphism groups |
+| `feynkit.polytope` | Face lattice, facet inequalities and normalised volume of a lattice polytope (`polytope_data`) |
 | `feynkit.a_configuration` | Arbitrary GKZ A-configurations: equivalence, finite-index maps, Smith invariants, symmetry pairs |
 | `feynkit.landau` | Principal A-determinant over all polytope faces; one-loop closed form |
 | `feynkit.artifacts` | Conformal simplex, BMS simplex, complete-graph, and massless-polygon A-configurations |
 | `feynkit.database` | SQLite cache for GKZ analysis results, CNickel, and automorphism data |
 | `feynkit.visualisation` | TikZ diagrams and Newton polytope plots |
-| `feynkit.io` | LaTeX and plain-text analysis documents |
+| `feynkit.io` | The analysis report (`AnalysisReport`) and its LaTeX and plain-text renderers |
 | `feynkit.cli` | `fk` command-line tool |
 
 All representations are computed lazily and cached on the `FeynmanIntegral` object.
@@ -216,8 +229,10 @@ All representations are computed lazily and cached on the `FeynmanIntegral` obje
 
 ## Polytope equivalence
 
-Two integrals with unimodularly equivalent Newton polytopes have isomorphic GKZ systems, they
-belong to the same analytic family:
+Two integrals whose monomial supports are unimodularly equivalent, every point and not only the
+hull vertices, have isomorphic GKZ systems and belong to the same analytic family.
+`is_unimodular_equivalent_to()` compares the hull vertices, which settles it when every monomial
+is a vertex, as for the one-mass triangles:
 
 ```python
 fi_a = FeynmanIntegral.from_cnickel("12e|2e|e|:nzz")   # one-mass triangle, edge 0-1 massive
@@ -258,7 +273,7 @@ cfg2 = AConfiguration(other_A)
 res = cfg.is_unimodular_equivalent_to(cfg2)
 print(res.equivalent, res.witness_map)
 
-# Symmetry pairs (related by integer affine maps with |det| >= 1)
+# Symmetry pairs: integer affine self-maps, each with |det M| = 1
 from feynkit import symmetry_pairs
 pairs = symmetry_pairs(cfg)
 ```
@@ -301,7 +316,9 @@ more use a Groebner elimination; install Singular for speed.
 ## Automorphism groups
 
 The unimodular automorphism group Aut(P) of a Newton polytope encodes the symmetries of the GKZ
-system. Coefficient-preserving automorphisms give functional equations I(z) = I($\sigma$*z):
+system. Each symmetry pair (M, t, P) gives the identity $I_A(\beta, z_P) = I_A(T\beta, z)$ for the
+integral without Gamma prefactors; for a coefficient-preserving automorphism $z_P = z$, so it
+relates the integral at $\beta$ and at $T\beta$:
 
 ```python
 from feynkit.normal_forms.polytope_automorphisms import coefficient_preserving_indices

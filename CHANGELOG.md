@@ -26,6 +26,22 @@
   (sum(nu) - D/2, nu_1, ..., nu_N), which does not satisfy those equations. A
   numerical homogeneity test now pins the correct values. The A-matrix, toric
   ideal and polytope data are unchanged.
+- `FeynmanIntegral.to_latex` and `to_text` now produce the analysis report
+  (see Added) and take `sections=None, *, title=None, max_face_points=12`.
+  They no longer accept `author`, `polytope_tikz` or any other keyword
+  argument, and the default title is "Feynman integral" followed by the
+  CNickel string.
+- The exporters behind the old documents are removed: `parametrisation_to_latex`,
+  `gkz_system_to_latex`, `toric_ideal_to_latex` and `_create_analysis_document`
+  from `feynkit.io.latex`, and `parametrisation_to_text`, `gkz_system_to_text`,
+  `toric_ideal_to_text` and `_create_analysis_report` from `feynkit.io.text`.
+  Build an `AnalysisReport` and pass it to `render_latex` or `render_text`
+  instead.
+- `landau_analysis` no longer counts the energy scale mu as a Landau surface or
+  as a factor of `principal_a_determinant`: mu only normalises the
+  coefficients z_j. Where it appeared the surface count drops by one, from 6
+  to 5 for the massive bubble and from 9 to 8 for the one-mass triangle and
+  the massive sunrise. `FaceDiscriminant.discriminant` still carries mu.
 
 ### Added
 
@@ -47,6 +63,33 @@
   run it with `pytest -m examples`.
 - `hull_vertex_indices` is now exported from `feynkit.normal_forms`, so callers
   no longer have to reach into the private `_invariants` module.
+- `feynkit.polytope`: `polytope_data(points)` returns a `PolytopeData` with the
+  vertices, the face lattice, the normalised volume and, for a full-dimensional
+  polytope, the facet inequalities m . x <= b as `Facet` objects with primitive
+  integer outward normals. All three names are exported from `feynkit`.
+- `feynkit.io.AnalysisReport`, a frozen record of everything feynkit computes
+  for one integral, built by `AnalysisReport.from_integral(fi, sections)`, and
+  the renderers `render_latex` and `render_text`, which write it as a LaTeX
+  article or as plain text. The report states its conventions and cites a
+  source for each claim. It gives the Symanzik polynomials with the
+  coefficients z_j at their physical values, the three parametric
+  representations with the convergence region of the Lee-Pomeransky integral,
+  the Newton polytope and the conditions under which the holonomic rank equals
+  its volume, the GKZ system, the symmetries and the identity each symmetry
+  pair gives, the Landau surfaces, and the Schwinger-representation system. It
+  also names what feynkit does not compute. The monomials of F are counted by
+  exponent vector, so terms that share a monomial count once.
+- `feynkit.io.latex.factor_energy_scale(expr, scale)`, which writes an
+  expression as numerator / scale^k with the numerator free of the scale, and
+  `to_latex_lines`, which breaks the LaTeX of a long sum into lines.
+- `one_loop_landau_surfaces_by_type`, which splits the one-loop closed form into
+  first-type (Cayley) and second-type (Gram) factors, and a keyword-only `scale`
+  argument of `landau_analysis_from_polynomial` that keeps that symbol out of
+  the surfaces.
+- A test that compiles the report of the massive bubble, the massless triangle
+  and the massless box with pdflatex and fails on errors, overfull lines or
+  undefined references. It is skipped when pdflatex is not installed, and for
+  the box when Singular is not. CI installs TeX Live so that it runs there.
 
 ### Changed
 
@@ -68,6 +111,13 @@
 - `FeynkitDatabase.summary()` now shows `0` for a cached toric ideal with no
   generators, rather than the same `?` it shows for one that was never
   computed.
+- `feynkit.io.latex.to_latex` writes products by juxtaposition (`2 x y`) rather
+  than with `\cdot`.
+- `graph_to_tikz` places each external leg outward from its own vertex and
+  lays out one-loop graphs as polygons along the walk of internal edges.
+- `docs/triangle_analysis.tex`, `.pdf` and `.txt` are regenerated from the new
+  report. They describe the same graph as before, the triangle with three
+  distinct masses (`12e|2e|e|:nnn`).
 
 ### Fixed
 
@@ -89,6 +139,39 @@
   and only for maps of every column (point_config, finite_index); a map of the
   hull vertices gives no identity. The docstrings no longer say that
   `symmetry_pairs` can return maps with |det M| > 1.
+- The LaTeX document did not escape its title, so a title with `_`, `&` or `%`
+  failed to compile. It showed at most five Euler equations; the report writes
+  one Euler operator per row of A.
+- The documents called the toric generators IBP relations and the Euler
+  equations Horn-type. The report describes the toric operators as an analogue
+  of IBP relations (Chestnov et al. 2022) and makes no Horn claim. The guide,
+  the README, the mathematics reference and the `feynkit.algebra.toric`
+  docstrings no longer call the toric generators IBP relations either.
+- The LaTeX document pointed to github.com/feynkit/feynkit, which does not
+  exist.
+- `graph_to_tikz` drew parallel propagators, as in the bubble and the sunrise,
+  as one line; it now bends them apart.
+- `to_latex_split` could break a line inside a `\left( ... \right)` pair and
+  leave its delimiters unbalanced.
+- The mathematics reference gave the exponent map u -> Mu + t as the change of
+  integration variables, called point-configuration equivalence unimodular
+  although it allows a rational M, and said the conformal companion maps to
+  BMS_n with |det M| = 2 for every n and unimodularly for n = 3. It now gives
+  the substitution u_i = prod_k v_k^(M_ki), the identity
+  I_A(beta, z_P) = |det M| I_B(T beta, z) for a map of every column, and
+  |det M| = 2/(n-2), an integer map only for n = 3. The de la Cruz (2024)
+  reference has its arXiv number, 2404.03564.
+- The guide listed a `witness_matrix` field of `SymmetryPair`, which is
+  `linear_map`, split symmetry pairs into unimodular and finite-index ones,
+  although every self-map has |det M| = 1, wrote the Lee-Pomeransky integrand
+  with G^(d/2 - E/2) instead of G^(-D/2), and said the Newton polytope of the
+  triangle is a line segment; its dimension is 3.
+- `examples/symmetry_pairs_example.py` and the mathematics reference put
+  |det M| = 1 for self-maps down to Smith invariants equal to 1; it holds for
+  every full-dimensional configuration, since P has finite order k and so
+  M^k = I. The `finite_index_map` docstring had the index the wrong way round:
+  the image M Z^n of the source lattice has index |det M| in the target
+  lattice Z^n.
 
 ### Removed
 

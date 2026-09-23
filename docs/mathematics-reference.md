@@ -421,14 +421,18 @@ Buchberger's algorithm (SymPy); for large examples it can have more generators t
 feynkit chooses automatically between the two backends (`backend="auto"` in
 `compute_toric_ideal_generators`): `4ti2` if available, else SymPy.
 
-### 6.3 Physical Interpretation (IBP Relations)
+### 6.3 Physical Interpretation
 
-Each generator $z^u - z^v \in I_A$ encodes an **integration-by-parts (IBP) identity** among the
-monomials of $G$: the toric relation $Au = Av$ means the two monomials $z^u$ and $z^v$ have the same
-image under $\phi$, so they represent the same combination of propagator factors after the change of
-variables, and their difference vanishes in the Feynman integral.  The number of independent generators
-(modulo the obvious degree-one relations) equals $N - \operatorname{rank}(A)$, the codimension of the
-toric variety.
+Each generator $z^u - z^v \in I_A$ gives the toric operator $\partial^u - \partial^v$ of section 4.3,
+which annihilates the integral.  Since $\partial_j I_A(\beta, z) = \beta_0\, I_A(\beta - a_j, z)$, with
+$a_j$ the $j$-th column of $A$, a toric operator relates integrals with shifted propagator exponents and
+dimension.  These relations are an analogue of integration-by-parts (IBP) relations, not IBP relations
+themselves (Chestnov et al.\ 2022).  They hold for independent coefficients $z_j$;
+specialising to physical kinematics is a separate step, which feynkit does not perform.
+
+The lattice $\ker_{\mathbb{Z}} A$ has rank $N - \operatorname{rank}(A)$, the codimension of the toric
+variety.  A minimal generating set of $I_A$ has at least that many elements, and exactly that many
+only when $I_A$ is a complete intersection.
 
 ---
 
@@ -537,12 +541,13 @@ $\beta \mapsto T\beta$ is computed by `SymmetryPair.transform_beta(beta)`.
 
 ### 8.3 Unimodularity of All Self-Maps
 
-For a Feynman configuration (non-degenerate: affine span = $\mathbb{Z}^n$), every integer affine
+For a full-dimensional configuration, whatever its Smith invariants, every integer affine
 self-map is automatically **unimodular** ($|\det M| = 1$).
 
 **Proof:** $M$ maps the configuration $\mathcal{A}$ bijectively to itself, so it maps
 $\operatorname{Conv}(\mathcal{A})$ to itself with the same volume.  Therefore
-$|\det M| = \mathrm{Vol}(M\cdot\Delta)/\mathrm{Vol}(\Delta) = 1$.
+$|\det M| = \mathrm{Vol}(M\cdot\Delta)/\mathrm{Vol}(\Delta) = 1$.  Alternatively: $P$ has finite
+order $k$, so $T^k A = A$, and as $A$ has full rank, $M^k = I$.
 
 Configurations with non-trivial Smith invariants (e.g.\ BMS simplex with $d_n = 2$) can admit
 non-unimodular **finite-index** maps between two *different* configurations (see section 9.4).
@@ -571,9 +576,14 @@ $t \in \mathbb{Z}^n$, such that $\{U\alpha + t : \alpha \in \mathcal{A}\} = \mat
 This is strictly stronger than affine isomorphism over $\mathbb{Q}$: the map must preserve the integer
 lattice.
 
-**Physical meaning:** Two Feynman integrals with unimodularly equivalent Newton polytopes have the same
-GKZ system up to a coordinate change in $z$-space (relabelling of monomials) and a reparametrisation
-$u \mapsto Mu + t$ of the integration variables, they are the *same* A-hypergeometric function.
+**Physical meaning:** When the map takes every column of $\mathcal{A}$ onto a column of $\mathcal{B}$,
+not only the hull vertices, the two GKZ systems agree up to a relabelling $P$ of the $z_j$ and the
+change $\beta \mapsto T\beta$, and the integrals satisfy $I_A(\beta, z_P) = I_B(T\beta, z)$, the identity
+of section 9.4 with $|\det M| = 1$.  The map $\alpha \mapsto U\alpha + t$ acts on the exponents, not on the
+integration variables: the substitution is $u_i = \prod_k v_k^{U_{ki}}$, which sends $u^\alpha$ to
+$v^{U\alpha}$, so that $G$ becomes $v^{-t}$ times the polynomial of $\mathcal{B}$ with permuted
+coefficients; the translation enters only through this monomial factor.  A map of the hull vertices
+alone implies all this only when every column is a vertex; section 9.3 checks all columns.
 
 Accessed via `fi.is_unimodular_equivalent_to(other)`, which returns a `PolytopeEquivalence` with
 fields `.equivalent` (bool), `.witness_map` ($U$), `.translation` ($t$), `.determinant`, `.vertex_correspondence`.
@@ -592,20 +602,32 @@ vertices only (not the full monomial support).
 
 ### 9.3 Point-Configuration Equivalence
 
-Checks unimodular equivalence of the full monomial support (all $N$ points including interior ones),
-not only the hull.  Two integrals can have the same Newton polytope but different monomial supports
-(different sets of interior points), giving different GKZ systems with the same Feynman polytope.
+Checks for an affine map $x \mapsto Mx + t$ taking the full monomial support (all $N$ points,
+interior ones included) onto that of the other configuration, not only the hull.  The map is found
+over $\mathbb{Q}$: $M \in GL_n(\mathbb{Q})$ need not be an integer matrix.  Two integrals can have the same
+Newton polytope but different monomial supports (different sets of interior points), giving
+different GKZ systems with the same Feynman polytope.
+
+A map of all columns, integer or not, gives the identity of section 9.4,
+$I_A(\beta, z_P) = |\det M|\, I_B(T\beta, z)$, with $T$ rational when $M$ is.
 
 Accessed via `AConfiguration.is_point_config_equivalent_to(other)`.
 
 ### 9.4 Finite-Index Maps
 
-A **finite-index map** $(M, t)$ with $M \in GL_n(\mathbb{Z})$, $|\det M| = k > 1$, maps source
+A **finite-index map** $(M, t)$ with $M$ an integer matrix, $|\det M| = k > 1$, maps source
 configuration $\mathcal{A}$ bijectively to target $\mathcal{B}$.  The integer $k = |\det M|$ is the
-**index** of the sublattice.
+**index** of the sublattice $M\mathbb{Z}^n$ in $\mathbb{Z}^n$.
 
-Physical meaning: $\mathcal{B}$ lies in a sublattice of index $k$ in $\mathbb{Z}^n$; the map bridges
-two configurations with different Smith invariants.
+Physical meaning: $\mathcal{B}$ lies in a translate of the sublattice $M\mathbb{Z}^n$ of index $k$; the map
+bridges two configurations with different Smith invariants.  With $P$ the induced bijection of
+columns, $M\alpha_j + t = b_{P(j)}$ for the points $b_i$ of $\mathcal{B}$, the substitution
+$u_i = \prod_k v_k^{M_{ki}}$ gives
+
+$$I_A(\beta, z_P) \;=\; |\det M|\; I_B(T\beta,\; z),$$
+
+with $T$ as in section 8.1 and $I_A$, $I_B$ the integrals without Gamma prefactors of section 8.2.
+For a self-map it is the identity of section 8.2.
 
 Example: The massless triangle (Smith invariants $[1,1,1]$) maps to the triple-K integral (Smith
 invariants $[1,1,2]$) via $M = \bigl(\begin{smallmatrix}0&1&1\\1&0&1\\1&1&0\end{smallmatrix}\bigr)$
@@ -727,7 +749,7 @@ Accessed via `bms_simplex_a_config(n)` in `feynkit/artifacts/conformal.py`.
 
 ### 11.3 Conformal Companion
 
-The **conformal companion** $\mathcal{A}_n^{\mathrm{comp}}$ is a configuration designed to admit a
+The **conformal companion** $\mathcal{A}_n^{\mathrm{comp}}$ is a candidate configuration for a
 finite-index map to BMS$_n$.  Its $G$-polynomial is
 
 $$G_{\mathrm{comp}}(u) \;=\; \sum_{i=1}^n \prod_{j\neq i} u_j \;+\; \sum_{i=1}^n p_i^2\, u_i.$$
@@ -735,10 +757,19 @@ $$G_{\mathrm{comp}}(u) \;=\; \sum_{i=1}^n \prod_{j\neq i} u_j \;+\; \sum_{i=1}^n
 Lower monomials have degree $n-1$ (same as BMS lower); upper monomials have degree 1.  The A-matrix is
 $(n+1) \times 2n$.
 
-The finite-index map $M: \mathcal{A}^{\mathrm{comp}} \to \mathcal{A}^{\mathrm{BMS}}$ has $|\det M| = 2$
-for all $n$ and $|\det M| = 1$ (unimodular) only for $n=3$.
+The affine map $x \mapsto Mx + t$ with $M = I - J/(n-2)$, $J$ the all-ones matrix, and
+$t = \tfrac{n-1}{n-2}(1, \ldots, 1)$ takes the lower monomials of the companion to those of BMS$_n$ and
+$u_i$ to $u_i^2 \prod_{j \neq i} u_j$.  Any other affine bijection between the two configurations
+differs from it by a self-map, so every one has $|\det M| = 2/(n-2)$, the ratio of the lattice indices:
+the Smith invariants are $[1, \ldots, 1, 2]$ for BMS$_n$ and $[1, \ldots, 1, n-2]$ for the companion.
 
-For $n=3$: the companion coincides with the massless triangle (same A-configuration).
+- For $n=3$ the companion coincides with the massless triangle (same A-configuration), and $M$ is the
+  integer map of index 2, as in the example of section 9.4.
+- For $n=4$, $|\det M| = 1$, but an exhaustive search finds no integer map.
+- For $n \geq 5$, $|\det M|$ is not an integer, so no integer map exists.
+
+Each such map, integer or not, gives $I_{\mathrm{comp}}(\beta, z_P) = \frac{2}{n-2}\, I_{\mathrm{BMS}}(T\beta, z)$
+(sections 9.3 and 9.4), with $T$ rational for $n \geq 4$.
 
 Accessed via `conformal_companion_a_config(n)` in `feynkit/artifacts/conformal.py`.
 
@@ -897,7 +928,8 @@ All papers cited in the feynkit source and directly relevant to the implemented 
     Funkcialaj Ekvacioj **62** (2019) 319.  arXiv:1703.03036.
 
 12. **de la Cruz (2024).** L. de la Cruz.
-    *Polytope symmetries of Feynman integrals.*  arXiv:2406.xxxxx (2024).
+    *Polytope symmetries of Feynman integrals.*
+    Phys.\ Lett.\ B **854** (2024) 138744.  arXiv:2404.03564.
 
 13. **Grinis-Kasprzyk (2013).** R. Grinis, A.M. Kasprzyk.
     *Normal forms of convex lattice polytopes.*  arXiv:1301.6641.
@@ -929,3 +961,8 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 21. **Bitoun et al.\ (2019).** T. Bitoun, C. Bogner, R.P. Klausen, E. Panzer.
     *Feynman integral relations from parametric annihilators.*
     Lett.\ Math.\ Phys.\ **109** (2019) 497-564.
+
+22. **Chestnov et al.\ (2022).** V. Chestnov, F. Gasparotto, M.K. Mandal, P. Mastrolia,
+    S.J. Matsubara-Heo, H.J. Munch, N. Takayama.
+    *Macaulay matrix for Feynman integrals: linear relations and intersection numbers.*
+    JHEP **09** (2022) 187.  arXiv:2204.12983.

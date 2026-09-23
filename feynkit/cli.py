@@ -12,7 +12,7 @@ Section flags (single diagram only; omit all to run everything)
     -s / --symanzik     Symanzik polynomials U, F, G
     -p / --params       Integral parametrisations (Schwinger, Feynman, Lee-Pom.)
     -g / --gkz          GKZ A-matrix and Euler equations
-    -t / --toric        Toric ideal (IBP generators)
+    -t / --toric        Toric ideal (binomial generators)
     -n / --newton       Newton polytope (vertices, volume, Smith invariants)
     -S / --symmetries   Polytope automorphisms and symmetry pairs
 
@@ -231,7 +231,7 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
 
     # -- Toric ideal ----------------------------------------------------------
     if _show("toric"):
-        _sec("Toric ideal  (IBP relations in z-space)")
+        _sec("Toric ideal  (generators: an analogue of IBP relations)")
         ti = fi.toric_ideal
         gens = ti.generators
         if gens:
@@ -239,7 +239,7 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
             for g in gens:
                 print(f"    {g}  =  0")
         else:
-            print("  Trivial  (no IBP relations, single master integral)")
+            print("  Trivial  (the zero ideal)")
 
     # -- Newton polytope ------------------------------------------------------
     if _show("newton"):
@@ -261,15 +261,7 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
         _kv("|Aut(P)|  (polytope automorphisms)", aut.order)
         _kv("|Aut(graph)|", len(fi.graph_automorphisms))
         _kv("Vertex orbits under Aut(P)", aut.vertex_orbits)
-        sym_pairs = fi.symmetry_pairs
-        uni_pairs = [p for p in sym_pairs if p.is_unimodular]
-        fi_pairs = [p for p in sym_pairs if not p.is_unimodular]
-        _kv("Symmetry pairs total", len(sym_pairs))
-        _kv("  unimodular (|det|=1)", len(uni_pairs))
-        _kv("  finite-index (|det|>1)", len(fi_pairs))
-        if fi_pairs:
-            for p in fi_pairs[:3]:
-                print(f"    det={p.determinant}  perm={p.column_permutation}")
+        _kv("Symmetry pairs  (|det M|=1)", len(fi.symmetry_pairs))
 
     # -- Database (always) ----------------------------------------------------
     _sec("Database")
@@ -458,7 +450,7 @@ section flags (single diagram; omit all to run every section):
   -s / --symanzik     Symanzik polynomials U, F, G
   -p / --params       Parametrisations (Schwinger, Feynman, Lee-Pom.)
   -g / --gkz          GKZ A-matrix and Euler equations
-  -t / --toric        Toric ideal (IBP generators in z-space)
+  -t / --toric        Toric ideal (binomial generators)
   -n / --newton       Newton polytope (vertices, volume, Smith invariants)
   -S / --symmetries   Polytope automorphisms and symmetry pairs
 
@@ -490,7 +482,7 @@ examples:
     sec.add_argument("-s", "--symanzik", action="store_true", help="Symanzik polynomials")
     sec.add_argument("-p", "--params", action="store_true", help="Integral parametrisations")
     sec.add_argument("-g", "--gkz", action="store_true", help="GKZ A-matrix + Euler equations")
-    sec.add_argument("-t", "--toric", action="store_true", help="Toric ideal (IBP generators)")
+    sec.add_argument("-t", "--toric", action="store_true", help="Toric ideal (binomial generators)")
     sec.add_argument("-n", "--newton", action="store_true", help="Newton polytope")
     sec.add_argument(
         "-S", "--symmetries", action="store_true", help="Polytope automorphisms + symmetry pairs"

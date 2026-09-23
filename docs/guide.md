@@ -1097,7 +1097,7 @@ la = landau_analysis_from_polynomial(G, [u1, u2, u3])
 
 For one-loop graphs `one_loop_landau_surfaces(fi)` returns the same factors from the principal
 minors of the modified Cayley matrix (Dlapa, Helmer, Papathanasiou, Tellander 2023). It is fast,
-needs no Groebner basis, and is what the test-suite checks the face computation against.
+needs no Gröbner basis, and is what the test-suite checks the face computation against.
 
 `one_loop_landau_surfaces_by_type(fi)` splits the same factors by kind of minor. Principal minors
 that leave out the bordering first row and column of the modified Cayley matrix give first-type
@@ -1381,6 +1381,16 @@ report without the automorphism and Landau computations:
 latex = fi.to_latex(["polytope", "gkz"], title="Massive triangle")
 ```
 
+The Landau section dominates the build time: the kite `12e|23|3|e|:zzzzz` takes about 6 s in all,
+over 4 s of it in the Landau analysis, and the massive box `12e|3e|3e|e|:nnnn` about 17 s, 16 s of
+it Landau. A survey over many graphs can leave it out and keep everything else:
+
+```python
+from feynkit.io.report import SECTION_NAMES
+
+text = fi.to_text([name for name in SECTION_NAMES if name != "landau"])
+```
+
 To render one report twice, or to read its facts directly, build it once and pass it to the
 renderers. `AnalysisReport.from_integral` takes the same `sections` and `max_face_points`, and
 `figure_max_vertices` (default 12): a polytope with more vertices gets no figure.
@@ -1403,7 +1413,8 @@ The document has twelve parts:
 3. The graph: a TikZ figure and a table of the propagators with their endpoints, exponents and
    masses.
 4. Conventions: the momentum-space integral and its normalisation, $D = D_0 - 2\epsilon$, the
-   metric, the kinematic invariants and the definition of $F$.
+   metric, the kinematic invariants (or, for a vacuum graph, that there are no external momenta)
+   and the definition of $F$.
 5. The Symanzik polynomials $U$, $F$ (with its $1/\mu^2$ factored out) and $G$, their degrees and
    monomial counts, the coefficients $z_j$ at their physical values, and the codimension against
    the number of independent invariants.
@@ -1414,9 +1425,12 @@ The document has twelve parts:
 8. The GKZ system: $A$, $\beta = (-D/2, -\nu_1, \ldots, -\nu_N)$, one Euler operator per row of $A$
    and the toric generators.
 9. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
-   coefficient-preserving subgroup, and the symmetry pairs with the identity each gives.
+   coefficient-preserving subgroup, and the symmetry pairs with the identity each gives. For a
+   Newton polytope of dimension below 2, such as the segment of the massive tadpole, the section
+   says only that the symmetries are not computed.
 10. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
-    into first and second type for one-loop graphs, with the skipped faces and the caveats.
+    into first and second type for one-loop graphs, with the skipped faces, each named by its
+    dimension and number of points, and the caveats.
 11. The Schwinger-representation system (section 10), its equivalence to the Lee-Pomeransky
     configuration and its reduction to the $\tilde F$ block.
 12. References, the works cited in order of first citation.

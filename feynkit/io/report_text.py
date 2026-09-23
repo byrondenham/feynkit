@@ -27,6 +27,7 @@ from sympy.printing.str import StrPrinter
 from ._report_shared import (
     CITATIONS,
     MAX_PAIRS_SHOWN,
+    SYMMETRIES_OMITTED,
     Citations,
     append_signed,
     count_noun,
@@ -36,6 +37,7 @@ from ._report_shared import (
     landau_factors,
     render_sections,
     signed_terms,
+    skipped_faces,
     split_g,
 )
 from .report import (
@@ -357,7 +359,8 @@ def _graph(identity: Identity) -> str:
         _paragraph(
             f"It has L = {identity.loop_count} "
             f"{'loop' if identity.loop_count == 1 else 'loops'}, "
-            f"N = {identity.propagators} propagators and "
+            f"N = {identity.propagators} "
+            f"{'propagator' if identity.propagators == 1 else 'propagators'} and "
             f"{count_noun(identity.external_legs, 'external leg')}."
         ),
         _table(("e", "Vertices", "nu_e", "m_e"), rows),
@@ -390,6 +393,13 @@ def _conventions(report: AnalysisReport, doc: _Document) -> str:
     is_d = isinstance(dimension, sp.Symbol) and dimension.name == "D"
     in_d = "D" if is_d else f"D = {_str(dimension)}"
     nu_total = sp.Add(*report.identity.edge_exponents)
+    if report.identity.external_legs:
+        momenta = (
+            "External momenta are incoming, and the kinematics is written in "
+            f"{_kinematics(conventions)}."
+        )
+    else:
+        momenta = "There are no external momenta."
     return _blocks(
         "The integral is",
         f"{_INDENT}I = exp(L epsilon gamma_E) (mu^2)^(nu - L D/2)\n"
@@ -401,9 +411,8 @@ def _conventions(report: AnalysisReport, doc: _Document) -> str:
             "metric signature (+,-,...,-) and nu = sum_e nu_e, here "
             f"nu = {_str(nu_total)}. Dimensional regularisation sets D = D_0 - 2 epsilon "
             "for an even integer D_0 chosen when the result is expanded. The energy scale mu "
-            "makes I and the Symanzik polynomials dimensionless. External momenta are "
-            f"incoming, and the kinematics is written in {_kinematics(conventions)}. The "
-            "second Symanzik polynomial is "
+            f"makes I and the Symanzik polynomials dimensionless. {momenta} The second "
+            "Symanzik polynomial is "
             "F = -sum_{T_2} s_{T_2} prod_{e not in T_2} a_e + U sum_e m_e^2 a_e, divided by "
             "mu^2, the sum running over spanning two-forests T_2 and s_{T_2} being the square "
             "of the momentum flowing from one tree of T_2 to the "
@@ -652,7 +661,9 @@ def _gkz(gkz: GKZ, doc: _Document) -> str:
     return _blocks(*blocks)
 
 
-def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) -> str:
+def _symmetries(report: AnalysisReport, symmetries: Symmetries | None, doc: _Document) -> str:
+    if symmetries is None:
+        return _paragraph(SYMMETRIES_OMITTED)
     orbits = symmetries.vertex_orbits
     if report.polytope is not None:
         listed = join_words(
@@ -710,7 +721,17 @@ def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) 
     )
     for k, pair in enumerate(shown, start=1):
         sigma = ", ".join(str(j + 1) for j in pair.column_permutation)
-        blocks.append(_matrix(f"T_{k}", pair.homogenized_map, f", sigma_{k} = ({sigma})"))
+        display = _matrix(f"T_{k}", pair.homogenized_map, f", sigma_{k} = ({sigma})")
+        if max(len(line) for line in display.splitlines()) > _WIDTH:
+            # sigma_k moves to a line of its own, broken after commas to fit.
+            images = [sp.Integer(j + 1) for j in pair.column_permutation]
+            display = "\n".join(
+                [
+                    _matrix(f"T_{k}", pair.homogenized_map, ","),
+                    _vector(f"sigma_{k}", images, ""),
+                ]
+            )
+        blocks.append(display)
     if len(pairs) > len(shown):
         rest = len(pairs) - len(shown)
         blocks.append(f"and {rest} further {'pair' if rest == 1 else 'pairs'}.")
@@ -751,7 +772,7 @@ def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
             sentence = f"and {second}"
         else:
             sentence += f" and {second}"
-        blocks.append(_paragraph(sentence))
+        blocks.append(_paragraph(sentence if second_display is not None else sentence + "."))
         if second_display is not None:
             blocks.append(second_display)
         shared = factors.in_both
@@ -774,16 +795,9 @@ def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
             "multiplicities are dropped."
         )
     )
-    skipped = len(landau.analysis.skipped_faces)
-    if skipped:
-        blocks.append(
-            _paragraph(
-                f"{count_noun(skipped, 'face')} {'was' if skipped == 1 else 'were'} skipped "
-                "as too large to eliminate, and "
-                f"{'its discriminant is' if skipped == 1 else 'their discriminants are'} "
-                "missing from the list."
-            )
-        )
+    skipped = skipped_faces(landau)
+    if skipped is not None:
+        blocks.append(_paragraph(skipped))
     return _blocks(*blocks)
 
 

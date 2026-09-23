@@ -252,7 +252,7 @@ def conformal_companion_a_config(n: int) -> AConfiguration:
     Parameters
     ----------
     n
-        Number of variables / external points.  Must be >= 2.
+        Number of variables / external points.  Must be >= 3.
 
     Returns
     -------

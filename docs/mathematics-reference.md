@@ -263,11 +263,12 @@ $\partial^v$ give the same integrand when $Au = Av$.
 $$\operatorname{rank} H_A(\beta) \;=\; \mathrm{vol}_0\!\bigl(\Delta_G\bigr) \quad\text{for very generic } \beta,$$
 
 where $\mathrm{vol}_0$ is the **normalised (lattice) volume** of the Newton polytope $\Delta_G$
-(see section 5.3).  For physical (integer or half-integer) $D$ the rank can be lower, a "rank jump"
-corresponding to linear relations among master integrals.
+(see section 5.3).  At resonant parameters the rank can be higher, a "rank jump" (Matusevich,
+Miller and Walther 2005); the number of master integrals at physical kinematics is at most the
+volume.
 
 The Lee-Pomeransky count of master integrals (Euler characteristic) satisfies
-$\chi \leq \mathrm{vol}_0(\Delta_G)$, with equality for generic kinematics.
+$\chi \leq \mathrm{vol}_0(\Delta_G)$, with equality for generic coefficients.
 
 *Ref:* GKZ (1994) Thm 3.11; Klausen (2020) Thm 2.2; de la Cruz (2019) section 2.
 
@@ -340,7 +341,7 @@ Newton polytope is their convex hull.
 
 Accessed as `fi.newton_polytope`; the full monomial support is
 `fi.newton_polytope.support` (list of `(exponent_vector, coefficient)` pairs);
-hull vertices are `fi.newton_polytope.points`.
+`polytope_data(fi.newton_polytope.points).vertex_indices` indexes the hull vertices.
 
 ### 5.2 Monomial Support and Hull
 
@@ -348,8 +349,8 @@ The **monomial support** of $G$ is the finite set $\mathcal{A} = \{\alpha_1, \ld
 Not all support points need be vertices of $\Delta_G$; interior lattice points also occur (e.g.\ for
 massive banana graphs).
 
-`fi.newton_polytope.support` preserves all $N$ points including interior ones;
-`fi.newton_polytope.points` returns only the hull vertices.
+`fi.newton_polytope.support` and `fi.newton_polytope.points` keep all $N$ points, interior ones
+included; `polytope_data(points).vertex_indices` picks out the hull vertices.
 
 ### 5.3 Normalised Volume
 
@@ -675,7 +676,7 @@ of the integral (Klausen 2023, lemma "Landau variety contained in Sing"). feynki
 - an edge contributes the discriminant of $G_\tau$ as a univariate polynomial in the lattice
   coordinate along the edge, $\Delta(P) = \mathrm{Res}(P, P') / \mathrm{lc}(P)^{\deg P - 1}$;
 - any other face contributes the elimination ideal of $\{G_\tau = 0,\ u_i \partial_i G_\tau = 0\}$ in
-  the torus, computed with a Groebner basis (Singular when installed, SymPy otherwise).
+  the torus, computed with a Gröbner basis (Singular when installed, SymPy otherwise).
 
 In lattice coordinates the exponent of a point $\alpha_0 + k v$ on an edge with primitive direction
 $v$ is $k = \langle \alpha - \alpha_0, v \rangle / \langle v, v \rangle$, not $\langle \alpha, v \rangle$.
@@ -980,3 +981,7 @@ All papers cited in the feynkit source and directly relevant to the implemented 
     S.J. Matsubara-Heo, H.J. Munch, N. Takayama.
     *Macaulay matrix for Feynman integrals: linear relations and intersection numbers.*
     JHEP **09** (2022) 187.  arXiv:2204.12983.
+
+23. **MMW (2005).** L.F. Matusevich, E. Miller, U. Walther.
+    *Homological methods for hypergeometric families.*
+    J.\ Amer.\ Math.\ Soc.\ **18** (2005) 919-941.  arXiv:math/0406383.

@@ -309,12 +309,17 @@ class Landau:
     first_type, second_type
         The Cayley and Gram factors of the one-loop closed form; both empty
         for more than one loop, where no closed form is available.
+    skipped
+        One (dimension, number of points, whether it is P itself) triple per
+        face left out as too large to eliminate, in the order of
+        ``analysis.skipped_faces``.
     """
 
     analysis: LandauAnalysis
     by_dimension: tuple[tuple[int, tuple[sp.Expr, ...]], ...]
     first_type: tuple[sp.Expr, ...]
     second_type: tuple[sp.Expr, ...]
+    skipped: tuple[tuple[int, int, bool], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -458,7 +463,16 @@ def _gkz(fi: FeynmanIntegral) -> GKZ:
     )
 
 
-def _symmetries(fi: FeynmanIntegral) -> Symmetries:
+def _symmetries(fi: FeynmanIntegral, data: PolytopeData) -> Symmetries | None:
+    """The symmetries, or None when P has dimension below 2.
+
+    A point has no symmetry and a segment only its reflection. The
+    automorphism computation is built for dimension 2 and above: it misses
+    that reflection, or fails outright when the ambient space is
+    one-dimensional.
+    """
+    if data.dimension < 2:
+        return None
     automorphisms = fi.polytope_automorphisms
     return Symmetries(
         automorphism_order=automorphisms.order,
@@ -482,12 +496,26 @@ def _landau(fi: FeynmanIntegral, max_face_points: int) -> Landau:
     second: tuple[sp.Expr, ...] = ()
     if fi.loop_count == 1:
         first, second = one_loop_landau_surfaces_by_type(fi)
+    dimensions = [_affine_dimension(face) for face in analysis.skipped_faces]
+    # Only P itself has the top dimension among the faces.
+    top = max([face.dimension for face in analysis.face_discriminants] + dimensions, default=0)
     return Landau(
         analysis=analysis,
         by_dimension=tuple((d, tuple(faces)) for d, faces in sorted(grouped.items())),
         first_type=first,
         second_type=second,
+        skipped=tuple(
+            (d, len(face), d == top)
+            for d, face in zip(dimensions, analysis.skipped_faces, strict=True)
+        ),
     )
+
+
+def _affine_dimension(points: tuple[tuple[int, ...], ...]) -> int:
+    """The dimension of the affine hull of the points."""
+    base = points[0]
+    differences = [[a - b for a, b in zip(p, base, strict=True)] for p in points[1:]]
+    return int(sp.Matrix(differences).rank()) if differences else 0
 
 
 def _lp_to_cayley(n_edges: int, loop_count: int) -> sp.Matrix:
@@ -534,7 +562,9 @@ class AnalysisReport:
     """Everything feynkit computes for one integral, section by section.
 
     The first three sections are always present; the rest are None when the
-    caller did not ask for them.
+    caller did not ask for them. The symmetries are also None when the Newton
+    polytope has dimension below 2, and ``symmetries_omitted`` then records
+    that they were asked for.
     """
 
     identity: Identity
@@ -546,6 +576,7 @@ class AnalysisReport:
     symmetries: Symmetries | None
     landau: Landau | None
     schwinger: Schwinger | None
+    symmetries_omitted: bool = False
 
     @classmethod
     def from_integral(
@@ -588,12 +619,15 @@ class AnalysisReport:
 
         representations: Representations | None = None
         polytope: Polytope | None = None
-        if wanted & {"representations", "polytope"}:
+        symmetries: Symmetries | None = None
+        if wanted & {"representations", "polytope", "symmetries"}:
             data = polytope_data(integral.newton_polytope.points)
             if "representations" in wanted:
                 representations = _representations(integral, data)
             if "polytope" in wanted:
                 polytope = _polytope(integral, data, figure_max_vertices)
+            if "symmetries" in wanted:
+                symmetries = _symmetries(integral, data)
 
         return cls(
             identity=_identity(integral),
@@ -602,9 +636,10 @@ class AnalysisReport:
             representations=representations,
             polytope=polytope,
             gkz=_gkz(integral) if "gkz" in wanted else None,
-            symmetries=_symmetries(integral) if "symmetries" in wanted else None,
+            symmetries=symmetries,
             landau=_landau(integral, max_face_points) if "landau" in wanted else None,
             schwinger=_schwinger(integral) if "schwinger" in wanted else None,
+            symmetries_omitted="symmetries" in wanted and symmetries is None,
         )
 
     def summary(self) -> tuple[tuple[str, str], ...]:

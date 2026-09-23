@@ -18,6 +18,7 @@ from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.core.exceptions import ValidationError
 from feynkit.io.report import SECTION_NAMES, AnalysisReport
 from feynkit.landau import landau_analysis, one_loop_landau_surfaces_by_type
+from feynkit.polytope import polytope_data
 from feynkit.systems.monomial import extract_monomial_support
 
 SUMMARY_LABELS = (
@@ -380,6 +381,22 @@ class TestSymmetries:
         assert symmetries.coefficient_preserving == 1
         assert symmetries.automorphism_order > 1
 
+    def test_omitted_below_dimension_two(self) -> None:
+        """The massive tadpole's Newton polytope is a segment, too small for Aut(P)."""
+        tadpole = FeynmanIntegral.from_cnickel("0|:n", use_mandelstam=False)
+        report = AnalysisReport.from_integral(tadpole)
+        assert report.polytope is not None
+        assert report.polytope.data.dimension == 1
+        assert report.symmetries is None
+        assert report.symmetries_omitted
+        assert "Polytope automorphisms" not in dict(report.summary())
+
+    def test_not_omitted_when_computed_or_not_asked_for(
+        self, triangle_report: AnalysisReport, triangle: FeynmanIntegral
+    ) -> None:
+        assert not triangle_report.symmetries_omitted
+        assert not AnalysisReport.from_integral(triangle, ["gkz"]).symmetries_omitted
+
 
 class TestLandau:
     def test_matches_landau_analysis(
@@ -422,6 +439,23 @@ class TestLandau:
         assert sunrise_report.landau is not None
         assert sunrise_report.landau.first_type == ()
         assert sunrise_report.landau.second_type == ()
+
+    def test_skipped_faces_carry_dimension_and_size(self, bubble: FeynmanIntegral) -> None:
+        landau = AnalysisReport.from_integral(bubble, ["landau"], max_face_points=2).landau
+        assert landau is not None
+        points = [tuple(p) for p in bubble.newton_polytope.points]
+        dimension = {frozenset(points[i] for i in idx): d for d, idx in polytope_data(points).faces}
+        expected = tuple(
+            (dimension[frozenset(face)], len(face), len(face) == len(points))
+            for face in landau.analysis.skipped_faces
+        )
+        assert landau.skipped == expected
+        # The edge u_1^2, u_1 u_2, u_2^2 and the whole polytope.
+        assert sorted(expected) == [(1, 3, False), (2, 5, True)]
+
+    def test_nothing_skipped_by_default(self, bubble_report: AnalysisReport) -> None:
+        assert bubble_report.landau is not None
+        assert bubble_report.landau.skipped == ()
 
 
 class TestSchwinger:

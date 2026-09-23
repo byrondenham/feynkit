@@ -25,6 +25,7 @@ import sympy as sp
 from ._report_shared import (
     CITATIONS,
     MAX_PAIRS_SHOWN,
+    SYMMETRIES_OMITTED,
     Citations,
     append_signed,
     count_noun,
@@ -34,6 +35,7 @@ from ._report_shared import (
     landau_factors,
     render_sections,
     signed_terms,
+    skipped_faces,
     split_g,
 )
 from .latex import to_latex, to_latex_lines, to_latex_split
@@ -216,7 +218,8 @@ def _graph(identity: Identity) -> str:
             "",
             f"{shown}It has $L = {identity.loop_count}$ "
             f"{'loop' if identity.loop_count == 1 else 'loops'}, "
-            f"$N = {identity.propagators}$ propagators and "
+            f"$N = {identity.propagators}$ "
+            f"{'propagator' if identity.propagators == 1 else 'propagators'} and "
             f"{count_noun(identity.external_legs, 'external leg')}.",
             "\\begin{center}",
             "\\begin{tabular}{cccc}",
@@ -256,6 +259,13 @@ def _conventions(report: AnalysisReport, doc: _Document) -> str:
     is_d = isinstance(dimension, sp.Symbol) and dimension.name == "D"
     in_d = "$D$" if is_d else f"$D = {to_latex(dimension)}$"
     nu_total = sp.Add(*report.identity.edge_exponents)
+    if report.identity.external_legs:
+        momenta = (
+            "External momenta are incoming, and the kinematics is written in "
+            f"{_kinematics(conventions)}."
+        )
+    else:
+        momenta = "There are no external momenta."
     return "\n".join(
         [
             "The integral is",
@@ -270,8 +280,7 @@ def _conventions(report: AnalysisReport, doc: _Document) -> str:
             f"$\\nu = {to_latex(nu_total)}$. Dimensional regularisation sets "
             "$D = D_0 - 2\\epsilon$ for an even integer $D_0$ chosen when the result is "
             "expanded. The energy scale $\\mu$ makes $I$ and the Symanzik polynomials "
-            "dimensionless. External momenta are incoming, and the kinematics is written in "
-            f"{_kinematics(conventions)}. The second Symanzik polynomial is "
+            f"dimensionless. {momenta} The second Symanzik polynomial is "
             "$F = -\\sum_{T_2} s_{T_2} \\prod_{e \\notin T_2} a_e + U \\sum_e m_e^2 a_e$, "
             "divided by $\\mu^2$, the sum running over spanning two-forests $T_2$ and "
             "$s_{T_2}$ being the square of the momentum flowing from one tree of $T_2$ to the "
@@ -527,7 +536,9 @@ def _gkz(gkz: GKZ, doc: _Document) -> str:
     return "\n".join(parts)
 
 
-def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) -> str:
+def _symmetries(report: AnalysisReport, symmetries: Symmetries | None, doc: _Document) -> str:
+    if symmetries is None:
+        return SYMMETRIES_OMITTED
     orbits = symmetries.vertex_orbits
     if report.polytope is not None:
         listed = join_words(
@@ -620,6 +631,8 @@ def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
             f"{doc.cite('dhpt2023')}, {_factor_list('first-type (Cayley)', factors.first_type)}"
             f"\nand {_factor_list('second-type (Gram)', factors.second_type)}"
         )
+        if not factors.second_type:
+            text += "."
         shared = factors.in_both
         if shared:
             text += (
@@ -636,14 +649,9 @@ def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
         "beyond one loop this is the principal Landau determinant rather than the principal "
         "$A$-determinant of the generic polynomial; multiplicities are dropped."
     )
-    skipped = len(landau.analysis.skipped_faces)
-    if skipped:
-        parts.append(
-            f"{count_noun(skipped, 'face')} {'was' if skipped == 1 else 'were'} skipped as too "
-            "large to eliminate, and "
-            f"{'its discriminant is' if skipped == 1 else 'their discriminants are'} missing "
-            "from the list."
-        )
+    skipped = skipped_faces(landau)
+    if skipped is not None:
+        parts.append(skipped)
     return "\n".join(parts)
 
 

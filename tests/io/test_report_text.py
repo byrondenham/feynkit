@@ -16,7 +16,7 @@ from itertools import pairwise
 import pytest
 import sympy as sp
 
-from feynkit import FeynmanIntegral
+from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.io.report import AnalysisReport
 from feynkit.io.report_latex import CITATIONS, render_latex
 from feynkit.io.report_text import _str, _strip_latex, render_text
@@ -42,6 +42,19 @@ def text(triangle_report: AnalysisReport) -> str:
 @pytest.fixture(scope="module")  # type: ignore[misc]
 def sunrise_text() -> str:
     return render_text(AnalysisReport.from_integral(FeynmanIntegral.from_cnickel("111e|e|:nnn")))
+
+
+@pytest.fixture(scope="module")  # type: ignore[misc]
+def kite_text() -> str:
+    return render_text(
+        AnalysisReport.from_integral(FeynmanIntegral.from_cnickel("12e|23|3|e|:zzzzz"))
+    )
+
+
+@pytest.fixture(scope="module")  # type: ignore[misc]
+def tadpole() -> FeynmanIntegral:
+    # A vacuum graph has no Mandelstam invariants to default to.
+    return FeynmanIntegral.from_cnickel("0|:n", use_mandelstam=False)
 
 
 def _flat(text: str) -> str:
@@ -113,10 +126,10 @@ def _words(prose: str) -> list[str]:
     return [w for w in words if len(w) > 2 and w not in _MATH_WORDS]
 
 
-def _latex_prose(latex: str) -> str:
+def _latex_prose(latex: str, intended: tuple[tuple[str, str], ...] = _INTENDED) -> str:
     """The running text of the LaTeX document, without displays, maths or markup."""
     body = latex.split("\\begin{document}")[1].split("\\begin{thebibliography}")[0]
-    for old, new in _INTENDED:
+    for old, new in intended:
         assert body.count(old) == 1, old
         body = body.replace(old, new)
     environments = r"equation\*|align\*|gather\*|figure|tabular|longtable"
@@ -194,11 +207,18 @@ def test_custom_title_is_kept_verbatim(triangle_report: AnalysisReport) -> None:
     assert lines[:2] == ["one_mass & two", "=============="]
 
 
-def test_every_line_fits_in_79_columns(text: str, sunrise_text: str) -> None:
+def test_every_line_fits_in_79_columns(text: str, sunrise_text: str, kite_text: str) -> None:
     # Prose is wrapped; displays and tables break where they can.
-    for document in (text, sunrise_text):
+    for document in (text, sunrise_text, kite_text):
         for line in document.splitlines():
             assert len(line) <= 79, line
+
+
+def test_a_long_permutation_gets_a_line_of_its_own(kite_text: str) -> None:
+    # The kite's 16 columns make "T_k = [...], sigma_k = (...)" too wide.
+    lines = _section(kite_text, "Symmetries").splitlines()
+    assert "    sigma_1 = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)" in lines
+    assert not any("], sigma_" in line for line in lines)
 
 
 def test_wrapping_keeps_inline_maths_on_one_line(text: str) -> None:
@@ -488,13 +508,16 @@ def test_a_long_coefficient_continues_in_its_column() -> None:
     assert all(len(row) <= 79 for row in rows)
 
 
-@pytest.mark.parametrize("cnickel", ["12e|2e|e|:zzz", "111e|e|:nnn"])  # type: ignore[misc]
-def test_prose_matches_the_latex_word_for_word(cnickel: str) -> None:
-    # Both renderers' running text, reduced to words: the LaTeX without its
-    # maths, displays and markup, the text without its displays, headings and
-    # citations. Only the differences listed in _INTENDED are allowed.
-    report = AnalysisReport.from_integral(FeynmanIntegral.from_cnickel(cnickel))
-    latex = _words(_latex_prose(render_latex(report)))
+def _prose_diff(
+    report: AnalysisReport, intended: tuple[tuple[str, str], ...] = _INTENDED
+) -> tuple[list[str], list[tuple[str, str, str]]]:
+    """The LaTeX prose words and where the text prose departs from them.
+
+    Both renderers' running text, reduced to words: the LaTeX without its
+    maths, displays and markup, the text without its displays, headings and
+    citations. Only the differences listed in ``intended`` are allowed.
+    """
+    latex = _words(_latex_prose(render_latex(report), intended))
     text = _words(_text_prose(render_text(report)))
     diff = [
         (tag, " ".join(latex[i1:i2]), " ".join(text[j1:j2]))
@@ -503,8 +526,80 @@ def test_prose_matches_the_latex_word_for_word(cnickel: str) -> None:
         ).get_opcodes()
         if tag != "equal"
     ]
+    return latex, diff
+
+
+@pytest.mark.parametrize("cnickel", ["12e|2e|e|:zzz", "111e|e|:nnn"])  # type: ignore[misc]
+def test_prose_matches_the_latex_word_for_word(cnickel: str) -> None:
+    report = AnalysisReport.from_integral(FeynmanIntegral.from_cnickel(cnickel))
+    latex, diff = _prose_diff(report)
     assert not diff
     assert len(latex) > 700
+
+
+def test_tadpole_prose_matches_the_latex_word_for_word(tadpole: FeynmanIntegral) -> None:
+    # The cross-references to other sections sit in the symmetry section,
+    # which the tadpole leaves out.
+    intended = tuple(pair for pair in _INTENDED if not pair[0].startswith("Section"))
+    latex, diff = _prose_diff(AnalysisReport.from_integral(tadpole), intended)
+    assert not diff
+    assert len(latex) > 600
+
+
+def test_skipped_face_prose_matches_the_latex_word_for_word() -> None:
+    sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+    report = AnalysisReport.from_integral(sunrise, max_face_points=4)
+    assert _prose_diff(report)[1] == []
+
+
+# --- the tadpole and other small graphs ---------------------------------------
+
+
+def test_tadpole_renders_in_both_formats(tadpole: FeynmanIntegral) -> None:
+    # Its Newton polytope is a segment, below the dimension Aut(P) is computed for.
+    latex = tadpole.to_latex()
+    text = tadpole.to_text()
+    omitted = (
+        "The symmetries are not computed for Newton polytopes of dimension below 2, such as "
+        "this one."
+    )
+    assert omitted in " ".join(latex.split("\\section{Symmetries}")[1].split())
+    assert _flat(_section(text, "Symmetries")) == omitted
+    assert "It has L = 1 loop, N = 1 propagator and 0 external legs." in _flat(text)
+    for line in text.splitlines():
+        assert len(line) <= 79, line
+
+
+def test_vacuum_graphs_have_no_external_momenta(tadpole: FeynmanIntegral) -> None:
+    sunrise = Graph(
+        internal_vertices=2,
+        external_legs=0,
+        edges=[Edge(idx=e, v1=1, v2=2, is_internal=True) for e in (1, 2, 3)],
+    )
+    for fi in (tadpole, FeynmanIntegral(sunrise, use_mandelstam=False)):
+        for document in (fi.to_latex([]), fi.to_text([])):
+            flat = " ".join(document.split())
+            assert "dimensionless. There are no external momenta. The second Symanzik" in flat
+            assert "kinematics is written" not in flat
+
+
+def test_an_empty_factor_list_ends_its_sentence(tadpole: FeynmanIntegral) -> None:
+    # A tadpole has a Cayley factor but no Gram factor.
+    for document in (tadpole.to_latex(["landau"]), tadpole.to_text(["landau"])):
+        assert "and there are no second-type (Gram) factors." in " ".join(document.split())
+
+
+def test_skipped_faces_are_named() -> None:
+    sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+    for document in (
+        sunrise.to_latex(["landau"], max_face_points=4),
+        sunrise.to_text(["landau"], max_face_points=4),
+    ):
+        assert (
+            "2 faces were skipped as too large to eliminate, and their discriminants are "
+            "missing from the list: a face of dimension 2 with 7 points and the whole "
+            "polytope, 10 points."
+        ) in " ".join(document.split())
 
 
 def test_edge_table(text: str) -> None:

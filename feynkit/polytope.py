@@ -11,8 +11,9 @@ unique for a given facet. A lower-dimensional polytope has no such
 description in the ambient lattice, since the inequalities would not cut out
 its affine hull, so :attr:`PolytopeData.facets` is empty unless
 :attr:`PolytopeData.is_full_dimensional` holds. The normalised volume is
-measured in the lattice the differences of the points span, so it is the
-holonomic rank of the associated GKZ system whatever the ambient dimension.
+measured in the lattice the differences of the points span, so, whatever the
+ambient dimension, it is the holonomic rank of the associated GKZ system for
+generic coefficients and non-resonant beta.
 """
 
 from __future__ import annotations

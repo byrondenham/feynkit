@@ -35,8 +35,9 @@ $$
 Sobieska 2019 and de la Cruz 2024, who print the permutation on the other side).
 If the map also preserves the coefficients, then $z_\sigma = z$ and the identity
 reads $I_A(\beta, z) = I_A(T\beta, z)$: it relates the integral at two parameter
-vectors, that is two sets of propagator exponents and dimensions, at the same
-kinematic point. It does not relate the integral at different kinematic points.
+vectors, that is two sets of propagator exponents in the same dimension, at the
+same kinematic point. It does not relate the integral at different kinematic
+points.
 
 feynkit computes these automorphism groups exactly, via the Liu-Cai algorithm
 applied to the Newton polytope of $G$.
@@ -85,13 +86,18 @@ $$
 The collection of all such pairs under composition forms the unimodular
 automorphism group $\mathrm{Aut}(P)$.
 
-The unimodularity condition $|\det U| = 1$ is essential, not merely a
-technical convenience. An affine map over $\mathbb{Q}$ that sends $P$ to itself
-need not map $\mathbb{Z}^n$ to itself. A unimodular map preserves the lattice
+The unimodularity condition $|\det U| = 1$ ties the map to the lattice. An
+affine map over $\mathbb{Q}$ that sends $P$ to itself need not map
+$\mathbb{Z}^n$ to itself. A unimodular map preserves the lattice
 $\mathbb{Z}^n$ and therefore preserves the full combinatorial structure of the
 GKZ $D$-module: the A-matrix is sent to a column-permutation of itself, the
-toric ideal is preserved, and the holonomic rank is unchanged. Rational affine
-maps outside $\mathrm{GL}_n(\mathbb{Z})$ do not have this property.
+toric ideal is preserved, and the holonomic rank is unchanged. A rational
+affine map that takes every column onto a column also preserves the affine
+dependencies among the columns, and hence the toric ideal, the GKZ system up to
+a relabelling of the $z_j$ and $\beta \mapsto T\beta$, and the normalised
+volume in the lattice the differences of the points span (section 9.2 of the
+mathematics reference). What it need not preserve is the ambient lattice
+$\mathbb{Z}^n$, and with it the Smith invariants of the A-matrix.
 
 ### The Liu-Cai algorithm
 
@@ -193,11 +199,11 @@ one- and two-loop diagrams. CNickel strings use the convention
 | One-mass triangle | `12e\|2e\|e\|:nzz` | 6 ($S_3$) | 2 | 1 |
 | Two-mass triangle | `12e\|2e\|e\|:nnz` | 1 | 2 | 1 |
 | All-mass triangle | `12e\|2e\|e\|:nnn` | 1 | 6 | 1 |
-| Massless box | `12e\|3e\|3e\|e\|:zzzz` | 120 ($B_4$) | 8 | 1 |
+| Massless box | `12e\|3e\|3e\|e\|:zzzz` | 120 ($S_5$) | 8 | 1 |
 | One-mass box | `12e\|3e\|3e\|e\|:nzzz` | 24 ($S_4$) | 2 | 1 |
 | Massless 3-banana | `111e\|e\|:zzz` | 24 ($S_4$) | 2 | 6 |
 | Massive 3-banana | `111e\|e\|:nnn` | 6 ($S_3$) | 2 | 1 |
-| Massless 4-banana | `1111e\|e\|:zzzz` | 120 ($B_4$) | 2 | 24 |
+| Massless 4-banana | `1111e\|e\|:zzzz` | 120 ($S_5$) | 2 | 24 |
 
 Several patterns are immediately visible. First, introducing masses breaks
 symmetry: the massless triangle has $|\mathrm{Aut}(P)| = 48$ whereas

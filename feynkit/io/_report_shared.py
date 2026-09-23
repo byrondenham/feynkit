@@ -5,8 +5,9 @@ The two renderers state the same facts in the same order with the same
 citations. What they have to agree on lives here, so that they cannot drift
 apart: the sections a report shows and their headings, the bibliography and
 the order of first citation, the integrands written in U, F and G, the split
-of G into its U and F parts, and the factors the Landau section lists. The
-wording helpers join lists and count nouns the same way for both.
+of G into its U and F parts, the factors the Landau section lists and the
+sentences free of maths that both print verbatim. The wording helpers join
+lists and count nouns the same way for both.
 
 The bibliography entries are LaTeX source; the text renderer strips the
 markup.
@@ -25,6 +26,7 @@ from .report import GKZ, AnalysisReport, Landau, Polytope, Representations, Schw
 __all__ = [
     "CITATIONS",
     "MAX_PAIRS_SHOWN",
+    "SYMMETRIES_OMITTED",
     "Citations",
     "LandauFactors",
     "Templates",
@@ -37,6 +39,7 @@ __all__ = [
     "landau_factors",
     "render_sections",
     "signed_terms",
+    "skipped_faces",
     "sorted_factors",
     "split_g",
 ]
@@ -124,6 +127,12 @@ CITATIONS: dict[str, str] = {
 # The symmetry section writes out at most this many symmetry pairs.
 MAX_PAIRS_SHOWN = 10
 
+# What the symmetry section says when the report left the symmetries out.
+SYMMETRIES_OMITTED = (
+    "The symmetries are not computed for Newton polytopes of dimension below 2, such as "
+    "this one."
+)
+
 
 class Citations:
     """The works a document cites, in the order of first citation."""
@@ -150,7 +159,7 @@ def render_sections(
     representations: Callable[[Representations], str],
     polytope: Callable[[Polytope], str],
     gkz: Callable[[GKZ], str],
-    symmetries: Callable[[Symmetries], str],
+    symmetries: Callable[[Symmetries | None], str],
     landau: Callable[[Landau], str],
     schwinger: Callable[[Schwinger], str],
 ) -> list[tuple[str, str]]:
@@ -158,8 +167,10 @@ def render_sections(
 
     Each keyword renders the body of one section. The first four sections are
     always present; each of the others is rendered from its data, and only
-    when the report carries it. The sections are rendered in document order,
-    so citations made while rendering are recorded in order of first use.
+    when the report carries it. The symmetry section is rendered from None
+    when the report left the symmetries out. The sections are rendered in
+    document order, so citations made while rendering are recorded in order
+    of first use.
     """
     sections = [
         ("Summary", summary()),
@@ -173,7 +184,7 @@ def render_sections(
         sections.append(("Newton polytope", polytope(report.polytope)))
     if report.gkz is not None:
         sections.append(("GKZ system", gkz(report.gkz)))
-    if report.symmetries is not None:
+    if report.symmetries is not None or report.symmetries_omitted:
         sections.append(("Symmetries", symmetries(report.symmetries)))
     if report.landau is not None:
         sections.append(("Landau surfaces", landau(report.landau)))
@@ -295,6 +306,27 @@ def landau_factors(landau: Landau, scale: sp.Symbol) -> LandauFactors:
         first_type=first,
         second_type=second,
         in_both=len(set(first) & set(second)),
+    )
+
+
+def skipped_faces(landau: Landau) -> str | None:
+    """The sentence naming the faces the Landau analysis skipped, or None if none was."""
+    skipped = sorted(landau.skipped)
+    if not skipped:
+        return None
+    names = [
+        (
+            f"the whole polytope, {points} points"
+            if whole
+            else f"a face of dimension {dimension} with {points} points"
+        )
+        for dimension, points, whole in skipped
+    ]
+    n = len(skipped)
+    return (
+        f"{count_noun(n, 'face')} {'was' if n == 1 else 'were'} skipped as too large to "
+        f"eliminate, and {'its discriminant is' if n == 1 else 'their discriminants are'} "
+        f"missing from the list: {join_words(names)}."
     )
 
 

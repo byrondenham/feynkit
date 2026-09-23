@@ -79,6 +79,10 @@
   pair gives, the Landau surfaces, and the Schwinger-representation system. It
   also names what feynkit does not compute. The monomials of F are counted by
   exponent vector, so terms that share a monomial count once.
+- The report leaves the symmetries out, and says so, when the Newton polytope
+  has dimension below 2, as for the massive tadpole `0|:n`, whose polytope is
+  a segment: the automorphism computation is built for two dimensions and
+  above.
 - `feynkit.io.latex.factor_energy_scale(expr, scale)`, which writes an
   expression as numerator / scale^k with the numerator free of the scale, and
   `to_latex_lines`, which breaks the LaTeX of a long sum into lines.
@@ -113,6 +117,9 @@
   computed.
 - `feynkit.io.latex.to_latex` writes products by juxtaposition (`2 x y`) rather
   than with `\cdot`.
+- `one_loop_landau_surfaces` lists the first-type (Cayley) factors before the
+  second-type (Gram) ones, as `one_loop_landau_surfaces_by_type` splits them.
+  The set of factors is unchanged.
 - `graph_to_tikz` places each external leg outward from its own vertex and
   lays out one-loop graphs as polygons along the walk of internal edges.
   It draws a self-loop as a loop, where it used to draw a line from the vertex
@@ -150,6 +157,13 @@
   of IBP relations (Chestnov et al. 2022) and makes no Horn claim. The guide,
   the README, the mathematics reference and the `feynkit.algebra.toric`
   docstrings no longer call the toric generators IBP relations either.
+- `fk` called the toric ideal "IBP relations in z-space" and, for a trivial
+  toric ideal, printed "no IBP relations, single master integral", which does
+  not follow: the massless tadpole has a trivial toric ideal and no master
+  integral. It now prints the toric ideal, glosses its generators as an
+  analogue of IBP relations and calls a trivial one the zero ideal. The
+  symmetry section no longer counts finite-index symmetry pairs, since every
+  self-map has |det M| = 1.
 - The LaTeX document pointed to github.com/feynkit/feynkit, which does not
   exist.
 - `graph_to_tikz` drew parallel propagators, as in the bubble and the sunrise,

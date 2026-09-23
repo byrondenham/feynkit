@@ -17,7 +17,7 @@ Faces contribute as follows.
 - An edge contributes the discriminant of the univariate polynomial in
   the lattice coordinate along the edge.
 - Any other face contributes the elimination ideal of {f_tau = 0,
-  t_i d f_tau / d t_i = 0} in the torus, computed with a Groebner basis.
+  t_i d f_tau / d t_i = 0} in the torus, computed with a Gröbner basis.
   Faces with more points than ``max_face_points`` are skipped and listed
   in ``LandauAnalysis.skipped_faces``.
 

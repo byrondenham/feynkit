@@ -40,6 +40,21 @@ class TestSingleDiagram:
         _run(capsys, tmp_path, "11e|e|:zz", "-t")
         assert (tmp_path / "cli.db").exists()
 
+    def test_trivial_toric_ideal_claims_no_master_integral_count(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        out = _run(capsys, tmp_path, "11e|e|:zz", "-t")
+        assert "Toric ideal  (generators: an analogue of IBP relations)" in out
+        assert "Trivial  (the zero ideal)" in out
+        assert "master integral" not in out
+
+    def test_symmetry_pairs_are_all_unimodular(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        out = _run(capsys, tmp_path, "11e|e|:zz", "-S")
+        assert "Symmetry pairs  (|det M|=1)  6" in out
+        assert "finite-index" not in out
+
 
 class TestPairwise:
     def test_equivalent_triangles_reported(

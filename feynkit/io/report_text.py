@@ -4,12 +4,14 @@ Plain-text rendering of an analysis report.
 :func:`render_text` states the facts of :func:`~feynkit.io.report_latex.render_latex`
 in the same order, with the same sentences and citations, as plain ASCII:
 maths is written out in plain names (``beta = (-D/2, -nu_1, ..., -nu_N)``),
-computed expressions are printed by ``sympy.sstr``, matrices by
-``sympy.pretty`` in ASCII, and citations as ``[key]``, listed at the end with
-their entries stripped of LaTeX. The text has no figures, so the sentences
+computed expressions are printed like ``sympy.sstr`` but with ``^`` for
+powers, as the prose writes them, matrices by ``sympy.pretty`` in ASCII, and
+citations as ``[key]``, listed at the end with their entries stripped of
+LaTeX. The text has no figures, so the sentences
 that point at a figure are left out and a cross-reference names the section
-it refers to. Prose is wrapped at 79 columns; displays are indented and keep
-their lines.
+it refers to. Prose is wrapped at 79 columns without breaking inline maths;
+displays are indented and broken to fit the same width wherever a sum, a
+product, a quotient or a vector allows it.
 """
 
 from __future__ import annotations
@@ -19,6 +21,8 @@ import textwrap
 from collections.abc import Sequence
 
 import sympy as sp
+from sympy.printing.precedence import PRECEDENCE
+from sympy.printing.str import StrPrinter
 
 from ._report_shared import (
     CITATIONS,
@@ -51,8 +55,6 @@ __all__ = ["render_text"]
 
 _WIDTH = 79
 _INDENT = "    "
-# Displayed sums are broken at their top-level signs into lines about this long.
-_DISPLAY_LENGTH = 72
 
 # Operators that stand as words in the prose. The wrapper keeps them on the
 # line of their operands, joining them with a no-break space that textwrap
@@ -74,6 +76,49 @@ _EULER_MELLIN = "I_A(beta, z) = int_{R_+^N} prod_e du_e u_e^(nu_e - 1) G(z, u)^(
 
 
 # --- small helpers -----------------------------------------------------------
+
+
+class _TextPrinter(StrPrinter):
+    """``sympy.sstr`` in the notation of the report's prose.
+
+    Powers are written with ``^``, and an exponent other than a symbol or a
+    non-negative integer is bracketed: ``u_1^(nu_1 - 1)``, ``G^(-D/2)``. A
+    symbol whose name contains ``^``, such as the invariant ``p1^2``, is
+    bracketed as the base of a power, so that its square reads ``(p1^2)^2``
+    rather than ``p1^2^2``. The gamma function is written ``Gamma``, apart
+    from the constant ``gamma_E``. Products keep ``*``.
+    """
+
+    def _print_Pow(self, expr: sp.Pow, rational: bool = False) -> str:
+        if expr.exp is sp.S.Half and not rational:
+            return f"sqrt({self._print(expr.base)})"
+        if expr.is_commutative and -expr.exp is sp.S.Half and not rational:
+            return f"1/sqrt({self._print(expr.base)})"
+        if expr.is_commutative and expr.exp is sp.S.NegativeOne:
+            return f"1/{self._base(expr.base)}"
+        return f"{self._base(expr.base)}^{self._exponent(expr.exp)}"
+
+    def _base(self, base: sp.Expr) -> str:
+        if _caret_named(base):
+            return f"({self._print(base)})"
+        return str(self.parenthesize(base, PRECEDENCE["Pow"], strict=False))
+
+    def _exponent(self, exponent: sp.Expr) -> str:
+        if (isinstance(exponent, sp.Symbol) and not _caret_named(exponent)) or (
+            exponent.is_Integer and exponent >= 0
+        ):
+            return str(self._print(exponent))
+        return f"({self._print(exponent)})"
+
+    def _print_gamma(self, expr: sp.Expr) -> str:
+        return f"Gamma({self._print(expr.args[0])})"
+
+
+def _caret_named(expr: sp.Expr) -> bool:
+    return isinstance(expr, sp.Symbol) and "^" in expr.name
+
+
+_str = _TextPrinter().doprint
 
 
 class _Document(Citations):
@@ -145,17 +190,17 @@ def _blocks(*blocks: str) -> str:
     return "\n\n".join(blocks)
 
 
-def _break(text: str, max_length: int = _DISPLAY_LENGTH) -> list[str]:
-    """Break a printed sum into lines at its top-level signs.
+def _break(text: str, width: int, separators: tuple[str, ...] = (" + ", " - ")) -> list[str]:
+    """Break printed maths into lines of at most ``width`` characters where it can.
 
-    A line break falls only before a `` + `` or `` - `` outside every pair of
-    brackets, and terms are packed greedily into lines of about
-    ``max_length`` characters. Every line after the first starts with its
-    sign.
+    A line breaks only before one of ``separators`` standing outside every
+    pair of brackets, the top-level signs of a sum by default, and the pieces
+    are packed greedily. A piece longer than ``width`` keeps a line of its
+    own. Every line after the first starts with its separator.
     """
-    if len(text) <= max_length:
+    if len(text) <= width:
         return [text]
-    chunks: list[str] = []
+    pieces: list[str] = []
     depth = 0
     start = 0
     for i, character in enumerate(text):
@@ -163,33 +208,54 @@ def _break(text: str, max_length: int = _DISPLAY_LENGTH) -> list[str]:
             depth += 1
         elif character in ")]}":
             depth -= 1
-        elif depth == 0 and i > start and text.startswith((" + ", " - "), i):
-            chunks.append(text[start:i])
+        elif depth == 0 and i > start and text.startswith(separators, i):
+            pieces.append(text[start:i])
             start = i
-    chunks.append(text[start:])
+    pieces.append(text[start:])
 
-    lines: list[str] = []
-    current = chunks[0]
-    for chunk in chunks[1:]:
-        if len(current) + len(chunk) > max_length:
-            lines.append(current)
-            current = chunk.strip()
+    lines = [pieces[0]]
+    for piece in pieces[1:]:
+        if len(lines[-1]) + len(piece) > width:
+            lines.append(piece.strip())
         else:
-            current += chunk
-    lines.append(current)
+            lines[-1] += piece
     return lines
 
 
-def _lines(expr: sp.Expr, max_length: int = _DISPLAY_LENGTH) -> list[str]:
-    return _break(sp.sstr(expr), max_length)
+def _lines(expr: sp.Expr, width: int) -> list[str]:
+    """``expr`` over lines of at most ``width``: a sum at its signs, then a long
+    term at its top-level products and quotients."""
+    return [
+        piece for line in _break(_str(expr), width) for piece in _break(line, width, ("*", "/"))
+    ]
 
 
-def _scaled_lines(expr: sp.Expr, scale: sp.Expr) -> list[str]:
+def _quotient_lines(expr: sp.Expr, width: int) -> list[str]:
+    """``expr`` over lines, a quotient too long for one line split at its bar."""
+    text = _str(expr)
+    if len(text) <= width:
+        return [text]
+    numerator, denominator = sp.fraction(expr)
+    if denominator == 1:
+        return _lines(expr, width)
+    below = _lines(denominator, width - 4)
+    below = [f"/ ({below[0]}", *(f"   {line}" for line in below[1:])]
+    below[-1] += ")"
+    return [*_lines(numerator, width), *below]
+
+
+def _scaled_lines(expr: sp.Expr, scale: sp.Expr, width: int) -> list[str]:
     """The lines of ``expr`` written as ``(1/scale)*(...)``."""
-    lines = _lines(expr)
-    lines[0] = f"(1/{sp.sstr(scale)})*({lines[0]}"
+    prefix = f"(1/{_str(scale)})*("
+    lines = _lines(expr, width - len(prefix) - 1)
+    lines[0] = prefix + lines[0]
     lines[-1] += ")"
     return lines
+
+
+def _room(lhs: str) -> int:
+    """The width left for the right-hand side of a display of ``lhs = ...``."""
+    return _WIDTH - len(_INDENT) - len(lhs) - 3
 
 
 def _equation(lhs: str, lines: Sequence[str]) -> str:
@@ -198,11 +264,13 @@ def _equation(lhs: str, lines: Sequence[str]) -> str:
     return "\n".join([f"{_INDENT}{lhs} = {lines[0]}", *(continued + line for line in lines[1:])])
 
 
-def _expressions(expressions: Sequence[sp.Expr], max_length: int = _DISPLAY_LENGTH) -> str:
+def _expressions(expressions: Sequence[sp.Expr]) -> str:
     """Display each expression on its own line, long ones continued further in."""
     rows = []
     for expr in expressions:
-        lines = _lines(expr, max_length)
+        text = _str(expr)
+        whole = len(_INDENT) + len(text) <= _WIDTH
+        lines = [text] if whole else _lines(expr, _WIDTH - 2 * len(_INDENT))
         rows.append(_INDENT + lines[0])
         rows.extend(_INDENT * 2 + line for line in lines[1:])
     return "\n".join(rows)
@@ -220,29 +288,51 @@ def _matrix(lhs: str, matrix: sp.Matrix, after: str = "") -> str:
     return "\n".join(line.rstrip() for line in lines)
 
 
-def _vector(entries: Sequence[sp.Expr]) -> str:
-    return "(" + ", ".join(sp.sstr(e) for e in entries) + ")"
+def _vector(lhs: str, entries: Sequence[sp.Expr], end: str) -> str:
+    """Display ``lhs = (e_1, e_2, ...)`` then ``end``, broken after commas to fit."""
+    width = _room(lhs) - len(end)
+    printed = [_str(e) for e in entries]
+    lines = ["(" + printed[0]]
+    for entry in printed[1:]:
+        if len(lines[-1]) + len(entry) + 3 > width:
+            lines[-1] += ","
+            lines.append(" " + entry)
+        else:
+            lines[-1] += ", " + entry
+    lines[-1] += ")" + end
+    return _equation(lhs, lines)
 
 
 def _table(header: Sequence[str] | None, rows: Sequence[Sequence[str]]) -> str:
-    """An indented table with columns padded to their widest cell."""
-    body = [list(row) for row in rows]
-    cells = ([list(header)] if header else []) + body
-    widths = [max(len(row[c]) for row in cells) for c in range(len(cells[0]))]
+    """An indented table with columns padded to their widest cell.
+
+    The last column takes what is left of the line; an entry too long for it
+    is broken at its top-level signs and continued below in the same column.
+    """
+    cells = ([list(header)] if header else []) + [list(row) for row in rows]
+    widths = [max(len(row[c]) for row in cells) for c in range(len(cells[0]) - 1)]
+    lead = len(_INDENT) + sum(width + 2 for width in widths)
+    lasts = [_break(row[-1], _WIDTH - lead) for row in cells]
+    widths.append(max(len(line) for last in lasts for line in last))
 
     def line(row: Sequence[str]) -> str:
         padded = "  ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True))
         return (_INDENT + padded).rstrip()
 
-    lines = [line(header), line(["-" * width for width in widths])] if header else []
-    return "\n".join(lines + [line(row) for row in body])
+    lines = []
+    for k, (row, last) in enumerate(zip(cells, lasts, strict=True)):
+        lines.append(line([*row[:-1], last[0]]))
+        lines.extend(" " * lead + more for more in last[1:])
+        if header and k == 0:
+            lines.append(line(["-" * width for width in widths]))
+    return "\n".join(lines)
 
 
 def _factor_list(kind: str, factors: Sequence[sp.Expr]) -> tuple[str, str | None]:
     """'the <kind> factors are' and their display, or a note that there are none."""
     if not factors:
         return f"there are no {kind} factors", None
-    return f"the {kind} factors are", _expressions(factors, 100)
+    return f"the {kind} factors are", _expressions(factors)
 
 
 # --- sections ----------------------------------------------------------------
@@ -254,7 +344,7 @@ def _summary(report: AnalysisReport) -> str:
 
 def _graph(identity: Identity) -> str:
     rows = [
-        (str(e), f"{v1}-{v2}", sp.sstr(nu), sp.sstr(mass))
+        (str(e), f"{v1}-{v2}", _str(nu), _str(mass))
         for e, (v1, v2), nu, mass in zip(
             identity.edge_indices,
             identity.edge_endpoints,
@@ -284,7 +374,7 @@ def _kinematics(conventions: Conventions) -> str:
     if invariants is None:
         return "the dot products p_i . p_j"
     symbols = list(dict.fromkeys(invariants.symbols))
-    listed = join_words([sp.sstr(s) for s in symbols])
+    listed = join_words([_str(s) for s in symbols])
     noun = "invariant" if len(symbols) == 1 else "invariants"
     if invariants.n_external == 2:
         return f"the {noun} {listed}: s = p^2 for p = p_1 = -p_2, so that p_1 . p_2 = -s"
@@ -298,18 +388,18 @@ def _conventions(report: AnalysisReport, doc: _Document) -> str:
     conventions = report.conventions
     dimension = conventions.dimension
     is_d = isinstance(dimension, sp.Symbol) and dimension.name == "D"
-    in_d = "D" if is_d else f"D = {sp.sstr(dimension)}"
+    in_d = "D" if is_d else f"D = {_str(dimension)}"
     nu_total = sp.Add(*report.identity.edge_exponents)
     return _blocks(
         "The integral is",
         f"{_INDENT}I = exp(L epsilon gamma_E) (mu^2)^(nu - L D/2)\n"
-        f"{_INDENT}    * int prod_{{r=1}}^{{L}} d^D k_r/(i pi^(D/2)) "
-        "prod_e 1/(-q_e^2 + m_e^2)^(nu_e)",
+        f"{_INDENT}    * int prod_{{r=1}}^{{L}} d^D k_r/(i pi^(D/2))\n"
+        f"{_INDENT}    * prod_e 1/(-q_e^2 + m_e^2)^nu_e",
         _paragraph(
             f"in {in_d} dimensions{doc.cite('weinzierl2022')}, with loop momenta k_r, the "
             "momentum q_e of propagator e fixed by momentum conservation at the vertices, the "
             "metric signature (+,-,...,-) and nu = sum_e nu_e, here "
-            f"nu = {sp.sstr(nu_total)}. Dimensional regularisation sets D = D_0 - 2 epsilon "
+            f"nu = {_str(nu_total)}. Dimensional regularisation sets D = D_0 - 2 epsilon "
             "for an even integer D_0 chosen when the result is expanded. The energy scale mu "
             "makes I and the Symanzik polynomials dimensionless. External momenta are "
             f"incoming, and the kinematics is written in {_kinematics(conventions)}. The "
@@ -326,16 +416,17 @@ def _polynomials(report: AnalysisReport, doc: _Document) -> str:
     polynomials = report.polynomials
     power = polynomials.f_scale_power
     scale = report.conventions.energy_scale
+    g_room = _room("G = U + F")
     if power:
-        f_lines = _scaled_lines(polynomials.f_numerator, scale**power)
+        f_lines = _scaled_lines(polynomials.f_numerator, scale**power, _room("F"))
         u_part, f_part, g_power = split_g(polynomials.g, scale)
-        g_f_lines = _scaled_lines(f_part, scale**g_power)
-        g_lines = [*_lines(u_part), "+ " + g_f_lines[0], *g_f_lines[1:]]
+        g_f_lines = _scaled_lines(f_part, scale**g_power, g_room - 2)
+        g_lines = [*_lines(u_part, g_room), "+ " + g_f_lines[0], *g_f_lines[1:]]
     else:
-        f_lines = _lines(polynomials.f_numerator)
-        g_lines = _lines(polynomials.g)
+        f_lines = _lines(polynomials.f_numerator, _room("F"))
+        g_lines = _lines(polynomials.g, g_room)
     rows = [
-        (str(entry.index), sp.sstr(entry.monomial), sp.sstr(entry.coefficient))
+        (str(entry.index), _str(entry.monomial), _str(entry.coefficient))
         for entry in polynomials.z_table
     ]
     rank = polynomials.monomials_g - polynomials.codimension
@@ -344,7 +435,7 @@ def _polynomials(report: AnalysisReport, doc: _Document) -> str:
             "In the Schwinger parameters a_e the first Symanzik polynomial, the sum over "
             "spanning trees T of prod_{e not in T} a_e, is"
         ),
-        _equation("U", _lines(polynomials.u)),
+        _equation("U", _lines(polynomials.u, _room("U"))),
         "and the second is",
         _equation("F", f_lines),
         "In the Lee-Pomeransky parameters u_e their sum is",
@@ -375,14 +466,21 @@ def _representation(
     constraint: str,
     integrand: sp.Expr,
 ) -> str:
-    differentials = " ".join(f"d{sp.sstr(p)}" for p in parameters)
-    factors = [f for f in (constraint, "" if measure == 1 else sp.sstr(measure)) if f]
-    factors.append(sp.sstr(integrand))
+    """Display ``I`` as its prefactor times the integral, one factor per line."""
+    width = _WIDTH - 2 * len(_INDENT)
+    differentials = " ".join(f"d{_str(p)}" for p in parameters)
+    head = _quotient_lines(prefactor, width)
     lines = [
-        f"I = {sp.sstr(prefactor)}",
+        f"I = {head[0]}",
+        *(f"    {line}" for line in head[1:]),
         f"    * int_{{R_+^{len(parameters)}}} {differentials}",
-        *(f"    * {factor}" for factor in factors),
     ]
+    if constraint:
+        lines.append(f"    * {constraint}")
+    for factor in ([] if measure == 1 else [measure]) + [integrand]:
+        first, *rest = _lines(factor, width - 2)
+        lines.append(f"    * {first}")
+        lines.extend(f"      {line}" for line in rest)
     return "\n".join(_INDENT + line for line in lines)
 
 
@@ -453,7 +551,7 @@ def _representations(
             "every facet m_j . x <= b_j of P the real part of b_j D/2 - sum_e m_{je} nu_e is "
             f"positive{doc.cite('klausen2023')}:"
         ),
-        "\n".join(f"{_INDENT}Re({sp.sstr(c)}) > 0" for c in representations.convergence),
+        "\n".join(f"{_INDENT}Re({_str(c)}) > 0" for c in representations.convergence),
         _paragraph(
             "For such kinematics it converges absolutely for no D and nu_e when P is not "
             "full-dimensional."
@@ -509,7 +607,8 @@ def _gkz(gkz: GKZ, doc: _Document) -> str:
     operators = []
     for r, (row, beta_r) in enumerate(gkz.euler_rows):
         terms = signed_terms([(a, f"theta_{j}") for j, a in enumerate(row, start=1)])
-        operators.append(_equation(f"E_{r}", _break(append_signed(terms, -beta_r, sp.sstr))))
+        operator = append_signed(terms, -beta_r, _str)
+        operators.append(_equation(f"E_{r}", _break(operator, _room(f"E_{r}"))))
     blocks = [
         _paragraph(
             "Writing G = sum_j z_j u^alpha_j and treating the coefficients z_j as independent "
@@ -526,7 +625,7 @@ def _gkz(gkz: GKZ, doc: _Document) -> str:
             "beta = (-D/2, -nu_1, ..., -nu_N), the value the Euler equations require for the "
             f"Lee-Pomeransky integral{doc.cite('delacruz2019', 'klausen2020')}. Here"
         ),
-        f"{_INDENT}beta = {_vector(gkz.beta)}.",
+        _vector("beta", gkz.beta, "."),
         _paragraph(
             "The Euler operators are built from theta_j = z_j d/dz_j, which measures the "
             "degree in z_j. The operators E_r = sum_j A_{rj} theta_j - beta_r annihilate I_A: "
@@ -634,7 +733,7 @@ def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
                 "the energy scale mu, which only normalise the coefficients z_j, are left out:"
             ),
             "\n".join(
-                f"- Dimension {dimension}:\n{_expressions(listed, 100)}"
+                f"- Dimension {dimension}:\n{_expressions(listed)}"
                 for dimension, listed in factors.by_dimension
             ),
         ]
@@ -702,7 +801,7 @@ def _schwinger(report: AnalysisReport, schwinger: Schwinger, doc: _Document) -> 
             f"otherwise{doc.cite('jimenez2026', 'klausen2023')}:"
         ),
         _matrix("A_Cayley", system.a_matrix),
-        f"{_INDENT}beta_Cayley = {_vector(system.beta_parameters)}.",
+        _vector("beta_Cayley", system.beta_parameters, "."),
         _paragraph(
             "It is unimodularly equivalent to the Lee-Pomeransky configuration, the matrix "
             "A_LP and parameter vector beta_LP = (-D/2, -nu_1, ..., -nu_N) of the GKZ system "
@@ -715,11 +814,11 @@ def _schwinger(report: AnalysisReport, schwinger: Schwinger, doc: _Document) -> 
             f"{check} for this integral. Restricting to the F~ block gives the system"
         ),
         _matrix("A_F", f_block.a_matrix),
-        f"{_INDENT}beta_F = {_vector(f_block.beta_parameters)};",
+        _vector("beta_F", f_block.beta_parameters, ";"),
         _paragraph(
             "its solutions solve the full system when beta_Cayley lies in the span of the "
             "face's columns, which for the F~ block means nu = (L+1)D/2, here "
-            f"{sp.sstr(nu_total)} = {sp.sstr(value)}{doc.cite('britto2026')}. Away from that "
+            f"{_str(nu_total)} = {_str(value)}{doc.cite('britto2026')}. Away from that "
             "value the relation between the two systems is not established."
         ),
     )

@@ -737,7 +737,7 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
         "\\begin{document}",
         "\\maketitle",
         "",
-        "\n\n".join(f"\\section{{{heading}}}\n{body}" for heading, body in sections),
+        "\n\n".join(f"\\section{{{name}}}\n{body}" for name, body in sections),
         "",
         doc.bibliography(),
         "",

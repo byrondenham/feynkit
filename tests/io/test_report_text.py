@@ -9,6 +9,7 @@ plain-text wording of the sentences the LaTeX tests pin.
 
 from __future__ import annotations
 
+import difflib
 import re
 from itertools import pairwise
 
@@ -18,7 +19,7 @@ import sympy as sp
 from feynkit import FeynmanIntegral
 from feynkit.io.report import AnalysisReport
 from feynkit.io.report_latex import CITATIONS, render_latex
-from feynkit.io.report_text import _strip_latex, render_text
+from feynkit.io.report_text import _str, _strip_latex, render_text
 
 _KEY = r"[a-z]+\d{4}"
 
@@ -81,6 +82,66 @@ def _latex_summary(latex: str) -> list[tuple[str, str]]:
     return [(label.replace("$", ""), value) for label, value in rows]
 
 
+# Names the prose uses for mathematical objects, which the LaTeX writes in
+# maths mode and the prose comparison therefore leaves out on both sides.
+_MATH_WORDS = frozenset(
+    {"sum", "prod", "int", "exp", "gamma", "theta", "beta", "sigma", "mu", "lambda", "infinity"}
+    | {"epsilon", "delta", "not", "alpha", "Re", "rank", "Aut", "pi", "nu", "Cayley", "dz"}
+)
+
+# What the text says differently on purpose, as substitutions on the LaTeX:
+# it has no figures, so the sentences pointing at one go, and a
+# cross-reference names the section it points at.
+_INTENDED = (
+    ("Figure~\\ref{fig:feynman_graph} shows the graph. ", ""),
+    (
+        "The figure labels each propagator with its index $e$, which also names",
+        "Its index $e$ also names",
+    ),
+    ("Figure~\\ref{fig:newton-polytope} draws it.", ""),
+    ("Section~\\ref{sec:newton-polytope}", "the Newton polytope section"),
+    ("Section~\\ref{sec:gkz-system}", "the GKZ system section"),
+)
+
+
+def _words(prose: str) -> list[str]:
+    """The prose words longer than two letters, with maths and hyphens left out."""
+    # A bracketed word standing alone, "(Gram)", is prose; "Aut(P)" is not.
+    prose = re.sub(r"(?<!\S)\(([A-Za-z-]+)\)", r"\1", prose)
+    tokens = [t for t in prose.split() if not re.search(r"[_^\d(){}=<>/*\[\]]", t)]
+    words = re.findall(r"[A-Za-z]+", " ".join(tokens))
+    return [w for w in words if len(w) > 2 and w not in _MATH_WORDS]
+
+
+def _latex_prose(latex: str) -> str:
+    """The running text of the LaTeX document, without displays, maths or markup."""
+    body = latex.split("\\begin{document}")[1].split("\\begin{thebibliography}")[0]
+    for old, new in _INTENDED:
+        assert body.count(old) == 1, old
+        body = body.replace(old, new)
+    environments = r"equation\*|align\*|gather\*|figure|tabular|longtable"
+    body = re.sub(rf"\\begin\{{({environments})\}}.*?\\end\{{\1\}}", " ", body, flags=re.S)
+    body = re.sub(r"\$[^$]*\$", " ", body)
+    body = re.sub(r"~?\\cite\{[^}]*\}", " ", body)
+    body = re.sub(r"\\(?:section|subsection|label|begin|end)\{[^}]*\}", " ", body)
+    body = re.sub(r"\\paragraph\{([^}]*)\}", r"\1", body)
+    body = body.replace("Forsg\\aa rd", "Forsgaard")
+    return re.sub(r"\\[a-zA-Z]+", " ", body).replace("~", " ")
+
+
+def _text_prose(text: str) -> str:
+    """The running text of the text report, without headings, displays or citations."""
+    lines = text.split("\nReferences\n----------\n")[0].splitlines()
+    prose = [
+        line
+        for line, following in pairwise([*lines, ""])
+        if not line.startswith(" ")
+        and not re.fullmatch(r"[-=~]+", line)
+        and not (following and re.fullmatch(r"[-=~]+", following))
+    ]
+    return re.sub(rf"\[{_KEY}(?:, {_KEY})*\]", " ", " ".join(prose))
+
+
 def _first_citations(text: str) -> list[str]:
     """Cited keys in the order of first citation."""
     keys: list[str] = []
@@ -100,6 +161,26 @@ def test_text_is_plain_ascii_without_latex(text: str, sunrise_text: str) -> None
         assert "$" not in document
         assert re.search(r"\\[a-zA-Z]", document) is None
         assert "\\" not in document
+        # Powers are written with ^, as the prose writes them.
+        assert "**" not in document
+        # A caret-named invariant raised to a power is bracketed: (p1^2)^2.
+        assert re.search(r"\w\^\w+\^", document) is None
+
+
+def test_printer_writes_powers_as_the_prose_does() -> None:
+    p1, mu = sp.symbols("p1^2 mu")
+    u_1, nu_1, g, d = sp.symbols("u_1 nu_1 G D")
+    assert _str(p1**3) == "(p1^2)^3"
+    assert _str(p1**2 * u_1) == "(p1^2)^2*u_1"
+    assert _str(u_1 ** (nu_1 - 1)) == "u_1^(nu_1 - 1)"
+    assert _str(g ** (-d / 2)) == "G^(-D/2)"
+    assert _str(mu**2) == "mu^2"
+    assert _str(sp.gamma(nu_1)) == "Gamma(nu_1)"
+    assert _str(sp.exp(sp.Symbol("epsilon") * sp.Symbol("gamma_E"))) == "exp(epsilon*gamma_E)"
+    # Quotients stay readable.
+    assert _str(-p1 / mu**2) == "-p1^2/mu^2"
+    assert _str(1 / p1) == "1/(p1^2)"
+    assert _str(u_1 / p1**2) == "u_1/(p1^2)^2"
 
 
 def test_title_is_the_cnickel_underlined(text: str) -> None:
@@ -113,12 +194,11 @@ def test_custom_title_is_kept_verbatim(triangle_report: AnalysisReport) -> None:
     assert lines[:2] == ["one_mass & two", "=============="]
 
 
-def test_prose_is_wrapped(text: str, sunrise_text: str) -> None:
-    # Displays and tables are indented and may run long; prose may not.
+def test_every_line_fits_in_79_columns(text: str, sunrise_text: str) -> None:
+    # Prose is wrapped; displays and tables break where they can.
     for document in (text, sunrise_text):
         for line in document.splitlines():
-            if not line.startswith(" "):
-                assert len(line) <= 79, line
+            assert len(line) <= 79, line
 
 
 def test_wrapping_keeps_inline_maths_on_one_line(text: str) -> None:
@@ -213,12 +293,13 @@ def test_every_euler_operator_has_its_line(text: str, triangle_report: AnalysisR
     assert operators[1] == "E_1 = theta_1 + theta_2 + theta_4 + nu_1"
 
 
-def test_toric_generators_are_listed_with_sstr(text: str, triangle_report: AnalysisReport) -> None:
+def test_toric_generators_are_listed(text: str, triangle_report: AnalysisReport) -> None:
     assert triangle_report.gkz is not None
     lines = {line.strip() for line in text.splitlines()}
     assert triangle_report.gkz.toric_generators
     for generator in triangle_report.gkz.toric_generators:
-        assert sp.sstr(generator) in lines
+        assert _str(generator) in lines
+    assert "z_1*z_6 - z_2*z_5" in lines
 
 
 def test_matrices_are_pretty_printed(text: str, triangle_report: AnalysisReport) -> None:
@@ -240,11 +321,12 @@ def test_one_convergence_row_per_facet(text: str, triangle_report: AnalysisRepor
 def test_symanzik_displays(text: str) -> None:
     polynomials = _section(text, "Symanzik polynomials")
     assert "    U = a_1 + a_2 + a_3\n" in polynomials
-    assert "    F = (1/mu**2)*(-a_1*a_2*p1^2 - a_1*a_3*p2^2 - a_2*a_3*p3^2)\n" in polynomials
+    assert "    F = (1/mu^2)*(-a_1*a_2*p1^2 - a_1*a_3*p2^2 - a_2*a_3*p3^2)\n" in polynomials
     assert (
         "    G = U + F = u_1 + u_2 + u_3\n"
-        "                + (1/mu**2)*(-p1^2*u_1*u_2 - p2^2*u_1*u_3 - p3^2*u_2*u_3)\n"
+        "                + (1/mu^2)*(-p1^2*u_1*u_2 - p2^2*u_1*u_3 - p3^2*u_2*u_3)\n"
     ) in polynomials
+    assert "    1  u_1*u_2   -p1^2/mu^2\n" in polynomials
 
 
 def test_long_sums_break_at_their_signs(sunrise_text: str) -> None:
@@ -267,11 +349,19 @@ def test_landau_factor_lines_carry_no_energy_scale(sunrise_text: str) -> None:
 def test_representations_write_the_integrands_in_u_f_and_g(text: str) -> None:
     representations = _section(text, "Parametric representations")
     assert "Schwinger representation\n~~~~~~~~~~~~~~~~~~~~~~~~" in representations
-    assert "        * exp(-F/U)/U**(D/2)\n" in representations
+    assert "        * exp(-F/U)/U^(D/2)\n" in representations
     assert "        * delta(1 - sum_e a_e)\n" in representations
-    assert "        * F**(D/2 - nu)*U**(-D + nu)\n" in representations
-    assert "        * G**(-D/2)\n" in representations
+    assert "        * F^(D/2 - nu)*U^(-D + nu)\n" in representations
+    assert "        * G^(-D/2)\n" in representations
     assert "        * int_{R_+^3} da_1 da_2 da_3\n" in representations
+    assert "        * a_1^(nu_1 - 1)*a_2^(nu_2 - 1)*a_3^(nu_3 - 1)\n" in representations
+    # A prefactor too long for one line is split into numerator and denominator.
+    assert (
+        "    I = exp(epsilon*gamma_E)*Gamma(D/2)\n"
+        "        / (Gamma(nu_1)*Gamma(nu_2)*Gamma(nu_3)*Gamma(D - nu_1 - nu_2 - nu_3))\n"
+        "        * int_{R_+^3} du_1 du_2 du_3\n"
+    ) in representations
+    assert "    I = exp(epsilon*gamma_E)/(Gamma(nu_1)*Gamma(nu_2)*Gamma(nu_3))\n" in representations
 
 
 # --- golden fragments, the plain-text forms of those in test_report_latex ----
@@ -292,7 +382,8 @@ def test_conventions_define_the_integral_and_nu(text: str) -> None:
     conventions = _section(text, "Conventions")
     assert (
         "    I = exp(L epsilon gamma_E) (mu^2)^(nu - L D/2)\n"
-        "        * int prod_{r=1}^{L} d^D k_r/(i pi^(D/2)) prod_e 1/(-q_e^2 + m_e^2)^(nu_e)\n"
+        "        * int prod_{r=1}^{L} d^D k_r/(i pi^(D/2))\n"
+        "        * prod_e 1/(-q_e^2 + m_e^2)^nu_e\n"
     ) in conventions
     assert "nu = sum_e nu_e, here nu = nu_1 + nu_2 + nu_3." in _flat(conventions)
     assert _flat(text).count("nu = sum_e nu_e") == 1
@@ -363,7 +454,57 @@ def test_landau_factor_lists(text: str) -> None:
         k for k, block in enumerate(blocks) if _flat(block).endswith("(Cayley) factors are")
     )
     assert blocks[lead + 1].splitlines() == ["    p1^2", "    p2^2", "    p3^2"]
+    # The Kallen function of the three external masses, each square bracketed.
+    kallen = "(p1^2)^2 - 2*p1^2*p2^2 - 2*p1^2*p3^2 + (p2^2)^2 - 2*p2^2*p3^2 + (p3^2)^2"
+    assert blocks[lead + 3].splitlines() == ["    p1^2", "    p2^2", "    p3^2", f"    {kallen}"]
+    assert f"- Dimension 3:\n    {kallen}\n" in landau
     assert "A factor can arise from both a Cayley minor and a Gram minor" in _flat(landau)
+
+
+def test_long_displays_break_to_fit(sunrise_text: str) -> None:
+    # The sunrise's second Euler operator is too long for one line.
+    gkz = _section(sunrise_text, "GKZ system")
+    assert (
+        "    E_1 = 2 theta_1 + 2 theta_2 + theta_3 + theta_4 + theta_5 + theta_8\n"
+        "          + theta_9 + nu_1\n"
+    ) in gkz
+    # Vectors break after a comma, continuing under their first entry.
+    schwinger = _section(sunrise_text, "Schwinger-representation system")
+    assert (
+        "    beta_Cayley = (-3*D/2 + nu_1 + nu_2 + nu_3, D - nu_1 - nu_2 - nu_3, -nu_1,\n"
+        "                   -nu_2).\n"
+    ) in schwinger
+
+
+def test_a_long_coefficient_continues_in_its_column() -> None:
+    # The massless box has a z_j with six terms, too wide for one row.
+    box = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+    text = render_text(AnalysisReport.from_integral(box, []))
+    table = _section(text, "Symanzik polynomials").split("    j  ")[1].split("\n\n")[0]
+    rows = table.splitlines()
+    wide = next(k for k, row in enumerate(rows) if row.startswith("    3 "))
+    assert rows[wide].startswith("    3   u_1*u_4   -p1^2/mu^2 - p2^2/mu^2")
+    assert rows[wide + 1].startswith(" " * 18 + "+ ")
+    assert all(len(row) <= 79 for row in rows)
+
+
+@pytest.mark.parametrize("cnickel", ["12e|2e|e|:zzz", "111e|e|:nnn"])  # type: ignore[misc]
+def test_prose_matches_the_latex_word_for_word(cnickel: str) -> None:
+    # Both renderers' running text, reduced to words: the LaTeX without its
+    # maths, displays and markup, the text without its displays, headings and
+    # citations. Only the differences listed in _INTENDED are allowed.
+    report = AnalysisReport.from_integral(FeynmanIntegral.from_cnickel(cnickel))
+    latex = _words(_latex_prose(render_latex(report)))
+    text = _words(_text_prose(render_text(report)))
+    diff = [
+        (tag, " ".join(latex[i1:i2]), " ".join(text[j1:j2]))
+        for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(
+            None, latex, text, autojunk=False
+        ).get_opcodes()
+        if tag != "equal"
+    ]
+    assert not diff
+    assert len(latex) > 700
 
 
 def test_edge_table(text: str) -> None:

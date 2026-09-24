@@ -3,35 +3,39 @@ feynkit command-line interface.
 
 Usage
 -----
-    fk <cnickel>                        # full analysis of one diagram
-    fk <cnickel> --gkz --newton         # only GKZ and Newton polytope
-    fk <cnickel1> <cnickel2>            # equivalence analysis of two diagrams
+    fk analyse CNICKEL [options]    one diagram, section by section
+    fk compare A B [options]        two diagrams: equivalence checks and GKZ identities
+    fk CNICKEL [options]            the bare form of fk analyse
+    fk A B [options]                the bare form of fk compare
+    fk --version
 
-Section flags (single diagram only; omit all to run everything)
----------------------------------------------------------------
-    -s / --symanzik     Symanzik polynomials U, F, G
-    -p / --params       Integral parametrisations (Schwinger, Feynman, Lee-Pom.)
-    -g / --gkz          GKZ A-matrix and Euler equations
-    -t / --toric        Toric ideal (binomial generators)
-    -n / --newton       Newton polytope (vertices, volume, Smith invariants)
-    -S / --symmetries   Polytope automorphisms and symmetry pairs
+Run fk analyse --help or fk compare --help for the options.
 
 Examples
 --------
-    fk "12e|2e|e|:zzz"
-    fk "12e|2e|e|:zzz" --gkz --newton
-    fk 12e|2e|e|                         # bare topology (massless assumed)
-    fk "12e|2e|e|:zzz" "11e|e|:zz"      # triangle vs bubble
+    fk analyse "12e|2e|e|:zzz"
+    fk analyse "12e|2e|e|:zzz" --gkz --newton
+    fk analyse "12e|2e|e|"                     # bare topology: every propagator massless
+    fk compare "12e|2e|e|:zzz" "11e|e|:zz"     # triangle against bubble
+
+Quote every CNickel string: an unquoted | is a shell pipe.
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 import time
 from collections.abc import Sequence
 from pathlib import Path
+from typing import NamedTuple
 
 import sympy as sp
+
+from feynkit.core.constants import __version__
+
+COMMANDS = ("analyse", "compare")
+SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "symmetries")
 
 # -----------------------------------------------------------------------------
 # Output helpers
@@ -436,74 +440,167 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
 
 
 # -----------------------------------------------------------------------------
-# Entry point
+# Command line
 # -----------------------------------------------------------------------------
 
+# Options that take a value. The bare form needs them to tell a value from a
+# second diagram: fk "12e|2e|e|" --db x.db names one diagram, not two.
+_VALUE_OPTIONS = frozenset({"--db"})
 
-def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(
-        prog="fk",
-        description="feynkit: analyse Feynman integrals from cNickel strings",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-section flags (single diagram; omit all to run every section):
-  -s / --symanzik     Symanzik polynomials U, F, G
-  -p / --params       Parametrisations (Schwinger, Feynman, Lee-Pom.)
-  -g / --gkz          GKZ A-matrix and Euler equations
-  -t / --toric        Toric ideal (binomial generators)
-  -n / --newton       Newton polytope (vertices, volume, Smith invariants)
-  -S / --symmetries   Polytope automorphisms and symmetry pairs
-
+_MAIN_EPILOG = """\
 examples:
-  fk "12e|2e|e|:zzz"                      # full analysis
-  fk "12e|2e|e|:zzz" -g -n                # GKZ and Newton polytope only
-  fk "e1234|e234|e34|e4|e|" -n -S         # large diagram: polytope + symmetries
-  fk 12e|2e|e|                             # bare topology (massless assumed)
-  fk "12e|2e|e|:zzz" "11e|e|:zz"          # equivalence of two diagrams
-        """,
-    )
-    parser.add_argument(
-        "diagrams",
-        nargs="+",
-        metavar="CNICKEL",
-        help="one or two cNickel strings",
-    )
-    parser.add_argument(
+  fk analyse "12e|2e|e|:zzz"                   every section of the massless triangle
+  fk analyse "12e|2e|e|:zzz" -g -n             GKZ system and Newton polytope only
+  fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"   the mass on two different propagators
+  fk "12e|2e|e|:zzz"                           the bare form of fk analyse
+
+Run fk analyse --help or fk compare --help for their options.
+Quote every CNickel string: an unquoted | is a shell pipe.
+"""
+
+_ANALYSE_EPILOG = """\
+examples:
+  fk analyse "12e|2e|e|:zzz"                   every section
+  fk analyse "12e|2e|e|:zzz" -g -n             GKZ system and Newton polytope only
+  fk analyse "12e|3e|3e|e|:zzzz" -n -S         the massless box: polytope and symmetries
+  fk analyse "12e|2e|e|"                       bare topology: every propagator massless
+
+Quote every CNickel string: an unquoted | is a shell pipe.
+"""
+
+_COMPARE_EPILOG = """\
+examples:
+  fk compare "12e|2e|e|:zzz" "11e|e|:zz"       triangle against bubble
+  fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"   the mass on two different propagators
+
+Quote every CNickel string: an unquoted | is a shell pipe.
+"""
+
+
+class _Parsers(NamedTuple):
+    """The fk parser and the parsers of its two subcommands."""
+
+    main: argparse.ArgumentParser
+    analyse: argparse.ArgumentParser
+    compare: argparse.ArgumentParser
+
+
+def _build_parser() -> _Parsers:
+    """The fk parser; the options both subcommands take come from one parent."""
+    common = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    common.add_argument(
         "--db",
         default="feynkit.db",
         metavar="PATH",
-        help="SQLite database path (default: feynkit.db)",
+        help="SQLite database for the results (default: feynkit.db in the working directory)",
     )
 
-    sec = parser.add_argument_group(
-        "sections",
-        "which sections to show for a single diagram " "(omit all flags to show every section)",
+    parser = argparse.ArgumentParser(
+        prog="fk",
+        description="Analyse Feynman integrals given as CNickel strings.",
+        epilog=_MAIN_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        allow_abbrev=False,
     )
-    sec.add_argument("-s", "--symanzik", action="store_true", help="Symanzik polynomials")
-    sec.add_argument("-p", "--params", action="store_true", help="Integral parametrisations")
-    sec.add_argument("-g", "--gkz", action="store_true", help="GKZ A-matrix + Euler equations")
-    sec.add_argument("-t", "--toric", action="store_true", help="Toric ideal (binomial generators)")
-    sec.add_argument("-n", "--newton", action="store_true", help="Newton polytope")
-    sec.add_argument(
-        "-S", "--symmetries", action="store_true", help="Polytope automorphisms + symmetry pairs"
+    parser.add_argument("--version", action="version", version=f"fk {__version__}")
+    commands = parser.add_subparsers(dest="command", metavar="COMMAND", required=True)
+
+    analyse = commands.add_parser(
+        "analyse",
+        parents=[common],
+        help="analyse one diagram",
+        description="Analyse one diagram: every section, or those the section flags choose.",
+        epilog=_ANALYSE_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        allow_abbrev=False,
+    )
+    analyse.add_argument(
+        "cnickel", metavar="CNICKEL", help='CNickel string, quoted, e.g. "12e|2e|e|:nzz"'
+    )
+    shown = analyse.add_argument_group(
+        "sections", "sections to print; all of them when no flag is given"
+    )
+    shown.add_argument("-s", "--symanzik", action="store_true", help="Symanzik polynomials U, F, G")
+    shown.add_argument(
+        "-p",
+        "--params",
+        action="store_true",
+        help="Schwinger, Feynman and Lee-Pomeransky parametrisations",
+    )
+    shown.add_argument("-g", "--gkz", action="store_true", help="GKZ A-matrix and Euler equations")
+    shown.add_argument("-t", "--toric", action="store_true", help="toric ideal of the A-matrix")
+    shown.add_argument(
+        "-n",
+        "--newton",
+        action="store_true",
+        help="Newton polytope: vertices, normalised volume, Smith invariants",
+    )
+    shown.add_argument(
+        "-S", "--symmetries", action="store_true", help="polytope automorphisms and symmetry pairs"
     )
 
-    args = parser.parse_args(argv)
+    compare = commands.add_parser(
+        "compare",
+        parents=[common],
+        help="compare two diagrams",
+        description=(
+            "Compare two diagrams: their GKZ data, four equivalence checks and the "
+            "identity that each map of every column gives."
+        ),
+        epilog=_COMPARE_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        allow_abbrev=False,
+    )
+    compare.add_argument("first", metavar="A", help="first CNickel string, quoted")
+    compare.add_argument("second", metavar="B", help="second CNickel string, quoted")
+    return _Parsers(parser, analyse, compare)
 
-    if len(args.diagrams) > 2:
-        parser.error("At most two diagrams are supported.")
 
+def _positionals(argv: Sequence[str]) -> list[str]:
+    """The positional arguments of argv, skipping the value of each option that takes one."""
+    found: list[str] = []
+    tokens = iter(argv)
+    for token in tokens:
+        if token == "--":
+            found.extend(tokens)
+        elif token.startswith("-"):
+            if token in _VALUE_OPTIONS:
+                next(tokens, None)
+        else:
+            found.append(token)
+    return found
+
+
+def _with_command(argv: Sequence[str]) -> list[str]:
+    """argv with the subcommand that the bare form fk CNICKEL or fk A B stands for.
+
+    argparse cannot give one slot to either a subcommand or a positional, so
+    the bare form is rewritten before parsing. When the first positional is not
+    a command name, two positionals mean compare and any other number means
+    analyse, which then reports surplus arguments itself. argv without
+    positionals, such as --help or --version, is left alone.
+    """
+    args = list(argv)
+    positionals = _positionals(args)
+    if not positionals or positionals[0] in COMMANDS:
+        return args
+    return ["compare" if len(positionals) == 2 else "analyse", *args]
+
+
+def _section_flags(args: argparse.Namespace) -> set[str]:
+    """The sections that the section flags of analyse choose."""
+    return {name for name in SECTION_FLAGS if getattr(args, name)}
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """Run fk; argparse exits with status 2 on a usage error."""
+    parsers = _build_parser()
+    args = parsers.main.parse_args(_with_command(sys.argv[1:] if argv is None else argv))
     db_path = Path(args.db)
-
-    if len(args.diagrams) == 1:
-        sections = {
-            name
-            for name in ("symanzik", "params", "gkz", "toric", "newton", "symmetries")
-            if getattr(args, name)
-        }
-        analyse_one(args.diagrams[0], db_path, sections)
+    if args.command == "analyse":
+        analyse_one(args.cnickel, db_path, _section_flags(args))
     else:
-        analyse_pair(args.diagrams[0], args.diagrams[1], db_path)
+        analyse_pair(args.first, args.second, db_path)
 
 
 if __name__ == "__main__":

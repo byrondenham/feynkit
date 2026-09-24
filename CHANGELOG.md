@@ -42,6 +42,8 @@
   coefficients z_j. Where it appeared the surface count drops by one, from 6
   to 5 for the massive bubble and from 9 to 8 for the one-mass triangle and
   the massive sunrise. `FaceDiscriminant.discriminant` still carries mu.
+- `fk` no longer accepts abbreviated long options, such as `--sym` for `--symanzik`, and section
+  flags given with two diagrams are a usage error (exit status 2) rather than ignored.
 
 ### Added
 
@@ -94,6 +96,9 @@
   and the massless box with pdflatex and fails on errors, overfull lines or
   undefined references. It is skipped when pdflatex is not installed, and for
   the box when Singular is not. CI installs TeX Live so that it runs there.
+- `fk` has two subcommands: `fk analyse CNICKEL` for one diagram and `fk compare A B` for two.
+  The bare forms `fk CNICKEL` and `fk A B` still work and run them. `fk --version` prints the
+  version.
 
 ### Changed
 
@@ -128,6 +133,8 @@
 - `docs/triangle_analysis.tex`, `.pdf` and `.txt` are regenerated from the new
   report. They describe the same graph as before, the triangle with three
   distinct masses (`12e|2e|e|:nnn`).
+- The `fk` help quotes every CNickel example, since an unquoted | is a shell pipe, and no longer
+  repeats the section flags in its epilog.
 
 ### Fixed
 

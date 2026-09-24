@@ -104,6 +104,8 @@
   `FeynmanIntegral.to_latex` and `to_text`, with `--sections` choosing its sections, and
   `fk analyse --json` prints the report's summary and the CNickel string as JSON. The report is
   built once however many of the three are asked for.
+- `fk --verbose` prints the time of each stage on stderr, and `fk` flushes its output after each
+  section.
 
 ### Changed
 
@@ -224,6 +226,10 @@
   The guide cited de la Cruz (2019) as arXiv:1907.01007; it is 1907.00507.
 - `FeynkitDatabase` left its SQLite connection open when the file was not a database; it now
   closes it before raising.
+- `fk compare` printed the canonical CNickel string for both diagrams, so two inputs with the
+  same canonical form looked identical. `fk` now prints each string as given, with the
+  canonical form beside it when they differ. The Newton polytope section calls the normalised
+  volume the holonomic rank for generic beta, not the holonomic rank.
 
 ### Removed
 

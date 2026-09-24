@@ -28,8 +28,8 @@ import json
 import sqlite3
 import sys
 import time
-from collections.abc import Callable, Sequence
-from contextlib import ExitStack
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple, NoReturn
@@ -187,7 +187,7 @@ def _substitution(M: sp.Matrix) -> list[str]:
 
 
 # -----------------------------------------------------------------------------
-# Loading, errors and the database
+# Loading, errors, progress and the database
 # -----------------------------------------------------------------------------
 
 CNICKEL_GRAMMAR = (
@@ -223,13 +223,28 @@ def _open_database(stack: ExitStack, path: Path | None) -> FeynkitDatabase | Non
     return None if path is None else stack.enter_context(FeynkitDatabase(path))
 
 
+@contextmanager
+def _stage(name: str, verbose: bool) -> Iterator[None]:
+    """Run one stage, then flush stdout and, if verbose, print its time on stderr."""
+    start = time.perf_counter()
+    yield
+    sys.stdout.flush()
+    if verbose:
+        print(f"fk: {name} {time.perf_counter() - start:.2f}s", file=sys.stderr)
+
+
+def _label(given: str, fi: FeynmanIntegral) -> str:
+    """The CNickel string as given, with the canonical form beside it when they differ."""
+    return given if given == fi.cnickel else f"{given}  (canonical form {fi.cnickel})"
+
+
 # -----------------------------------------------------------------------------
 # Single-diagram analysis
 # -----------------------------------------------------------------------------
 
 
-def _print_graph(fi: FeynmanIntegral) -> None:
-    _header(f"Feynman integral  {fi.cnickel}")
+def _print_graph(given: str, fi: FeynmanIntegral) -> None:
+    _header(f"Feynman integral  {_label(given, fi)}")
     _kv("Nickel index", fi.nickel_index)
     _kv("Loop count", fi.loop_count)
     _kv("Propagators", len(fi.graph.get_internal_edges()))
@@ -295,7 +310,7 @@ def _print_newton(fi: FeynmanIntegral) -> None:
     _kv("Hull vertices", len(cfg.newton_polytope_points))
     _kv("Ambient dimension", cfg.ambient_dim)
     _kv("Affine dimension", cfg.affine_dim)
-    _kv("Normalised volume (holonomic rank)", cfg.normalized_volume)
+    _kv("Normalised volume", f"{cfg.normalized_volume}  (the holonomic rank for generic beta)")
     _kv("Smith invariants", cfg.smith_invariants)
     _kv("Lattice base point", cfg.intrinsic_model().base_point)
 
@@ -416,33 +431,42 @@ def analyse_one(
     sections: set[str],
     *,
     report: ReportOptions | None = None,
+    verbose: bool = False,
 ) -> None:
     """Analyse one diagram: every section or the chosen ones, then the reports asked for.
 
-    With --json, only the report's summary is printed, as JSON.
+    With --json, only the report's summary is printed, as JSON. Stdout is
+    flushed after each stage; verbose prints each stage's time on stderr.
     """
     options = report if report is not None else ReportOptions()
     t0 = time.perf_counter()
-    fi = _load(cnickel)
+    with _stage("parse", verbose):
+        fi = _load(cnickel)
     with ExitStack() as stack:
         db = _open_database(stack, db_path)
         if options.as_json:
-            built = AnalysisReport.from_integral(fi, options.sections)
-            _write_reports(built, options, announce=False)
+            with _stage("report", verbose):
+                built = AnalysisReport.from_integral(fi, options.sections)
+                _write_reports(built, options, announce=False)
             if db is not None:
-                db.store(fi, label=fi.cnickel)
+                with _stage("database", verbose):
+                    db.store(fi, label=fi.cnickel)
             print(_summary_json(cnickel, fi, built, options.sections))
             return
-        _print_graph(fi)
+        with _stage("graph", verbose):
+            _print_graph(cnickel, fi)
         for name in SECTION_FLAGS:
             if not sections or name in sections:
-                _PRINTERS[name](fi)
+                with _stage(name, verbose):
+                    _PRINTERS[name](fi)
         if options.writes_files:
-            _sec("Report")
-            built = AnalysisReport.from_integral(fi, options.sections)
-            _write_reports(built, options, announce=True)
+            with _stage("report", verbose):
+                _sec("Report")
+                built = AnalysisReport.from_integral(fi, options.sections)
+                _write_reports(built, options, announce=True)
         if db is not None:
-            _print_database(fi, db)
+            with _stage("database", verbose):
+                _print_database(fi, db)
     _done(t0)
 
 
@@ -451,28 +475,33 @@ def analyse_one(
 # -----------------------------------------------------------------------------
 
 
-def analyse_pair(cn1: str, cn2: str, db_path: Path | None) -> None:
+def analyse_pair(cn1: str, cn2: str, db_path: Path | None, *, verbose: bool = False) -> None:
     """Compare two diagrams: GKZ data, four equivalence checks and the identities that follow."""
     t0 = time.perf_counter()
-    fi1, fi2 = _load(cn1), _load(cn2)
+    with _stage("parse", verbose):
+        fi1, fi2 = _load(cn1), _load(cn2)
     with ExitStack() as stack:
         db = _open_database(stack, db_path)
-        _compare(fi1, fi2, db)
+        _compare(cn1, fi1, cn2, fi2, db, verbose=verbose)
     _done(t0)
 
 
-def _compare(fi1: FeynmanIntegral, fi2: FeynmanIntegral, db: FeynkitDatabase | None) -> None:
-    _header("Equivalence analysis")
-    print(f"  A  =  {fi1.cnickel}")
-    print(f"  B  =  {fi2.cnickel}")
-
+def _compare(
+    cn1: str,
+    fi1: FeynmanIntegral,
+    cn2: str,
+    fi2: FeynmanIntegral,
+    db: FeynkitDatabase | None,
+    *,
+    verbose: bool,
+) -> None:
     # -- per-diagram summaries -------------------------------------------------
-    def _brief(fi: FeynmanIntegral, tag: str) -> AConfiguration:
+    def _brief(given: str, fi: FeynmanIntegral, tag: str) -> AConfiguration:
         gkz = fi.gkz
         A = gkz.a_matrix
         cfg = AConfiguration(A, is_homogenized=True)
         ti = fi.toric_ideal
-        _sec(f"Diagram {tag} ,  {fi.cnickel}")
+        _sec(f"Diagram {tag}  {_label(given, fi)}")
         _kv("Nickel", fi.nickel_index)
         _kv(
             "Loops / props / ext",
@@ -497,96 +526,103 @@ def _compare(fi1: FeynmanIntegral, fi2: FeynmanIntegral, db: FeynkitDatabase | N
             db.store(fi, label=fi.cnickel)
         return cfg
 
-    cfg1 = _brief(fi1, "A")
-    cfg2 = _brief(fi2, "B")
+    with _stage("diagram A", verbose):
+        _header("Equivalence analysis")
+        print(f"  A  =  {_label(cn1, fi1)}")
+        print(f"  B  =  {_label(cn2, fi2)}")
+        cfg1 = _brief(cn1, fi1, "A")
+    with _stage("diagram B", verbose):
+        cfg2 = _brief(cn2, fi2, "B")
 
-    # -- quick pre-filter ------------------------------------------------------
-    _sec("Equivalence checks")
-    if cfg1.ambient_dim != cfg2.ambient_dim:
-        print(f"  Ambient dimension mismatch ({cfg1.ambient_dim} vs {cfg2.ambient_dim}).")
-        print("  No affine equivalence is possible between spaces of different dimension.")
-        return
-
-    results = []
-    for relation, method in [
-        ("unimodular", cfg1.is_unimodular_equivalent_to),
-        ("affine_polytope", cfg1.is_affinely_equivalent_to),
-        ("point_config", cfg1.is_point_config_equivalent_to),
-    ]:
-        res = method(cfg2)
-        status = "YES" if res.equivalent else "no"
-        det_str = f"  (det = {res.determinant})" if res.determinant is not None else ""
-        print(f"  {relation:<22} {status}{det_str}")
-        results.append((relation, res))
-
-    # finite-index (only when point counts match)
-    if cfg1.n_points == cfg2.n_points:
-        fi_res: FiniteIndexResult = finite_index_map(cfg1, cfg2)
-        status = "YES" if fi_res.found else "no"
-        det_str = f"  (det = {fi_res.determinant})" if fi_res.found else ""
-        print(f"  {'finite_index':<22} {status}{det_str}")
-    else:
-        fi_res = FiniteIndexResult(found=False)
-        print(
-            f"  {'finite_index':<22} n/a  (different monomial counts: {cfg1.n_points} vs {cfg2.n_points})"
-        )
-
-    # -- witness maps and the identities they give ----------------------------
-    any_found = any(r.equivalent for _, r in results) or fi_res.found
-    if not any_found:
-        print()
-        print("  No equivalence found between A and B.")
-        return
-
-    # A map of the hull vertices implies no GKZ identity unless every column is
-    # a vertex, and then point_config holds too and prints the identity itself.
-    pts1 = cfg1.affine_points.tolist()
-    pts2 = cfg2.affine_points.tolist()
-    beta1 = list(fi1.gkz.beta_parameters)
-    z2 = list(fi2.gkz.z_variables)
-    all_vertices = all(len(c.newton_polytope_points) == c.n_points for c in (cfg1, cfg2))
-
-    def _witness(relation: str, M: sp.Matrix, t: sp.Matrix | None) -> None:
-        _sec(f"Witness map  [{relation}]")
-        print(f"  Linear map M  ({M.rows} x {M.cols}):")
-        _matrix(M)
-        if t is not None:
-            print(f"  Translation t  =  {list(t)}")
-        print()
-
-    def _identity(M: sp.Matrix, t: sp.Matrix | None, perm: list[int] | None = None) -> None:
-        identity = _gkz_identity(pts1, pts2, M, t, beta1, perm)
-        if identity is None:
-            print("  M is singular or not a bijection on the columns: no GKZ identity follows.")
+    with _stage("equivalence checks", verbose):
+        # -- quick pre-filter ----------------------------------------------------
+        _sec("Equivalence checks")
+        if cfg1.ambient_dim != cfg2.ambient_dim:
+            print(f"  Ambient dimension mismatch ({cfg1.ambient_dim} vs {cfg2.ambient_dim}).")
+            print("  No affine equivalence is possible between spaces of different dimension.")
             return
-        P, factor, t_beta = identity
-        print("  M a_j + t = b_P(j) for each column a_j of A (b_k: columns of B, from 1):")
-        print(f"    P       =  {[k + 1 for k in P]}")
-        print("  Substitution u_i = prod_k v_k^(M_ki), u of diagram A, v of diagram B:")
-        for line in _substitution(M):
-            print(f"    {line}")
-        print("  GKZ identity I_A(beta, z_P) = |det M| I_B(T beta, z), no Gamma prefactors:")
-        print(f"    |det M| =  {factor}")
-        print(f"    z_P     =  ({', '.join(str(z2[k]) for k in P)})")
-        print(f"    beta    =  {beta1}")
-        print(f"    T beta  =  {t_beta}")
 
-    for relation, res in results:
-        if not res.equivalent or res.witness_map is None:
-            continue
-        _witness(relation, res.witness_map, res.translation)
-        if relation == "point_config":
-            _identity(res.witness_map, res.translation)
-        elif all_vertices:
-            print("  Relates the Newton polytopes only; every column is a vertex, so")
-            print("  point_config gives the identity.")
+        results = []
+        for relation, method in [
+            ("unimodular", cfg1.is_unimodular_equivalent_to),
+            ("affine_polytope", cfg1.is_affinely_equivalent_to),
+            ("point_config", cfg1.is_point_config_equivalent_to),
+        ]:
+            res = method(cfg2)
+            status = "YES" if res.equivalent else "no"
+            det_str = f"  (det = {res.determinant})" if res.determinant is not None else ""
+            print(f"  {relation:<22} {status}{det_str}")
+            results.append((relation, res))
+
+        # finite-index (only when point counts match)
+        if cfg1.n_points == cfg2.n_points:
+            fi_res: FiniteIndexResult = finite_index_map(cfg1, cfg2)
+            status = "YES" if fi_res.found else "no"
+            det_str = f"  (det = {fi_res.determinant})" if fi_res.found else ""
+            print(f"  {'finite_index':<22} {status}{det_str}")
         else:
-            print("  Relates the Newton polytopes only; not every column is a vertex, so")
-            print("  no GKZ identity follows.")
+            fi_res = FiniteIndexResult(found=False)
+            print(
+                f"  {'finite_index':<22} n/a  (different monomial counts: {cfg1.n_points} vs {cfg2.n_points})"
+            )
 
-    if fi_res.found and fi_res.witness_matrix is not None:
-        _witness("finite_index", fi_res.witness_matrix, fi_res.translation)
-        _identity(fi_res.witness_matrix, fi_res.translation, fi_res.column_permutation)
+        # -- witness maps and the identities they give --------------------------
+        any_found = any(r.equivalent for _, r in results) or fi_res.found
+        if not any_found:
+            print()
+            print("  No equivalence found between A and B.")
+            return
+
+    with _stage("witness maps", verbose):
+        # A map of the hull vertices implies no GKZ identity unless every column
+        # is a vertex, and then point_config holds too and prints the identity.
+        pts1 = cfg1.affine_points.tolist()
+        pts2 = cfg2.affine_points.tolist()
+        beta1 = list(fi1.gkz.beta_parameters)
+        z2 = list(fi2.gkz.z_variables)
+        all_vertices = all(len(c.newton_polytope_points) == c.n_points for c in (cfg1, cfg2))
+
+        def _witness(relation: str, M: sp.Matrix, t: sp.Matrix | None) -> None:
+            _sec(f"Witness map  [{relation}]")
+            print(f"  Linear map M  ({M.rows} x {M.cols}):")
+            _matrix(M)
+            if t is not None:
+                print(f"  Translation t  =  {list(t)}")
+            print()
+
+        def _identity(M: sp.Matrix, t: sp.Matrix | None, perm: list[int] | None = None) -> None:
+            identity = _gkz_identity(pts1, pts2, M, t, beta1, perm)
+            if identity is None:
+                print("  M is singular or not a bijection on the columns: no GKZ identity follows.")
+                return
+            P, factor, t_beta = identity
+            print("  M a_j + t = b_P(j) for each column a_j of A (b_k: columns of B, from 1):")
+            print(f"    P       =  {[k + 1 for k in P]}")
+            print("  Substitution u_i = prod_k v_k^(M_ki), u of diagram A, v of diagram B:")
+            for line in _substitution(M):
+                print(f"    {line}")
+            print("  GKZ identity I_A(beta, z_P) = |det M| I_B(T beta, z), no Gamma prefactors:")
+            print(f"    |det M| =  {factor}")
+            print(f"    z_P     =  ({', '.join(str(z2[k]) for k in P)})")
+            print(f"    beta    =  {beta1}")
+            print(f"    T beta  =  {t_beta}")
+
+        for relation, res in results:
+            if not res.equivalent or res.witness_map is None:
+                continue
+            _witness(relation, res.witness_map, res.translation)
+            if relation == "point_config":
+                _identity(res.witness_map, res.translation)
+            elif all_vertices:
+                print("  Relates the Newton polytopes only; every column is a vertex, so")
+                print("  point_config gives the identity.")
+            else:
+                print("  Relates the Newton polytopes only; not every column is a vertex, so")
+                print("  no GKZ identity follows.")
+
+        if fi_res.found and fi_res.witness_matrix is not None:
+            _witness("finite_index", fi_res.witness_matrix, fi_res.translation)
+            _identity(fi_res.witness_matrix, fi_res.translation, fi_res.column_permutation)
 
 
 # -----------------------------------------------------------------------------
@@ -651,6 +687,9 @@ def _build_parser() -> _Parsers:
         help="SQLite database for the results (default: feynkit.db in the working directory)",
     )
     database.add_argument("--no-db", action="store_true", help="use no database")
+    common.add_argument(
+        "-v", "--verbose", action="store_true", help="print the time of each stage on stderr"
+    )
 
     parser = argparse.ArgumentParser(
         prog="fk",
@@ -795,9 +834,11 @@ def main(argv: Sequence[str] | None = None) -> None:
     try:
         if args.command == "analyse":
             options = _report_options(parsers.analyse, args)
-            analyse_one(args.cnickel, db_path, _section_flags(args), report=options)
+            analyse_one(
+                args.cnickel, db_path, _section_flags(args), report=options, verbose=args.verbose
+            )
         else:
-            analyse_pair(args.first, args.second, db_path)
+            analyse_pair(args.first, args.second, db_path, verbose=args.verbose)
     except CliError as exc:
         _fail(str(exc))
     except FeynkitError as exc:

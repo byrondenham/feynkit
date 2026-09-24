@@ -100,6 +100,10 @@
   The bare forms `fk CNICKEL` and `fk A B` still work and run them. `fk --version` prints the
   version.
 - `fk --no-db` skips the database.
+- `fk analyse --latex FILE` and `--text FILE` write the analysis report of
+  `FeynmanIntegral.to_latex` and `to_text`, with `--sections` choosing its sections, and
+  `fk analyse --json` prints the report's summary and the CNickel string as JSON. The report is
+  built once however many of the three are asked for.
 
 ### Changed
 

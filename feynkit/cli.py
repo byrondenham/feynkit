@@ -24,11 +24,13 @@ Quote every CNickel string: an unquoted | is a shell pipe.
 from __future__ import annotations
 
 import argparse
+import json
 import sqlite3
 import sys
 import time
 from collections.abc import Callable, Sequence
 from contextlib import ExitStack
+from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple, NoReturn
 
@@ -39,6 +41,9 @@ from feynkit.core.constants import __version__
 from feynkit.core.exceptions import FeynkitError
 from feynkit.database import FeynkitDatabase
 from feynkit.integral import FeynmanIntegral
+from feynkit.io.report import SECTION_NAMES, AnalysisReport
+from feynkit.io.report_latex import render_latex
+from feynkit.io.report_text import render_text
 
 COMMANDS = ("analyse", "compare")
 SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "symmetries")
@@ -328,16 +333,114 @@ _PRINTERS: dict[str, Callable[[FeynmanIntegral], None]] = {
 }
 
 
-def analyse_one(cnickel: str, db_path: Path | None, sections: set[str]) -> None:
-    """Print the chosen sections of one diagram's analysis, or every section when none is."""
+# -----------------------------------------------------------------------------
+# Analysis report
+# -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ReportOptions:
+    """Which report sections analyse builds, and where it writes the report."""
+
+    sections: tuple[str, ...] = SECTION_NAMES
+    latex: Path | None = None
+    text: Path | None = None
+    as_json: bool = False
+
+    @property
+    def writes_files(self) -> bool:
+        return self.latex is not None or self.text is not None
+
+
+def _section_list(text: str) -> tuple[str, ...]:
+    """Parse --sections: comma-separated names from SECTION_NAMES, kept in report order."""
+    names = {name.strip() for name in text.split(",") if name.strip()}
+    choices = ", ".join(SECTION_NAMES)
+    if not names:
+        raise argparse.ArgumentTypeError(f"no section given; choose from {choices}")
+    unknown = sorted(names - set(SECTION_NAMES))
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            f"unknown section {', '.join(unknown)}; choose from {choices}"
+        )
+    return tuple(name for name in SECTION_NAMES if name in names)
+
+
+def _write(path: Path, content: str, kind: str) -> None:
+    """Write one report file; a failure raises CliError."""
+    try:
+        path.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        raise CliError(f"cannot write the {kind} report to {path}: {exc.strerror or exc}") from exc
+
+
+def _write_reports(report: AnalysisReport, options: ReportOptions, *, announce: bool) -> None:
+    """Write the LaTeX and text reports asked for, saying so on stdout when announce is set."""
+    if options.latex is not None:
+        _write(options.latex, render_latex(report), "LaTeX")
+        if announce:
+            print(f"  Wrote the LaTeX report to {options.latex}")
+    if options.text is not None:
+        _write(options.text, render_text(report), "text")
+        if announce:
+            print(f"  Wrote the text report to {options.text}")
+
+
+def _json_value(value: str) -> int | str:
+    """A summary value as an integer when it is one, otherwise as given."""
+    try:
+        return int(value)
+    except ValueError:
+        return value
+
+
+def _summary_json(
+    given: str, fi: FeynmanIntegral, report: AnalysisReport, sections: Sequence[str]
+) -> str:
+    """The report's summary as JSON, keyed in snake case, with the CNickel strings."""
+    summary = {
+        label.lower().replace(" ", "_"): _json_value(value) for label, value in report.summary()
+    }
+    payload = {
+        "input": given,
+        "cnickel": fi.cnickel,
+        "sections": list(sections),
+        "summary": summary,
+    }
+    return json.dumps(payload, indent=2)
+
+
+def analyse_one(
+    cnickel: str,
+    db_path: Path | None,
+    sections: set[str],
+    *,
+    report: ReportOptions | None = None,
+) -> None:
+    """Analyse one diagram: every section or the chosen ones, then the reports asked for.
+
+    With --json, only the report's summary is printed, as JSON.
+    """
+    options = report if report is not None else ReportOptions()
     t0 = time.perf_counter()
     fi = _load(cnickel)
     with ExitStack() as stack:
         db = _open_database(stack, db_path)
+        if options.as_json:
+            built = AnalysisReport.from_integral(fi, options.sections)
+            _write_reports(built, options, announce=False)
+            if db is not None:
+                db.store(fi, label=fi.cnickel)
+            print(_summary_json(cnickel, fi, built, options.sections))
+            return
         _print_graph(fi)
         for name in SECTION_FLAGS:
             if not sections or name in sections:
                 _PRINTERS[name](fi)
+        if options.writes_files:
+            _sec("Report")
+            built = AnalysisReport.from_integral(fi, options.sections)
+            _write_reports(built, options, announce=True)
         if db is not None:
             _print_database(fi, db)
     _done(t0)
@@ -492,7 +595,7 @@ def _compare(fi1: FeynmanIntegral, fi2: FeynmanIntegral, db: FeynkitDatabase | N
 
 # Options that take a value. The bare form needs them to tell a value from a
 # second diagram: fk "12e|2e|e|" --db x.db names one diagram, not two.
-_VALUE_OPTIONS = frozenset({"--db"})
+_VALUE_OPTIONS = frozenset({"--db", "--latex", "--text", "--sections"})
 
 _MAIN_EPILOG = """\
 examples:
@@ -514,6 +617,8 @@ examples:
   fk analyse "12e|2e|e|:zzz" -g -n             GKZ system and Newton polytope only
   fk analyse "12e|3e|3e|e|:zzzz" -n -S         the massless box: polytope and symmetries
   fk analyse "12e|2e|e|"                       bare topology: every propagator massless
+  fk analyse "12e|2e|e|:nnn" --latex triangle.tex --text triangle.txt
+  fk analyse "12e|2e|e|:nzz" --json --sections gkz,polytope --no-db
 
 Quote every CNickel string: an unquoted | is a shell pipe.
 """
@@ -590,6 +695,24 @@ def _build_parser() -> _Parsers:
     shown.add_argument(
         "-S", "--symmetries", action="store_true", help="polytope automorphisms and symmetry pairs"
     )
+    report = analyse.add_argument_group(
+        "report", "the analysis report of FeynmanIntegral.to_latex and to_text"
+    )
+    report.add_argument(
+        "--latex", type=Path, metavar="FILE", help="write the report as a LaTeX document"
+    )
+    report.add_argument("--text", type=Path, metavar="FILE", help="write the report as plain text")
+    report.add_argument(
+        "--json",
+        action="store_true",
+        help="print a JSON summary of the report on stdout and nothing else",
+    )
+    report.add_argument(
+        "--sections",
+        type=_section_list,
+        metavar="NAMES",
+        help=f"comma-separated report sections, all by default: {', '.join(SECTION_NAMES)}",
+    )
 
     compare = commands.add_parser(
         "compare",
@@ -644,6 +767,20 @@ def _section_flags(args: argparse.Namespace) -> set[str]:
     return {name for name in SECTION_FLAGS if getattr(args, name)}
 
 
+def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> ReportOptions:
+    """The report options of analyse, after the checks argparse cannot express."""
+    if args.json and _section_flags(args):
+        parser.error("--json prints only the summary; drop the section flags")
+    if args.sections is not None and not (args.latex or args.text or args.json):
+        parser.error("--sections chooses report sections; add --latex, --text or --json")
+    return ReportOptions(
+        sections=SECTION_NAMES if args.sections is None else args.sections,
+        latex=args.latex,
+        text=args.text,
+        as_json=args.json,
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     """Run fk.
 
@@ -657,7 +794,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     db_path = None if args.no_db else Path(args.db)
     try:
         if args.command == "analyse":
-            analyse_one(args.cnickel, db_path, _section_flags(args))
+            options = _report_options(parsers.analyse, args)
+            analyse_one(args.cnickel, db_path, _section_flags(args), report=options)
         else:
             analyse_pair(args.first, args.second, db_path)
     except CliError as exc:

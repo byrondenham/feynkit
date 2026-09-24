@@ -218,7 +218,7 @@ Several limitations of the GKZ approach are explicitly acknowledged in the corpu
 - **Codimension-zero matrices.** When the lattice $L = \ker A$ is trivial, the canonical-series algorithm produces no series; one must deform the polynomial and take a careful limit (de la Cruz, 2019).
 - **Non-unimodular triangulations.** Klausen (2020)'s closed-form Theorem 3.2 is stated for unimodular triangulations; while extensions to regular non-unimodular triangulations are possible, the meromorphic prefactors are no longer easily determined.
 - **On-shell graphs without unimodular triangulations.** The full massive on-shell bubble is the simplest counter-example; one recovers it as a limit of the off-shell version (whose polytope does admit a unimodular triangulation) or by dilating the polytope.
-- **Non-generic parameters.** The rank-volume equality holds only for very generic $\beta$. At the integer values of $d$ relevant to physics, rank jumps and resonances must be handled carefully, typically through transformation formulas of the ${}_2F_1$ type that split divergent and convergent parts (Klausen 2020 Section 4 illustrates this for the full massive sunset).
+- **Non-generic parameters.** The rank-volume equality is guaranteed for very generic $\beta$. At the integer values of $d$ relevant to physics the parameters are typically resonant, which makes the system reducible (Schulze and Walther 2012) without changing its rank; the rank itself can exceed the volume only when the toric ring is not Cohen-Macaulay (Matusevich, Miller and Walther 2005), which the hypotheses of Klausen's thesis (Theorem 3.4.2) exclude. Resonant parameters must be handled carefully, typically through transformation formulas of the ${}_2F_1$ type that split divergent and convergent parts (Klausen 2020 Section 4 illustrates this for the full massive sunset).
 - **Practical scaling.** The number of $\Gamma$-series in a GKZ representation equals the polytope volume, which grows rapidly. For high-loop, high-leg, or fully massive integrals the series count and dimension can be prohibitive; in such cases, only the symmetry / transformation theory may be tractable.
 
 ### 8.3 Open directions
@@ -247,9 +247,12 @@ What is already settled is that the GKZ approach has changed the way we think ab
 - A. Bzowski, P. McFadden, K. Skenderis, *Conformal correlators as simplex integrals in momentum space*, JHEP 01 (2021) 192, arXiv:2008.07543.
 - D. Caloro, *Shift operators and momentum-space conformal field theory*, PhD thesis (2024).
 - L. de la Cruz, *Feynman integrals as A-hypergeometric functions*, JHEP 12 (2019) 123, arXiv:1907.00507.
-- L. de la Cruz, *Polytope symmetries of Feynman integrals*, (2024).
+- L. de la Cruz, *Polytope symmetries of Feynman integrals*, Phys. Lett. B 854 (2024) 138744, arXiv:2404.03564.
 - J. Forsgård, L. F. Matusevich, A. Sobieska, *On transformations of A-hypergeometric functions*, Funkcialaj Ekvacioj 62 (2019) 319, arXiv:1703.03036.
 - R. Grinis, A. M. Kasprzyk, *Normal forms of convex lattice polytopes*, arXiv:1301.6641 (2013).
 - R. P. Klausen, *Hypergeometric series representations of Feynman integrals by GKZ hypergeometric systems*, JHEP 04 (2020) 121, arXiv:1910.08651.
+- R. P. Klausen, *Hypergeometric Feynman Integrals*, PhD thesis, Johannes Gutenberg University Mainz, 2022, arXiv:2302.13184.
 - Q. Liu, Z. Cai, *On the Unimodular Isomorphism Problem of Convex Lattice Polytopes*, arXiv:2506.23846 (2025).
+- L. F. Matusevich, E. Miller, U. Walther, *Homological methods for hypergeometric families*, J. Amer. Math. Soc. 18 (2005) 919, arXiv:math/0406383.
+- M. Schulze, U. Walther, *Resonance equals reducibility for A-hypergeometric systems*, Algebra Number Theory 6 (2012) 527, arXiv:1009.3569.
 - S. Weinzierl, *Feynman Integrals: A Comprehensive Treatment for Students and Researchers*, Springer (2022), arXiv:2201.03593.

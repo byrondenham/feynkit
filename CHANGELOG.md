@@ -131,6 +131,13 @@
 
 ### Fixed
 
+- Section 4.5 of the mathematics reference no longer says that resonant parameters raise the
+  holonomic rank. It now says that the rank can exceed the volume only when the toric ring is
+  not Cohen-Macaulay (Matusevich, Miller, Walther 2005), gives the hypotheses of Klausen's
+  Theorem 3.4.2 under which Feynman configurations are Cohen-Macaulay, notes that
+  Cohen-Macaulayness can fail outside them (Michaelsen, Tellander 2025), and that resonance
+  means reducibility (Schulze, Walther 2012). The literature review is corrected in the same
+  way, and the 1989 Gelfand, Zelevinsky, Kapranov paper now has its correct title.
 - `examples/dissertation_overview_enhanced.py` died part way through: section 13
   passed an `AConfiguration` to `hull_vertex_indices`, which wants an array of
   points, and section 20 looked up a malformed cnickel string. It now runs to

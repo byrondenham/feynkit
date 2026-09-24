@@ -263,12 +263,22 @@ $\partial^v$ give the same integrand when $Au = Av$.
 $$\operatorname{rank} H_A(\beta) \;=\; \mathrm{vol}_0\!\bigl(\Delta_G\bigr) \quad\text{for very generic } \beta,$$
 
 where $\mathrm{vol}_0$ is the **normalised (lattice) volume** of the Newton polytope $\Delta_G$
-(see section 5.3).  At resonant parameters the rank can be higher, a "rank jump" (Matusevich,
-Miller and Walther 2005); the number of master integrals at physical kinematics is at most the
-volume.
+(see section 5.3) (GKZ 1989; Saito, Sturmfels and Takayama 2000).  The rank is the same for
+every $\beta$ exactly when the toric ring is Cohen-Macaulay (Matusevich, Miller and Walther
+2005); otherwise it can be larger at special $\beta$, a "rank jump".  Under the hypotheses of
+Klausen's Theorem 3.4.2 (the graph is 1PI and 1VI, the momenta are generic enough that no
+monomial of $\mathcal{G}$ cancels, and either every edge is massive, every edge is massless, or
+every internal vertex is joined to an external vertex by massive edges) the configuration is
+normal, hence Cohen-Macaulay (Klausen 2022, drawing on Tellander and Helmer 2023 and Walther
+2022), so there are no rank jumps.  Outside these hypotheses Cohen-Macaulayness is not
+guaranteed: Michaelsen and Tellander (2025) characterise the fully massive one-loop case and give
+a fully massive three-point configuration whose semigroup ring is not Cohen-Macaulay.  Resonance
+of $\beta$ means that the system is reducible (Schulze and Walther 2012), not that its rank
+changes.
 
-The Lee-Pomeransky count of master integrals (Euler characteristic) satisfies
-$\chi \leq \mathrm{vol}_0(\Delta_G)$, with equality for generic coefficients.
+The number of master integrals at physical kinematics, the Lee-Pomeransky count $|\chi|$, is at
+most $\mathrm{vol}_0(\Delta_G)$, with equality for generic coefficients (Bitoun et al. 2019;
+Améndola et al. 2019).
 
 *Ref:* GKZ (1994) Thm 3.11; Klausen (2020) Thm 2.2; de la Cruz (2019) section 2.
 
@@ -899,8 +909,8 @@ This table maps every mathematical symbol to the corresponding Python identifier
 
 All papers cited in the feynkit source and directly relevant to the implemented analyses.
 
-1. **GKZ (1989).** I.M. Gelfand, M.M. Kapranov, A.V. Zelevinsky.
-   *Hypergeometric functions and toric varieties.*
+1. **GKZ (1989).** I.M. Gelfand, A.V. Zelevinsky, M.M. Kapranov.
+   *Hypergeometric functions and toral manifolds.*
    Funct.\ Anal.\ Appl.\ **23** (1989) 94-106.
 
 2. **GKZ (1994).** I.M. Gelfand, M.M. Kapranov, A.V. Zelevinsky.
@@ -985,3 +995,27 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 23. **MMW (2005).** L.F. Matusevich, E. Miller, U. Walther.
     *Homological methods for hypergeometric families.*
     J.\ Amer.\ Math.\ Soc.\ **18** (2005) 919-941.  arXiv:math/0406383.
+
+24. **Klausen (2022).** R.P. Klausen.
+    *Hypergeometric Feynman Integrals.*  PhD thesis, Johannes Gutenberg University Mainz, 2022.
+    arXiv:2302.13184.
+
+25. **Tellander-Helmer (2023).** F. Tellander, M. Helmer.
+    *Cohen-Macaulay property of Feynman integrals.*
+    Commun.\ Math.\ Phys.\ **399** (2023) 1021-1037.  arXiv:2108.01410.
+
+26. **Walther (2022).** U. Walther.
+    *On Feynman graphs, matroids, and GKZ-systems.*
+    Lett.\ Math.\ Phys.\ **112** (2022) 120.  arXiv:2206.05378.
+
+27. **Michaelsen-Tellander (2025).** K. Michaelsen, F. Tellander.
+    *Characterizing Cohen-Macaulay one-loop Feynman integrals.*  arXiv:2512.13820.
+
+28. **Schulze-Walther (2012).** M. Schulze, U. Walther.
+    *Resonance equals reducibility for A-hypergeometric systems.*
+    Algebra Number Theory **6** (2012) 527.  arXiv:1009.3569.
+
+29. **Améndola et al.\ (2019).** C. Améndola, N. Bliss, I. Burke, C.R. Gibbons, M. Helmer,
+    S. Hoşten, E.D. Nash, J.I. Rodriguez, D. Smolkin.
+    *The maximum likelihood degree of toric varieties.*  J.\ Symbolic Comput.\ (2019).
+    arXiv:1703.02251.

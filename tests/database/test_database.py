@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -131,3 +133,25 @@ class TestEmptyToricIdeal:
         )
         db._conn.commit()
         assert db._lookup_toric([(1, 0), (0, 1), (1, 1)]) is None
+
+
+class TestOpen:
+    def test_a_file_that_is_not_a_database_is_closed_before_the_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bad = tmp_path / "notes.db"
+        bad.write_bytes(b"not a database\n" * 64)
+        opened: list[sqlite3.Connection] = []
+        connect = sqlite3.connect
+
+        def recording_connect(*args: Any, **kwargs: Any) -> sqlite3.Connection:
+            connection = connect(*args, **kwargs)
+            opened.append(connection)
+            return connection
+
+        monkeypatch.setattr(sqlite3, "connect", recording_connect)
+        with pytest.raises(sqlite3.DatabaseError):
+            FeynkitDatabase(bad)
+        assert len(opened) == 1
+        with pytest.raises(sqlite3.ProgrammingError):
+            opened[0].execute("SELECT 1")

@@ -24,15 +24,21 @@ Quote every CNickel string: an unquoted | is a shell pipe.
 from __future__ import annotations
 
 import argparse
+import sqlite3
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from contextlib import ExitStack
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, NoReturn
 
 import sympy as sp
 
+from feynkit.a_configuration import AConfiguration, FiniteIndexResult, finite_index_map
 from feynkit.core.constants import __version__
+from feynkit.core.exceptions import FeynkitError
+from feynkit.database import FeynkitDatabase
+from feynkit.integral import FeynmanIntegral
 
 COMMANDS = ("analyse", "compare")
 SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "symmetries")
@@ -89,6 +95,14 @@ def _fmt_euler(eq: sp.Eq) -> str:
     beta = sp.expand(eq.rhs / phi_atoms[0]) if phi_atoms else eq.rhs
 
     return " + ".join(lhs_parts) + "  =  " + str(beta)
+
+
+def _done(t0: float) -> None:
+    """Close the output with the elapsed time, and flush it."""
+    _rule("=")
+    print(f"  Done in {time.perf_counter() - t0:.1f}s")
+    _rule("=")
+    sys.stdout.flush()
 
 
 # -----------------------------------------------------------------------------
@@ -168,106 +182,129 @@ def _substitution(M: sp.Matrix) -> list[str]:
 
 
 # -----------------------------------------------------------------------------
+# Loading, errors and the database
+# -----------------------------------------------------------------------------
+
+CNICKEL_GRAMMAR = (
+    "expected TOPOLOGY or TOPOLOGY:COLOURS, where TOPOLOGY has one '|'-terminated entry "
+    "per vertex naming the vertices it joins (digits) and its external legs (e), and "
+    "COLOURS one mass code per propagator (z massless, n massive), "
+    'as in fk analyse "12e|2e|e|:nzz"'
+)
+
+
+class CliError(Exception):
+    """A bad input or a failed write, which main reports in one line on stderr."""
+
+
+def _load(cnickel: str) -> FeynmanIntegral:
+    """The integral of a CNickel string; a string that does not parse raises CliError."""
+    try:
+        return FeynmanIntegral.from_cnickel(cnickel)
+    except ValueError as exc:
+        raise CliError(f"cannot parse CNickel {cnickel!r}: {exc}; {CNICKEL_GRAMMAR}") from exc
+
+
+def _fail(message: str) -> NoReturn:
+    """Print message as one line on stderr and exit with status 1."""
+    sys.stdout.flush()
+    text = " ".join(message.splitlines())
+    print(f"fk: error: {text}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def _open_database(stack: ExitStack, path: Path | None) -> FeynkitDatabase | None:
+    """The database at path, closed when stack unwinds; None when path is None."""
+    return None if path is None else stack.enter_context(FeynkitDatabase(path))
+
+
+# -----------------------------------------------------------------------------
 # Single-diagram analysis
 # -----------------------------------------------------------------------------
 
 
-def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
-    from feynkit import FeynkitDatabase, FeynmanIntegral
-    from feynkit.a_configuration import AConfiguration
-
-    show_all = len(sections) == 0
-
-    def _show(name: str) -> bool:
-        return show_all or name in sections
-
-    t0 = time.time()
-    fi = FeynmanIntegral.from_cnickel(cnickel)
-    db = FeynkitDatabase(db_path)
-
-    # -- graph (always shown) -------------------------------------------------
+def _print_graph(fi: FeynmanIntegral) -> None:
     _header(f"Feynman integral  {fi.cnickel}")
     _kv("Nickel index", fi.nickel_index)
     _kv("Loop count", fi.loop_count)
     _kv("Propagators", len(fi.graph.get_internal_edges()))
     _kv("External legs", fi.graph.external_legs)
 
-    # -- Symanzik polynomials -------------------------------------------------
-    if _show("symanzik"):
-        _sec("Symanzik polynomials")
-        sym = fi.symanzik
-        _kv("Schwinger params", fi.schwinger.parameters)
-        print(f"  U  =  {sym.u}")
-        print(f"  F  =  {sym.f}")
-        print(f"  G  =  U + F  =  {sym.g}")
 
-    # -- Parametrisations -----------------------------------------------------
-    if _show("params"):
-        _sec("Integral parametrisations")
-        sch = fi.schwinger
-        feyn = fi.feynman
-        lp = fi.lee_pomeransky
-        print(f"  Schwinger   params  {sch.parameters}")
-        print(f"              prefactor  {sch.prefactor}")
-        print(f"              measure    {sch.measure}")
-        print()
-        print(f"  Feynman     params  {feyn.parameters}")
-        print(f"              prefactor  {feyn.prefactor}")
-        print(f"              constraint {feyn.constraints}")
-        print()
-        print(f"  Lee-Pom.    params  {lp.parameters}")
-        print(f"              prefactor  {lp.prefactor}")
+def _print_symanzik(fi: FeynmanIntegral) -> None:
+    _sec("Symanzik polynomials")
+    sym = fi.symanzik
+    _kv("Schwinger params", fi.schwinger.parameters)
+    print(f"  U  =  {sym.u}")
+    print(f"  F  =  {sym.f}")
+    print(f"  G  =  U + F  =  {sym.g}")
 
-    # -- GKZ system -----------------------------------------------------------
-    if _show("gkz"):
-        _sec("GKZ hypergeometric system")
-        gkz = fi.gkz
-        A = gkz.a_matrix
-        print(f"  A-matrix  ({A.rows} x {A.cols})" f"  [rows = coordinates; cols = monomials of G]")
-        _matrix(A)
-        print()
-        _kv("beta-parameters", gkz.beta_parameters)
-        _kv("z-variables", gkz.z_variables)
-        print()
-        print("  Euler equations  (sum_j A_rj z_j d_j = beta_r):")
-        for i, eq in enumerate(gkz.euler_equations):
-            print(f"    [{i}]  {_fmt_euler(eq)}")
 
-    # -- Toric ideal ----------------------------------------------------------
-    if _show("toric"):
-        _sec("Toric ideal  (generators: an analogue of IBP relations)")
-        ti = fi.toric_ideal
-        gens = ti.generators
-        if gens:
-            print(f"  {len(gens)} generator(s)  [z^u - z^v = 0  <->  A*u = A*v]:")
-            for g in gens:
-                print(f"    {g}  =  0")
-        else:
-            print("  Trivial  (the zero ideal)")
+def _print_params(fi: FeynmanIntegral) -> None:
+    _sec("Integral parametrisations")
+    sch = fi.schwinger
+    feyn = fi.feynman
+    lp = fi.lee_pomeransky
+    print(f"  Schwinger   params  {sch.parameters}")
+    print(f"              prefactor  {sch.prefactor}")
+    print(f"              measure    {sch.measure}")
+    print()
+    print(f"  Feynman     params  {feyn.parameters}")
+    print(f"              prefactor  {feyn.prefactor}")
+    print(f"              constraint {feyn.constraints}")
+    print()
+    print(f"  Lee-Pom.    params  {lp.parameters}")
+    print(f"              prefactor  {lp.prefactor}")
 
-    # -- Newton polytope ------------------------------------------------------
-    if _show("newton"):
-        _sec("Newton polytope")
-        cfg = AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
-        _kv("Monomials (A-columns)", cfg.n_points)
-        _kv("Hull vertices", len(cfg.newton_polytope_points))
-        _kv("Ambient dimension", cfg.ambient_dim)
-        _kv("Affine dimension", cfg.affine_dim)
-        _kv("Normalised volume (holonomic rank)", cfg.normalized_volume)
-        _kv("Smith invariants", cfg.smith_invariants)
-        model = cfg.intrinsic_model()
-        _kv("Lattice base point", model.base_point)
 
-    # -- Automorphisms / symmetry pairs ---------------------------------------
-    if _show("symmetries"):
-        _sec("Symmetries")
-        aut = fi.polytope_automorphisms
-        _kv("|Aut(P)|  (polytope automorphisms)", aut.order)
-        _kv("|Aut(graph)|", len(fi.graph_automorphisms))
-        _kv("Vertex orbits under Aut(P)", aut.vertex_orbits)
-        _kv("Symmetry pairs  (|det M|=1)", len(fi.symmetry_pairs))
+def _print_gkz(fi: FeynmanIntegral) -> None:
+    _sec("GKZ hypergeometric system")
+    gkz = fi.gkz
+    A = gkz.a_matrix
+    print(f"  A-matrix  ({A.rows} x {A.cols})  [rows = coordinates; cols = monomials of G]")
+    _matrix(A)
+    print()
+    _kv("beta-parameters", gkz.beta_parameters)
+    _kv("z-variables", gkz.z_variables)
+    print()
+    print("  Euler equations  (sum_j A_rj z_j d_j = beta_r):")
+    for i, eq in enumerate(gkz.euler_equations):
+        print(f"    [{i}]  {_fmt_euler(eq)}")
 
-    # -- Database (always) ----------------------------------------------------
+
+def _print_toric(fi: FeynmanIntegral) -> None:
+    _sec("Toric ideal  (generators: an analogue of IBP relations)")
+    gens = fi.toric_ideal.generators
+    if gens:
+        print(f"  {len(gens)} generator(s)  [z^u - z^v = 0  <->  A*u = A*v]:")
+        for g in gens:
+            print(f"    {g}  =  0")
+    else:
+        print("  Trivial  (the zero ideal)")
+
+
+def _print_newton(fi: FeynmanIntegral) -> None:
+    _sec("Newton polytope")
+    cfg = AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
+    _kv("Monomials (A-columns)", cfg.n_points)
+    _kv("Hull vertices", len(cfg.newton_polytope_points))
+    _kv("Ambient dimension", cfg.ambient_dim)
+    _kv("Affine dimension", cfg.affine_dim)
+    _kv("Normalised volume (holonomic rank)", cfg.normalized_volume)
+    _kv("Smith invariants", cfg.smith_invariants)
+    _kv("Lattice base point", cfg.intrinsic_model().base_point)
+
+
+def _print_symmetries(fi: FeynmanIntegral) -> None:
+    _sec("Symmetries")
+    aut = fi.polytope_automorphisms
+    _kv("|Aut(P)|  (polytope automorphisms)", aut.order)
+    _kv("|Aut(graph)|", len(fi.graph_automorphisms))
+    _kv("Vertex orbits under Aut(P)", aut.vertex_orbits)
+    _kv("Symmetry pairs  (|det M|=1)", len(fi.symmetry_pairs))
+
+
+def _print_database(fi: FeynmanIntegral, db: FeynkitDatabase) -> None:
     _sec("Database")
     rec = db.store(fi, label=fi.cnickel)
     print(f"  Stored: {rec}")
@@ -280,10 +317,30 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
     else:
         print("  No unimodular equivalents in DB.")
 
-    db.close()
-    _rule("=")
-    print(f"  Done in {time.time()-t0:.1f}s")
-    _rule("=")
+
+_PRINTERS: dict[str, Callable[[FeynmanIntegral], None]] = {
+    "symanzik": _print_symanzik,
+    "params": _print_params,
+    "gkz": _print_gkz,
+    "toric": _print_toric,
+    "newton": _print_newton,
+    "symmetries": _print_symmetries,
+}
+
+
+def analyse_one(cnickel: str, db_path: Path | None, sections: set[str]) -> None:
+    """Print the chosen sections of one diagram's analysis, or every section when none is."""
+    t0 = time.perf_counter()
+    fi = _load(cnickel)
+    with ExitStack() as stack:
+        db = _open_database(stack, db_path)
+        _print_graph(fi)
+        for name in SECTION_FLAGS:
+            if not sections or name in sections:
+                _PRINTERS[name](fi)
+        if db is not None:
+            _print_database(fi, db)
+    _done(t0)
 
 
 # -----------------------------------------------------------------------------
@@ -291,15 +348,17 @@ def analyse_one(cnickel: str, db_path: Path, sections: set[str]) -> None:
 # -----------------------------------------------------------------------------
 
 
-def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
-    from feynkit import FeynkitDatabase, FeynmanIntegral
-    from feynkit.a_configuration import AConfiguration, FiniteIndexResult, finite_index_map
+def analyse_pair(cn1: str, cn2: str, db_path: Path | None) -> None:
+    """Compare two diagrams: GKZ data, four equivalence checks and the identities that follow."""
+    t0 = time.perf_counter()
+    fi1, fi2 = _load(cn1), _load(cn2)
+    with ExitStack() as stack:
+        db = _open_database(stack, db_path)
+        _compare(fi1, fi2, db)
+    _done(t0)
 
-    t0 = time.time()
-    fi1 = FeynmanIntegral.from_cnickel(cn1)
-    fi2 = FeynmanIntegral.from_cnickel(cn2)
-    db = FeynkitDatabase(db_path)
 
+def _compare(fi1: FeynmanIntegral, fi2: FeynmanIntegral, db: FeynkitDatabase | None) -> None:
     _header("Equivalence analysis")
     print(f"  A  =  {fi1.cnickel}")
     print(f"  B  =  {fi2.cnickel}")
@@ -331,7 +390,8 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
         )
         _kv("Normalised volume", cfg.normalized_volume)
         _kv("Smith invariants", cfg.smith_invariants)
-        db.store(fi, label=fi.cnickel)
+        if db is not None:
+            db.store(fi, label=fi.cnickel)
         return cfg
 
     cfg1 = _brief(fi1, "A")
@@ -342,10 +402,6 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
     if cfg1.ambient_dim != cfg2.ambient_dim:
         print(f"  Ambient dimension mismatch ({cfg1.ambient_dim} vs {cfg2.ambient_dim}).")
         print("  No affine equivalence is possible between spaces of different dimension.")
-        db.close()
-        _rule("=")
-        print(f"  Done in {time.time()-t0:.1f}s")
-        _rule("=")
         return
 
     results = []
@@ -377,10 +433,6 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
     if not any_found:
         print()
         print("  No equivalence found between A and B.")
-        db.close()
-        _rule("=")
-        print(f"  Done in {time.time()-t0:.1f}s")
-        _rule("=")
         return
 
     # A map of the hull vertices implies no GKZ identity unless every column is
@@ -433,11 +485,6 @@ def analyse_pair(cn1: str, cn2: str, db_path: Path) -> None:
         _witness("finite_index", fi_res.witness_matrix, fi_res.translation)
         _identity(fi_res.witness_matrix, fi_res.translation, fi_res.column_permutation)
 
-    db.close()
-    _rule("=")
-    print(f"  Done in {time.time()-t0:.1f}s")
-    _rule("=")
-
 
 # -----------------------------------------------------------------------------
 # Command line
@@ -456,6 +503,9 @@ examples:
 
 Run fk analyse --help or fk compare --help for their options.
 Quote every CNickel string: an unquoted | is a shell pipe.
+
+Exit status: 0 on success; 1, with one line on stderr, for a CNickel string
+that does not parse or a feynkit, database or file error; 2 for a usage error.
 """
 
 _ANALYSE_EPILOG = """\
@@ -488,12 +538,14 @@ class _Parsers(NamedTuple):
 def _build_parser() -> _Parsers:
     """The fk parser; the options both subcommands take come from one parent."""
     common = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
-    common.add_argument(
+    database = common.add_mutually_exclusive_group()
+    database.add_argument(
         "--db",
         default="feynkit.db",
         metavar="PATH",
         help="SQLite database for the results (default: feynkit.db in the working directory)",
     )
+    database.add_argument("--no-db", action="store_true", help="use no database")
 
     parser = argparse.ArgumentParser(
         prog="fk",
@@ -593,14 +645,27 @@ def _section_flags(args: argparse.Namespace) -> set[str]:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    """Run fk; argparse exits with status 2 on a usage error."""
+    """Run fk.
+
+    A CNickel string that does not parse, a feynkit error or a database error
+    is reported in one line on stderr with exit status 1, and argparse exits
+    with status 2 on a usage error. Any other exception is a bug and keeps
+    its traceback.
+    """
     parsers = _build_parser()
     args = parsers.main.parse_args(_with_command(sys.argv[1:] if argv is None else argv))
-    db_path = Path(args.db)
-    if args.command == "analyse":
-        analyse_one(args.cnickel, db_path, _section_flags(args))
-    else:
-        analyse_pair(args.first, args.second, db_path)
+    db_path = None if args.no_db else Path(args.db)
+    try:
+        if args.command == "analyse":
+            analyse_one(args.cnickel, db_path, _section_flags(args))
+        else:
+            analyse_pair(args.first, args.second, db_path)
+    except CliError as exc:
+        _fail(str(exc))
+    except FeynkitError as exc:
+        _fail(str(exc) or type(exc).__name__)
+    except sqlite3.Error as exc:
+        _fail(f"database {args.db}: {exc}")
 
 
 if __name__ == "__main__":

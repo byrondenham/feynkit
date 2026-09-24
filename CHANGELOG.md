@@ -99,6 +99,7 @@
 - `fk` has two subcommands: `fk analyse CNICKEL` for one diagram and `fk compare A B` for two.
   The bare forms `fk CNICKEL` and `fk A B` still work and run them. `fk --version` prints the
   version.
+- `fk --no-db` skips the database.
 
 ### Changed
 
@@ -135,6 +136,10 @@
   distinct masses (`12e|2e|e|:nnn`).
 - The `fk` help quotes every CNickel example, since an unquoted | is a shell pipe, and no longer
   repeats the section flags in its epilog.
+- `fk` reports a CNickel string that does not parse, a feynkit error or a database error in one
+  line on stderr, without a traceback, and exits with status 1; a parse error also gives the
+  CNickel grammar and a quoted example. Usage errors still exit with status 2. The database is
+  closed on every path.
 
 ### Fixed
 
@@ -213,6 +218,8 @@
   to have det 2 for every n. The mathematics reference now defines the
   normalised volume in the lattice the points span, as feynkit computes it.
   The guide cited de la Cruz (2019) as arXiv:1907.01007; it is 1907.00507.
+- `FeynkitDatabase` left its SQLite connection open when the file was not a database; it now
+  closes it before raising.
 
 ### Removed
 

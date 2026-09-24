@@ -121,10 +121,14 @@ class FeynkitDatabase:
     def __init__(self, path: str | Path = "feynkit.db") -> None:
         self._path = path
         self._conn = sqlite3.connect(str(path), check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.executescript(_SCHEMA)
-        self._conn.commit()
-        self._migrate()
+        try:
+            self._conn.row_factory = sqlite3.Row
+            self._conn.executescript(_SCHEMA)
+            self._conn.commit()
+            self._migrate()
+        except BaseException:
+            self._conn.close()
+            raise
 
     # -- schema migration --------------------------------------------------
 

@@ -25,7 +25,7 @@ For each diagram the script records:
   - GKZ A-matrix (shape and full matrix)
   - GKZ beta-parameters (Euler grading)
   - Euler differential equations (one per row of A)
-  - Toric ideal generators (IBP relations in z-variables)
+  - Toric ideal generators (toric operators, an analogue of IBP relations)
   - Newton polytope: ambient dim, vertex count, normalised volume, Smith invariants
 
 Then runs a pairwise affine equivalence survey across all pairs with matching
@@ -310,18 +310,18 @@ def _print_diagram(r: DiagramRecord) -> None:
         _emit()
 
     if r.toric_gens:
-        _emit(f"  Toric ideal  ({len(r.toric_gens)} generators)  [IBP relations, z^u - z^v = 0]:")
+        _emit(f"  Toric ideal  ({len(r.toric_gens)} generators)  [z^u - z^v = 0  <->  A u = A v]:")
         for g in r.toric_gens:
             _emit(f"    {g}  =  0")
     else:
-        _emit("  Toric ideal : trivial  (no IBP relations)")
+        _emit("  Toric ideal : trivial  (the zero ideal)")
     _emit()
 
     _emit("  Newton polytope:")
     _emit(f"    Monomials (A-columns)          : {r.n_pts}")
     _emit(f"    Hull vertices                  : {r.n_verts}")
     _emit(f"    Ambient dimension              : {r.ambient_dim}")
-    _emit(f"    Normalised volume (= hol. rank): {r.norm_vol}")
+    _emit(f"    Normalised volume              : {r.norm_vol}  (holonomic rank for generic beta)")
     _emit(f"    Smith invariants               : {r.smith}")
     _emit()
 
@@ -651,18 +651,18 @@ def main() -> None:
     _emit()
 
     # Toric ideal growth
-    _sec("Toric ideal (IBP relation) counts")
+    _sec("Toric generator counts")
     _emit(f"  {'Label':<22}  {'n_pts':>5}  {'amb_dim':>7}  {'toric_gens':>10}")
     _rule("-", 54)
     for r in records:
         _emit(f"  {r.label:<22}  {r.n_pts:>5}  {r.ambient_dim:>7}  {len(r.toric_gens):>10}")
     _emit()
     _emit("  Pattern: n-gon toric count grows rapidly (~C(n,2) x something).")
-    _emit("  Banana diagrams have 0 generators (simplex = single master integral).")
+    _emit("  Massless bananas have 0 generators: their Newton polytopes are simplices.")
     _emit()
 
     # Volume patterns
-    _sec("Normalised volumes (= holonomic rank)")
+    _sec("Normalised volumes (the holonomic rank for generic beta)")
     _emit(f"  {'Label':<22}  {'vol':>10}")
     _rule("-", 36)
     for r in records:

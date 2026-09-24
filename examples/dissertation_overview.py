@@ -8,7 +8,7 @@ Covers every public-facing capability in a single linear narrative:
   section 3   Three parametrisations  (Schwinger * Feynman * Lee-Pomeransky)
   section 4   GKZ system  (A-matrix * Euler operators * beta-parameters)
   section 5   Newton polytope  (support * hull vertices * normalised volume * Smith)
-  section 6   Toric ideal  (generators * IBP interpretation)
+  section 6   Toric ideal  (generators * toric operators)
   section 7   Polytope automorphisms  (Aut(P) * orbits)
   section 8   Symmetry pairs  (integer affine self-maps * transformation identities)
   section 9   Intrinsic lattice model  (SNF basis * intrinsic coordinates)
@@ -235,7 +235,7 @@ print(f"  Intrinsic coords (first 3): {list(model.intrinsic_coords[:3])}")
 # -----------------------------------------------------------------------------
 # section 6  Toric ideal
 # -----------------------------------------------------------------------------
-hdr(6, "Toric ideal  (IBP relations)")
+hdr(6, "Toric ideal  (toric operators, an analogue of IBP relations)")
 
 ti = fi_tri.toric_ideal
 
@@ -245,10 +245,11 @@ for i, gen in enumerate(ti.generators):
     print(f"  [{i}]  {gen} = 0")
 print(f"  z-variables: {ti.z_variables}")
 
-sec("IBP interpretation")
-print("  Each generator  z^u - z^v = 0  (u,v in Z^m, Au = Av)")
-print("  encodes an integration-by-parts identity for I_A:")
-print("  the differential operator d^u - d^v annihilates I_A.")
+sec("Toric operators")
+print("  Each generator  z^u - z^v  (u, v in N^m, A u = A v)  gives the operator")
+print("  d^u - d^v, with d_j = d/dz_j, which annihilates the generalised integral")
+print("  I_A(beta, z) with the z_j independent: an analogue of IBP relations")
+print("  (Chestnov et al. 2022), not an IBP relation itself.")
 print("  The toric ideal is the kernel of the ring map Z[z] -> Z[t^+/-1]")
 print("  defined by  z_j -> t^{a_j}  (a_j = j-th column of A).")
 
@@ -256,7 +257,8 @@ sec("Bubble toric ideal (trivial case)")
 ti_b = fi_bubble.toric_ideal
 print(f"  Bubble generators: {len(ti_b.generators)}")
 if len(ti_b.generators) == 0:
-    print("  (empty, bubble GKZ system has no toric relations; it is a master integral)")
+    print("  (empty: the three columns of A are linearly independent; this says")
+    print("   nothing about the number of master integrals)")
 
 
 # -----------------------------------------------------------------------------
@@ -308,13 +310,11 @@ print("  Maps with |det M| > 1 relate two different configurations (finite_index
 sp_list = fi_tri.symmetry_pairs
 
 sec(f"Triangle LP symmetry pairs  ({len(sp_list)} total)")
-unimod = [s for s in sp_list if s.is_unimodular]
-nonuni = [s for s in sp_list if not s.is_unimodular]
-print(f"  Unimodular (|det| = 1): {len(unimod)}")
-print(f"  Finite-index (|det| > 1): {len(nonuni)}")
+n_unimodular = sum(s.is_unimodular for s in sp_list)
+print(f"  |det M| = 1 for {n_unimodular} of {len(sp_list)} pairs, as for every self-map")
 
-print("\n  First unimodular pair:")
-s0 = unimod[0]
+print("\n  First pair:")
+s0 = sp_list[0]
 print("    M =")
 sp.pprint(s0.linear_map)
 print(f"    t = {s0.translation.T.tolist()[0]}")

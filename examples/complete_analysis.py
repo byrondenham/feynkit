@@ -119,7 +119,7 @@ def analyse(
         n = len(ti.generators)
         print(f"  Generators : {n}")
         if n == 0:
-            print("  (trivial, no IBP relations; this is likely a master integral)")
+            print("  (trivial: the columns of A are linearly independent; no toric operators)")
         else:
             print(f"  Binomial   : {is_binomial_ideal(ti.generators)}")
             for i, gen in enumerate(ti.generators[:toric_max]):

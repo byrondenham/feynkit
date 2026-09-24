@@ -4,7 +4,7 @@ Automorphism survey: polytope and graph symmetries of standard Feynman integrals
 For each diagram:
   1. Compute the unimodular automorphism group Aut(P) of the Newton polytope of G.
   2. Compute the graph automorphism group (vertex permutations preserving topology+mass).
-  3. Identify the coefficient-preserving subgroup (relevant for functional equations).
+  3. Identify the coefficient-preserving subgroup, whose elements relate parameter vectors.
 
 Run with:
     uv run python examples/automorphism_survey.py
@@ -89,8 +89,8 @@ print("           topology and mass colouring. For multi-edge graphs (bananas)")
 print("           this misses edge-permutation symmetries.")
 print()
 print("|Coeff-pres.| Automorphisms (U,t) in Aut(P) that also preserve the")
-print("           coefficient multiset of G. These generate functional")
-print("           equations of the GKZ hypergeometric system: I(z) = I(sigma*z).")
+print("           coefficients of G. Each gives I_A(beta, z) = I_A(T beta, z),")
+print("           a relation between parameter vectors at one kinematic point.")
 print()
 
 # Detailed view for one interesting case.

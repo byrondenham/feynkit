@@ -230,6 +230,14 @@
   same canonical form looked identical. `fk` now prints each string as given, with the
   canonical form beside it when they differ. The Newton polytope section calls the normalised
   volume the holonomic rank for generic beta, not the holonomic rank.
+- The examples `dissertation_overview.py`, `dissertation_overview_enhanced.py`,
+  `complete_analysis.py`, `feynkit_survey.py`, `toric_ideal_example.py` and
+  `automorphism_survey.py` called the toric generators IBP relations or identities, inferred a
+  single master integral from a trivial toric ideal or a volume of 1, counted finite-index
+  symmetry pairs, of which there are none, and stated functional equations I(z) = I(sigma z).
+  They now call the toric operators an analogue of IBP relations (Chestnov et al. 2022), say
+  that a trivial toric ideal gives no master-integral count, and give
+  I_A(beta, z) = I_A(T beta, z) for a coefficient-preserving automorphism.
 
 ### Removed
 

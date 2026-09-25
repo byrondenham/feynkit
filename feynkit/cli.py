@@ -323,12 +323,13 @@ def _print_toric(fi: FeynmanIntegral) -> None:
 def _vertices_and_volume(cfg: AConfiguration) -> tuple[int, int]:
     """The number of vertices and the normalised volume of the Newton polytope of cfg.
 
-    AConfiguration finds both from a convex hull built for dimension 2 and
-    above, which fails on a segment such as the polytope of the massive
-    tadpole 0|:n. As in the report, polytope_data gives them for a point or a
-    segment.
+    AConfiguration finds both from a convex hull built for a full-dimensional
+    polytope of dimension 2 and above. It fails on a segment, such as the
+    polytope of the massive tadpole 0|:n, and on a polytope that is not
+    full-dimensional, such as that of 011e|e|:znn. As in the report,
+    polytope_data gives them in both cases.
     """
-    if cfg.affine_dim < 2:
+    if cfg.affine_dim < max(2, cfg.ambient_dim):
         data = polytope_data(cfg.affine_points.tolist())
         return len(data.vertex_indices), data.normalized_volume
     return len(cfg.newton_polytope_points), cfg.normalized_volume
@@ -587,16 +588,23 @@ def _compare(
             return
 
         # The two checks of the Newton polytopes rest on convex hulls built for
-        # dimension 2 and above, as the automorphisms of the symmetry section do.
-        flat = min(cfg1.affine_dim, cfg2.affine_dim) < 2
+        # a full-dimensional polytope of dimension 2 and above, as the
+        # automorphisms of the symmetry section do. Below full dimension the
+        # unimodular check fails even for a diagram and itself.
+        lowest = min(cfg1.affine_dim, cfg2.affine_dim)
+        hull_skipped: str | None = None
+        if lowest < 2:
+            hull_skipped = "a Newton polytope of dimension below 2"
+        elif lowest < cfg1.ambient_dim:
+            hull_skipped = "a Newton polytope that is not full-dimensional"
         results = []
         for relation, method in [
             ("unimodular", cfg1.is_unimodular_equivalent_to),
             ("affine_polytope", cfg1.is_affinely_equivalent_to),
             ("point_config", cfg1.is_point_config_equivalent_to),
         ]:
-            if flat and relation != "point_config":
-                print(f"  {relation:<22} n/a  (a Newton polytope of dimension below 2)")
+            if hull_skipped is not None and relation != "point_config":
+                print(f"  {relation:<22} n/a  ({hull_skipped})")
                 continue
             res = method(cfg2)
             status = "YES" if res.equivalent else "no"

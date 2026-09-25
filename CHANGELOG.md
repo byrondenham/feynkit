@@ -271,26 +271,31 @@
 - The Symanzik section of `fk analyse` listed the Schwinger representation's parameters alpha_e
   above U and F, which are written in the a_e. It now lists the Schwinger parameters a_e of
   `graph.schwinger_parameters`.
-- `fk` rejected the massive tadpole `0|:n`, and any graph with fewer than two external legs, as a
-  CNickel string that does not parse. The string parses; only the Mandelstam invariants, which
-  need two legs, failed. `fk` now builds such an integral without them, and reports an integral
-  that cannot be built in one line, apart from parse errors and without the CNickel grammar. When
-  the Newton polytope has dimension below 2, as the tadpole's segment does, `fk analyse` takes its
-  vertices and volume from `polytope_data` and leaves out the symmetries, as the report does, and
-  `fk compare` skips the unimodular and affine-polytope checks.
+- `fk` ended in an uncaught ValueError traceback on the massive tadpole `0|:n`, part way through
+  the Newton section: the tadpole's Newton polytope is a segment, on which the convex hull of
+  `AConfiguration` fails. When the Newton polytope has dimension below 2, `fk analyse` now takes
+  its vertices and volume from `polytope_data` and leaves out the symmetries, as the report does,
+  and `fk compare` skips the unimodular and affine-polytope checks. `fk` builds a graph with fewer
+  than two external legs without the Mandelstam invariants, which need two legs, and reports an
+  integral that cannot be built in one line, apart from parse errors and without the CNickel
+  grammar.
 - `fk analyse -g` wrote every term of an Euler equation with coefficient 1, so the equations of
   a massive diagram, whose A-matrix has entries 2, were wrong: for `11e|e|:nn` it printed
   `z_1 d_1 + z_2 d_2 + z_4 d_4 = -nu_1` for the row (2, 1, 0, 1, 0). It now writes each term as
   A_rj z_j d_j, here `2 z_1 d_1 + z_2 d_2 + z_4 d_4 = -nu_1`, in the order of the columns rather
   than with z_10 before z_2.
-- `fk analyse -n` ended in a traceback when the Newton polytope was not full-dimensional, as for
-  a graph with a massless self-loop such as `01e|e|:zn`, and `fk compare` failed the same way in
-  the finite-index check when the polytope of A was not. The Newton section now leaves out the
-  lattice base point for such a polytope, which the report does not show either, and `fk compare`
-  prints n/a for the finite-index check. Nor does the Newton section call the normalised volume
-  the holonomic rank for generic beta there: the rows of A are dependent, so for generic beta the
-  Euler equations contradict each other and the rank is 0. The analysis report now says this too,
-  instead of equating the rank with the normalised volume.
+- `fk analyse -n` ended in a traceback when the Newton polytope was not full-dimensional, as for a
+  graph with a massless self-loop: at the lattice base point for `01e|e|:zn`, whose polytope is a
+  segment in R^2, after giving its volume as 0, and at the normalised volume for `011e|e|:znn` and
+  `012e|2e|e|:zzzz`, whose polytopes have dimension 2 in R^3 and 3 in R^4. `fk compare` failed at
+  the normalised volume or in the finite-index check, and printed `unimodular no` even for a
+  diagram and itself. For such a polytope `fk analyse` and `fk compare` now take the vertices and
+  the volume from `polytope_data`, as the report does, the Newton section leaves out the lattice
+  base point, which the report does not show either, and `fk compare` prints n/a for the
+  unimodular, affine-polytope and finite-index checks. Nor does the Newton section call the
+  normalised volume the holonomic rank for generic beta there: the rows of A are dependent, so for
+  generic beta the Euler equations contradict each other and the rank is 0. The analysis report
+  says the same.
 
 ### Removed
 

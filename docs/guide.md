@@ -181,8 +181,9 @@ fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"    # the mass on two different propag
 2. tests four equivalences between the two A-configurations: `unimodular`, `affine_polytope`,
    `point_config` and `finite_index`. When the ambient dimensions differ, as for the triangle and
    the bubble, it reports the mismatch and stops. The `unimodular` and `affine_polytope` checks
-   need Newton polytopes of dimension 2 or more, so it skips them for a point or a segment, such
-   as the polytope of the massive tadpole `0|:n`;
+   need full-dimensional Newton polytopes of dimension 2 or more, so it skips them for a point or
+   a segment, such as the polytope of the massive tadpole `0|:n`, and for a polytope that is not
+   full-dimensional, such as that of `011e|e|:znn`, for which it also skips `finite_index`;
 3. prints each map it finds. A `point_config` or `finite_index` map sends every column of one
    A-matrix to a column of the other, and for such a map it also prints the column permutation
    $P$, the substitution $u_i = \prod_k v_k^{M_{ki}}$ and the identity

@@ -107,16 +107,33 @@ class TestSingleDiagram:
         assert "Not computed for a Newton polytope of dimension below 2" in out
         assert "Stored:" in out
 
-    @pytest.mark.parametrize("cnickel", ["01e|e|:zn", "00|:nz"])
+    @pytest.mark.parametrize(
+        ("cnickel", "ambient", "affine", "volume"),
+        [
+            ("01e|e|:zn", 2, 1, 1),
+            ("00|:nz", 2, 1, 1),
+            # The massless triangle and the massive bubble, each with a massless self-loop.
+            ("012e|2e|e|:zzzz", 4, 3, 4),
+            ("011e|e|:znn", 3, 2, 3),
+        ],
+    )
     def test_newton_section_of_a_polytope_that_is_not_full_dimensional(
-        self, cnickel: str, capsys: pytest.CaptureFixture[str], tmp_path: Path
+        self,
+        cnickel: str,
+        ambient: int,
+        affine: int,
+        volume: int,
+        capsys: pytest.CaptureFixture[str],
+        tmp_path: Path,
     ) -> None:
-        # A massless self-loop is scaleless: G has two monomials, a segment in R^2.
-        # The rows of A are then dependent, so the volume is not the rank.
+        # A massless self-loop is scaleless: G is its parameter times the G of
+        # the rest of the graph, so P is the polytope of the rest, with its
+        # volume, lifted into one more dimension. The rows of A are then
+        # dependent, so the volume is not the rank.
         lines = _run(capsys, tmp_path, cnickel).splitlines()
-        assert "  Ambient dimension            2" in lines
-        assert "  Affine dimension             1" in lines
-        assert "  Normalised volume            1" in lines
+        assert f"  Ambient dimension            {ambient}" in lines
+        assert f"  Affine dimension             {affine}" in lines
+        assert f"  Normalised volume            {volume}" in lines
         assert not any("Lattice base point" in line for line in lines)
 
     def test_newton_section_of_a_full_dimensional_polytope(
@@ -161,6 +178,18 @@ class TestPairwise:
         assert "affine_polytope        n/a  (a Newton polytope of dimension below 2)" in out
         assert "point_config           YES  (det = 1)" in out
         assert "T beta  =  [-D/2, -nu_1]" in out
+
+    @pytest.mark.parametrize("cnickel", ["011e|e|:zzz", "012e|2e|e|:znnn"])
+    def test_hull_checks_are_skipped_below_full_dimension(
+        self, cnickel: str, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        # Below full dimension the unimodular check failed even for a diagram and itself.
+        out = _run(capsys, tmp_path, cnickel, cnickel)
+        skipped = "n/a  (a Newton polytope that is not full-dimensional)"
+        assert f"unimodular             {skipped}" in out
+        assert f"affine_polytope        {skipped}" in out
+        assert "unimodular             no" not in out
+        assert "point_config           YES  (det = 1)" in out
 
     def test_finite_index_is_skipped_when_a_is_not_full_dimensional(
         self, capsys: pytest.CaptureFixture[str], tmp_path: Path

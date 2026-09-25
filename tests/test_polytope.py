@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import random
+import sys
+import types
 
 import numpy as np
 import pytest
 import sympy as sp
 
-from feynkit import FeynmanIntegral, _exact
-from feynkit.core.exceptions import ValidationError
+from feynkit import FeynmanIntegral, _exact, polytope
+from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.polytope import (
     Facet,
     LatticeChart,
@@ -163,3 +165,212 @@ class TestLatticeChart:
             lattice_chart([])
         with pytest.raises(ValidationError, match="length"):
             chart.to_ambient((1,))
+        with pytest.raises(ValidationError, match="point 1 has 3 coordinates, point 0 has 2"):
+            lattice_chart([(0, 0), (1, 2, 3)])
+
+    def test_repeated_points_in_a_lower_dimensional_chart(self) -> None:
+        # Point 2 repeats the first point and point 4 repeats point 1.
+        pts = [(1, 0, 0), (0, 1, 0), (1, 0, 0), (0, 0, 1), (0, 1, 0), (1, 1, -1)]
+        chart = lattice_chart(pts)
+        assert chart == LatticeChart(
+            origin=(2, 0, -1),
+            basis=((-1, 1, 0), (-1, 0, 1)),
+            coordinates=((0, 1), (1, 1), (0, 1), (0, 2), (1, 1), (1, 0)),
+        )
+        assert [chart.to_ambient(c) for c in chart.coordinates] == pts
+        doubled = lattice_chart([(0, 0, 0), (2, 0, 0), (0, 0, 0), (0, 2, 0), (2, 0, 0)])
+        assert doubled.basis == ((2, 0, 0), (0, 2, 0))
+        assert doubled.coordinates == ((0, 0), (1, 0), (0, 0), (0, 1), (1, 0))
+
+    def test_int64_input_round_trips_exactly(self) -> None:
+        # The differences and the basis overflow int64; the chart must not.
+        arr = np.array([[2**62 + 5, 0], [-(2**62) - 5, 1], [0, 2]], dtype=np.int64)
+        chart = lattice_chart(arr)
+        coordinates = lattice_coordinates(arr)
+        assert coordinates == list(chart.coordinates)
+        expected = [tuple(p) for p in arr.tolist()]
+        assert [chart.to_ambient(c) for c in coordinates] == expected
+        assert [chart.to_ambient(np.array(c, dtype=np.int64)) for c in coordinates] == expected
+
+    def test_to_ambient_takes_integer_entries_exactly(self) -> None:
+        chart = lattice_chart([(0, 0), (3, 1)])
+        image = chart.to_ambient(np.array([2**62], dtype=np.int64))
+        assert image == (3 * 2**62, 2**62)
+        assert all(type(x) is int for x in image)
+        assert chart.to_ambient((2.0,)) == (6, 2)
+        with pytest.raises(ValidationError, match="non-integer"):
+            chart.to_ambient((0.5,))
+
+
+SAMPLE_DIAGRAMS = [
+    "11e|e|:zz",
+    "12e|2e|e|:zzz",
+    "12e|2e|e|:nzz",
+    "12e|3e|3e|e|:zzzz",
+    "12e|3e|3e|e|:nnnn",
+    "111e|e|:nnn",
+    "12e|23|3|e|:nnnnn",
+]
+
+
+def diagram_points(cnickel: str) -> list[tuple[int, ...]]:
+    """The Newton polytope points of G = U + F; tadpoles need use_mandelstam=False."""
+    fi = FeynmanIntegral.from_cnickel(cnickel, use_mandelstam=not cnickel.startswith("0|"))
+    return [tuple(int(x) for x in p) for p in fi.newton_polytope.points]
+
+
+class TestExactFaces:
+    def test_segment_endpoints_hold_every_repeated_point(self) -> None:
+        assert faces([(0, 0), (2, 2), (2, 2)]) == [(0, (0,)), (0, (1, 2)), (1, (0, 1, 2))]
+        assert faces([(0, 0), (1, 1), (1, 1), (2, 2)]) == [
+            (0, (0,)),
+            (0, (3,)),
+            (1, (0, 1, 2, 3)),
+        ]
+
+    def test_points_and_empty_input(self) -> None:
+        assert faces([(1, 2), (1, 2)]) == [(0, (0, 1))]
+        assert faces([]) == []
+
+    def test_lower_dimensional_parallelogram(self) -> None:
+        assert faces([(1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, -1)]) == [
+            (0, (0,)),
+            (0, (1,)),
+            (0, (2,)),
+            (0, (3,)),
+            (1, (0, 2)),
+            (1, (0, 3)),
+            (1, (1, 2)),
+            (1, (1, 3)),
+            (2, (0, 1, 2, 3)),
+        ]
+
+    def test_non_integer_input_raises(self) -> None:
+        with pytest.raises(ValidationError, match="non-integer"):
+            faces([(0.5, 0), (1, 0)])
+        with pytest.raises(ValidationError, match="non-integer"):
+            polytope_data([(0, 0.5), (1, 0)])
+
+    def test_ragged_input_raises(self) -> None:
+        with pytest.raises(ValidationError, match="point 1 has 1 coordinate, point 0 has 2"):
+            faces([(0, 0), (1,)])
+        with pytest.raises(ValidationError, match="point 1 has 1 coordinate, point 0 has 2"):
+            polytope_data([(0, 0), (1,)])
+
+    def test_numpy_input(self) -> None:
+        assert polytope_data(np.array([[0, 0], [1, 0], [0, 1]])).f_vector == (3, 3, 1)
+
+    def test_segment_in_z1_keeps_its_facets(self) -> None:
+        data = polytope_data([(1,), (2,)])
+        assert data.is_full_dimensional
+        assert [(f.normal, f.offset, f.point_indices) for f in data.facets] == [
+            ((-1,), -1, (0,)),
+            ((1,), 2, (1,)),
+        ]
+
+
+class _FakeCone:
+    """Stands in for PyNormaliz.Cone: support hyperplanes (-m, b), so -m . x + b >= 0 on P."""
+
+    skip = 0
+
+    def __init__(self, *, vertices: list[list[int]]) -> None:
+        assert all(v[-1] == 1 for v in vertices)
+        points = [tuple(v[:-1]) for v in vertices]
+        self._forms = [[*(-m for m in h.normal), h.offset] for h in _exact.beneath_beyond(points)]
+
+    def SupportHyperplanes(self) -> list[list[int]]:
+        return self._forms[self.skip :]
+
+
+class _FakeConeMissingOne(_FakeCone):
+    skip = 1
+
+
+def _fake_pynormaliz(monkeypatch: pytest.MonkeyPatch, cone: type) -> None:
+    module = types.ModuleType("PyNormaliz")
+    module.Cone = cone
+    monkeypatch.setitem(sys.modules, "PyNormaliz", module)
+    monkeypatch.setattr(polytope, "_pynormaliz_available", lambda: True)
+
+
+requires_normaliz = pytest.mark.skipif(
+    not polytope._pynormaliz_available(), reason="PyNormaliz not installed"
+)
+
+
+class TestBackends:
+    @pytest.mark.parametrize("cnickel", SAMPLE_DIAGRAMS)
+    def test_qhull_candidates_certify_and_agree(self, cnickel: str) -> None:
+        points = diagram_points(cnickel)
+        halfspaces, _, generator = polytope._certified_hull(points, "qhull")
+        assert generator == "qhull"
+        assert sorted(halfspaces) == sorted(_exact.beneath_beyond(points))
+        assert polytope_data(points, backend="qhull") == polytope_data(points, backend="python")
+
+    def test_auto_is_python(self) -> None:
+        assert polytope._resolve_backend("auto") == "python"
+
+    def test_unknown_backend_raises(self) -> None:
+        with pytest.raises(ComputationError, match="Unknown backend 'bogus'"):
+            polytope_data([(0, 0), (1, 0), (0, 1)], backend="bogus")
+        with pytest.raises(ComputationError, match="Unknown backend"):
+            faces([], backend="bogus")
+
+    def test_normaliz_without_pynormaliz_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(polytope, "_pynormaliz_available", lambda: False)
+        with pytest.raises(ComputationError, match="PyNormaliz"):
+            polytope_data([(0, 0), (1, 0), (0, 1)], backend="normaliz")
+
+    def test_qhull_list_missing_a_facet_is_rejected_and_replaced(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        points = diagram_points("12e|3e|3e|e|:zzzz")
+        complete = polytope._qhull_candidates(points)
+        assert complete is not None and len(complete) == 10
+        with pytest.raises(_exact.CertificateError):
+            _exact.certified_lattice(points, [h.mask for h in complete[1:]], 4)
+        monkeypatch.setattr(polytope, "_qhull_candidates", lambda coords: complete[1:])
+        halfspaces, _, generator = polytope._certified_hull(points, "qhull")
+        assert generator == "python"
+        assert sorted(halfspaces) == sorted(_exact.beneath_beyond(points))
+        assert polytope_data(points, backend="qhull") == polytope_data(points, backend="python")
+
+    def test_qhull_failure_falls_back(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(polytope, "_qhull_candidates", lambda coords: None)
+        assert polytope._certified_hull(diagram_points("12e|2e|e|:zzz"), "qhull")[2] == "python"
+
+    def test_qhull_falls_back_on_coordinates_too_large_for_a_float(self) -> None:
+        points = [(0, 0), (2**1100, 0), (0, 1), (1, 1)]
+        assert polytope._qhull_candidates(points) is None
+        assert polytope._certified_hull(points, "qhull")[2] == "python"
+        assert faces(points, backend="qhull") == faces(points)
+
+    def test_python_path_certificate_failure_is_a_bug(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        points = diagram_points("12e|2e|e|:zzz")
+        complete = _exact.beneath_beyond(points)
+        monkeypatch.setattr(_exact, "beneath_beyond", lambda coords: complete[1:])
+        with pytest.raises(ComputationError, match=r"completeness certificate.*\(C"):
+            polytope_data(points)
+
+    def test_normaliz_candidates_are_verified_and_certified(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _fake_pynormaliz(monkeypatch, _FakeCone)
+        points = diagram_points("12e|3e|3e|e|:zzzz")
+        assert polytope._certified_hull(points, "normaliz")[2] == "normaliz"
+        assert polytope_data(points, backend="normaliz") == polytope_data(points, backend="python")
+
+    def test_incomplete_normaliz_list_falls_back(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _fake_pynormaliz(monkeypatch, _FakeConeMissingOne)
+        points = diagram_points("12e|3e|3e|e|:zzzz")
+        assert polytope._certified_hull(points, "normaliz")[2] == "python"
+
+    @requires_normaliz
+    @pytest.mark.parametrize("cnickel", SAMPLE_DIAGRAMS)
+    def test_normaliz_agrees_with_python(self, cnickel: str) -> None:
+        points = diagram_points(cnickel)
+        assert polytope._certified_hull(points, "normaliz")[2] == "normaliz"
+        assert polytope_data(points, backend="normaliz") == polytope_data(points, backend="python")

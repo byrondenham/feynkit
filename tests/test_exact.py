@@ -61,8 +61,10 @@ class TestIntegerPoints:
     def test_rejects_non_integers_and_ragged_input(self) -> None:
         with pytest.raises(ValidationError, match="non-integer"):
             _exact.integer_points([(0, 0.5)])
-        with pytest.raises(ValidationError, match="coordinates"):
+        with pytest.raises(ValidationError, match="^point 1 has 1 coordinate, point 0 has 2$"):
             _exact.integer_points([(0, 0), (1,)])
+        with pytest.raises(ValidationError, match="^point 1 has 2 coordinates, point 0 has 1$"):
+            _exact.integer_points([(0,), (1, 2)])
         with pytest.raises(ValidationError, match="two-dimensional"):
             _exact.integer_points(np.array([1, 2, 3]))
 

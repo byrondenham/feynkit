@@ -84,9 +84,8 @@ def integer_points(points: object) -> list[tuple[int, ...]]:
             raise ValidationError(f"point {i} is not a sequence of coordinates: {row!r}") from None
         point = tuple(_as_int(x, f"point {i}") for x in coordinates)
         if out and len(point) != len(out[0]):
-            raise ValidationError(
-                f"point {i} has {len(point)} coordinates, point 0 has {len(out[0])}"
-            )
+            noun = "coordinate" if len(point) == 1 else "coordinates"
+            raise ValidationError(f"point {i} has {len(point)} {noun}, point 0 has {len(out[0])}")
         out.append(point)
     return out
 
@@ -338,7 +337,7 @@ class HermiteForm(NamedTuple):
 
     @property
     def image(self) -> IntMatrix:
-        """The last rank columns of the transform, which the matrix maps to the columns of hermite."""
+        """The last rank columns of the transform, which the matrix sends to hermite's columns."""
         n = len(self.transform)
         return [[self.transform[i][t] for i in range(n)] for t in range(n - self.rank, n)]
 
@@ -730,9 +729,11 @@ def certify(dims: dict[int, int], facet_masks: Iterable[int]) -> dict[int, tuple
     Precondition: the candidates are the tight sets, over all points, of
     verified facets. dims comes from face_dimensions, so its largest key is
     the mask of all points, of dimension d. A candidate equal to that mask,
-    or of a dimension other than d - 1, raises: (F3) needs the members of
-    dimension d - 1 to be exactly the candidates, and the check keeps a valid
-    inequality that is not a facet out of an accepted list.
+    or of dimension below d - 1, raises: (F3) needs the members of dimension
+    d - 1 to be exactly the candidates, and the check keeps a valid
+    inequality that is not a facet out of an accepted list. face_dimensions
+    caps the rank of a candidate at d - 1, so a full-dimensional candidate
+    other than the top mask is outside the precondition and is not detected.
 
     phi(Q) = {Q & F : F a candidate facet, dim(Q & F) = dim Q - 1}. The list
     is accepted if and only if (C1) every edge has exactly two members of
@@ -810,7 +811,9 @@ def certified_lattice(
     Raises
     ------
     CertificateError
-        If the facet list fails (C1), (C2) or (C3).
+        If a candidate is the mask of all points or has dimension below
+        d - 1, which breaks the precondition of certify, or if the facet list
+        fails (C1), (C2) or (C3).
     """
     masks = list(facet_masks)
     dims = face_dimensions(points, masks, dimension)

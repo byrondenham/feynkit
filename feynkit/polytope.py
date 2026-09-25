@@ -18,12 +18,11 @@ generic coefficients and non-resonant beta.
 
 from __future__ import annotations
 
-import math
+import importlib.util
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
-import sympy as sp
 
 from . import _exact
 from .a_configuration import AConfiguration
@@ -70,12 +69,14 @@ class LatticeChart:
         Raises
         ------
         ValidationError
-            If c does not have one entry per basis vector.
+            If c does not have one entry per basis vector, or an entry is not
+            an integer.
         """
         if len(c) != len(self.basis):
             raise ValidationError(f"chart coordinates have length {len(self.basis)}, got {len(c)}")
+        entries = [_exact._as_int(x, "the chart point") for x in c]
         return tuple(
-            o + sum(ct * b[k] for ct, b in zip(c, self.basis, strict=True))
+            o + sum(e * b[k] for e, b in zip(entries, self.basis, strict=True))
             for k, o in enumerate(self.origin)
         )
 
@@ -152,67 +153,123 @@ class PolytopeData:
         return tuple(self.points[i] for i in self.vertex_indices)
 
 
-# --- face enumeration --------------------------------------------------------
+# --- backends ----------------------------------------------------------------
+
+_GENERATORS = ("python", "qhull", "normaliz")
 
 
-def _affine_rank(pts: np.ndarray) -> int:
-    if len(pts) <= 1:
-        return 0
-    diffs = (pts[1:] - pts[0]).astype(float)
-    return int(np.linalg.matrix_rank(diffs, tol=1e-9))
+def _pynormaliz_available() -> bool:
+    """Whether PyNormaliz can be imported; the analogue of _4ti2_binary and _singular_binary."""
+    return importlib.util.find_spec("PyNormaliz") is not None
 
 
-def faces(pts: np.ndarray) -> list[tuple[int, tuple[int, ...]]]:
-    """All faces of conv(pts) as (dimension, indices of the points on the face).
+def _resolve_backend(backend: str) -> str:
+    """The facet generator for backend; "auto" is "python" until Normaliz has been timed."""
+    if backend == "auto":
+        return "python"
+    if backend not in _GENERATORS:
+        raise ComputationError(
+            f"Unknown backend {backend!r}. Choose 'auto', 'python', 'qhull' or 'normaliz'."
+        )
+    if backend == "normaliz" and not _pynormaliz_available():
+        raise ComputationError(
+            "normaliz backend requested but PyNormaliz is not installed. "
+            "Install it with: pip install PyNormaliz"
+        )
+    return backend
 
-    Includes the vertices and the polytope itself. Points that lie on a face
-    without being vertices are included in that face.
+
+def _qhull_candidates(coords: list[tuple[int, ...]]) -> list[_exact.Halfspace] | None:
+    """Facet candidates from Qhull, each verified exactly; None when Qhull fails.
+
+    Each Qhull facet contributes its simplex and the points within 1e-7 of its
+    equation, and verify_facet picks d affinely independent points from them:
+    Qhull triangulates non-simplicial facets and may return flat simplices, so
+    the simplex alone will not do. Rejected candidates are dropped, and a set
+    of associated points already verified is skipped. Coordinates too large
+    for a float count as a Qhull failure.
     """
-    n_pts = len(pts)
-    if n_pts == 0:
-        return []
-    rank = _affine_rank(pts)
-    if rank == 0:
-        return [(0, tuple(range(n_pts)))]
+    from scipy.spatial import ConvexHull, QhullError
 
-    # Work in coordinates of the affine hull so the hull is full-dimensional.
-    diffs = (pts - pts[0]).astype(float)
-    _, _, vt = np.linalg.svd(diffs, full_matrices=False)
-    coords = diffs @ vt[:rank].T
+    try:
+        x = np.asarray(coords, dtype=float)
+        hull = ConvexHull(x)
+    except (QhullError, ValueError, OverflowError):
+        return None
+    everything = range(len(coords))
+    seen: set[frozenset[int]] = set()
+    found: dict[tuple[tuple[int, ...], int], _exact.Halfspace] = {}
+    for simplex, equation in zip(hull.simplices, hull.equations, strict=True):
+        near = np.flatnonzero(np.abs(x @ equation[:-1] + equation[-1]) < 1e-7)
+        associated = list(dict.fromkeys([*map(int, simplex), *map(int, near)]))
+        key = frozenset(associated)
+        if key in seen:
+            continue
+        seen.add(key)
+        halfspace = _exact.verify_facet(coords, associated, everything)
+        if halfspace is not None:
+            found.setdefault((halfspace.normal, halfspace.offset), halfspace)
+    return list(found.values())
 
-    if rank == 1:
-        order = np.argsort(coords[:, 0])
-        lo, hi = int(order[0]), int(order[-1])
-        return [(0, (lo,)), (0, (hi,)), (1, tuple(range(n_pts)))]
 
-    from scipy.spatial import ConvexHull
+def _normaliz_candidates(coords: list[tuple[int, ...]]) -> list[_exact.Halfspace] | None:
+    """Facet candidates from PyNormaliz's support hyperplanes, verified exactly.
 
-    hull = ConvexHull(coords)
-    facets: set[frozenset[int]] = set()
-    for eq in hull.equations:
-        normal, offset = eq[:-1], eq[-1]
-        on = frozenset(int(i) for i in range(n_pts) if abs(coords[i] @ normal + offset) < 1e-7)
-        facets.add(on)
+    The points go in as vertices with the homogenising coordinate 1 last, and
+    each hyperplane lambda, with lambda . (x, 1) >= 0 on P, contributes the
+    points on which it vanishes. Returns None when the import fails.
+    """
+    try:
+        import PyNormaliz
+    except ImportError:
+        return None
+    cone = PyNormaliz.Cone(vertices=[[*p, 1] for p in coords])
+    everything = range(len(coords))
+    found: dict[tuple[tuple[int, ...], int], _exact.Halfspace] = {}
+    for form in cone.SupportHyperplanes():
+        if len(form) != len(coords[0]) + 1:
+            continue
+        *linear, constant = (int(v) for v in form)
+        associated = [j for j, p in enumerate(coords) if _exact.dot(linear, p) + constant == 0]
+        halfspace = _exact.verify_facet(coords, associated, everything)
+        if halfspace is not None:
+            found.setdefault((halfspace.normal, halfspace.offset), halfspace)
+    return list(found.values())
 
-    all_faces: set[frozenset[int]] = set(facets)
-    frontier = set(facets)
-    while frontier:
-        new: set[frozenset[int]] = set()
-        for a in frontier:
-            for b in all_faces:
-                c = a & b
-                if c and c not in all_faces and c not in new:
-                    new.add(c)
-        all_faces |= new
-        frontier = new
-    all_faces.add(frozenset(range(n_pts)))
 
-    out: list[tuple[int, tuple[int, ...]]] = []
-    for face in all_faces:
-        idx = tuple(sorted(face))
-        out.append((_affine_rank(pts[list(idx)]), idx))
-    out.sort(key=lambda f: (f[0], f[1]))
-    return out
+def _certified_hull(
+    coords: list[tuple[int, ...]], backend: str
+) -> tuple[list[_exact.Halfspace], _exact.FaceLattice, str]:
+    """Verified, certified facets of full-dimensional coords, the lattice, and the generator used.
+
+    "qhull" and "normaliz" fall back to beneath-beyond when their generator
+    fails or their list fails the certificate. On the "python" path a failed
+    certificate is a bug and raises.
+    """
+    dimension = len(coords[0])
+    if backend in ("qhull", "normaliz"):
+        candidates = (
+            _qhull_candidates(coords) if backend == "qhull" else _normaliz_candidates(coords)
+        )
+        if candidates is not None:
+            try:
+                lattice = _exact.certified_lattice(coords, [h.mask for h in candidates], dimension)
+            except _exact.CertificateError:
+                pass
+            else:
+                return candidates, lattice, backend
+    halfspaces = _exact.beneath_beyond(coords)
+    try:
+        lattice = _exact.certified_lattice(coords, [h.mask for h in halfspaces], dimension)
+    except _exact.CertificateError as exc:
+        raise ComputationError(
+            "the facets from beneath-beyond fail the completeness certificate, which is a bug "
+            f"in feynkit: {exc}"
+        ) from exc
+    return halfspaces, lattice, "python"
+
+
+# --- lattice chart -----------------------------------------------------------
 
 
 def _differences(points: Sequence[Sequence[int]]) -> list[list[int]]:
@@ -233,7 +290,11 @@ def lattice_chart(points: Sequence[Sequence[int]] | np.ndarray) -> LatticeChart:
     Raises
     ------
     ValidationError
-        If there are no points or a coordinate is not an integer.
+        If there are no points, a coordinate is not an integer, or the points
+        do not all have the same number of coordinates.
+    ComputationError
+        If a point is not in the lattice spanned by the differences, which
+        would be a bug.
     """
     pts = _exact.integer_points(points)
     if not pts:
@@ -271,53 +332,163 @@ def lattice_coordinates(pts: np.ndarray) -> list[tuple[int, ...]]:
     return list(lattice_chart(pts).coordinates)
 
 
+# --- certified hull ----------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _Hull:
+    """The certified facets and face lattice from which every result is derived.
+
+    coordinates are ambient when in_chart is false (P full-dimensional of
+    dimension at least 2, or a point) and chart coordinates otherwise; the
+    halfspaces are facets in those coordinates.
+    """
+
+    points: tuple[tuple[int, ...], ...]
+    dimension: int
+    in_chart: bool
+    coordinates: tuple[tuple[int, ...], ...]
+    halfspaces: tuple[_exact.Halfspace, ...]
+    lattice: _exact.FaceLattice
+    generator: str
+
+    @property
+    def faces(self) -> list[tuple[int, tuple[int, ...]]]:
+        """Every face as (dimension, indices), sorted by dimension and then indices."""
+        return sorted(
+            (k, tuple(_exact.mask_indices(mask))) for mask, k in self.lattice.dims.items()
+        )
+
+
+def _segment(
+    coordinates: list[tuple[int, ...]],
+) -> tuple[list[_exact.Halfspace], _exact.FaceLattice]:
+    """A segment 0 <= c <= c_max in its chart coordinate c: two vertices, -c <= 0, c <= c_max."""
+    top = (1 << len(coordinates)) - 1
+    c_max = max(c[0] for c in coordinates)
+    low = sum(1 << j for j, c in enumerate(coordinates) if c[0] == 0)
+    high = sum(1 << j for j, c in enumerate(coordinates) if c[0] == c_max)
+    lattice = _exact.FaceLattice(top, {top: 1, low: 0, high: 0}, {top: tuple(sorted((low, high)))})
+    return [_exact.Halfspace((-1,), 0, low), _exact.Halfspace((1,), c_max, high)], lattice
+
+
+def _hull(points: list[tuple[int, ...]], backend: str, chart: LatticeChart | None = None) -> _Hull:
+    """The certified hull of the non-empty points.
+
+    A full-dimensional polytope of dimension at least 2 is handled in ambient
+    coordinates, every other polytope of dimension at least 1 in its lattice
+    chart, where it is full-dimensional. Points and segments are closed-form.
+    """
+    backend = _resolve_backend(backend)
+    ambient = len(points[0])
+    dimension = _exact.affine_rank(points)
+    top = (1 << len(points)) - 1
+    if dimension == 0:
+        lattice = _exact.FaceLattice(top, {top: 0}, {})
+        return _Hull(tuple(points), 0, False, tuple(points), (), lattice, "closed form")
+    in_chart = dimension < ambient or dimension == 1
+    if in_chart:
+        coordinates = list((chart if chart is not None else lattice_chart(points)).coordinates)
+    else:
+        coordinates = points
+    if dimension == 1:
+        halfspaces, lattice = _segment(coordinates)
+        generator = "closed form"
+    else:
+        halfspaces, lattice, generator = _certified_hull(coordinates, backend)
+    return _Hull(
+        tuple(points),
+        dimension,
+        in_chart,
+        tuple(coordinates),
+        tuple(halfspaces),
+        lattice,
+        generator,
+    )
+
+
 # --- public API --------------------------------------------------------------
 
 
-def polytope_data(points: Sequence[Sequence[int]]) -> PolytopeData:
-    """Face lattice, facet inequalities and normalised volume of conv(points)."""
-    pts = np.asarray([tuple(int(x) for x in p) for p in points], dtype=np.int64)
-    if pts.ndim != 2 or pts.shape[0] == 0:
+def faces(
+    pts: np.ndarray | Sequence[Sequence[int]], *, backend: str = "auto"
+) -> list[tuple[int, tuple[int, ...]]]:
+    """All faces of conv(pts) as (dimension, indices of the points on the face).
+
+    Includes the vertices and the polytope itself, sorted by dimension and
+    then indices. Every point on a face is listed in it, repeated points
+    included. The facets are computed and certified complete in integer
+    arithmetic; see polytope_data for backend.
+
+    Raises
+    ------
+    ValidationError
+        If a coordinate is not an integer, or the points do not all have the
+        same number of coordinates.
+    ComputationError
+        If backend is unknown or unavailable, or the facets from beneath-beyond
+        fail the completeness certificate, which would be a bug.
+    """
+    points = _exact.integer_points(pts)
+    if not points:
+        _resolve_backend(backend)
+        return []
+    return _hull(points, backend).faces
+
+
+def polytope_data(points: Sequence[Sequence[int]], *, backend: str = "auto") -> PolytopeData:
+    """Face lattice, facet inequalities and normalised volume of conv(points).
+
+    Parameters
+    ----------
+    points
+        Integer points, one row per point; repeated points are allowed.
+    backend
+        Where facet candidates come from: "python" (beneath-beyond, the
+        reference), "qhull" (scipy's Qhull, falling back to "python" when it
+        fails or its list is incomplete), "normaliz" (PyNormaliz, which must
+        be installed; same fallback) or "auto", which is "python". Every
+        candidate is verified and the list certified complete in integer
+        arithmetic, so every backend returns the same PolytopeData.
+
+    Raises
+    ------
+    ValidationError
+        If there are no points, a coordinate is not an integer, or the points
+        do not all have the same number of coordinates.
+    ComputationError
+        If backend is unknown, if "normaliz" is requested without PyNormaliz,
+        or if the facets from beneath-beyond fail the completeness
+        certificate, which would be a bug.
+    """
+    pts = _exact.integer_points(points)
+    if not pts:
         raise ValidationError("polytope_data needs at least one point")
-    all_faces = tuple((d, tuple(idx)) for d, idx in faces(pts))
-    dimension = max(d for d, _ in all_faces)
-    ambient = int(pts.shape[1])
-    vertex_indices = tuple(sorted(idx[0] for d, idx in all_faces if d == 0))
-    facets: tuple[Facet, ...] = ()
-    if dimension == ambient:
-        facets = tuple(_facet(pts, idx) for d, idx in all_faces if d == dimension - 1)
+    hull = _hull(pts, backend)
+    ambient = len(pts[0])
+    all_faces = tuple(hull.faces)
+    facets: list[Facet] = []
+    if hull.dimension == ambient and hull.dimension >= 2:
+        facets = [
+            Facet(h.normal, h.offset, tuple(_exact.mask_indices(h.mask))) for h in hull.halfspaces
+        ]
+    elif hull.dimension == ambient == 1:
+        values = [p[0] for p in pts]
+        lo, hi = min(values), max(values)
+        facets = [
+            Facet((-1,), -lo, tuple(j for j, x in enumerate(values) if x == lo)),
+            Facet((1,), hi, tuple(j for j, x in enumerate(values) if x == hi)),
+        ]
+    facets.sort(key=lambda f: f.point_indices)
     return PolytopeData(
-        points=tuple(tuple(int(x) for x in p) for p in pts),
+        points=tuple(pts),
         ambient_dimension=ambient,
-        dimension=dimension,
-        vertex_indices=vertex_indices,
+        dimension=hull.dimension,
+        vertex_indices=tuple(sorted(idx[0] for k, idx in all_faces if k == 0)),
         faces=all_faces,
-        facets=facets,
-        normalized_volume=_normalized_volume(pts, dimension),
+        facets=tuple(facets),
+        normalized_volume=_normalized_volume(np.asarray(pts, dtype=np.int64), hull.dimension),
     )
-
-
-def _facet(pts: np.ndarray, idx: tuple[int, ...]) -> Facet:
-    """Primitive integer outward normal of the facet through pts[idx]."""
-    base = pts[idx[0]]
-    ambient = int(pts.shape[1])
-    diffs = sp.Matrix(
-        len(idx) - 1, ambient, [int(x) for i in idx[1:] for x in (pts[i] - base).tolist()]
-    )
-    null = diffs.nullspace()
-    if len(null) != 1:
-        raise ValidationError("facet does not span a hyperplane")
-    vec = null[0]
-    lcm = sp.ilcm(*[sp.Rational(x).q for x in vec], 1)
-    ints = [int(x * lcm) for x in vec]
-    g = math.gcd(*ints)
-    normal = [x // g for x in ints]
-    centroid = pts.mean(axis=0)
-    offset = int(sum(m * int(x) for m, x in zip(normal, base, strict=True)))
-    if sum(m * c for m, c in zip(normal, centroid, strict=True)) > offset:
-        normal = [-m for m in normal]
-        offset = -offset
-    return Facet(tuple(normal), offset, tuple(idx))
 
 
 def _normalized_volume(pts: np.ndarray, dimension: int) -> int:

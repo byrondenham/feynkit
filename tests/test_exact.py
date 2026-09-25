@@ -17,12 +17,20 @@ from feynkit.core.exceptions import ComputationError, ValidationError
 
 
 def _matrix(seed: int) -> list[list[int]]:
-    """A random small integer matrix, rank-deficient about a third of the time."""
+    """A random small integer matrix, rank-deficient about half the time in one of two ways.
+
+    A row can be a combination of two others (row-rank deficiency), or a
+    column can be a multiple of the first column (column-rank deficiency).
+    """
     rng = random.Random(seed)
     m, n = rng.randint(1, 6), rng.randint(1, 7)
     rows = [[rng.randint(-4, 4) for _ in range(n)] for _ in range(m)]
     if m > 1 and rng.random() < 0.3:
         rows[-1] = [a + 2 * b for a, b in zip(rows[0], rows[1], strict=True)]
+    if n > 1 and rng.random() < 0.3:
+        c = rng.randrange(1, n)
+        for row in rows:
+            row[c] = 3 * row[0]
     return rows
 
 
@@ -45,6 +53,10 @@ class TestIntegerPoints:
         assert _exact.integer_points([]) == []
         assert _exact.integer_points(np.zeros((0, 3), dtype=int)) == []
 
+    def test_accepts_sympy_and_fraction_integral_values(self) -> None:
+        assert _exact.integer_points([(sp.Float(1.0), sp.Rational(4, 2))]) == [(1, 2)]
+        assert _exact.integer_points([(Fraction(6, 3),)]) == [(2,)]
+
     def test_rejects_non_integers_and_ragged_input(self) -> None:
         with pytest.raises(ValidationError, match="non-integer"):
             _exact.integer_points([(0, 0.5)])
@@ -53,9 +65,17 @@ class TestIntegerPoints:
         with pytest.raises(ValidationError, match="two-dimensional"):
             _exact.integer_points(np.array([1, 2, 3]))
 
+    def test_rejects_non_sequence_input(self) -> None:
+        with pytest.raises(ValidationError, match="sequence"):
+            _exact.integer_points(5)  # type: ignore[arg-type]
+
     def test_mask_indices(self) -> None:
         assert _exact.mask_indices(0) == []
         assert _exact.mask_indices(0b101001) == [0, 3, 5]
+
+    def test_mask_indices_rejects_negative(self) -> None:
+        with pytest.raises(ValidationError, match="non-negative"):
+            _exact.mask_indices(-1)
 
 
 class TestDeterminantAndRank:
@@ -73,6 +93,18 @@ class TestDeterminantAndRank:
         assert _exact.determinant([[2, 4], [1, 2]]) == 0
         assert _exact.rank([]) == 0
         assert _exact.rank([[0, 0, 0]]) == 0
+
+    def test_determinant_rejects_non_square(self) -> None:
+        with pytest.raises(ValidationError, match="square"):
+            _exact.determinant([[1, 2, 3], [4, 5, 6]])
+        with pytest.raises(ValidationError, match="square"):
+            _exact.determinant([[1, 2], [3, 4], [5, 6]])
+
+
+class TestDot:
+    def test_dot_rejects_vectors_of_different_length(self) -> None:
+        with pytest.raises(ValidationError, match="length"):
+            _exact.dot([1, 2], [1])
 
 
 class TestAffineSpan:
@@ -95,6 +127,20 @@ class TestAffineSpan:
         assert _exact.affine_basis(pts, [3, 2, 1], 3) == [3, 2]
         assert _exact.affine_basis(pts, range(len(pts)), 0) == []
 
+    def test_affine_rank_does_not_overflow_numpy_int64(self) -> None:
+        # 2**32 overflows an int64 product once combined with another large entry;
+        # the true affine rank of these three points is 2.
+        points = np.array([(0, 0, 0), (2**32, 1, 0), (2**32, 2**32 + 1, 0)], dtype=np.int64)
+        assert _exact.affine_rank(points) == 2
+
+    def test_affine_span_rejects_ragged_points(self) -> None:
+        with pytest.raises(ValidationError, match="coordinates"):
+            _exact.affine_rank([(0, 0), (1, 2, 3)])
+        span = _exact.AffineSpan()
+        span.add((0, 0))
+        with pytest.raises(ValidationError, match="coordinates"):
+            span.add((1, 2, 3))
+
 
 class TestHyperplaneNormal:
     def test_primitive_normals(self) -> None:
@@ -116,6 +162,39 @@ class TestHyperplaneNormal:
     def test_dependent_points_raise(self) -> None:
         with pytest.raises(ComputationError, match="hyperplane"):
             _exact.hyperplane_normal([(0, 0, 0), (1, 1, 1), (2, 2, 2)])
+
+    def test_no_points_raises(self) -> None:
+        with pytest.raises(ComputationError, match="hyperplane"):
+            _exact.hyperplane_normal([])
+
+    def test_rejects_ragged_points(self) -> None:
+        with pytest.raises(ValidationError, match="coordinates"):
+            _exact.hyperplane_normal([(0, 0), (1, 2, 3)])
+
+    def test_orientation_sign_convention(self) -> None:
+        # det([x; diffs]) = g * (normal . x) for every x, with g > 0: this pins
+        # the sign of hyperplane_normal to the cofactor expansion along the
+        # first row, not just its magnitude.
+        rng = random.Random(2024)
+        done = 0
+        while done < 50:
+            d = rng.randint(2, 5)
+            pts = [tuple(rng.randint(-4, 4) for _ in range(d)) for _ in range(d)]
+            if _exact.affine_rank(pts) != d - 1:
+                continue
+            done += 1
+            normal = _exact.hyperplane_normal(pts)
+            diffs = [[a - b for a, b in zip(p, pts[0], strict=True)] for p in pts[1:]]
+            minors = [
+                (-1) ** j * _exact.determinant([row[:j] + row[j + 1 :] for row in diffs])
+                for j in range(d)
+            ]
+            g = math.gcd(*minors)
+            assert g > 0
+            for _ in range(3):
+                x = [rng.randint(-4, 4) for _ in range(d)]
+                det = _exact.determinant([x, *diffs])
+                assert det == g * _exact.dot(normal, x)
 
 
 class TestHermiteNormalForm:
@@ -157,6 +236,61 @@ class TestHermiteNormalForm:
         assert _exact.pivot_rows(k) == [2]
         assert _exact.reduce_modulo([3, 5, 7], k) == [-4, -2, 0]
 
+    def test_rejects_wrong_width(self) -> None:
+        with pytest.raises(ValidationError, match="ncols"):
+            _exact.hermite_normal_form([[1, 2, 3]], 2)
+        with pytest.raises(ValidationError, match="ncols"):
+            _exact.hermite_normal_form_with_transform([[1, 2]], 3)
+
+    def test_solve_and_reduce_properties(self) -> None:
+        rng = random.Random(9001)
+        done = 0
+        while done < 50:
+            rows = _matrix(rng.randint(0, 10**9))
+            ncols = len(rows[0])
+            h = _exact.hermite_normal_form(rows, ncols)
+            width = len(h[0]) if h else 0
+            if width == 0:
+                continue
+            done += 1
+            m = len(h)
+            pivots = _exact.pivot_rows(h)
+            assert pivots == [max(i for i in range(m) if h[i][t]) for t in range(width)]
+
+            # an integer combination of the columns is recovered exactly
+            z = [rng.randint(-4, 4) for _ in range(width)]
+            target = [sum(h[i][t] * z[t] for t in range(width)) for i in range(m)]
+            assert _exact.solve_hermite(h, target) == [Fraction(x) for x in z]
+
+            # an arbitrary integer target: None exactly when it lies outside the span
+            v = [rng.randint(-4, 4) for _ in range(m)]
+            rank_h = sp.Matrix(h).rank()
+            in_span = sp.Matrix.hstack(sp.Matrix(h), sp.Matrix(v)).rank() == rank_h
+            got = _exact.solve_hermite(h, v)
+            assert (got is not None) == in_span
+            if got is not None:
+                assert [sum(h[i][t] * got[t] for t in range(width)) for i in range(m)] == v
+
+            # reduce_modulo: same coset, canonical range, invariant under lattice shifts
+            red = _exact.reduce_modulo(v, h)
+            diff = [x - y for x, y in zip(v, red, strict=True)]
+            coeff = _exact.solve_hermite(h, diff)
+            assert coeff is not None and all(c.denominator == 1 for c in coeff)
+            for t, i in enumerate(pivots):
+                assert 0 <= red[i] < h[i][t]
+            shift = [rng.randint(-5, 5) for _ in range(width)]
+            moved = [v[i] + sum(h[i][t] * shift[t] for t in range(width)) for i in range(m)]
+            assert _exact.reduce_modulo(moved, h) == red
+
+    def test_image_maps_onto_the_hermite_columns(self) -> None:
+        rng = random.Random(4242)
+        for _ in range(50):
+            rows = _matrix(rng.randint(0, 10**9))
+            ncols = len(rows[0])
+            form = _exact.hermite_normal_form_with_transform(rows, ncols)
+            for t, v in enumerate(form.image):
+                assert [_exact.dot(r, v) for r in rows] == [row[t] for row in form.hermite]
+
 
 class TestSmithInvariants:
     def test_matches_sympy(self) -> None:
@@ -169,3 +303,7 @@ class TestSmithInvariants:
         assert _exact.smith_invariants([[4, 0], [2, 2], [2, 1]], 2) == [1, 2]
         assert _exact.smith_invariants([], 3) == []
         assert _exact.smith_invariants([[0, 0]], 2) == []
+
+    def test_rejects_wrong_width(self) -> None:
+        with pytest.raises(ValidationError, match="ncols"):
+            _exact.smith_invariants([[2, 4, 3]], 2)

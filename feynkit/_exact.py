@@ -30,12 +30,10 @@ def _as_int(value: object, where: int) -> int:
         return operator.index(value)
     if isinstance(value, numbers.Rational) and value.denominator == 1:
         return int(value.numerator)
-    if (
-        isinstance(value, (float, np.floating))
-        and math.isfinite(value)
-        and float(value).is_integer()
-    ):
-        return int(value)
+    if isinstance(value, numbers.Real):
+        as_float = float(value)
+        if math.isfinite(as_float) and as_float.is_integer():
+            return int(as_float)
     raise ValidationError(f"point {where} has the non-integer coordinate {value!r}")
 
 
@@ -48,8 +46,8 @@ def integer_points(points: object) -> list[tuple[int, ...]]:
     Raises
     ------
     ValidationError
-        If a coordinate is not an integer, or the points do not all have the
-        same number of coordinates.
+        If points is not a sequence, a coordinate is not an integer, or the
+        points do not all have the same number of coordinates.
     """
     if isinstance(points, np.ndarray):
         if points.ndim == 2:
@@ -62,7 +60,12 @@ def integer_points(points: object) -> list[tuple[int, ...]]:
                 f"got shape {points.shape}"
             )
     else:
-        rows = list(cast(Iterable[Any], points))
+        try:
+            rows = list(cast(Iterable[Any], points))
+        except TypeError:
+            raise ValidationError(
+                f"points must be a sequence of coordinate sequences, got {points!r}"
+            ) from None
     out: list[tuple[int, ...]] = []
     for i, row in enumerate(rows):
         try:
@@ -79,7 +82,15 @@ def integer_points(points: object) -> list[tuple[int, ...]]:
 
 
 def mask_indices(mask: int) -> list[int]:
-    """The indices of the set bits of mask, in increasing order."""
+    """The indices of the set bits of mask, in increasing order.
+
+    Raises
+    ------
+    ValidationError
+        If mask is negative.
+    """
+    if mask < 0:
+        raise ValidationError(f"mask must be non-negative, got {mask}")
     out: list[int] = []
     while mask:
         low = mask & -mask
@@ -89,17 +100,55 @@ def mask_indices(mask: int) -> list[int]:
 
 
 def dot(u: Sequence[int], v: Sequence[int]) -> int:
-    """The dot product of two integer vectors of equal length."""
-    return sum(a * b for a, b in zip(u, v, strict=True))
+    """The dot product of two integer vectors of equal length.
+
+    Raises
+    ------
+    ValidationError
+        If u and v have different lengths.
+    """
+    try:
+        return sum(int(a) * int(b) for a, b in zip(u, v, strict=True))
+    except ValueError:
+        raise ValidationError(
+            f"dot needs vectors of equal length, got {len(u)} and {len(v)}"
+        ) from None
+
+
+def _subtract(u: Sequence[int], v: Sequence[int]) -> list[int]:
+    """u - v as Python integers, entry by entry.
+
+    Raises
+    ------
+    ValidationError
+        If u and v have different lengths.
+    """
+    try:
+        return [int(a) - int(b) for a, b in zip(u, v, strict=True)]
+    except ValueError:
+        raise ValidationError(
+            f"points have different numbers of coordinates: {len(u)} and {len(v)}"
+        ) from None
 
 
 # --- determinants and rank ---------------------------------------------------
 
 
 def determinant(matrix: Sequence[Sequence[int]]) -> int:
-    """Determinant of a square integer matrix by Bareiss elimination; 1 for 0 x 0."""
+    """Determinant of a square integer matrix by Bareiss elimination; 1 for 0 x 0.
+
+    Raises
+    ------
+    ValidationError
+        If the matrix is not square.
+    """
     a = [[int(x) for x in row] for row in matrix]
     n = len(a)
+    widths = [len(row) for row in a]
+    if any(w != n for w in widths):
+        raise ValidationError(
+            f"determinant needs a square matrix, got {n} rows with widths {widths}"
+        )
     sign, previous = 1, 1
     for k in range(n - 1):
         if a[k][k] == 0:
@@ -158,11 +207,18 @@ class AffineSpan:
         return -1 if self._base is None else len(self._rows)
 
     def add(self, point: Sequence[int]) -> bool:
-        """Add a point; return whether it lies outside the span so far."""
+        """Add a point; return whether it lies outside the span so far.
+
+        Raises
+        ------
+        ValidationError
+            If point has a different number of coordinates from the points
+            already added.
+        """
         if self._base is None:
-            self._base = tuple(point)
+            self._base = tuple(int(x) for x in point)
             return True
-        vector = [a - b for a, b in zip(point, self._base, strict=True)]
+        vector = _subtract(point, self._base)
         for pivot, row in self._rows:
             if vector[pivot]:
                 p, q = row[pivot], vector[pivot]
@@ -212,13 +268,18 @@ def hyperplane_normal(points: Sequence[Sequence[int]]) -> tuple[int, ...]:
     Raises
     ------
     ComputationError
-        If there are not d points, or they do not span a hyperplane.
+        If there are no points, not d points, or they do not span a
+        hyperplane.
+    ValidationError
+        If the points do not all have the same number of coordinates.
     """
+    if not points:
+        raise ComputationError("hyperplane_normal needs at least one point")
     d = len(points[0])
     if len(points) != d:
         raise ComputationError(f"a hyperplane in Z^{d} needs {d} points, got {len(points)}")
-    base = points[0]
-    diffs = [[a - b for a, b in zip(p, base, strict=True)] for p in points[1:]]
+    base = tuple(int(x) for x in points[0])
+    diffs = [_subtract(p, base) for p in points[1:]]
     normal = [(-1) ** j * determinant([row[:j] + row[j + 1 :] for row in diffs]) for j in range(d)]
     g = math.gcd(*normal)
     if g == 0:
@@ -272,8 +333,16 @@ def _hermite(
 
     Returns the reduced matrix, the accumulated transform (empty unless track)
     and k: columns k onwards form the Hermite normal form, the first k are zero.
+
+    Raises
+    ------
+    ValidationError
+        If a row does not have ncols entries.
     """
     a = [[int(x) for x in row] for row in rows]
+    bad = next((i for i, row in enumerate(a) if len(row) != ncols), None)
+    if bad is not None:
+        raise ValidationError(f"row {bad} has {len(a[bad])} entries, expected ncols={ncols}")
     u = [[int(i == j) for j in range(ncols)] for i in range(ncols)] if track else []
     mats: tuple[IntMatrix, ...] = (a, u) if track else (a,)
 
@@ -326,13 +395,24 @@ def hermite_normal_form(rows: Sequence[Sequence[int]], ncols: int) -> IntMatrix:
     from left to right, the pivots are positive, and the entries to the right
     of a pivot in its row lie in [0, pivot). The result equals
     sympy.matrices.normalforms.hermite_normal_form.
+
+    Raises
+    ------
+    ValidationError
+        If a row does not have ncols entries.
     """
     a, _, k = _hermite(rows, ncols, track=False)
     return [row[k:] for row in a]
 
 
 def hermite_normal_form_with_transform(rows: Sequence[Sequence[int]], ncols: int) -> HermiteForm:
-    """The Hermite normal form H with a unimodular U such that rows @ U = [0 | H]."""
+    """The Hermite normal form H with a unimodular U such that rows @ U = [0 | H].
+
+    Raises
+    ------
+    ValidationError
+        If a row does not have ncols entries.
+    """
     a, u, k = _hermite(rows, ncols, track=True)
     return HermiteForm([row[k:] for row in a], u, ncols - k)
 
@@ -387,8 +467,16 @@ def smith_invariants(rows: Sequence[Sequence[int]], ncols: int) -> list[int]:
     elimination with an entry of least absolute value as pivot. For the
     difference matrix of a point configuration their product is the index of
     the lattice L the differences span in its saturation.
+
+    Raises
+    ------
+    ValidationError
+        If a row does not have ncols entries.
     """
     a = [[int(x) for x in row] for row in rows]
+    bad = next((i for i, row in enumerate(a) if len(row) != ncols), None)
+    if bad is not None:
+        raise ValidationError(f"row {bad} has {len(a[bad])} entries, expected ncols={ncols}")
     m, n = len(a), ncols
     out: list[int] = []
     for t in range(min(m, n)):

@@ -635,7 +635,7 @@ the massless box's dimension 4.
 ### Faces, facets and convergence
 
 `polytope_data` takes the points and returns a `PolytopeData` with the face lattice, the facet
-inequalities and the normalised volume:
+inequalities and the normalised volume, all computed in integer arithmetic:
 
 ```python
 from feynkit import FeynmanIntegral, polytope_data
@@ -660,10 +660,20 @@ for facet in data.facets:
 | `faces` | Every face as (dimension, indices of its points), vertices and polytope included |
 | `f_vector` | Number of faces of each dimension, from 0 up |
 | `facets` | The facets as `Facet` inequalities; empty unless the polytope is full-dimensional |
-| `normalized_volume` | Volume in the lattice the point differences span; a unimodular simplex has 1 |
+| `normalized_volume` | Volume in the lattice the point differences span, computed exactly; a unimodular simplex has 1 |
+| `relative_facets` | The facets relative to the affine hull, for every polytope of dimension at least 1; equal to `facets` when the polytope is full-dimensional |
+| `affine_hull` | Rows $(h_0, h_1, \ldots, h_n)$ with $h_0 + h_1 x_1 + \cdots + h_n x_n = 0$ on the polytope; empty when it is full-dimensional |
+| `chart` | The `LatticeChart`: origin $o$, basis $B$ and coordinates $c_j$ with $\alpha_j = o + B c_j$ |
+| `smith_invariants`, `sublattice_index` | The non-zero Smith invariants of the difference matrix, and their product $[\mathrm{sat}(L) : L]$, for $L$ the lattice the point differences span |
 
 A `Facet` holds the primitive integer outward normal `normal` ($m$), the right-hand side `offset`
-($b$) and the indices `point_indices` of the points with $m \cdot x = b$.
+($b$) and the indices `point_indices` of the points with $m \cdot x = b$. It also records the facet
+in the lattice chart, `lattice_normal` $m'$ and `lattice_offset` $b'$, and its lattice index
+`lattice_index` $g_F = \gcd_j (b - m \cdot \alpha_j)$. `homogenised_form` is
+$(b, -m_1, \ldots, -m_n)$, and `lattice_form` is that divided by $g_F$: the facet form primitive with
+respect to the lattice $\mathbb{Z}A$ spanned by the columns $(1, \alpha_j)$ of the A-matrix, with
+non-negative integer values on the columns, zero exactly on the facet. $g_F = 1$ for every facet
+when `sublattice_index` is 1, for instance when the point differences span $\mathbb{Z}^n$.
 
 The facets give the convergence region of the Lee-Pomeransky integral (Klausen 2023,
 arXiv:2302.13184, section 3.3). For Euclidean kinematics, where every coefficient of $G$ has
@@ -683,6 +693,59 @@ print(report.representations.convergence)
 # (-D/2 + nu_1 + nu_2 + nu_3, nu_3, nu_2, D/2 - nu_1, nu_1, D/2 - nu_2, D/2 - nu_3,
 #  D - nu_1 - nu_2 - nu_3): each needs a positive real part
 ```
+
+### Exact faces, relative facets and lattice forms
+
+Every face, facet and volume is computed in integer arithmetic. The facets come from an integer
+beneath-beyond construction, and the list is certified complete, from the face lattice it
+generates, before anything is derived from it. On this default path a failed certificate would be
+a bug, and it raises `ComputationError` rather than returning a wrong face lattice. The `backend`
+keyword of `polytope_data`, and of `faces` and `normalized_volume` in `feynkit.polytope`, chooses
+where facet candidates come from: `"python"` (beneath-beyond, the reference, which the default
+`"auto"` uses), `"qhull"` (scipy's Qhull, which can be faster for configurations with hundreds of
+facets) or `"normaliz"` (PyNormaliz, if installed with `pip install PyNormaliz`; requesting it
+otherwise raises `ComputationError`). Every candidate is verified exactly and the certificate
+applies to every backend. When Qhull or Normaliz fails, or its list fails the certificate,
+beneath-beyond takes over, so all backends return the same `PolytopeData`.
+
+A lower-dimensional polytope is handled in its lattice chart $x = o + Bc$, in which its points
+generate $\mathbb{Z}^d$ affinely. Its facets relative to the affine hull are lifted to primitive
+ambient inequalities, which together with the affine-hull equations cut out the polytope. A lifted
+inequality is unique only up to adding integer multiples of those equations, and feynkit picks
+one:
+
+```python
+from feynkit.polytope import polytope_data
+
+# Four points on the plane x + y + z = 1: a parallelogram of dimension 2 in R^3.
+data = polytope_data([(1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, -1)])
+print(data.dimension, data.is_full_dimensional)  # 2 False
+print(data.facets)                               # (): not full-dimensional
+print(data.affine_hull)                          # ((-1, 1, 1, 1),): x + y + z = 1
+for facet in data.relative_facets:
+    print(facet.normal, facet.offset, facet.point_indices)
+# (0, -1, 0) 0 (0, 2)
+# (1, 0, 0) 1 (0, 3)
+# (-1, 0, 0) 0 (1, 2)
+# (0, 1, 0) 1 (1, 3)
+print(data.chart.coordinates)                    # ((0, 1), (1, 1), (0, 2), (1, 0))
+print(data.normalized_volume)                    # 2
+
+# (0, 0), (2, 0), (0, 1) span a sublattice of index 2 in Z^2.
+triangle = polytope_data([(0, 0), (2, 0), (0, 1)])
+print(triangle.sublattice_index)                 # 2
+for facet in triangle.facets:
+    print(facet.normal, facet.offset, facet.lattice_index, facet.lattice_form)
+# (0, -1) 0 1 (Fraction(0, 1), Fraction(0, 1), Fraction(1, 1))
+# (-1, 0) 0 2 (Fraction(0, 1), Fraction(1, 2), Fraction(0, 1))
+# (1, 2) 2 2 (Fraction(1, 1), Fraction(-1, 2), Fraction(-1, 1))
+```
+
+The lattice index differs per facet: $y \ge 0$ has $g_F = 1$, while $x \ge 0$ and $x + 2y \le 2$ have
+$g_F = 2$. A Smith invariant above 1 is necessary for this but not sufficient: the facets of
+$(0,0), (4,0), (2,2), (2,1)$ all have $g_F = 1$ although the differences of those points span a
+sublattice of index 2. The convergence inequalities above are unchanged by positive scaling and
+keep using $(m, b)$.
 
 ---
 
@@ -1017,7 +1080,7 @@ cfg = AConfiguration(A, is_homogenized=True)
 | `cfg.ambient_dim` | Ambient dimension (number of rows of A) |
 | `cfg.affine_dim` | Dimension of the affine span of the Newton polytope |
 | `cfg.smith_invariants` | Diagonal of the Smith normal form |
-| `cfg.normalized_volume` | Normalised volume of the Newton polytope (= holonomic rank) |
+| `cfg.normalized_volume` | Normalised volume of the Newton polytope in the lattice the point differences span, computed exactly; for a full-dimensional configuration, the holonomic rank for generic $\beta$; raises `ValidationError` on an empty configuration |
 | `cfg.newton_polytope_points` | Hull vertex coordinates |
 | `cfg.intrinsic_model()` | `IntrinsicModel`, the configuration in a minimal lattice basis |
 

@@ -364,23 +364,38 @@ included; `polytope_data(points).vertex_indices` picks out the hull vertices.
 
 ### 5.3 Normalised Volume
 
-The **normalised (lattice) volume** that feynkit computes for a full-dimensional polytope
-$P = \operatorname{Conv}(\mathcal{A}) \subset \mathbb{R}^n$ is measured in the lattice $L$ spanned by
-the differences of the points of $\mathcal{A}$:
+The **normalised (lattice) volume** of $P = \operatorname{Conv}(\mathcal{A}) \subset \mathbb{R}^n$, of
+affine dimension $d$, is measured in the lattice $L$ spanned by the differences $\alpha_j - \alpha_1$:
+a $d$-simplex whose edge vectors form a basis of $L$ has volume 1. For full-dimensional $P$
 
 $$\mathrm{vol}_0(P) \;=\; \frac{n!\,\mathrm{Vol}(P)}{[\mathbb{Z}^n : L]},$$
 
-where $\mathrm{Vol}$ is ordinary Euclidean volume and the index $[\mathbb{Z}^n : L]$ is the product of
-the Smith invariants (section 5.4).  When the points span $\mathbb{Z}^n$ the index is 1 and
-$\mathrm{vol}_0(P) = n!\,\mathrm{Vol}(P)$; for a lattice simplex with vertices $v_0,\ldots,v_n$ this is
-$|\det(v_1-v_0, \ldots, v_n-v_0)|$.  In general $\mathrm{vol}_0$ is the sum of $\mathrm{vol}_0$ over any
-triangulation into simplices that are unimodular in $L$, each of normalised volume 1.
+where $\mathrm{Vol}$ is Euclidean volume and the index $[\mathbb{Z}^n : L]$ is the product of the Smith
+invariants (section 5.4).
 
-$\mathrm{vol}_0(\Delta_G)$ equals the GKZ holonomic rank for generic $\beta$.  For example, the BMS
+feynkit computes it exactly from a pulling triangulation of the certified face lattice
+(section 5.5). The vertices are ordered lexicographically by their coordinates, and $v(Q)$ is the
+least vertex of a face $Q$. A vertex is its own triangulation; for $\dim Q \ge 1$ the simplices of
+$Q$ are $v(Q)$ joined to each simplex of each facet of $Q$ that does not contain $v(Q)$. This
+triangulates $Q$ by vertices of $Q$, with at most $\mathrm{vol}_0(P)$ simplices for $P$, and
+
+$$\mathrm{vol}_0(P) \;=\; \frac{1}{[\mathbb{Z}^n : L]} \sum_\sigma
+\bigl|\det(\sigma_1 - \sigma_0, \ldots, \sigma_n - \sigma_0)\bigr|.$$
+
+Each $|\det|$ is a positive multiple of the index, since the edges of $\sigma$ lie in $L$; a
+remainder or a zero determinant raises `ComputationError`. A lower-dimensional $P$ is written in
+its lattice chart $x = o + Bc$, whose basis $B$ is the Hermite normal form basis of $L$ and in which
+the points generate $\mathbb{Z}^d$ affinely; there the determinants are $d \times d$ and nothing is
+divided. A point has volume 1, and every non-empty configuration has positive volume.
+
+When $\Delta_G$ is full-dimensional, $\mathrm{vol}_0(\Delta_G)$ equals the GKZ holonomic rank for
+generic $\beta$ (section 4.5). Below full dimension the rows of the homogenised $A$ are linearly
+dependent, and for generic $\beta$ the system has no non-zero solutions.  For example, the BMS
 simplex of section 11.2 has $n!\,\mathrm{Vol} = 2^n$ and index 2, so $\mathrm{vol}_0 = 2^{n-1}$
 (`polytope_data` gives 4, 8 and 16 for $n = 3, 4, 5$).
 
-Accessed as `polytope_data(points).normalized_volume` or `AConfiguration.normalized_volume`.
+Accessed as `polytope_data(points).normalized_volume` or `normalized_volume(points)`, both in
+`feynkit.polytope`, or as `AConfiguration.normalized_volume`.
 
 ### 5.4 Smith Normal Form and Intrinsic Lattice Model
 
@@ -403,6 +418,54 @@ This embeds the configuration canonically in $\mathbb{Z}^r$, stripping away the 
 embedding.
 
 Accessed via `AConfiguration.smith_invariants`, `AConfiguration.intrinsic_model`.
+
+### 5.5 Certified Facets and Lattice-Primitive Forms
+
+**Facets.** A candidate facet is accepted when $d$ affinely independent points proposed for it
+give, through the signed maximal minors of their differences, a primitive normal $m$ and offset $b$
+such that, after a choice of sign, $m \cdot \alpha_j \le b$ for every $j$; its tight set
+$\{j : m \cdot \alpha_j = b\}$ then spans a hyperplane of $\operatorname{aff}(P)$. The candidates
+come from an integer beneath-beyond construction, or on request from Qhull or Normaliz; a Qhull or
+Normaliz list that fails the certificate below is replaced by beneath-beyond.
+
+**Certificate.** Let $\mathcal{C}$ be the accepted candidates, $\mathcal{L}$ the non-empty
+intersections of their tight sets together with $P$, and for $Q \in \mathcal{L}$ of dimension
+$k \ge 1$ let $\Phi(Q) = \{Q \cap F : F \in \mathcal{C},\ \dim(Q \cap F) = k - 1\}$. The list is
+accepted if and only if
+
+- (C1) $\Phi(Q)$ has exactly two members for every $Q$ of dimension 1;
+- (C2) $\Phi(Q)$ is non-empty for every $Q$ of dimension at least 2;
+- (C3) for every $Q$ of dimension at least 2, every $F \in \Phi(Q)$ and every $R \in \Phi(F)$,
+  exactly two members of $\Phi(Q)$ contain $R$.
+
+By induction on dimension, $\Phi(Q)$ is then the set of all facets of $Q$: it is a non-empty set of
+facets closed under crossing ridges, and the facet-ridge graph of a polytope is connected. At
+$Q = P$ the list is complete. A complete list always passes, since the face lattice of a polytope is
+graded and has the diamond property. Neither the condition that every $(d-2)$-dimensional
+intersection of two candidates lies in exactly two candidates nor the Euler-Poincaré relation is a
+certificate: the square pyramid without one triangular facet satisfies both, its remaining facets
+meeting in faces with f-vector $(3, 5, 4, 1)$.
+
+**Lattice-primitive forms.** For a facet $m \cdot x \le b$ of a full-dimensional $P$, the homogenised
+form $l(y_0, y) = b\,y_0 - m \cdot y$ is non-negative on the columns $a_j = (1, \alpha_j)$ of $A$ and
+vanishes exactly on the facet. The forms that vanish on the facet's columns and are integral on
+$\mathbb{Z}A$ are the integer multiples of $l_F = l / g_F$, where $g_F = \gcd_j l(a_j)$ is the lattice
+index of the facet. The Smith invariants of $A$ are 1 followed by those of the difference matrix,
+so $g_F = 1$ for every facet when $L = \mathbb{Z}^n$; an invariant above 1 is necessary
+for $g_F > 1$ but not sufficient. For $(0,0), (2,0), (0,1)$ the facets $y \ge 0$, $x \ge 0$ and
+$x + 2y \le 2$ have $g_F = 1, 2, 2$; for $(0,0), (4,0), (2,2), (2,1)$ all three facets have $g_F = 1$
+although $L = 2\mathbb{Z} \times \mathbb{Z}$ has index 2.
+
+**Lower-dimensional polytopes.** The facets $m' \cdot c \le b'$ are computed in the lattice chart and
+lifted: with $t$ the least positive integer such that $t\,m' = B^T \mu$ for an integer $\mu$, the
+inequality $\mu \cdot x \le \mu \cdot o + t\,b'$ holds on $P$ with equality exactly on the facet,
+$\mu$ is primitive and unique modulo the forms vanishing on $L$, and $t = g_F$. feynkit fixes $\mu$
+by reducing it modulo those forms. The affine-hull equations are $-e \cdot \alpha_1 + e \cdot x = 0$
+for $e$ in a basis, in Hermite normal form, of the integer forms vanishing on $L$. Together with
+them the lifted inequalities cut out $P$.
+
+Accessed as `Facet.lattice_index`, `Facet.lattice_form`, `PolytopeData.relative_facets`,
+`PolytopeData.affine_hull` and `PolytopeData.chart`.
 
 ---
 
@@ -443,9 +506,10 @@ feynkit chooses automatically between the two backends (`backend="auto"` in
 Each generator $z^u - z^v \in I_A$ gives the toric operator $\partial^u - \partial^v$ of section 4.3,
 which annihilates the integral.  For the integral $I_A(\beta, z)$ without Gamma prefactors (defined in
 section 8.2), $\partial_j I_A(\beta, z) = \beta_0\, I_A(\beta - a_j, z)$, with
-$a_j$ the $j$-th column of $A$, so a toric operator relates integrals with shifted propagator exponents
-and dimension.  These relations are an analogue of integration-by-parts (IBP) relations, not IBP relations
-themselves (Chestnov et al.\ 2022).  They hold for independent coefficients $z_j$;
+$a_j$ the $j$-th column of $A$.  Since $Au = Av$, $\partial^u I_A$ and $\partial^v I_A$ are the same
+shifted integral, so a toric operator is a differential equation in $z$, not a reduction between
+different integrals.  These relations are an analogue of integration-by-parts (IBP) relations, not
+IBP relations themselves (Chestnov et al.\ 2022).  They hold for independent coefficients $z_j$;
 specialising to physical kinematics is a separate step, which feynkit does not perform.
 
 The lattice $\ker_{\mathbb{Z}} A$ has rank $N - \operatorname{rank}(A)$, the codimension of the toric

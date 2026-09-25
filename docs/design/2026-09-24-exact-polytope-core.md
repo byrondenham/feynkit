@@ -268,8 +268,8 @@ the full-dimensional code. They are mapped back as follows.
 - Affine hull. The integer forms on $\mathbb{Z}^n$ that vanish on $L$ form a saturated lattice of
   rank $n - d$. For a basis $E$ of it, the rows $h = (-E_i \cdot \alpha_1, E_i)$ are forms on
   homogenised coordinates with $h(1, x) = 0$ on $\mathrm{aff}(P)$, in the same constant-first
-  order as the homogenised facet form. $E$ comes from the Hermite normal form of the difference
-  matrix with its transform.
+  order as the homogenised facet form. $E$ comes from the Hermite normal form of $B^T$ with its
+  transform, and is itself put into Hermite normal form.
 - Facet forms. An ambient form $\mu$ restricts to $B^T \mu$ on the chart. The image of
   $\mathbb{Z}^n \to \mathbb{Z}^d$, $\mu \mapsto B^T \mu$, has index $[\mathrm{sat}(L) : L]$, the
   sublattice index, so $m'$ need not lift to an integer form. Take the least $t \ge 1$ with
@@ -293,11 +293,12 @@ the full-dimensional code. They are mapped back as follows.
 
 - `"python"`: beneath-beyond, the reference path. Always available.
 - `"qhull"`: Qhull candidates, verified and certified, with beneath-beyond as the fallback.
-- `"normaliz"`: support hyperplanes from PyNormaliz, given the lattice coordinates so that its
-  lattice and ours coincide. Raises `ComputationError` if `_pynormaliz_available()` is false.
-  Falls back to `"python"` if the import fails nonetheless or the certificate fails. The face
-  lattice, certificate and volume are the shared code, so the volume never depends on Normaliz's
-  normalisation.
+- `"normaliz"`: support hyperplanes from PyNormaliz, given the coordinates the hull code works in
+  (ambient for a full-dimensional $P$, the lattice chart otherwise); only the points on each
+  hyperplane are used. Raises `ComputationError` if `_pynormaliz_available()` is false.
+  Falls back to `"python"` if the import or any call into PyNormaliz fails, or the certificate
+  fails. The face lattice, certificate and volume are the shared code, so the volume never
+  depends on Normaliz's normalisation.
 - `"auto"` (default): `"python"`. It will prefer `"normaliz"` only once Normaliz has been timed
   against the pure-Python path.
 - Anything else raises `ComputationError`, as in `compute_toric_ideal_generators`.
@@ -366,7 +367,7 @@ New fields on `PolytopeData`, after the existing ones:
 | `relative_facets` | Facets relative to the affine hull, for every $P$ of dimension at least 1; equal to `facets` when $P$ is full-dimensional |
 | `affine_hull` | Rows $(h_0, h_1, \ldots, h_n)$ with $h_0 + h_1 x_1 + \cdots + h_n x_n = 0$ on $P$; empty when full-dimensional |
 | `chart` | The `LatticeChart` |
-| `smith_invariants` | Non-trivial Smith invariants of the difference matrix |
+| `smith_invariants` | All non-zero Smith invariants of the difference matrix, computed from $B^T$, whose rows span the same lattice |
 
 and a property `sublattice_index`, the product of `smith_invariants`, which is
 $[\mathrm{sat}(L) : L]$. `facets` keeps its meaning, empty unless $P$ is full-dimensional, so the
@@ -461,9 +462,11 @@ each. The Landau analysis keeps the same faces, so its cost is still set by the 
 
 ## Migration of callers
 
-- `landau.py`: no change. `_faces(exps)` keeps its signature and output order, so the order of
-  `face_discriminants` and the report's grouping by dimension are unchanged. A certificate failure
-  raises instead of silently misassigning points.
+- `landau.py`: no change. `_faces(exps)` keeps its signature and, for Feynman polytopes, its
+  output order, so the order of `face_discriminants` and the report's grouping by dimension are
+  unchanged there. For a polynomial whose Newton polytope is a segment the two vertex faces are
+  now sorted by index and can come out in the other order. A certificate failure raises instead
+  of silently misassigning points.
 - `io/report.py`: no change. `polytope_data` is called as now; `_representations` still gates the
   convergence inequalities on `is_full_dimensional` and uses `normal` and `offset`.
   `_affine_dimension` can switch to the shared exact rank.
@@ -472,7 +475,8 @@ each. The Landau analysis keeps the same faces, so its cost is still set by the 
   `_compute_smith_invariants` moves to `_exact.py`. The docstring of `normalized_volume` describes
   the triangulation, the lattice it measures in and the exceptions, in place of the Euclidean
   formula. `polytope.py` stops importing `AConfiguration`, which removes the import cycle. The two
-  uses in `cli.py` now see an exception where they saw 0.
+  uses in `cli.py` now see the exact volume where they saw 0, and an exception only if a
+  consistency check fails.
 - `polytope.py`: `_facet`, `_normalized_volume` and `_affine_rank` are removed. The module
   docstring describes the certificate, the relative facets and the lattice forms, and no longer
   says that lower-dimensional polytopes have no facet description.

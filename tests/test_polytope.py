@@ -5,6 +5,7 @@ import random
 import sys
 import types
 from fractions import Fraction
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -674,3 +675,26 @@ class TestLowerDimensional:
         )
         assert max(abs(x) for row in data.affine_hull for x in row) <= 3
         assert_lattice_forms(data)
+
+
+def test_guide_example_prints_what_the_guide_says(capsys: pytest.CaptureFixture[str]) -> None:
+    guide = (Path(__file__).resolve().parents[1] / "docs" / "guide.md").read_text(encoding="utf-8")
+    heading = "### Exact faces, relative facets and lattice forms"
+    assert heading in guide
+    code = guide.split(heading, 1)[1].split("```python\n", 1)[1].split("```", 1)[0]
+    exec(compile(code, "docs/guide.md", "exec"), {})
+    assert capsys.readouterr().out.splitlines() == [
+        "2 False",
+        "()",
+        "((-1, 1, 1, 1),)",
+        "(0, -1, 0) 0 (0, 2)",
+        "(1, 0, 0) 1 (0, 3)",
+        "(-1, 0, 0) 0 (1, 2)",
+        "(0, 1, 0) 1 (1, 3)",
+        "((0, 1), (1, 1), (0, 2), (1, 0))",
+        "2",
+        "2",
+        "(0, -1) 0 1 (Fraction(0, 1), Fraction(0, 1), Fraction(1, 1))",
+        "(-1, 0) 0 2 (Fraction(0, 1), Fraction(1, 2), Fraction(0, 1))",
+        "(1, 2) 2 2 (Fraction(1, 1), Fraction(-1, 2), Fraction(-1, 1))",
+    ]

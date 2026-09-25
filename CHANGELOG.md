@@ -10,7 +10,10 @@
   legs the variables are s, t and p_1^2 ... p_4^2. For two legs the single
   invariant is s = p^2 with p_1 . p_2 = -s, so the massive bubble's threshold
   sits at s = (m_1 + m_2)^2 as in the literature. Previously s_ij meant
-  2 p_i . p_j and the bubble threshold sat at s = -2 (m_1 + m_2)^2.
+  2 p_i . p_j and the bubble threshold sat at s = -2 (m_1 + m_2)^2. A graph
+  with fewer than two external legs, such as the tadpole `0|:n`, now raises
+  `ValueError` with `use_mandelstam=True`, the default; build it with
+  `use_mandelstam=False`, as `fk` does.
 - `feynkit.landau` now computes the reduced principal A-determinant over all
   faces of the Newton polytope, not only its edges, and the edge computation
   used a wrong exponent (the dot product with the direction instead of the

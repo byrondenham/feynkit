@@ -70,6 +70,13 @@ class TestIntegerPoints:
         with pytest.raises(ValidationError, match="sequence"):
             _exact.integer_points(5)  # type: ignore[arg-type]
 
+    def test_rationals_beyond_float_range(self) -> None:
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.integer_points([(Fraction(10**400, 3),)])
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.integer_points([(sp.Rational(10**400, 3),)])
+        assert _exact.integer_points([(Fraction(3 * 10**400, 3),)]) == [(10**400,)]
+
     def test_mask_indices(self) -> None:
         assert _exact.mask_indices(0) == []
         assert _exact.mask_indices(0b101001) == [0, 3, 5]
@@ -418,6 +425,10 @@ class TestBeneathBeyond:
         with pytest.raises(ComputationError, match="at least 2"):
             _exact.beneath_beyond([(0,), (1,)])
 
+    def test_needs_at_least_one_point(self) -> None:
+        with pytest.raises(ComputationError, match="at least one point"):
+            _exact.beneath_beyond([])
+
     def test_matches_qhull_on_random_configurations(self) -> None:
         rng = random.Random(11)
         checked = 0
@@ -441,3 +452,109 @@ class TestBeneathBeyond:
             assert {frozenset(_exact.mask_indices(h.mask)) for h in halfspaces} == expected
             checked += 1
         assert checked >= 140
+
+
+CUBE = [(x, y, z) for x in (0, 1) for y in (0, 1) for z in (0, 1)]
+CUBE_FACETS = [
+    ((-1, 0, 0), 0),
+    ((1, 0, 0), 1),
+    ((0, -1, 0), 0),
+    ((0, 1, 0), 1),
+    ((0, 0, -1), 0),
+    ((0, 0, 1), 1),
+]
+PYRAMID = [(0, 0, 0), (2, 0, 0), (2, 2, 0), (0, 2, 0), (1, 1, 1)]
+PYRAMID_FACETS = [((0, 0, -1), 0), ((0, -1, 1), 0), ((1, 0, 1), 2), ((0, 1, 1), 2), ((-1, 0, 1), 0)]
+OCTAHEDRON = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
+OCTAHEDRON_FACETS = [((a, b, c), 1) for a in (1, -1) for b in (1, -1) for c in (1, -1)]
+
+
+def _masks(points: list[tuple[int, ...]], forms: list[tuple[tuple[int, ...], int]]) -> list[int]:
+    """Tight-set masks of valid inequalities, checked valid on the points."""
+    masks = []
+    for normal, offset in forms:
+        assert all(_exact.dot(normal, p) <= offset for p in points)
+        masks.append(sum(1 << j for j, p in enumerate(points) if _exact.dot(normal, p) == offset))
+    return masks
+
+
+def _f_vector(dims: dict[int, int]) -> list[int]:
+    counts = [0] * (max(dims.values()) + 1)
+    for k in dims.values():
+        counts[k] += 1
+    return counts
+
+
+class TestFaceDimensions:
+    def test_cube(self) -> None:
+        dims = _exact.face_dimensions(CUBE, _masks(CUBE, CUBE_FACETS), 3)
+        assert _f_vector(dims) == [8, 12, 6, 1]
+
+    def test_incomplete_pyramid_satisfies_euler_poincare(self) -> None:
+        dims = _exact.face_dimensions(PYRAMID, _masks(PYRAMID, PYRAMID_FACETS[:-1]), 3)
+        f = _f_vector(dims)
+        assert f == [3, 5, 4, 1]
+        assert sum((-1) ** k * c for k, c in enumerate(f)) == 1
+
+
+class TestCertificate:
+    def test_complete_lists_pass(self) -> None:
+        cases = [(CUBE, CUBE_FACETS), (PYRAMID, PYRAMID_FACETS), (OCTAHEDRON, OCTAHEDRON_FACETS)]
+        for points, forms in cases:
+            masks = _masks(points, forms)
+            lattice = _exact.certified_lattice(points, masks, 3)
+            assert set(lattice.phi[lattice.top]) == set(masks)
+
+    def test_two_edges_of_a_triangle_fail_c1(self) -> None:
+        tri = [(0, 0), (1, 0), (0, 1)]
+        with pytest.raises(_exact.CertificateError, match=r"\(C1\)"):
+            _exact.certified_lattice(tri, _masks(tri, [((0, -1), 0), ((-1, 0), 0)]), 2)
+
+    def test_cube_missing_one_facet_fails_c1(self) -> None:
+        with pytest.raises(_exact.CertificateError, match=r"\(C1\)"):
+            _exact.certified_lattice(CUBE, _masks(CUBE, CUBE_FACETS[:1] + CUBE_FACETS[2:]), 3)
+
+    def test_cube_missing_four_facets_fails_c2(self) -> None:
+        with pytest.raises(_exact.CertificateError, match=r"\(C2\)"):
+            _exact.certified_lattice(CUBE, _masks(CUBE, CUBE_FACETS[:2]), 3)
+
+    def test_pyramid_missing_a_triangle_fails_although_euler_poincare_holds(self) -> None:
+        with pytest.raises(_exact.CertificateError, match=r"\(C1\)"):
+            _exact.certified_lattice(PYRAMID, _masks(PYRAMID, PYRAMID_FACETS[:-1]), 3)
+
+    def test_octahedron_missing_one_facet_fails_only_c3(self) -> None:
+        with pytest.raises(_exact.CertificateError, match=r"\(C3\)"):
+            _exact.certified_lattice(OCTAHEDRON, _masks(OCTAHEDRON, OCTAHEDRON_FACETS[1:]), 3)
+
+    def test_certificate_error_is_a_computation_error(self) -> None:
+        assert issubclass(_exact.CertificateError, ComputationError)
+
+
+class TestPullingSimplices:
+    def test_square_splits_into_two_triangles(self) -> None:
+        square = [(0, 0), (1, 0), (0, 1), (1, 1)]
+        masks = _masks(square, [((0, -1), 0), ((-1, 0), 0), ((1, 0), 1), ((0, 1), 1)])
+        lattice = _exact.certified_lattice(square, masks, 2)
+        simplices = _exact.pulling_simplices(lattice, square)
+        assert sorted(simplices) == [(0, 1, 3), (0, 2, 3)]
+        assert _exact.simplex_volume(square, simplices, 1) == 2
+
+    def test_simplices_do_not_depend_on_the_input_order(self) -> None:
+        def simplices_of(points: list[tuple[int, ...]]) -> set[frozenset[tuple[int, ...]]]:
+            lattice = _exact.certified_lattice(points, _masks(points, OCTAHEDRON_FACETS), 3)
+            return {
+                frozenset(points[i] for i in s) for s in _exact.pulling_simplices(lattice, points)
+            }
+
+        assert simplices_of(OCTAHEDRON) == simplices_of(OCTAHEDRON[::-1])
+        lattice = _exact.certified_lattice(OCTAHEDRON, _masks(OCTAHEDRON, OCTAHEDRON_FACETS), 3)
+        simplices = _exact.pulling_simplices(lattice, OCTAHEDRON)
+        assert _exact.simplex_volume(OCTAHEDRON, simplices, 1) == 8
+
+    def test_volume_checks_the_sublattice_index(self) -> None:
+        tri = [(0, 0), (2, 0), (0, 1)]
+        masks = _masks(tri, [((0, -1), 0), ((-1, 0), 0), ((1, 2), 2)])
+        simplices = _exact.pulling_simplices(_exact.certified_lattice(tri, masks, 2), tri)
+        assert _exact.simplex_volume(tri, simplices, 2) == 1
+        with pytest.raises(ComputationError, match="sublattice index 4"):
+            _exact.simplex_volume(tri, simplices, 4)

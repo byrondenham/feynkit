@@ -37,9 +37,10 @@ def _as_int(value: object, where: str) -> int:
         return value
     if isinstance(value, SupportsIndex):
         return operator.index(value)
-    if isinstance(value, numbers.Rational) and value.denominator == 1:
-        return int(value.numerator)
-    if isinstance(value, numbers.Real):
+    if isinstance(value, numbers.Rational):
+        if value.denominator == 1:
+            return int(value.numerator)
+    elif isinstance(value, numbers.Real):
         as_float = float(value)
         if math.isfinite(as_float) and as_float.is_integer():
             return int(as_float)
@@ -613,9 +614,11 @@ def beneath_beyond(points: Sequence[Sequence[int]]) -> list[Halfspace]:
     Raises
     ------
     ComputationError
-        If d < 2 or the points are not full-dimensional, or if a new facet
-        fails verification, which would be a bug.
+        If there are no points, d < 2 or the points are not full-dimensional,
+        or if a new facet fails verification, which would be a bug.
     """
+    if not points:
+        raise ComputationError("beneath-beyond needs at least one point")
     d = len(points[0])
     if d < 2:
         raise ComputationError(f"beneath-beyond needs dimension at least 2, got {d}")
@@ -672,3 +675,182 @@ def beneath_beyond(points: Sequence[Sequence[int]]) -> list[Halfspace]:
                     kept.append(new)
         facets = kept
     return facets
+
+
+# --- face lattice and certificate --------------------------------------------
+
+
+class CertificateError(ComputationError):
+    """A facet list failed the completeness certificate (C1)-(C3)."""
+
+
+class FaceLattice(NamedTuple):
+    """A certified face lattice.
+
+    top is the mask of all points; dims maps every face, as a mask, to its
+    dimension; phi maps every face of dimension at least 1 to its facets.
+    """
+
+    top: int
+    dims: dict[int, int]
+    phi: dict[int, tuple[int, ...]]
+
+
+def face_dimensions(
+    points: Sequence[Sequence[int]], facet_masks: Iterable[int], dimension: int
+) -> dict[int, int]:
+    """Every non-empty intersection of the facets' tight sets, and P itself, with its exact dimension.
+
+    Every face is an intersection of facets, so the lattice is closed by
+    intersecting the frontier with the facets only. A new face c = a & f with
+    c != a is a proper face of a, so its dimension is below that of a, and the
+    rank computation stops once it reaches that bound.
+    """
+    facets = sorted(set(facet_masks))
+    dims = {(1 << len(points)) - 1: dimension}
+    for f in facets:
+        dims[f] = affine_rank([points[j] for j in mask_indices(f)], bound=dimension - 1)
+    frontier = facets
+    while frontier:
+        bounds: dict[int, int] = {}
+        for a in frontier:
+            for f in facets:
+                c = a & f
+                if c and c not in dims:
+                    bounds[c] = min(bounds.get(c, dims[a] - 1), dims[a] - 1)
+        for c, bound in bounds.items():
+            dims[c] = affine_rank([points[j] for j in mask_indices(c)], bound=bound)
+        frontier = list(bounds)
+    return dims
+
+
+def certify(dims: dict[int, int], facet_masks: Iterable[int]) -> dict[int, tuple[int, ...]]:
+    """Check the certificate and return phi, the facets of every face of dimension at least 1.
+
+    phi(Q) = {Q & F : F a candidate facet, dim(Q & F) = dim Q - 1}. The list
+    is accepted if and only if (C1) every edge has exactly two members of
+    phi, (C2) every face of dimension at least 2 has one, and (C3) for every
+    such Q, every F in phi(Q) and every R in phi(F), exactly two members of
+    phi(Q) contain R. Then, by induction on dimension, phi(Q) holds every
+    facet of Q, since the facet-ridge graph of a polytope is connected.
+
+    Raises
+    ------
+    CertificateError
+        Naming the condition that fails and the faces involved.
+    """
+    facets = sorted(set(facet_masks))
+    phi: dict[int, tuple[int, ...]] = {}
+    for q, k in dims.items():
+        if k >= 1:
+            phi[q] = tuple(sorted({q & f for f in facets if q & f and dims[q & f] == k - 1}))
+    order = sorted(phi, key=lambda q: (dims[q], mask_indices(q)))
+
+    def on(mask: int) -> tuple[int, ...]:
+        return tuple(mask_indices(mask))
+
+    for q in order:
+        if dims[q] == 1 and len(phi[q]) != 2:
+            raise CertificateError(
+                "completeness certificate condition (C1) fails: the edge on points "
+                f"{on(q)} has {len(phi[q])} vertices among the candidate faces, not 2"
+            )
+    for q in order:
+        if dims[q] >= 2 and not phi[q]:
+            raise CertificateError(
+                f"completeness certificate condition (C2) fails: the {dims[q]}-dimensional "
+                f"face on points {on(q)} has no facet among the candidate faces"
+            )
+    for q in order:
+        if dims[q] < 2:
+            continue
+        for f in phi[q]:
+            for r in phi[f]:
+                count = sum(1 for g in phi[q] if r & g == r)
+                if count != 2:
+                    raise CertificateError(
+                        "completeness certificate condition (C3) fails: in the "
+                        f"{dims[q]}-dimensional face on points {on(q)}, the face on points "
+                        f"{on(r)} of its facet on points {on(f)} lies in {count} of its "
+                        "facets, not 2"
+                    )
+    return phi
+
+
+def certified_lattice(
+    points: Sequence[Sequence[int]], facet_masks: Iterable[int], dimension: int
+) -> FaceLattice:
+    """The face lattice generated by verified facets, certified complete.
+
+    Raises
+    ------
+    CertificateError
+        If the facet list fails (C1), (C2) or (C3).
+    """
+    masks = list(facet_masks)
+    dims = face_dimensions(points, masks, dimension)
+    return FaceLattice((1 << len(points)) - 1, dims, certify(dims, masks))
+
+
+# --- pulling triangulation ---------------------------------------------------
+
+
+def pulling_simplices(
+    lattice: FaceLattice, points: Sequence[Sequence[int]]
+) -> list[tuple[int, ...]]:
+    """The simplices of the pulling triangulation of the top face, as point indices.
+
+    Vertices are ordered lexicographically by the coordinates in points, so
+    the triangulation does not depend on the input order. A vertex is its own
+    simplex. A face Q of dimension at least 1 is triangulated by joining its
+    least vertex v(Q) to each simplex of each facet of Q not containing v(Q).
+    A vertex holding several repeated points is represented by the least of
+    their indices. Simplices are memoised per face.
+    """
+
+    def lowest(mask: int) -> int:
+        return (mask & -mask).bit_length() - 1
+
+    vertices = sorted(
+        (v for v, k in lattice.dims.items() if k == 0), key=lambda v: tuple(points[lowest(v)])
+    )
+    memo: dict[int, list[tuple[int, ...]]] = {}
+
+    def simplices(q: int) -> list[tuple[int, ...]]:
+        if q not in memo:
+            v = next(w for w in vertices if w & q)
+            apex = lowest(v)
+            if lattice.dims[q] == 0:
+                memo[q] = [(apex,)]
+            else:
+                memo[q] = [(apex, *s) for f in lattice.phi[q] if not f & v for s in simplices(f)]
+        return memo[q]
+
+    return simplices(lattice.top)
+
+
+def simplex_volume(
+    coordinates: Sequence[Sequence[int]], simplices: Iterable[tuple[int, ...]], index: int
+) -> int:
+    """The sum of |det(s_1 - s_0, ..., s_d - s_0)| over the simplices, divided by index.
+
+    Raises
+    ------
+    ComputationError
+        If a determinant is zero or not a multiple of index, which would be a bug.
+    """
+    total = 0
+    for simplex in simplices:
+        base = coordinates[simplex[0]]
+        det = abs(
+            determinant(
+                [[a - b for a, b in zip(coordinates[i], base, strict=True)] for i in simplex[1:]]
+            )
+        )
+        if det == 0 or det % index:
+            raise ComputationError(
+                f"the simplex on points {simplex} has determinant {det}, not a positive "
+                f"multiple of the sublattice index {index}"
+            )
+        total += det
+    return total // index

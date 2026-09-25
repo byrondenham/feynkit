@@ -388,14 +388,26 @@ class TestSymmetries:
         assert report.polytope is not None
         assert report.polytope.data.dimension == 1
         assert report.symmetries is None
-        assert report.symmetries_omitted
+        assert report.symmetries_omitted == "dimension below 2"
+        assert "Polytope automorphisms" not in dict(report.summary())
+
+    def test_omitted_below_full_dimension(self) -> None:
+        """The automorphism computation would find only the identity for this P in R^4."""
+        # G is u_1 times the G of the massive triangle, so P has dimension 3,
+        # and every permutation of u_2, u_3 and u_4 preserves its monomials.
+        fi = FeynmanIntegral.from_cnickel("012e|2e|e|:znnn")
+        report = AnalysisReport.from_integral(fi, ["polytope", "symmetries"])
+        assert report.polytope is not None
+        assert (report.polytope.data.dimension, report.polytope.data.ambient_dimension) == (3, 4)
+        assert report.symmetries is None
+        assert report.symmetries_omitted == "not full-dimensional"
         assert "Polytope automorphisms" not in dict(report.summary())
 
     def test_not_omitted_when_computed_or_not_asked_for(
         self, triangle_report: AnalysisReport, triangle: FeynmanIntegral
     ) -> None:
-        assert not triangle_report.symmetries_omitted
-        assert not AnalysisReport.from_integral(triangle, ["gkz"]).symmetries_omitted
+        assert triangle_report.symmetries_omitted is None
+        assert AnalysisReport.from_integral(triangle, ["gkz"]).symmetries_omitted is None
 
 
 class TestLandau:

@@ -136,6 +136,18 @@ class TestSingleDiagram:
         assert f"  Normalised volume            {volume}" in lines
         assert not any("Lattice base point" in line for line in lines)
 
+    def test_symmetries_are_omitted_below_full_dimension(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        # The automorphism computation finds only the identity here, although
+        # every permutation of u_2, u_3 and u_4 preserves the monomials of G.
+        out = _run(capsys, tmp_path, "012e|2e|e|:znnn", "-S")
+        assert (
+            "  Not computed for a Newton polytope that is not full-dimensional; "
+            "this one has dimension 3 in R^4.\n"
+        ) in out
+        assert "|Aut(P)|" not in out
+
     def test_newton_section_of_a_full_dimensional_polytope(
         self, capsys: pytest.CaptureFixture[str], tmp_path: Path
     ) -> None:

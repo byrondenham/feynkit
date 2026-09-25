@@ -546,11 +546,14 @@ def test_tadpole_prose_matches_the_latex_word_for_word(tadpole: FeynmanIntegral)
     assert len(latex) > 600
 
 
-def test_dependent_rows_prose_matches_the_latex_word_for_word() -> None:
-    # The figure-eight with one massless loop: P is a segment in R^2.
-    figure_eight = FeynmanIntegral.from_cnickel("00|:nz", use_mandelstam=False)
+# The figure-eight with one massless loop, whose P is a segment in R^2, and the
+# massive triangle with a massless self-loop, whose P has dimension 3 in R^4.
+@pytest.mark.parametrize("cnickel", ["00|:nz", "012e|2e|e|:znnn"])  # type: ignore[misc]
+def test_dependent_rows_prose_matches_the_latex_word_for_word(cnickel: str) -> None:
+    # Both reports leave out the symmetries, and with them the cross-references.
+    fi = FeynmanIntegral.from_cnickel(cnickel, use_mandelstam=False)
     intended = tuple(pair for pair in _INTENDED if not pair[0].startswith("Section"))
-    assert _prose_diff(AnalysisReport.from_integral(figure_eight), intended)[1] == []
+    assert _prose_diff(AnalysisReport.from_integral(fi), intended)[1] == []
 
 
 def test_skipped_face_prose_matches_the_latex_word_for_word() -> None:
@@ -575,6 +578,19 @@ def test_tadpole_renders_in_both_formats(tadpole: FeynmanIntegral) -> None:
     assert "It has L = 1 loop, N = 1 propagator and 0 external legs." in _flat(text)
     for line in text.splitlines():
         assert len(line) <= 79, line
+
+
+def test_symmetries_are_omitted_below_full_dimension_in_both_formats() -> None:
+    # P has dimension 3 in R^4, and Aut(P) would miss its symmetries.
+    fi = FeynmanIntegral.from_cnickel("012e|2e|e|:znnn")
+    latex = fi.to_latex(["symmetries"])
+    text = fi.to_text(["symmetries"])
+    omitted = (
+        "The symmetries are not computed for Newton polytopes that are not full-dimensional, "
+        "such as this one."
+    )
+    assert omitted in " ".join(latex.split("\\section{Symmetries}")[1].split())
+    assert _flat(_section(text, "Symmetries")) == omitted
 
 
 @pytest.mark.parametrize("cnickel", ["00|:nz", "0|:z"])  # type: ignore[misc]

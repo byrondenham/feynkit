@@ -26,7 +26,6 @@ from ._report_shared import (
     CITATIONS,
     MAX_PAIRS_SHOWN,
     NOT_COMPUTED,
-    SYMMETRIES_OMITTED,
     Citations,
     append_signed,
     count_noun,
@@ -38,6 +37,7 @@ from ._report_shared import (
     signed_terms,
     skipped_faces,
     split_g,
+    symmetries_omitted,
 )
 from .latex import to_latex, to_latex_lines, to_latex_split
 from .report import (
@@ -546,7 +546,7 @@ def _gkz(gkz: GKZ, doc: _Document) -> str:
 
 def _symmetries(report: AnalysisReport, symmetries: Symmetries | None, doc: _Document) -> str:
     if symmetries is None:
-        return SYMMETRIES_OMITTED
+        return symmetries_omitted(report)
     orbits = symmetries.vertex_orbits
     if report.polytope is not None:
         listed = join_words(

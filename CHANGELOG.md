@@ -81,10 +81,11 @@
   pair gives, the Landau surfaces, and the Schwinger-representation system. It
   also names what feynkit does not compute. The monomials of F are counted by
   exponent vector, so terms that share a monomial count once.
-- The report leaves the symmetries out, and says so, when the Newton polytope
+- The report leaves the symmetries out, and says why, when the Newton polytope
   has dimension below 2, as for the massive tadpole `0|:n`, whose polytope is
-  a segment: the automorphism computation is built for two dimensions and
-  above.
+  a segment, or is not full-dimensional, as for `012e|2e|e|:znnn`: the
+  automorphism computation is built for full-dimensional polytopes of
+  dimension 2 and above.
 - `feynkit.io.latex.factor_energy_scale(expr, scale)`, which writes an
   expression as numerator / scale^k with the numerator free of the scale, and
   `to_latex_lines`, which breaks the LaTeX of a long sum into lines.
@@ -296,6 +297,10 @@
   normalised volume the holonomic rank for generic beta there: the rows of A are dependent, so for
   generic beta the Euler equations contradict each other and the rank is 0. The analysis report
   says the same.
+- `fk analyse -S` gave |Aut(P)| = 1 when the Newton polytope was not full-dimensional, as for
+  `012e|2e|e|:znnn`, although all six permutations of u_2, u_3 and u_4 preserve the monomials of
+  G: the automorphism computation is built for full-dimensional polytopes. The symmetry section
+  now leaves out the symmetries of such a polytope and says why, as the report does.
 
 ### Removed
 

@@ -356,12 +356,20 @@ def _print_newton(fi: FeynmanIntegral) -> None:
 
 def _print_symmetries(fi: FeynmanIntegral) -> None:
     _sec("Symmetries")
-    dimension = AConfiguration(fi.gkz.a_matrix, is_homogenized=True).affine_dim
+    cfg = AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
+    dimension = cfg.affine_dim
+    # As in the report: the automorphism computation is built for a
+    # full-dimensional polytope of dimension 2 and above.
     if dimension < 2:
-        # As in the report: the automorphism computation is built for dimension 2 and above.
         print(
             "  Not computed for a Newton polytope of dimension below 2; "
             f"this one has dimension {dimension}."
+        )
+        return
+    if dimension < cfg.ambient_dim:
+        print(
+            "  Not computed for a Newton polytope that is not full-dimensional; "
+            f"this one has dimension {dimension} in R^{cfg.ambient_dim}."
         )
         return
     aut = fi.polytope_automorphisms

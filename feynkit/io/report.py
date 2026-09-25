@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from collections.abc import Collection
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import sympy as sp
 
@@ -463,15 +463,22 @@ def _gkz(fi: FeynmanIntegral) -> GKZ:
     )
 
 
+# Why a report leaves out the symmetries it was asked for.
+SymmetriesOmitted = Literal["dimension below 2", "not full-dimensional"]
+
+
 def _symmetries(fi: FeynmanIntegral, data: PolytopeData) -> Symmetries | None:
-    """The symmetries, or None when P has dimension below 2.
+    """The symmetries, or None when P has dimension below 2 or is not full-dimensional.
 
     A point has no symmetry and a segment only its reflection. The
-    automorphism computation is built for dimension 2 and above: it misses
-    that reflection, or fails outright when the ambient space is
-    one-dimensional.
+    automorphism computation is built for a full-dimensional polytope of
+    dimension 2 and above. On a segment it misses that reflection, or fails
+    outright when the ambient space is one-dimensional. Below full dimension
+    it misses the symmetries of P within its affine hull: for 012e|2e|e|:znnn
+    it finds only the identity, although every permutation of the last three
+    coordinates preserves the monomials of G.
     """
-    if data.dimension < 2:
+    if _symmetries_omitted(data) is not None:
         return None
     automorphisms = fi.polytope_automorphisms
     return Symmetries(
@@ -481,6 +488,15 @@ def _symmetries(fi: FeynmanIntegral, data: PolytopeData) -> Symmetries | None:
         coefficient_preserving=len(coefficient_preserving_indices(fi, automorphisms)),
         symmetry_pairs=tuple(fi.symmetry_pairs),
     )
+
+
+def _symmetries_omitted(data: PolytopeData) -> SymmetriesOmitted | None:
+    """Why the report leaves out the symmetries of P, or None if it computes them."""
+    if data.dimension < 2:
+        return "dimension below 2"
+    if not data.is_full_dimensional:
+        return "not full-dimensional"
+    return None
 
 
 def _landau(fi: FeynmanIntegral, max_face_points: int) -> Landau:
@@ -563,8 +579,10 @@ class AnalysisReport:
 
     The first three sections are always present; the rest are None when the
     caller did not ask for them. The symmetries are also None when the Newton
-    polytope has dimension below 2, and ``symmetries_omitted`` then records
-    that they were asked for.
+    polytope has dimension below 2 or is not full-dimensional, and
+    ``symmetries_omitted`` then records that they were asked for and why:
+    "dimension below 2" if P has dimension below 2, and "not full-dimensional"
+    otherwise. It is None when the symmetries were computed or not asked for.
     """
 
     identity: Identity
@@ -576,7 +594,7 @@ class AnalysisReport:
     symmetries: Symmetries | None
     landau: Landau | None
     schwinger: Schwinger | None
-    symmetries_omitted: bool = False
+    symmetries_omitted: SymmetriesOmitted | None = None
 
     @classmethod
     def from_integral(
@@ -620,6 +638,7 @@ class AnalysisReport:
         representations: Representations | None = None
         polytope: Polytope | None = None
         symmetries: Symmetries | None = None
+        symmetries_omitted: SymmetriesOmitted | None = None
         if wanted & {"representations", "polytope", "symmetries"}:
             data = polytope_data(integral.newton_polytope.points)
             if "representations" in wanted:
@@ -628,6 +647,7 @@ class AnalysisReport:
                 polytope = _polytope(integral, data, figure_max_vertices)
             if "symmetries" in wanted:
                 symmetries = _symmetries(integral, data)
+                symmetries_omitted = _symmetries_omitted(data)
 
         return cls(
             identity=_identity(integral),
@@ -639,7 +659,7 @@ class AnalysisReport:
             symmetries=symmetries,
             landau=_landau(integral, max_face_points) if "landau" in wanted else None,
             schwinger=_schwinger(integral) if "schwinger" in wanted else None,
-            symmetries_omitted="symmetries" in wanted and symmetries is None,
+            symmetries_omitted=symmetries_omitted,
         )
 
     def summary(self) -> tuple[tuple[str, str], ...]:

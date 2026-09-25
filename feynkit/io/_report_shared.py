@@ -27,7 +27,6 @@ __all__ = [
     "CITATIONS",
     "MAX_PAIRS_SHOWN",
     "NOT_COMPUTED",
-    "SYMMETRIES_OMITTED",
     "Citations",
     "LandauFactors",
     "Templates",
@@ -43,6 +42,7 @@ __all__ = [
     "skipped_faces",
     "sorted_factors",
     "split_g",
+    "symmetries_omitted",
 ]
 
 
@@ -128,12 +128,6 @@ CITATIONS: dict[str, str] = {
 # The symmetry section writes out at most this many symmetry pairs.
 MAX_PAIRS_SHOWN = 10
 
-# What the symmetry section says when the report left the symmetries out.
-SYMMETRIES_OMITTED = (
-    "The symmetries are not computed for Newton polytopes of dimension below 2, such as "
-    "this one."
-)
-
 # What the Newton polytope section says feynkit leaves uncomputed, whatever the rank.
 NOT_COMPUTED = (
     "feynkit computes neither the holonomic rank at the physical point nor the Euler "
@@ -192,13 +186,29 @@ def render_sections(
         sections.append(("Newton polytope", polytope(report.polytope)))
     if report.gkz is not None:
         sections.append(("GKZ system", gkz(report.gkz)))
-    if report.symmetries is not None or report.symmetries_omitted:
+    if report.symmetries is not None or report.symmetries_omitted is not None:
         sections.append(("Symmetries", symmetries(report.symmetries)))
     if report.landau is not None:
         sections.append(("Landau surfaces", landau(report.landau)))
     if report.schwinger is not None:
         sections.append(("Schwinger-representation system", schwinger(report.schwinger)))
     return sections
+
+
+def symmetries_omitted(report: AnalysisReport) -> str:
+    """What the symmetry section says when the report left the symmetries out.
+
+    The sentence names the reason ``report.symmetries_omitted`` records.
+    """
+    if report.symmetries_omitted == "not full-dimensional":
+        return (
+            "The symmetries are not computed for Newton polytopes that are not "
+            "full-dimensional, such as this one."
+        )
+    return (
+        "The symmetries are not computed for Newton polytopes of dimension below 2, such as "
+        "this one."
+    )
 
 
 # --- the representations and the polynomials --------------------------------

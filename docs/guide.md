@@ -1527,8 +1527,8 @@ The document has twelve parts:
    and the toric generators.
 9. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
    coefficient-preserving subgroup, and the symmetry pairs with the identity each gives. For a
-   Newton polytope of dimension below 2, such as the segment of the massive tadpole, the section
-   says only that the symmetries are not computed.
+   Newton polytope of dimension below 2, such as the segment of the massive tadpole, or one that
+   is not full-dimensional, the section says only that the symmetries are not computed, and why.
 10. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
     into first and second type for one-loop graphs, with the skipped faces, each named by its
     dimension and number of points, and the caveats.

@@ -625,10 +625,10 @@ hdr(8, "Polytope automorphisms  Aut(P)")
 
 note(
     "A unimodular automorphism of the Newton polytope P is an affine bijection "
-    "(U, t): R^E -> R^E with U in GL_E(Z) and det U = +/-1 that permutes the "
-    "vertices of P.  When it maps the monomials of G onto themselves it permutes "
-    "the columns of A and gives I_A(beta, z_P) = I_A(T beta, z) for the integral "
-    "without Gamma prefactors.  For a coefficient-preserving automorphism z_P = z "
+    "(U, t): R^E -> R^E with U in GL_E(Z) that maps the support of G onto "
+    "itself, so it permutes the columns of A and gives I_A(beta, z_P) = "
+    "I_A(T beta, z) for the integral without Gamma prefactors.  For a "
+    "coefficient-preserving automorphism z_P = z "
     "at the physical point, so the identity is I_A(beta, z) = I_A(T beta, z), a "
     "relation between parameter vectors, not between kinematic points."
 )
@@ -751,8 +751,9 @@ print("  Intrinsic coordinates:")
 for c in model_tri.intrinsic_coords:
     print(f"    {c}")
 note(
-    "All Smith invariants = 1 confirms that the columns of A generate exactly "
-    "Z^3, a primitive lattice embedding.  The intrinsic rank equals the "
+    "All Smith invariants equal to 1 mean that the difference vectors of the "
+    "points generate all of Z^3, so the lattice index is 1.  The intrinsic "
+    "rank equals the "
     "affine dimension of P (= 3 for the triangle).",
     4,
 )
@@ -885,11 +886,10 @@ note(
 hdr(13, "Grinis-Kasprzyk pairing matrix and normal form")
 
 note(
-    "maximal_pairing_matrix returns the lexicographically maximal representative "
-    "of a matrix under independent row and column permutations, the "
-    "canonicalisation step of Grinis and Kasprzyk (2013), who apply it to the "
-    "vertex-facet pairing matrix of a lattice polytope.  Here it is applied to "
-    "the A-matrix itself."
+    "maximal_pairing_matrix follows the canonicalisation step of Grinis and "
+    "Kasprzyk (2013), who apply it to the vertex-facet pairing matrix of a "
+    "lattice polytope; it permutes rows and columns towards a lexicographically "
+    "large representative.  Here it is applied to the A-matrix itself."
 )
 
 A_tri_mat = gkz.a_matrix
@@ -1100,11 +1100,12 @@ hdr(17, "Conformal artifacts, BMS simplex and conformal companion")
 note(
     "The BMS simplex integral G_n (Bzowski-McFadden-Skenderis 2021) comes from "
     "the n-point scalar contact Witten diagram in a holographic CFT.  Its GKZ "
-    "polytope has Smith = [1,...,1,2] for all n: its points span the even-parity "
-    "sublattice, of index 2.  The conformal companion C_n has the same lower "
-    "monomials as BMS_n (from U) but standard basis vectors as upper monomials; "
-    "every affine bijection to BMS_n has |det M| = 2/(n-2), so an integer map "
-    "exists only for n = 3, with det 2.  "
+    "polytope has Smith = [1,...,1,2] for all n: the differences of its points "
+    "span the even-parity sublattice, of index 2.  The conformal companion C_n "
+    "has the same lower monomials as BMS_n (from U) but standard basis vectors "
+    "as upper monomials; every affine bijection to BMS_n has |det M| = 2/(n-2), "
+    "and an integer map exists only for n = 3, with det 2 (for n = 4 the "
+    "determinant is 1, but no integer map exists).  "
     "feynkit implements all three families via feynkit.artifacts.conformal."
 )
 

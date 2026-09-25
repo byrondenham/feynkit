@@ -284,10 +284,10 @@ print(_aut_interp)
 # ------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------
-# Normalized lattice volume (= GKZ holonomic rank for generic beta)
+# Normalised lattice volume (= GKZ holonomic rank for generic beta)
 # ------------------------------------------------------------------------------
 
-print_section("Normalized Lattice Volume (GKZ Holonomic Rank for Generic beta)")
+print_section("Normalised Lattice Volume (GKZ Holonomic Rank for Generic beta)")
 
 vol_tri = tri.normalized_volume
 vol_tpk = tpk.normalized_volume
@@ -336,7 +336,7 @@ print(f"""  Configuration pair: Triangle  vs  Triple-K
   Unimodularly equivalent?        {"YES" if _uni_same else "NO":<6}   {"Witness found" if _uni_same else "Ruled out by Smith invariants"}
   Affinely equivalent (over Q)?   {"YES" if _aff_same else "NO":<6}   {"Witness found" if _aff_same else "Not equivalent"}
   Finite-index map (det)?         {"YES (" + str(_fim_det) + ")" if result_fim.found else "NO":<8} Index-{_fim_det} sublattice embedding
-  Normalized volume (GKZ rank)    {vol_tri} vs {vol_tpk:<3}  {"Same" if _vol_same else "Different"} holonomic rank for generic beta
+  Normalised volume               {vol_tri} vs {vol_tpk:<3}  {"Same" if _vol_same else "Different"} holonomic rank for generic beta
   |Aut(P)| same?                  {_aut_same_s:<6}   {auts_tri.order} vs {auts_tpk.order}, both cross-polytopes (B_3)
 
   Physical meaning:
@@ -349,7 +349,7 @@ print(f"""  Configuration pair: Triangle  vs  Triple-K
     triangle point to a triple-K point (verified above), so
     T * A_triangle = A_triple-K * Pi_P with T = [[1, 0], [0, M]]: a rational
     change of basis relating the two GKZ A-matrices.
-  - Normalized volume = {vol_tri} for both: same holonomic rank for generic beta.
+  - Normalised volume = {vol_tri} for both: same holonomic rank for generic beta.
     The GKZ systems are isomorphic over Q.
   - Over Z the configurations are not equivalent: the quotient
     Z^3 / (even-sum sublattice) ~= Z/2 is the residual difference.

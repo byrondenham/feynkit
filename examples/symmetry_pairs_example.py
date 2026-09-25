@@ -7,7 +7,7 @@ a_j, where T = [[1, 0^T], [t, M]] is the (n+1) x (n+1) homogenised matrix
 and P is the induced column permutation.  The condition is T*A = A*Pi_P.
 
 Each pair gives a transformation identity for the generalised Feynman
-integral (Forsgard-Matusevich-Sobieska 2019; de la Cruz 2024):
+integral (Forsgård-Matusevich-Sobieska 2019; de la Cruz 2024):
 
     I_A(beta, z_P) = I_A(T beta, z),      prefactor R(beta) = 1
 
@@ -189,8 +189,8 @@ DIAGRAMS = [
     ("One-mass triangle", "12e|2e|e|:nzz", "S_3"),
     ("Two-mass triangle", "12e|2e|e|:nnz", "V_4"),
     ("All-mass triangle", "12e|2e|e|:nnn", "S_3: full propagator permutation"),
-    ("Massless box", "12e|3e|3e|e|:zzzz", "S_5: 10 = C(5,2) monomial structure"),
-    ("One-mass box", "12e|3e|3e|e|:nzzz", "S_4: symmetry breaking by one mass"),
+    ("Massless box", "12e|3e|3e|e|:zzzz", "S_5"),
+    ("One-mass box", "12e|3e|3e|e|:nzzz", "S_4"),
     ("Massless 3-banana", "111e|e|:zzz", "S_4: 3-banana is a tetrahedron in R^3"),
     ("Massless 4-banana", "1111e|e|:zzzz", "S_5: 4-banana is a 4-simplex in R^4"),
 ]

@@ -95,7 +95,7 @@ print(f"  External legs        : {g_tri.external_legs}")
 print(f"  Loop count           : {fi_tri.loop_count}")
 print(f"  Nickel index         : {fi_tri.nickel_index}")
 
-# Method B: from a Nickel / colored-Nickel string.
+# Method B: from a Nickel / coloured Nickel string.
 # The cnickel encodes topology + mass pattern compactly.
 fi_tri_b = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")  # zzz = all massless
 fi_bubble = FeynmanIntegral.from_cnickel("11e|e|:zz")  # massless bubble

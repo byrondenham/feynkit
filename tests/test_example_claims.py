@@ -80,6 +80,7 @@ RETRACTED_PATTERNS = (
 def _prose(script: Path) -> str:
     """The script's text with continued string literals joined and whitespace collapsed."""
     text = _ADJACENT_LITERALS.sub("", script.read_text(encoding="utf-8"))
+    text = text.replace("{{", "{").replace("}}", "}")
     return re.sub(r"\s+", " ", text)
 
 
@@ -106,3 +107,9 @@ def test_example_makes_no_retracted_claim(script: Path) -> None:
     found = [phrase for phrase in RETRACTED if phrase in prose]
     found += [p.pattern for p in RETRACTED_PATTERNS if p.search(prose)]
     assert found == [], f"{script.name} still says {found}"
+
+
+def test_prose_collapses_doubled_braces_from_f_strings(tmp_path: Path) -> None:
+    script = tmp_path / "f_string_example.py"
+    script.write_text('print(f"K_{{3,3}} has {n} vertices")\n', encoding="utf-8")
+    assert "K_{3,3}" in _prose(script)

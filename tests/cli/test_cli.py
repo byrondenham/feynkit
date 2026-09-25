@@ -107,6 +107,25 @@ class TestSingleDiagram:
         assert "Not computed for a Newton polytope of dimension below 2" in out
         assert "Stored:" in out
 
+    @pytest.mark.parametrize("cnickel", ["01e|e|:zn", "00|:nz"])
+    def test_newton_section_of_a_polytope_that_is_not_full_dimensional(
+        self, cnickel: str, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        # A massless self-loop is scaleless: G has two monomials, a segment in R^2.
+        # The rows of A are then dependent, so the volume is not the rank.
+        lines = _run(capsys, tmp_path, cnickel).splitlines()
+        assert "  Ambient dimension            2" in lines
+        assert "  Affine dimension             1" in lines
+        assert "  Normalised volume            1" in lines
+        assert not any("Lattice base point" in line for line in lines)
+
+    def test_newton_section_of_a_full_dimensional_polytope(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        out = _run(capsys, tmp_path, "12e|2e|e|:zzz", "-n")
+        assert "Normalised volume            4  (the holonomic rank for generic beta)" in out
+        assert "Lattice base point           (1, 1, 0)" in out
+
 
 class TestPairwise:
     def test_equivalent_triangles_reported(
@@ -142,3 +161,12 @@ class TestPairwise:
         assert "affine_polytope        n/a  (a Newton polytope of dimension below 2)" in out
         assert "point_config           YES  (det = 1)" in out
         assert "T beta  =  [-D/2, -nu_1]" in out
+
+    def test_finite_index_is_skipped_when_a_is_not_full_dimensional(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        out = _run(capsys, tmp_path, "01e|e|:zn", "00|:nz")
+        assert "point_config           YES  (det = -1)" in out
+        assert (
+            "finite_index           n/a  (the Newton polytope of A is not full-dimensional)" in out
+        )

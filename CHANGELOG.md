@@ -283,6 +283,13 @@
   `z_1 d_1 + z_2 d_2 + z_4 d_4 = -nu_1` for the row (2, 1, 0, 1, 0). It now writes each term as
   A_rj z_j d_j, here `2 z_1 d_1 + z_2 d_2 + z_4 d_4 = -nu_1`, in the order of the columns rather
   than with z_10 before z_2.
+- `fk analyse -n` ended in a traceback when the Newton polytope was not full-dimensional, as for
+  a graph with a massless self-loop such as `01e|e|:zn`, and `fk compare` failed the same way in
+  the finite-index check when the polytope of A was not. The Newton section now leaves out the
+  lattice base point for such a polytope, which the report does not show either, and `fk compare`
+  prints n/a for the finite-index check. Nor does the Newton section call the normalised volume
+  the holonomic rank for generic beta there: the rows of A are dependent, so for generic beta the
+  Euler equations contradict each other and the rank is 0.
 
 ### Removed
 

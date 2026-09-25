@@ -30,12 +30,13 @@ import sqlite3
 import sys
 import time
 from collections.abc import Callable, Iterator, Sequence
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple, NoReturn
 
 import sympy as sp
+from sympy.matrices import NonSquareMatrixError
 
 from feynkit.a_configuration import AConfiguration, FiniteIndexResult, finite_index_map
 from feynkit.core.constants import __version__
@@ -341,9 +342,15 @@ def _print_newton(fi: FeynmanIntegral) -> None:
     _kv("Hull vertices", vertices)
     _kv("Ambient dimension", cfg.ambient_dim)
     _kv("Affine dimension", cfg.affine_dim)
-    _kv("Normalised volume", f"{volume}  (the holonomic rank for generic beta)")
+    # Below full dimension the rows of A are dependent, so for generic beta the
+    # Euler equations contradict each other and the rank is 0, not the volume.
+    full = cfg.affine_dim == cfg.ambient_dim
+    _kv("Normalised volume", f"{volume}  (the holonomic rank for generic beta)" if full else volume)
     _kv("Smith invariants", cfg.smith_invariants)
-    _kv("Lattice base point", cfg.intrinsic_model().base_point)
+    # intrinsic_model fails on a polytope that is not full-dimensional, such as
+    # that of 01e|e|:zn. The report shows no base point, so the line is left out.
+    with suppress(NonSquareMatrixError):
+        _kv("Lattice base point", cfg.intrinsic_model().base_point)
 
 
 def _print_symmetries(fi: FeynmanIntegral) -> None:
@@ -598,16 +605,23 @@ def _compare(
             results.append((relation, res))
 
         # finite-index (only when point counts match)
-        if cfg1.n_points == cfg2.n_points:
-            fi_res: FiniteIndexResult = finite_index_map(cfg1, cfg2)
-            status = "YES" if fi_res.found else "no"
-            det_str = f"  (det = {fi_res.determinant})" if fi_res.found else ""
-            print(f"  {'finite_index':<22} {status}{det_str}")
-        else:
-            fi_res = FiniteIndexResult(found=False)
+        fi_res = FiniteIndexResult(found=False)
+        if cfg1.n_points != cfg2.n_points:
             print(
                 f"  {'finite_index':<22} n/a  (different monomial counts: {cfg1.n_points} vs {cfg2.n_points})"
             )
+        else:
+            try:
+                fi_res = finite_index_map(cfg1, cfg2)
+            except NonSquareMatrixError:
+                # finite_index_map fails when the polytope of A is not full-dimensional.
+                print(
+                    f"  {'finite_index':<22} n/a  (the Newton polytope of A is not full-dimensional)"
+                )
+            else:
+                status = "YES" if fi_res.found else "no"
+                det_str = f"  (det = {fi_res.determinant})" if fi_res.found else ""
+                print(f"  {'finite_index':<22} {status}{det_str}")
 
         # -- witness maps and the identities they give --------------------------
         any_found = any(r.equivalent for _, r in results) or fi_res.found

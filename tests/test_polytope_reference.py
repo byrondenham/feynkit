@@ -1,9 +1,14 @@
 """
-The exact polyhedral core against the floating-point code it replaces, and properties.
+The exact polyhedral core against a floating-point reference, and properties.
 
-The _float_ functions are the algorithm feynkit used before: Qhull with a
-tolerance of 1e-7 for the faces, SymPy nullspaces for the facet normals, and
-Qhull volumes for the normalised volume. They serve only as a reference.
+The _float_ functions follow the code the exact core replaced: faces from
+Qhull on an SVD projection with a tolerance of 1e-7, facet normals from SymPy
+nullspaces, and volumes from Qhull divided by the product of SymPy's Smith
+invariants. They share one routine with the code under test: below full
+dimension the volume is measured in the coordinates lattice_coordinates
+gives, which come from the exact lattice_chart where the old code used SymPy.
+tests/test_polytope.py checks those coordinates against the SymPy
+construction. Nothing else in the reference calls feynkit.
 """
 
 from __future__ import annotations
@@ -11,6 +16,7 @@ from __future__ import annotations
 import functools
 import math
 import random
+from collections.abc import Iterable, Sequence
 from typing import Any, NamedTuple
 
 import numpy as np
@@ -22,8 +28,8 @@ from sympy.polys.domains import ZZ
 
 from feynkit import _exact, polytope
 from feynkit.a_configuration import AConfiguration
-from feynkit.polytope import faces, lattice_coordinates, normalized_volume, polytope_data
-from tests.test_polytope import assert_lattice_forms, diagram_points, requires_normaliz
+from feynkit.polytope import faces, lattice_coordinates, polytope_data
+from tests.test_polytope import STEEP, assert_lattice_forms, diagram_points, requires_normaliz
 
 CNICKEL: list[Any] = [
     "0|:n",
@@ -123,7 +129,11 @@ def _float_hull_volume(pts: np.ndarray) -> int:
 
 
 def _float_volume(pts: np.ndarray, dimension: int) -> int:
-    """polytope_data's volume before the exact core: lattice coordinates below full dimension."""
+    """The volume as polytope_data computed it before the exact core.
+
+    Below full dimension it is measured in the coordinates of
+    lattice_coordinates, the exact lattice chart of the code under test.
+    """
     if dimension == 0:
         return 1
     if dimension == 1:
@@ -171,10 +181,11 @@ def _embed(
 
 
 def _configurations(seed: int, count: int) -> list[list[tuple[int, ...]]]:
-    """Distinct random lattice points of dimension 2 to 5; every third set embedded in Z^(d + 1) or Z^(d + 2).
+    """Distinct random lattice points of dimension 2 to 5.
 
-    The points are distinct because the floating reference keeps one index
-    per endpoint of a segment where the exact code keeps every repeated point.
+    Every third set is embedded in Z^(d + 1) or Z^(d + 2). The points are
+    distinct because the floating reference keeps one index per endpoint of a
+    segment where the exact code keeps every repeated point.
     """
     rng = random.Random(seed)
     out = []
@@ -196,8 +207,56 @@ def _diagrams() -> tuple[tuple[tuple[int, ...], ...], ...]:
     return tuple(tuple(diagram_points(c)) for c in CNICKEL if isinstance(c, str))
 
 
-def _samples() -> list[list[tuple[int, ...]]]:
+def _with_repeats(
+    seed: int, samples: Iterable[Sequence[tuple[int, ...]]]
+) -> list[list[tuple[int, ...]]]:
+    """Each sample with a copy of its least point and of one or two random points, shuffled.
+
+    The least point in lexicographic order is a vertex, so every sample has a
+    repeated vertex.
+    """
+    rng = random.Random(seed)
+    out = []
+    for sample in samples:
+        points = list(sample)
+        points += [min(points)] + [rng.choice(points) for _ in range(rng.randint(1, 2))]
+        rng.shuffle(points)
+        out.append(points)
+    return out
+
+
+@functools.cache
+def _repeated() -> tuple[tuple[tuple[int, ...], ...], ...]:
+    """Samples with repeated points, which the floating reference cannot take."""
+    by_hand = [
+        [(2, 2), (0, 0), (1, 1), (2, 2), (0, 0)],
+        [(3,), (1,), (3,), (2,)],
+        [(1, 2, 3), (1, 2, 3)],
+    ]
+    return tuple(
+        tuple(points)
+        for points in by_hand + _with_repeats(7, RANDOM[::10] + list(_diagrams()[:15]))
+    )
+
+
+def _distinct_samples() -> list[list[tuple[int, ...]]]:
     return RANDOM + [list(points) for points in _diagrams()]
+
+
+def _samples() -> list[list[tuple[int, ...]]]:
+    return _distinct_samples() + [list(points) for points in _repeated()]
+
+
+# Sets on which Qhull's tolerance of 1e-7 misplaces points, so that its tight sets are wrong: the
+# steep pentagon of tests/test_polytope.py, the pyramid over it, and the cube [0, 2]^3 with its
+# centre and the centres of two facets, sheared by x -> (x_1 + 10^9 x_2, x_2 + 10^9 x_3, x_3).
+_CORNERS = [(a, b, c) for a in (0, 2) for b in (0, 2) for c in (0, 2)]
+_CUBE = [*_CORNERS, (1, 1, 0), (1, 1, 1), (0, 1, 1)]
+STEEP_SETS = [
+    STEEP,
+    [(x, y, 0) for x, y in STEEP] + [(0, 0, 1)],
+    [(a + 10**9 * b, b + 10**9 * c, c) for a, b, c in _CUBE],
+]
 
 
 def _unimodular(rng: random.Random, n: int) -> list[list[int]]:
@@ -239,7 +298,7 @@ def test_random_configurations_agree_with_the_floating_reference() -> None:
 
 def test_aconfiguration_volume_agrees_on_full_dimensional_input() -> None:
     compared = 0
-    for points in _samples():
+    for points in _distinct_samples():
         if _exact.affine_rank(points) != len(points[0]) or len(points[0]) < 2:
             continue
         cfg = AConfiguration(np.array(points).T, is_homogenized=False)
@@ -266,16 +325,29 @@ def test_volume_and_faces_are_invariant_under_unimodular_maps() -> None:
         image = [
             tuple(s + _exact.dot(row, p) for row, s in zip(m, shift, strict=True)) for p in points
         ]
-        assert normalized_volume(image) == normalized_volume(points)
-        assert faces(image) == faces(points)
+        before, after = polytope_data(points), polytope_data(image)
+        assert after.normalized_volume == before.normalized_volume
+        assert after.faces == before.faces
 
 
 def test_volume_and_faces_do_not_depend_on_the_embedding() -> None:
     rng = random.Random(5)
-    for points in _configurations(6, 60):
+    for points in _configurations(6, 60) + [list(points) for points in _repeated()]:
         image = _embed(rng, points, len(points[0]) + rng.randint(1, 2))
-        assert faces(image) == faces(points)
-        assert normalized_volume(image) == normalized_volume(points)
+        before, after = polytope_data(points), polytope_data(image)
+        assert after.faces == before.faces
+        assert after.normalized_volume == before.normalized_volume
+
+
+def test_every_copy_of_a_point_lies_on_its_faces() -> None:
+    """The faces of a sample with repeats are those of its distinct points, listing every copy."""
+    for points in _repeated():
+        distinct = sorted(set(points))
+        where = [distinct.index(p) for p in points]
+        expected = sorted(
+            (k, tuple(j for j, i in enumerate(where) if i in idx)) for k, idx in faces(distinct)
+        )
+        assert faces(points) == expected
 
 
 def test_triangulation_determinants_and_euclidean_volume() -> None:
@@ -304,14 +376,22 @@ def test_triangulation_determinants_and_euclidean_volume() -> None:
 
 
 def test_python_and_qhull_backends_agree() -> None:
+    """Qhull's candidates certify on every sample, so python is not compared with itself."""
     for points in _samples():
+        assert polytope._hull(points, "qhull").generator in ("qhull", "closed form")
+        assert polytope_data(points, backend="qhull") == polytope_data(points, backend="python")
+
+
+def test_qhull_on_steep_sets_is_exact() -> None:
+    """Qhull's candidates are verified, and replaced by beneath-beyond where they do not certify."""
+    for points in STEEP_SETS:
         assert polytope_data(points, backend="qhull") == polytope_data(points, backend="python")
 
 
 @requires_normaliz
 def test_python_and_normaliz_backends_agree() -> None:
-    """With PyNormaliz installed, no sample falls back to beneath-beyond."""
-    for points in _samples():
+    """With PyNormaliz installed, no sample falls back to beneath-beyond, steep sets included."""
+    for points in _samples() + STEEP_SETS:
         assert polytope._hull(points, "normaliz").generator in ("normaliz", "closed form")
         assert polytope_data(points, backend="normaliz") == polytope_data(points, backend="python")
 

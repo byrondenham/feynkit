@@ -47,11 +47,12 @@
   `faces` and `polytope_data` raise `ComputationError` if a consistency check of
   the exact computation fails, which would be a bug; the volume used to be 0
   whenever Qhull failed.
-- `faces`, `polytope_data` and `lattice_coordinates` raise `ValidationError` on
-  a non-integer coordinate, which `polytope_data` and `lattice_coordinates` used
-  to truncate and `faces` used as a float, and on points with different numbers
-  of coordinates, which raised `ValueError` or `TypeError`. Integral floats such
-  as `2.0` are still accepted.
+- `faces`, `polytope_data`, `lattice_coordinates` and `intrinsic_lattice_model`
+  raise `ValidationError` on a non-integer coordinate, which `faces` used as a
+  float and the others truncated, and on points with different numbers of
+  coordinates, which raised `ValueError` or `TypeError`. Integral floats such as
+  `2.0` are still accepted. `intrinsic_lattice_model` also raises
+  `ValidationError` when there are no points, where it raised `IndexError`.
 - `PolytopeData` gains four fields and `Facet` three (see Added). The new
   `PolytopeData` fields have no defaults, so code that builds a `PolytopeData`
   by hand must pass them. The new `Facet` fields have defaults but take part in
@@ -182,6 +183,15 @@
   0.12 s instead of 0.01 s for the massless planar double box.
   `AConfiguration.affine_dim` and `AConfiguration.smith_invariants` are computed
   exactly in pure Python.
+- `intrinsic_lattice_model` and `AConfiguration.intrinsic_model` give
+  `intrinsic_coords` in the Hermite normal form basis of the lattice L spanned
+  by the differences of the points, the basis `lattice_chart` uses, with the
+  first point at 0. Where the old coordinates were right they can differ from
+  the new ones by a unimodular change of basis, and for the massless triangle
+  they do. The new field `IntrinsicModel.basis`, which defaults to (), holds
+  the basis, so that point i is base_point + sum_t intrinsic_coords[i][t]
+  basis[t]. For a single point, or copies of one, each coordinate is the empty
+  tuple, where it was the zero vector of length n.
 - `faces` lists every point on a face, so every copy of a repeated endpoint of a
   segment is now in its vertex face, where only one was kept, and the two
   vertices of a segment are sorted by index like all other faces. As a result
@@ -293,6 +303,19 @@
   `AConfiguration.smith_invariants` and `lattice_coordinates` took the
   differences of the points in int64, which overflows silently for coordinates
   near 2^62, and returned wrong invariants and coordinates there.
+- `intrinsic_lattice_model`, and so `AConfiguration.intrinsic_model`, took as
+  its basis the first linearly independent differences of the points and
+  truncated each coordinate towards zero, so its coordinates were wrong
+  whenever those differences were not a basis of the lattice they span: for
+  the points 0, 2, 3 in Z the basis was 2 and the last point got the
+  coordinate 1, where it is 3/2. Below full dimension, as for the Newton
+  polytopes of `01e|e|:zn` and `012e|2e|e|:zzzz`, it raised
+  `NonSquareMatrixError`, and so did the Newton section of `fk`. Its rank came
+  from a floating-point `matrix_rank`, and it took the differences in int64.
+  It is now built on `lattice_chart` in integer arithmetic: the coordinates
+  are integers that reproduce every point, it works in every dimension, and
+  `intrinsic_rank` and `smith_invariants` are exact, the latter equal to
+  `AConfiguration.smith_invariants`.
 - The documents said that the holonomic rank equals the normalised volume
   without limiting this to full-dimensional configurations: section 5.3 of the
   mathematics reference, the `AConfiguration` table of the guide
@@ -309,8 +332,15 @@
 - Section 5.4 of the mathematics reference said that the intrinsic coordinates
   W^-1 (alpha_j - alpha_1) are integers for any r independent rows W of the
   difference matrix. They are integers only when the columns of W form a basis
-  of the lattice the differences span. The section now says what
-  `AConfiguration.intrinsic_model` computes and when its coordinates are exact.
+  of the lattice L the differences span. The section now describes the
+  Hermite normal form basis of L that `AConfiguration.intrinsic_model` uses,
+  and says that the product of the Smith invariants is the index of L in its
+  saturation, which is [Z^n : L] only for a full-dimensional configuration.
+- The intrinsic lattice model example in section 16 of the guide raised
+  `AttributeError`: it printed `model.basis` and `model.intrinsic_points`, and
+  `IntrinsicModel` had neither. It now prints the fields `IntrinsicModel` has,
+  for three points on a line in Z^2, and a test runs it and checks its output
+  against the guide.
 - `examples/bms_g_polynomial_analysis.py` printed that the holonomic rank of
   BMS_n was "confirmed" to be 2^{n-1} for n = 2, 3, 4, 5, although feynkit
   computes only the volume. It now prints whether vol_0(BMS_n) = 2^{n-1} and

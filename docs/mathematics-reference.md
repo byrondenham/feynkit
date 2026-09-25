@@ -407,23 +407,25 @@ $$D \;=\; U \cdot \mathrm{diffs} \cdot V, \qquad U \in GL_{N-1}(\mathbb{Z}),\; V
 
 where $D$ is diagonal with non-negative entries $d_1 | d_2 | \cdots | d_r$ (the **Smith invariants**).
 
-The Smith invariants classify the sublattice spanned by the configuration inside $\mathbb{Z}^n$:
-the index is $\prod_i d_i$ and is 1 if and only if the configuration spans $\mathbb{Z}^n$.
+The Smith invariants classify the sublattice $L$ spanned by the differences inside $\mathbb{Z}^n$:
+$\prod_i d_i$ is the index of $L$ in its saturation $\mathbb{R}L \cap \mathbb{Z}^n$. For a
+full-dimensional configuration that is $[\mathbb{Z}^n : L]$, which is 1 if and only if the
+differences span $\mathbb{Z}^n$.
 
-**Intrinsic lattice model:** `AConfiguration.intrinsic_model` takes as the columns of $W$ the first
-$r$ linearly independent rows of $\mathrm{diffs}$, in index order, where $r$ is the affine dimension,
-and computes
+**Intrinsic lattice model:** `AConfiguration.intrinsic_model` uses the basis
+$B = (b_1, \ldots, b_r)$ of the lattice chart of section 5.3 (`feynkit.polytope.lattice_chart`),
+the Hermite normal form basis of $L$, where $r$ is the affine dimension, but takes the first point
+as origin:
 
-$$\mathrm{intrinsic\_coords}_j \;=\; W^{-1}(\alpha_j - \alpha_1) \;\in\; \mathbb{Q}^r.$$
+$$\alpha_j \;=\; \alpha_1 + B\,c_j, \qquad c_j \;=\; \mathrm{intrinsic\_coords}_j \;\in\; \mathbb{Z}^r.$$
 
-$W$ is square only when the configuration is full-dimensional, $r = n$: for $0 < r < n$
-`intrinsic_model` raises, and for $r = 0$ every coordinate is the zero vector of length $n$.  The
-coordinates are all integral exactly when the columns of $W$ form a basis of the lattice $L$ the
-differences span, that is when $|\det W| = \prod_i d_i$.  Otherwise some are fractional, and feynkit
-truncates each entry towards zero, so the stored coordinates do not reproduce the configuration: for
-the points $0, 2, 3$ in $\mathbb{Z}$, $W = (2)$ and the last point has coordinate $3/2$, stored as 1.
-The Smith normal form supplies only `smith_invariants`.  The lattice chart of section 5.3
-(`feynkit.polytope.lattice_chart`) uses a basis of $L$, so its coordinates are always integral.
+So $c_1 = 0$, and $c_j$ is the chart coordinate vector of $\alpha_j$ minus that of $\alpha_1$; the
+chart shifts its coordinates to be non-negative, so its own origin need not be one of the points.
+The $c_j$ are integral because the columns of $B$ form a basis of $L$, and unique because they are
+linearly independent. This holds for every $r$ from 0 to $n$; for $r = 0$ each $c_j$ is empty.
+`base_point` is $\alpha_1$, `basis` holds the $b_t$, and `intrinsic_rank` is $r$, the affine
+dimension, not the holonomic rank: below full dimension the GKZ system has no non-zero solutions
+for generic $\beta$ (section 5.3). The Smith normal form supplies only `smith_invariants`.
 
 Accessed via `AConfiguration.smith_invariants`, `AConfiguration.intrinsic_model`.
 

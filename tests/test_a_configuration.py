@@ -11,12 +11,16 @@ Key mathematical facts verified:
 - artifacts load and are correctly typed
 """
 
+import random
+from pathlib import Path
+
 import numpy as np
 import pytest
 import sympy as sp
-from sympy.matrices.normalforms import smith_normal_form
+from sympy.matrices.normalforms import invariant_factors, smith_normal_form
 from sympy.polys.domains import ZZ
 
+from feynkit import FeynmanIntegral, _exact
 from feynkit.a_configuration import (
     AConfiguration,
     FiniteIndexResult,
@@ -40,7 +44,7 @@ from feynkit.artifacts.dissertation import (
     triple_k_a_config,
 )
 from feynkit.core.exceptions import ValidationError
-from feynkit.polytope import normalized_volume
+from feynkit.polytope import lattice_chart, normalized_volume
 
 # ------------------------------------------------------------------------------
 # Fixtures
@@ -279,6 +283,249 @@ class TestIntrinsicLatticeModel:
     def test_method_on_aconfiguration(self, triangle):
         model = triangle.intrinsic_model()
         assert isinstance(model, IntrinsicModel)
+
+    def test_points_0_2_3_have_integral_coordinates(self):
+        # The first difference, 2, is not a basis of L = Z; the old code gave the last
+        # point the coordinate int(3/2) = 1.
+        model = intrinsic_lattice_model([(0,), (2,), (3,)])
+        assert model.base_point == (0,)
+        assert model.basis == ((1,),)
+        assert model.intrinsic_coords == ((0,), (2,), (3,))
+        assert model.intrinsic_rank == 1
+        assert model.smith_invariants == [1]
+        assert _reconstruct(model) == [(0,), (2,), (3,)]
+
+    def test_full_dimensional_points_whose_first_differences_are_not_a_basis(self):
+        # (2, 0) and (0, 1) span a sublattice of index 2 in L = Z^2; the old code gave the
+        # last point the coordinates (int(1/2), 1) = (0, 1).
+        pts = [(0, 0), (2, 0), (0, 1), (1, 1)]
+        model = intrinsic_lattice_model(pts)
+        assert model.basis == ((1, 0), (0, 1))
+        assert model.intrinsic_coords == ((0, 0), (2, 0), (0, 1), (1, 1))
+        assert _reconstruct(model) == pts
+
+    def test_below_full_dimension(self):
+        pts = [(1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, -1)]
+        model = intrinsic_lattice_model(pts)
+        assert model.base_point == (1, 0, 0)
+        assert model.basis == ((-1, 1, 0), (-1, 0, 1))
+        assert model.intrinsic_coords == ((0, 0), (1, 0), (0, 1), (1, -1))
+        assert model.intrinsic_rank == 2
+        assert model.smith_invariants == [1, 1]
+        assert _reconstruct(model) == pts
+        # The lattice chart moves its origin so that its coordinates are non-negative;
+        # the model keeps the first point at 0.
+        chart = lattice_chart(pts)
+        assert chart.basis == model.basis
+        assert chart.origin == (2, 0, -1)
+        assert chart.coordinates == ((0, 1), (1, 1), (0, 2), (1, 0))
+
+    def test_non_saturated_configurations(self, triple_k):
+        # Below full dimension: L = 2Z x 2Z x 0.
+        model = intrinsic_lattice_model([(0, 0, 0), (2, 0, 0), (0, 2, 0)])
+        assert model.basis == ((2, 0, 0), (0, 2, 0))
+        assert model.intrinsic_coords == ((0, 0), (1, 0), (0, 1))
+        assert model.intrinsic_rank == 2
+        assert model.smith_invariants == [2, 2]
+        # Full-dimensional: the triple-K points span the even-sum sublattice, of index 2.
+        model = triple_k.intrinsic_model()
+        pts = [tuple(int(x) for x in p) for p in triple_k.affine_points]
+        assert model.smith_invariants == triple_k.smith_invariants == [1, 1, 2]
+        assert abs(sp.Matrix(model.basis).det()) == 2
+        assert model.intrinsic_coords[0] == (0, 0, 0)
+        assert _reconstruct(model) == pts
+
+    @pytest.mark.parametrize(
+        ("cnickel", "use_mandelstam"),
+        [
+            ("01e|e|:zn", True),
+            ("00|:nz", False),
+            ("012e|2e|e|:zzzz", True),
+            ("0|:n", False),
+        ],
+    )
+    def test_feynman_configurations(self, cnickel, use_mandelstam):
+        # The first three Newton polytopes are not full-dimensional, and intrinsic_model
+        # raised NonSquareMatrixError on them; the tadpole's is a segment in Z^1.
+        fi = FeynmanIntegral.from_cnickel(cnickel, use_mandelstam=use_mandelstam)
+        cfg = AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
+        model = cfg.intrinsic_model()
+        pts = [tuple(int(x) for x in p) for p in cfg.affine_points]
+        assert model.intrinsic_rank == cfg.affine_dim
+        assert (model.intrinsic_rank < cfg.ambient_dim) == (cnickel != "0|:n")
+        assert model.smith_invariants == cfg.smith_invariants
+        assert model.base_point == pts[0]
+        assert _reconstruct(model) == pts
+
+    def test_rank_zero(self):
+        model = intrinsic_lattice_model([(3, 4)])
+        assert model == IntrinsicModel(
+            base_point=(3, 4),
+            smith_invariants=[],
+            intrinsic_rank=0,
+            intrinsic_coords=((),),
+            basis=(),
+        )
+        assert intrinsic_lattice_model([(3, 4), (3, 4)]).intrinsic_coords == ((), ())
+
+    def test_bad_input_raises(self):
+        with pytest.raises(ValidationError, match="at least one point"):
+            intrinsic_lattice_model([])
+        empty = AConfiguration(np.zeros((3, 0), dtype=int), is_homogenized=False)
+        with pytest.raises(ValidationError, match="at least one point"):
+            empty.intrinsic_model()
+        with pytest.raises(ValidationError, match="non-integer"):
+            intrinsic_lattice_model([(0, 0), (1, 0.5)])
+
+    def test_coordinates_beyond_int64(self):
+        # The first coordinates differ by 2^63 + 10, which int64 cannot hold.
+        pts = [(2**62 + 5, 0), (-(2**62) - 5, 1), (0, 2)]
+        arr = np.array(pts, dtype=np.int64)
+        model = intrinsic_lattice_model(arr)
+        assert _reconstruct(model) == pts
+        cfg = AConfiguration(arr.T, is_homogenized=False)
+        assert model.smith_invariants == cfg.smith_invariants
+        assert cfg.intrinsic_model() == model
+
+    def test_random_configurations(self):
+        for pts in _random_configurations(seed=10, count=300):
+            model = intrinsic_lattice_model(pts)
+            d = model.intrinsic_rank
+            assert model.base_point == pts[0]
+            assert len(model.basis) == d
+            assert all(len(c) == d for c in model.intrinsic_coords)
+            assert all(type(x) is int for c in model.intrinsic_coords for x in c)
+            assert model.intrinsic_coords[0] == (0,) * d
+            assert _reconstruct(model) == pts
+            assert d == _exact.affine_rank(pts)
+            diffs = sp.Matrix([[a - b for a, b in zip(p, pts[0], strict=True)] for p in pts])
+            assert d == diffs.rank()
+            expected = [abs(int(x)) for x in invariant_factors(diffs, domain=ZZ) if x != 0]
+            assert model.smith_invariants == expected
+            cfg = AConfiguration(np.array(pts).T, is_homogenized=False)
+            assert model.smith_invariants == cfg.smith_invariants
+            assert cfg.intrinsic_model() == model
+            chart = lattice_chart(pts)
+            assert model.basis == chart.basis
+            first = chart.coordinates[0]
+            assert model.intrinsic_coords == tuple(
+                tuple(a - b for a, b in zip(c, first, strict=True)) for c in chart.coordinates
+            )
+
+    def test_old_results_kept_up_to_a_unimodular_change_of_basis(self):
+        # Where the old code was right, on full-dimensional points whose first independent
+        # differences are a basis of L, the rank and Smith invariants are unchanged and the
+        # coordinates change by some U in GL_d(Z). The old coordinates of the points whose
+        # differences formed that basis are the unit vectors, so the columns of U are
+        # their new coordinates.
+        checked = 0
+        for pts in _full_dimensional_configurations(seed=11, count=300):
+            old = _old_intrinsic_lattice_model(pts)
+            if old is None:
+                continue
+            checked += 1
+            old_rank, old_smith, old_coords, chosen = old
+            model = intrinsic_lattice_model(pts)
+            assert model.intrinsic_rank == old_rank
+            assert model.smith_invariants == old_smith
+            u = sp.Matrix([list(model.intrinsic_coords[i]) for i in chosen]).T
+            assert abs(u.det()) == 1
+            for new, before in zip(model.intrinsic_coords, old_coords, strict=True):
+                assert tuple(u * sp.Matrix(before)) == new
+        assert checked >= 50
+
+
+def _reconstruct(model: IntrinsicModel) -> list[tuple[int, ...]]:
+    """base_point + sum_t c[t] basis[t] for each coordinate vector c of the model."""
+    return [
+        tuple(
+            o + sum(x * b[k] for x, b in zip(c, model.basis, strict=True))
+            for k, o in enumerate(model.base_point)
+        )
+        for c in model.intrinsic_coords
+    ]
+
+
+def _random_configurations(seed: int, count: int) -> list[list[tuple[int, ...]]]:
+    """Images M p + s of random points p in [-2, 2]^d, d <= 4, under random integer M and s.
+
+    M need not be injective or unimodular, so the images include repeated points,
+    configurations of every dimension from 0 to n and lattices that are not saturated.
+    """
+    rng = random.Random(seed)
+    out = []
+    for _ in range(count):
+        d = rng.randint(0, 4)
+        n = max(1, d + rng.randint(-1, 2))
+        points = [tuple(rng.randint(-2, 2) for _ in range(d)) for _ in range(rng.randint(1, d + 6))]
+        m = [[rng.randint(-3, 3) for _ in range(d)] for _ in range(n)]
+        shift = [rng.randint(-3, 3) for _ in range(n)]
+        out.append(
+            [tuple(s + _exact.dot(row, p) for row, s in zip(m, shift, strict=True)) for p in points]
+        )
+    return out
+
+
+def _full_dimensional_configurations(seed: int, count: int) -> list[list[tuple[int, ...]]]:
+    """Random full-dimensional point sets in Z^n, n <= 4, with coordinates in [-3, 3]."""
+    rng = random.Random(seed)
+    out: list[list[tuple[int, ...]]] = []
+    while len(out) < count:
+        n = rng.randint(1, 4)
+        size = rng.randint(n + 1, n + 5)
+        pts = [tuple(rng.randint(-3, 3) for _ in range(n)) for _ in range(size)]
+        if _exact.affine_rank(pts) == n:
+            out.append(pts)
+    return out
+
+
+def _old_intrinsic_lattice_model(pts):
+    """What intrinsic_lattice_model returned before it used the lattice chart, where right.
+
+    The old code took as the columns of W the first d linearly independent differences,
+    in index order, and stored each W^-1 (p - p_0) truncated towards zero. For
+    full-dimensional points whose W^-1 (p - p_0) are all integral this returns the rank,
+    the non-zero diagonal of SymPy's Smith normal form, the coordinates and the indices
+    of the points whose differences are the columns of W; otherwise None.
+    """
+    diffs = [[a - b for a, b in zip(p, pts[0], strict=True)] for p in pts]
+    n = len(pts[0])
+    chosen: list[int] = []
+    for i in range(1, len(pts)):
+        if sp.Matrix([diffs[j] for j in [*chosen, i]]).rank() == len(chosen) + 1:
+            chosen.append(i)
+    if len(chosen) != n:
+        return None
+    w_inv = sp.Matrix([diffs[i] for i in chosen]).T.inv()
+    coords = [tuple(w_inv * sp.Matrix(row)) for row in diffs]
+    if not all(x.is_Integer for c in coords for x in c):
+        return None
+    snf = smith_normal_form(sp.Matrix(diffs), domain=ZZ)
+    smith = [int(snf[i, i]) for i in range(min(snf.rows, snf.cols)) if snf[i, i] != 0]
+    return n, smith, [tuple(int(x) for x in c) for c in coords], chosen
+
+
+def test_guide_example_prints_what_the_guide_says(capsys: pytest.CaptureFixture[str]) -> None:
+    guide = (Path(__file__).resolve().parents[1] / "docs" / "guide.md").read_text(encoding="utf-8")
+    heading = "### Intrinsic lattice model"
+    assert heading in guide
+    code = guide.split(heading, 1)[1].split("```python\n", 1)[1].split("```", 1)[0]
+    exec(compile(code, "docs/guide.md", "exec"), {})
+    out = capsys.readouterr().out.splitlines()
+    assert out == [
+        "(0, 0)",
+        "((1, 2),)",
+        "((0,), (2,), (3,))",
+        "1",
+        "[1]",
+    ]
+    # Each print carries a comment that starts with what it prints.
+    comments = [
+        line.split("#", 1)[1].strip() for line in code.splitlines() if line.startswith("print(")
+    ]
+    assert len(comments) == len(out)
+    for comment, line in zip(comments, out, strict=True):
+        assert comment == line or comment.startswith(line + ":")
 
 
 # ------------------------------------------------------------------------------

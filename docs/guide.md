@@ -1082,7 +1082,7 @@ cfg = AConfiguration(A, is_homogenized=True)
 | `cfg.smith_invariants` | Diagonal of the Smith normal form |
 | `cfg.normalized_volume` | Normalised volume of the Newton polytope in the lattice the point differences span, computed exactly; for a full-dimensional configuration, the holonomic rank for generic $\beta$; raises `ValidationError` on an empty configuration |
 | `cfg.newton_polytope_points` | Hull vertex coordinates |
-| `cfg.intrinsic_model()` | `IntrinsicModel`, the configuration in a minimal lattice basis |
+| `cfg.intrinsic_model()` | `IntrinsicModel`, the points in the Hermite normal form basis of the lattice their differences span, relative to the first point |
 
 ### Equivalence
 
@@ -1113,12 +1113,35 @@ For maps with $|\det M| > 1$ between two different configurations use `finite_in
 
 ### Intrinsic lattice model
 
+`intrinsic_model()` writes the points in a basis of the lattice $L$ spanned by their differences
+from the first point: the Hermite normal form basis of `feynkit.polytope.lattice_chart`. Point $i$
+is $\alpha_0 + \sum_t c_{i,t} b_t$, where $\alpha_0$ is `base_point`, $c_i$ is `intrinsic_coords[i]`
+and $b_t$ is `basis[t]`. The coordinates are integers and those of the first point are 0, whatever
+the dimension of the points:
+
 ```python
-model = cfg.intrinsic_model()
-print(model.base_point)       # reference point in the original lattice
-print(model.basis)            # columns span the lattice of the configuration
-print(model.intrinsic_points) # points re-expressed in the intrinsic basis
+from feynkit import AConfiguration
+import sympy as sp
+
+# (0, 0), (2, 4) and (3, 6): three points on a line in Z^2.
+line = AConfiguration(sp.Matrix([
+    [1, 1, 1],
+    [0, 2, 3],
+    [0, 4, 6],
+]), is_homogenized=True)
+model = line.intrinsic_model()
+print(model.base_point)        # (0, 0): the first point
+print(model.basis)             # ((1, 2),): a basis of L
+print(model.intrinsic_coords)  # ((0,), (2,), (3,))
+print(model.intrinsic_rank)    # 1: the affine dimension
+print(model.smith_invariants)  # [1]
 ```
+
+`intrinsic_rank` is the affine dimension of the points, not the holonomic rank of the GKZ system.
+These points are not full-dimensional, so the rows of the homogenised $A$ are linearly dependent,
+and for generic $\beta$ the system has no non-zero solutions. The lattice chart itself shifts its
+coordinates to be non-negative, so its origin need not be one of the points; the model keeps the
+first point as origin.
 
 ---
 

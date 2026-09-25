@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0 (2026-09-25)
+
 ### Breaking changes
 
 - Kinematic invariants. With `use_mandelstam=True` the external dot products
@@ -17,11 +19,10 @@
 - `feynkit.landau` now computes the reduced principal A-determinant over all
   faces of the Newton polytope, not only its edges, and the edge computation
   used a wrong exponent (the dot product with the direction instead of the
-  lattice coordinate), which squared the Kallen factor of the bubble and
+  lattice coordinate), which squared the Källén factor of the bubble and
   produced spurious surfaces for the massless triangle. `EdgeDiscriminant`
   is replaced by `FaceDiscriminant`, `landau_polynomial` by
   `principal_a_determinant`, and `skipped_faces` is added.
-
 - The GKZ parameter vector `FeynmanIntegral.gkz.beta_parameters` is now
   beta = (-D/2, -nu_1, ..., -nu_N), the value the Euler equations
   sum_j A_rj z_j d/dz_j Phi = beta_r Phi require for the Lee-Pomeransky
@@ -110,6 +111,7 @@
   built once however many of the three are asked for.
 - `fk --verbose` prints the time of each stage on stderr, and `fk` flushes its output after each
   section.
+- `CITATION.cff`, so that GitHub and reference managers can cite feynkit.
 
 ### Changed
 
@@ -236,12 +238,13 @@
   to have det 2 for every n. The mathematics reference now defines the
   normalised volume in the lattice the points span, as feynkit computes it.
   The guide cited de la Cruz (2019) as arXiv:1907.01007; it is 1907.00507.
-- `FeynkitDatabase` left its SQLite connection open when the file was not a database; it now
-  closes it before raising.
+- `FeynkitDatabase` left its SQLite connection open when opening failed, for example on a file
+  that is not a database; it now closes it before raising.
 - `fk compare` printed the canonical CNickel string for both diagrams, so two inputs with the
   same canonical form looked identical. `fk` now prints each string as given, with the
-  canonical form beside it when they differ. The Newton polytope section calls the normalised
-  volume the holonomic rank for generic beta, not the holonomic rank.
+  canonical form beside it when they differ.
+- The Newton polytope section of `fk analyse` calls the normalised volume the holonomic rank
+  for generic beta, not the holonomic rank.
 - The examples `dissertation_overview.py`, `dissertation_overview_enhanced.py`,
   `complete_analysis.py`, `feynkit_survey.py`, `toric_ideal_example.py`,
   `automorphism_survey.py`, `conformal_simplex_comparison.py`,

@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: If you use feynkit in your work, please cite it as below.
+type: software
+title: feynkit
+abstract: >-
+  A Python package for Feynman integrals via GKZ systems: Symanzik
+  polynomials, parametric representations, the GKZ system, the Newton
+  polytope, the toric ideal, symmetries, Landau singularities and an
+  analysis report.
+authors:
+  - family-names: Denham
+    given-names: Byron
+version: 0.3.0
+date-released: "2026-09-25"
+repository-code: https://github.com/byrondenham/feynkit
+url: https://github.com/byrondenham/feynkit
+license: MIT
+keywords:
+  - Feynman integrals
+  - GKZ systems
+  - A-hypergeometric functions
+  - Newton polytopes
+  - toric ideals

@@ -486,8 +486,8 @@ each. The Landau analysis keeps the same faces, so its cost is still set by the 
 - Docs: section 5.3 of the mathematics reference describes the triangulation and the
   lower-dimensional case, and a new subsection covers the certificate and the lattice forms; the
   `PolytopeData` table in the guide gains the new fields; the changelog records the new fields,
-  and that `AConfiguration.normalized_volume` now raises rather than returning 0 and is correct on
-  lower-dimensional input.
+  and that `AConfiguration.normalized_volume` no longer returns 0, raises only on empty input or a
+  failed consistency check, and is correct on lower-dimensional input.
 
 ## Out of scope
 
@@ -499,8 +499,8 @@ hulls, since it only draws.
 
 ## Open questions
 
-- Normaliz: confirm the coordinate order and sign convention of its support hyperplanes on
-  lattice-coordinate input, and time it against the pure-Python path before `"auto"` prefers it.
-  The cross-check tests settle the conventions once PyNormaliz is installed.
+- Normaliz: time it against the pure-Python path before `"auto"` prefers it. The coordinate order
+  and sign convention of its support hyperplanes are settled: with PyNormaliz 2.24 the cross-check
+  tests pass without a fallback on ambient input (full-dimensional $P$) and on chart input.
 - Whether `"auto"` should choose `"qhull"` over `"python"` for large inputs, and by what measure.
   The facet count that decides it is not known in advance, while point count and dimension are.

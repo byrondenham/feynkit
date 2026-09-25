@@ -169,17 +169,17 @@
   report. They describe the same graph as before, the triangle with three
   distinct masses (`12e|2e|e|:nnn`).
 - `faces` and `polytope_data` work in integer arithmetic. The facets come from
-  an integer beneath-beyond construction and are certified complete before the
-  face lattice is built from them, where they came from Qhull with a tolerance
-  of 1e-7 and were not checked. Qhull, and Normaliz when installed, are optional
-  sources of facet candidates, each verified exactly; when either fails, or its
-  list fails the certificate, beneath-beyond takes over. `polytope_data` is
-  faster on large polytopes: about 0.13 s instead of 1 s for the planar double
-  box.
+  an integer beneath-beyond construction, and the list is certified complete,
+  from the face lattice it generates, before anything is derived from it. They
+  used to come from Qhull with a tolerance of 1e-7 and were not checked. Qhull,
+  and Normaliz when installed, are optional sources of facet candidates, each
+  verified exactly; when either fails, or its list fails the certificate,
+  beneath-beyond takes over. `polytope_data` is faster on large polytopes:
+  about 0.13 s instead of 1 s for the massless planar double box.
 - The normalised volume comes from a pulling triangulation of the certified
   face lattice. `AConfiguration.normalized_volume` delegates to it and is
   cached; on large polytopes it is slower than the floating hull was, about
-  0.12 s instead of 0.01 s for the planar double box.
+  0.12 s instead of 0.01 s for the massless planar double box.
   `AConfiguration.affine_dim` and `AConfiguration.smith_invariants` are computed
   exactly in pure Python.
 - `faces` lists every point on a face, so every copy of a repeated endpoint of a
@@ -293,6 +293,29 @@
   `AConfiguration.smith_invariants` and `lattice_coordinates` took the
   differences of the points in int64, which overflows silently for coordinates
   near 2^62, and returned wrong invariants and coordinates there.
+- The documents said that the holonomic rank equals the normalised volume
+  without limiting this to full-dimensional configurations: section 5.3 of the
+  mathematics reference, the `AConfiguration` table of the guide
+  ("= holonomic rank"), the `feynkit.polytope` module docstring ("whatever the
+  ambient dimension") and the `AConfiguration.normalized_volume` docstring.
+  Below full dimension the rows of the homogenised A are linearly dependent,
+  and for generic beta the system has no non-zero solutions. They now state
+  the hypothesis, and section 4.5 states it as full row rank of the
+  homogenised A.
+- Section 6.3 of the mathematics reference said that a toric operator relates
+  integrals with shifted propagator exponents. Since A u = A v, d^u I_A and
+  d^v I_A are the same multiple of I_A(beta - A u, z), so a toric operator is a
+  differential equation in z, not a reduction between different integrals.
+- Section 5.4 of the mathematics reference said that the intrinsic coordinates
+  W^-1 (alpha_j - alpha_1) are integers for any r independent rows W of the
+  difference matrix. They are integers only when the columns of W form a basis
+  of the lattice the differences span. The section now says what
+  `AConfiguration.intrinsic_model` computes and when its coordinates are exact.
+- `examples/bms_g_polynomial_analysis.py` printed that the holonomic rank of
+  BMS_n was "confirmed" to be 2^{n-1} for n = 2, 3, 4, 5, although feynkit
+  computes only the volume. It now prints whether vol_0(BMS_n) = 2^{n-1} and
+  says that for generic beta the holonomic rank is vol_0(BMS_n); its other
+  statements about the rank now say "for generic beta" too.
 
 ### Removed
 

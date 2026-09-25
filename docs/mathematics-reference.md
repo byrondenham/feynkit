@@ -260,6 +260,8 @@ $\partial^v$ give the same integrand when $Au = Av$.
 
 ### 4.5 Holonomic Rank and Master Integral Count
 
+When the homogenised $A$ has full row rank, which is the same as $\Delta_G$ being full-dimensional,
+
 $$\operatorname{rank} H_A(\beta) \;=\; \mathrm{vol}_0\!\bigl(\Delta_G\bigr) \quad\text{for very generic } \beta,$$
 
 where $\mathrm{vol}_0$ is the **normalised (lattice) volume** of the Newton polytope $\Delta_G$
@@ -371,7 +373,8 @@ a $d$-simplex whose edge vectors form a basis of $L$ has volume 1. For full-dime
 $$\mathrm{vol}_0(P) \;=\; \frac{n!\,\mathrm{Vol}(P)}{[\mathbb{Z}^n : L]},$$
 
 where $\mathrm{Vol}$ is Euclidean volume and the index $[\mathbb{Z}^n : L]$ is the product of the Smith
-invariants (section 5.4).
+invariants (section 5.4).  For example, the BMS simplex of section 11.2 has $n!\,\mathrm{Vol} = 2^n$
+and index 2, so $\mathrm{vol}_0 = 2^{n-1}$ (`polytope_data` gives 4, 8 and 16 for $n = 3, 4, 5$).
 
 feynkit computes it exactly from a pulling triangulation of the certified face lattice
 (section 5.5). The vertices are ordered lexicographically by their coordinates, and $v(Q)$ is the
@@ -390,9 +393,7 @@ divided. A point has volume 1, and every non-empty configuration has positive vo
 
 When $\Delta_G$ is full-dimensional, $\mathrm{vol}_0(\Delta_G)$ equals the GKZ holonomic rank for
 generic $\beta$ (section 4.5). Below full dimension the rows of the homogenised $A$ are linearly
-dependent, and for generic $\beta$ the system has no non-zero solutions.  For example, the BMS
-simplex of section 11.2 has $n!\,\mathrm{Vol} = 2^n$ and index 2, so $\mathrm{vol}_0 = 2^{n-1}$
-(`polytope_data` gives 4, 8 and 16 for $n = 3, 4, 5$).
+dependent, and for generic $\beta$ the system has no non-zero solutions.
 
 Accessed as `polytope_data(points).normalized_volume` or `normalized_volume(points)`, both in
 `feynkit.polytope`, or as `AConfiguration.normalized_volume`.
@@ -409,13 +410,20 @@ where $D$ is diagonal with non-negative entries $d_1 | d_2 | \cdots | d_r$ (the 
 The Smith invariants classify the sublattice spanned by the configuration inside $\mathbb{Z}^n$:
 the index is $\prod_i d_i$ and is 1 if and only if the configuration spans $\mathbb{Z}^n$.
 
-**Intrinsic lattice model:** Choose an affine basis $W$ consisting of $r$ linearly independent rows of
-$\mathrm{diffs}$ (where $r = $ affine dimension).  Express every support point in this basis:
+**Intrinsic lattice model:** `AConfiguration.intrinsic_model` takes as the columns of $W$ the first
+$r$ linearly independent rows of $\mathrm{diffs}$, in index order, where $r$ is the affine dimension,
+and computes
 
-$$\mathrm{intrinsic\_coords}_j \;=\; W^{-1}(\alpha_j - \alpha_1) \;\in\; \mathbb{Z}^r.$$
+$$\mathrm{intrinsic\_coords}_j \;=\; W^{-1}(\alpha_j - \alpha_1) \;\in\; \mathbb{Q}^r.$$
 
-This embeds the configuration canonically in $\mathbb{Z}^r$, stripping away the ambient $\mathbb{Z}^n$
-embedding.
+$W$ is square only when the configuration is full-dimensional, $r = n$: for $0 < r < n$
+`intrinsic_model` raises, and for $r = 0$ every coordinate is the zero vector of length $n$.  The
+coordinates are all integral exactly when the columns of $W$ form a basis of the lattice $L$ the
+differences span, that is when $|\det W| = \prod_i d_i$.  Otherwise some are fractional, and feynkit
+truncates each entry towards zero, so the stored coordinates do not reproduce the configuration: for
+the points $0, 2, 3$ in $\mathbb{Z}$, $W = (2)$ and the last point has coordinate $3/2$, stored as 1.
+The Smith normal form supplies only `smith_invariants`.  The lattice chart of section 5.3
+(`feynkit.polytope.lattice_chart`) uses a basis of $L$, so its coordinates are always integral.
 
 Accessed via `AConfiguration.smith_invariants`, `AConfiguration.intrinsic_model`.
 
@@ -458,9 +466,9 @@ although $L = 2\mathbb{Z} \times \mathbb{Z}$ has index 2.
 
 **Lower-dimensional polytopes.** The facets $m' \cdot c \le b'$ are computed in the lattice chart and
 lifted: with $t$ the least positive integer such that $t\,m' = B^T \mu$ for an integer $\mu$, the
-inequality $\mu \cdot x \le \mu \cdot o + t\,b'$ holds on $P$ with equality exactly on the facet,
-$\mu$ is primitive and unique modulo the forms vanishing on $L$, and $t = g_F$. feynkit fixes $\mu$
-by reducing it modulo those forms. The affine-hull equations are $-e \cdot \alpha_1 + e \cdot x = 0$
+inequality $\mu \cdot x \le b$ with $b = \mu \cdot o + t\,b'$ holds on $P$ with equality exactly on
+the facet, $\mu$ is primitive and unique modulo the forms vanishing on $L$, and $t = g_F$. feynkit
+fixes $\mu$ by reducing it modulo those forms. The affine-hull equations are $-e \cdot \alpha_1 + e \cdot x = 0$
 for $e$ in a basis, in Hermite normal form, of the integer forms vanishing on $L$. Together with
 them the lifted inequalities cut out $P$.
 
@@ -506,10 +514,13 @@ feynkit chooses automatically between the two backends (`backend="auto"` in
 Each generator $z^u - z^v \in I_A$ gives the toric operator $\partial^u - \partial^v$ of section 4.3,
 which annihilates the integral.  For the integral $I_A(\beta, z)$ without Gamma prefactors (defined in
 section 8.2), $\partial_j I_A(\beta, z) = \beta_0\, I_A(\beta - a_j, z)$, with
-$a_j$ the $j$-th column of $A$.  Since $Au = Av$, $\partial^u I_A$ and $\partial^v I_A$ are the same
-shifted integral, so a toric operator is a differential equation in $z$, not a reduction between
-different integrals.  These relations are an analogue of integration-by-parts (IBP) relations, not
-IBP relations themselves (Chestnov et al.\ 2022).  They hold for independent coefficients $z_j$;
+$a_j$ the $j$-th column of $A$.  As the first entry of every $a_j$ is 1,
+$\partial^u I_A(\beta, z) = \beta_0(\beta_0 - 1)\cdots(\beta_0 - |u| + 1)\, I_A(\beta - Au, z)$ with
+$|u| = u_1 + \cdots + u_N$.  The first row of $Au = Av$ gives $|u| = |v|$, so $\partial^u I_A$ and
+$\partial^v I_A$ are the same multiple of the same shifted integral, and a toric operator is a
+differential equation in $z$, not a reduction between different integrals.  These relations are an
+analogue of integration-by-parts (IBP) relations, not IBP relations themselves
+(Chestnov et al.\ 2022).  They hold for independent coefficients $z_j$;
 specialising to physical kinematics is a separate step, which feynkit does not perform.
 
 The lattice $\ker_{\mathbb{Z}} A$ has rank $N - \operatorname{rank}(A)$, the codimension of the toric

@@ -90,7 +90,7 @@ def analyse(
     section("GKZ system")
     gkz = fi.gkz
     r, m = gkz.a_matrix.shape
-    print(f"  A-matrix shape : {r} x {m}  (r = loops+1, m = #monomials)")
+    print(f"  A-matrix shape : {r} x {m}  (r = E+1 with E = {len(internal)} edges, m = #monomials)")
     if m <= 20:
         print("  A =")
         for row in gkz.a_matrix.tolist():

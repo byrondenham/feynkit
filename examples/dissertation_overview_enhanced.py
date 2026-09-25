@@ -39,7 +39,7 @@ SECTIONS
   section 3   Three integral parametrisations
   section 4   GKZ hypergeometric system (A-matrix * Euler operators)
   section 5   Newton polytope (hull * volume * Smith invariants)
-  section 6   Holonomic rank theorem (vol = rank verified for all diagrams)
+  section 6   Holonomic rank theorem (vol = rank for generic beta)
   section 7   Toric ideal (toric operators * codimension check)
   section 8   Polytope automorphisms Aut(P) (orbits * graph embedding)
   section 9   Symmetry pairs (transformation identities for I_A)
@@ -167,8 +167,8 @@ sp_list = fi_tri.symmetry_pairs
 hdr(0, "Executive summary, key invariants of the massless triangle")
 
 note(
-    "The massless 1-loop triangle (K_3) is the simplest Feynman integral with "
-    "three genuinely independent external momenta.  Its GKZ data contains the "
+    "The massless 1-loop triangle (K_3) has three external momenta, two of them "
+    "independent by momentum conservation.  Its GKZ data contains the "
     "full information needed for series representations, the toric operators "
     "(an analogue of IBP relations), transformation identities, and Landau "
     "singularities.  The normalised volume vol = 4 equals the holonomic rank for "
@@ -303,8 +303,9 @@ print(f"  LP parameters: {sym_tri.lp_parameters}")
 note(
     "The LP form substitutes a_i -> u_i (no simplex constraint).  The result "
     "G(u) has 6 monomials, one per column of the 4 x 6 A-matrix.  The GKZ "
-    "integral I_A = int_{R_{>0}^3} u^beta * G(u)^{-beta_0} du is absolutely convergent "
-    "for Re beta_r > 0 and beta_0 = (L*D)/2 - sum  nu_i.",
+    "integral is I_A(beta, z) = int_{R_{>0}^3} u^(nu - 1) G(u)^(-D/2) du with "
+    "beta = (-D/2, -nu_1, -nu_2, -nu_3), continued analytically from the region "
+    "where it converges.",
     4,
 )
 
@@ -365,7 +366,7 @@ sec("Lee-Pomeransky parametrisation  (u in R_{>0}^E, no constraint)")
 lp = fi_tri.lee_pomeransky
 print(f"  Prefactor  : {lp.prefactor}")
 print(f"  Parameters : {lp.parameters}    (LP u-variables)")
-print("  Integrand  : u^beta * G(u)^{-beta_0}   with G = U + F")
+print("  Integrand  : u^(nu - 1) * G(u)^(-D/2)   with G = U + F")
 note(
     "The LP form (Lee-Pomeransky 2013) uses G = U + F and integrates over all "
     "of R_{>0}^E without any simplex constraint.  This form is optimal for GKZ: "
@@ -394,9 +395,9 @@ note(
 gkz = fi_tri.gkz
 r_rows, m_cols = gkz.a_matrix.shape
 
-sec("A-matrix  (rows = L+1; columns = monomials of G)")
+sec("A-matrix  (rows = E+1; columns = monomials of G)")
 print(
-    f"  Shape: {r_rows} x {m_cols}   ({fi_tri.loop_count+1} rows = L+1;  "
+    f"  Shape: {r_rows} x {m_cols}   ({E_int + 1} rows = E+1;  "
     f"{m_cols} columns = monomials of G)"
 )
 print("  Row 0  : homogenisation row (all 1s), encodes overall Euler scaling")
@@ -405,21 +406,22 @@ sp.pprint(gkz.a_matrix)
 note(
     "The A-matrix encodes the Newton polytope of G: each column a_j is the "
     "exponent vector (in the affine hyperplane sum x_0 = 1) of one monomial of G.  "
-    "Reading the columns as integer vectors in Z^{L+1}, the convex hull "
+    "Reading the columns as integer vectors in Z^{E+1}, the convex hull "
     "Conv(a_1,...,a_m) is the Newton polytope Delta_G.",
     4,
 )
 
 sec("beta-parameters  (encode spacetime dimension D and propagator exponents nu_i)")
 print(f"  beta = {gkz.beta_parameters}")
-print("  beta_0 = (L*D)/2 - sum  nu_i   (dimension shift from LP prefactor Gamma-functions)")
-print(f"  beta_k = nu_k                (one per LP variable u_k;  k = 1...{r_rows-1})")
+print("  beta_0 = -D/2     (from the power G(u)^(-D/2) in the LP integrand)")
+print(f"  beta_k = -nu_k    (one per LP variable u_k;  k = 1...{r_rows-1})")
 note(
-    "For physical kinematics D in Z and nu_i in Z_{>0}, so beta in Z^{L+1} is an "
-    "integer vector.  This places the system in the resonant regime, where the "
-    "holonomic rank is still vol(Delta_G) but logarithmic series may appear.  "
-    "The epsilon-expansion in dimensional regularisation D = 4 - 2 epsilon is the expansion "
-    "of I_A around the resonant point beta_0(epsilon=0).",
+    "For integer nu_i and D = 4, beta is an integer vector in Z^{E+1}, so it is "
+    "resonant: the system is reducible there (Schulze and Walther 2012) and "
+    "logarithmic series may appear.  The holonomic rank stays vol(Delta_G), "
+    "because the massless triangle meets Klausen's hypotheses and its toric ring "
+    "is Cohen-Macaulay.  The epsilon-expansion in dimensional regularisation "
+    "D = 4 - 2 epsilon is the expansion of I_A around the resonant point beta_0 = -2.",
     4,
 )
 
@@ -449,8 +451,8 @@ for label, fi_x in [("Bubble", fi_bubble), ("Sunrise", fi_sunrise)]:
 hdr(5, "Newton polytope  Delta_G")
 
 note(
-    "The Newton polytope Delta_G = Conv{a_1,...,a_m} subset of R^L encodes ALL analytic "
-    "properties of the GKZ integral I_A: (i) its holonomic rank = vol(Delta_G), "
+    "The Newton polytope Delta_G = Conv{a_1,...,a_m} subset of R^E encodes ALL analytic "
+    "properties of the GKZ integral I_A: (i) its holonomic rank = vol(Delta_G) for generic beta, "
     "(ii) its canonical-series solutions via triangulations of Delta_G, (iii) its "
     "transformation identities via Aut(Delta_G), (iv) its Landau singularities via "
     "the principal A-determinant E_A restricted to faces of Delta_G."
@@ -487,11 +489,9 @@ note(
 sec("Smith invariants, lattice embedding")
 note(
     "The Smith normal form of the difference matrix [a_2-a_1 | ... | a_m-a_1] "
-    "reveals how the lattice spanned by the A-columns sits inside Z^L.  "
+    "reveals how the lattice spanned by the A-columns sits inside Z^E.  "
     "Smith = [1, 1, 1] means the columns generate exactly Z^3, a primitive "
-    "embedding with no sublattice factor.  Consequence: for any integer beta, "
-    "the GKZ system admits purely logarithm-free Gamma-series solutions (no "
-    "half-integer shifts required).  Compare with triple-K: Smith = [1,1,2].",
+    "embedding with no sublattice factor.  Compare with triple-K: Smith = [1,1,2].",
     4,
 )
 
@@ -515,23 +515,24 @@ for label, fi_x in [
 # -----------------------------------------------------------------------------
 # section 6  Holonomic rank theorem
 # -----------------------------------------------------------------------------
-hdr(6, "Holonomic rank theorem:  vol(Delta_G) = rank M_A(beta)")
+hdr(6, "Holonomic rank theorem:  vol(Delta_G) = rank M_A(beta) for generic beta")
 
 note(
     "For a GKZ system M_A(beta) with beta in general position (non-resonant), the "
     "holonomic rank, the dimension of the solution space at a generic point, "
     "equals the normalised volume vol(Delta_G) of the Newton polytope (Adolphson 1994; "
-    "Gelfand-Kapranov-Zelevinsky 1990).  In the Feynman-integral context this "
-    "dimension counts the number of independent master integrals for generic "
-    "propagator exponents nu_i.  feynkit exposes vol(Delta_G) as "
+    "Gelfand-Kapranov-Zelevinsky 1990).  In the Feynman-integral context it "
+    "bounds the number of master integrals from above, with equality for generic "
+    "coefficients (Bitoun et al. 2019).  feynkit exposes vol(Delta_G) as "
     "AConfiguration.normalized_volume.  feynkit does not compute the holonomic "
-    "rank itself; the volume is its value for non-resonant parameters and "
-    "generic coefficients (Adolphson 1994), and an upper bound otherwise."
+    "rank itself; the volume is its value for non-resonant beta (Adolphson 1994), "
+    "and for every beta when the toric ring is Cohen-Macaulay; otherwise the rank "
+    "can only exceed it."
 )
 
-sec("Rank verification, all standard diagrams")
-print(f"  {'Diagram':<22} {'vol(Delta)':>8}  {'rank':>6}  {'agree?':>7}")
-print("  " + "-" * 46)
+sec("Normalised volume, all standard diagrams")
+print(f"  {'Diagram':<22} {'vol(Delta)':>10}")
+print("  " + "-" * 34)
 for label, fi_x in [
     ("Massless bubble", fi_bubble),
     ("Massless triangle", fi_tri),
@@ -539,7 +540,7 @@ for label, fi_x in [
 ]:
     cfg_x = AConfiguration(fi_x.gkz.a_matrix)
     vol = cfg_x.normalized_volume
-    print(f"  {label:<22} {vol:>8}")
+    print(f"  {label:<22} {vol:>10}")
 
 note(
     "The triangle has rank 4, matching the 4 simplices in a unimodular "
@@ -552,12 +553,15 @@ note(
     4,
 )
 
-sec("Physical master-integral count vs mathematical rank")
+sec("Rank, resonance and the master-integral upper bound")
 note(
-    "At special (resonant) values of beta, in particular, integer nu_i and "
-    "dimension D = 4 - 2 epsilon, the rank may increase by logarithmic extensions.  "
-    "feynkit computes the generic rank; extensions for resonant beta are handled "
-    "separately by the epsilon-expansion module (beyond the scope of this overview).",
+    "Resonance, as at integer nu_i and D = 4, makes the system reducible without "
+    "changing its rank (Schulze and Walther 2012).  The rank can exceed "
+    "vol(Delta_G) at special beta only when the toric ring is not Cohen-Macaulay "
+    "(Matusevich, Miller and Walther 2005); Klausen's hypotheses hold for the "
+    "massless triangle, so its toric ring is Cohen-Macaulay and its rank is 4 for "
+    "every beta.  The number of master integrals at physical kinematics is |chi|, "
+    "at most vol(Delta_G), with equality for generic coefficients (Bitoun et al. 2019).",
     4,
 )
 
@@ -585,8 +589,10 @@ for i, gen in enumerate(ti.generators):
     print(f"  [{i}]  {gen} = 0")
 note(
     "Each generator z^u - z^v gives the operator d^u - d^v, which annihilates "
-    "I_A(beta, z) as a function of independent z_j.  It relates derivatives in "
-    "the z_j, not Feynman integrals with shifted propagator powers.  For the "
+    "I_A(beta, z) as a function of independent z_j.  Since d_j I_A(beta, z) = "
+    "beta_0 I_A(beta - a_j, z) and A u = A v, d^u I_A and d^v I_A are the same "
+    "shifted integral: the operator is a differential equation in the z_j, not a "
+    "reduction between different integrals as an IBP relation is.  For the "
     "triangle the kernel of A over Q has rank m - rank(A) = 6 - 4 = 2.",
     4,
 )
@@ -608,8 +614,9 @@ print(f"  Generators: {len(ti_b.generators)}   (dim ker A_bubble = {ker_b})")
 note(
     "The bubble A-matrix is 3 x 3 with rank 3, so its kernel is trivial and so "
     "is its toric ideal: there are no toric operators.  This says nothing about "
-    "the number of master integrals, which is the Euler characteristic of the "
-    "complement of {G = 0} in the torus (Bitoun, Bogner, Klausen, Panzer 2019).",
+    "the number of master integrals, which is |chi| for the Euler characteristic "
+    "chi of the complement of {G = 0} in the torus (Bitoun, Bogner, Klausen, "
+    "Panzer 2019).",
     4,
 )
 
@@ -621,7 +628,7 @@ hdr(8, "Polytope automorphisms  Aut(P)")
 
 note(
     "A unimodular automorphism of the Newton polytope P is an affine bijection "
-    "(U, t): R^L -> R^L with U in GL_L(Z) and det U = +/-1 that permutes the "
+    "(U, t): R^E -> R^E with U in GL_E(Z) and det U = +/-1 that permutes the "
     "vertices of P.  When it maps the monomials of G onto themselves it permutes "
     "the columns of A and gives I_A(beta, z_P) = I_A(T beta, z) for the integral "
     "without Gamma prefactors.  For a coefficient-preserving automorphism z_P = z "
@@ -682,7 +689,7 @@ hdr(9, "Symmetry pairs, transformation identities for I_A")
 
 note(
     "A symmetry pair (M, t, P) satisfies the column-permutation identity "
-    "T * A = A * Pi_P, where T = [[1, 0^T],[t, M]] in GL_{L+1}(Z) and Pi_P "
+    "T * A = A * Pi_P, where T = [[1, 0^T],[t, M]] in GL_{E+1}(Z) and Pi_P "
     "is a column permutation matrix.  This gives the integral identity "
     "I_A(beta, z_P) = I_A(T*beta, z), for I_A without Gamma prefactors "
     "(FMS 2019; de la Cruz 2024, Section 4).  Every pair has det M = +/-1, "
@@ -837,13 +844,14 @@ note(
 hdr(12, "Finite-index map:  triangle -> triple-K  (det = 2)")
 
 note(
-    "A finite-index map from a polytope P to Q is an integer-linear map "
-    "M with |det M| = d > 1 that sends every lattice point of P into Q. "
-    "For the pair (triangle, triple-K), d = 2: the triple-K GKZ integral "
-    "lives on the index-2 sublattice of the triangle.  Concretely, this "
-    "means the triple-K integral I_{triple-K}(beta) can be expressed as a sum "
-    "over two cosets of I_{triangle} at shifted beta-values, the GKZ realisation "
-    "of the Bzowski-McFadden-Skenderis simplex-integral identity (2021, Eq. 4.7)."
+    "A finite-index map from a configuration A to a configuration B is an "
+    "integer affine map x -> M x + t with |det M| = d > 1 that takes the points "
+    "of A bijectively onto those of B.  For the pair (triangle, triple-K), "
+    "d = 2: the triple-K points lie in a translate of an index-2 sublattice.  "
+    "With P the induced bijection of columns and T = [[1, 0^T], [t, M]], the "
+    "identity is I_triangle(beta, z_P) = 2 I_triple-K(T beta, z) for the "
+    "integrals without Gamma prefactors: one term, with the factor |det M| = 2 "
+    "(mathematics reference, section 9.4)."
 )
 
 sec("Full point-configuration finite-index map (all A-columns)")
@@ -864,13 +872,12 @@ print("  cfg_triangle.finite_index_map_to(triple-K):")
 print(f"    found={r_fi.found},  det={r_fi.determinant},  unimodular={r_fi.is_unimodular}")
 
 note(
-    "The determinant 2 matches the ratio of normalised volumes: "
-    f"vol(triple-K) / vol(triangle) = {triple_k_a_config().normalized_volume} / "
-    f"{cfg_t.normalized_volume}, wait, the volumes are equal (both 4), so the "
-    "det-2 map is a lattice rescaling rather than a volume rescaling.  "
-    "What changes is the lattice embedding: the triple-K columns generate a "
-    "sublattice of index 2 inside the triangle's lattice.  This is why the "
-    "holonomic ranks agree (both 4) but the Smith invariants differ "
+    f"The normalised volumes are equal: vol(triangle) = {cfg_t.normalized_volume} "
+    f"and vol(triple-K) = {triple_k_a_config().normalized_volume}.  Each is "
+    "measured in the lattice its own points span, and a map of all columns keeps "
+    "it, so the det-2 map changes the lattice embedding, not the volume: the "
+    "triple-K points span a sublattice of index 2.  The holonomic ranks for "
+    "generic beta therefore agree, while the Smith invariants differ "
     "([1,1,1] vs [1,1,2]).",
     4,
 )
@@ -1070,7 +1077,7 @@ for name, cfg_x in configs_all.items():
 note(
     "The banana_3 configuration (3 parallel edges connecting 2 vertices) has "
     "vol = 1, so holonomic rank 1 for generic beta.  The 4-simplex Delta_4 is the standard simplex "
-    "with 5 vertices; its A-matrix is square (5 x 5), making it the simplest "
+    "with 5 vertices; its A-matrix is square (5 x 5), so it is an "
     "example where the toric ideal is empty.  triple-K has Smith=[1,1,2] "
     "while the triangle has Smith=[1,1,1], reflecting their finite-index relationship.",
     4,
@@ -1212,9 +1219,9 @@ note(
     "hierarchy.  The step triple-K -> triangle is the most physically significant: "
     "the CFT 3-point function (triple-K) is a finite-index cousin of the "
     "1-loop Feynman triangle, related by a det=2 map that implements the "
-    "parity projection onto even conformal dimensions.  The equality of "
-    "holonomic ranks (both 4) means the same number of master integrals "
-    "span both families; only the lattice of allowed beta-values differs.",
+    "parity projection onto even conformal dimensions.  The holonomic ranks "
+    "for generic beta agree (both 4), since a map of all columns keeps the "
+    "normalised volume; what differs is the lattice the points span.",
     4,
 )
 
@@ -1237,7 +1244,7 @@ note(
 
 all_ok = True
 
-sec("Group 1: Holonomic rank = normalised volume")
+sec("Group 1: Normalised volumes are positive")
 for label, fi_x in [("bubble", fi_bubble), ("triangle", fi_tri), ("sunrise", fi_sunrise)]:
     cfg_x = AConfiguration(fi_x.gkz.a_matrix)
     ok = check(f"vol(Delta) positive  [{label}]", cfg_x.normalized_volume > 0)
@@ -1272,12 +1279,12 @@ r_fi_c3 = conformal_companion_a_config(3).finite_index_map_to(bms_simplex_a_conf
 ok = check("companion_3 -> BMS_3  det = 2", r_fi_c3.found and r_fi_c3.determinant == 2)
 all_ok &= ok
 
-sec("Group 5: Toric ideal dimension = dim ker A")
+sec("Group 5: Toric ideal codimension = dim ker A")
 A_arr = np.array(gkz_tri.a_matrix.tolist(), dtype=float)
 ker_d = int(A_arr.shape[1] - np.linalg.matrix_rank(A_arr))
 ok = check(
-    f"dim ker A = # toric generators  [triangle, expected {ker_d}]",
-    len(fi_tri.toric_ideal.generators) == ker_d,
+    f"# toric generators >= dim ker A = {ker_d}  [triangle]",
+    len(fi_tri.toric_ideal.generators) >= ker_d,
 )
 all_ok &= ok
 ok = check("Bubble: # toric generators = 0", len(fi_bubble.toric_ideal.generators) == 0)

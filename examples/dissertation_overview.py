@@ -174,7 +174,7 @@ r, m_cols = gkz.a_matrix.shape
 sec("A-matrix")
 print(
     f"  Shape: {r} x {m_cols}  "
-    f"({fi_tri.loop_count + 1} rows = loops+1; {m_cols} cols = monomials of G)"
+    f"({len(g_tri.get_internal_edges()) + 1} rows = E+1; {m_cols} cols = monomials of G)"
 )
 sp.pprint(gkz.a_matrix)
 print("  First row is the homogenisation row (all ones).")
@@ -184,8 +184,8 @@ sec("GKZ parameters")
 print(f"  z-variables  : {gkz.z_variables}")
 print(f"  beta-parameters : {gkz.beta_parameters}")
 print("  beta encodes dimension D and propagator exponents nu_i via:")
-print("    beta_0 = (L*D)/2 - sum  nu_i")
-print("    beta_k = nu_k   (one per Schwinger parameter)")
+print("    beta_0 = -D/2")
+print("    beta_k = -nu_k   (one per Schwinger parameter)")
 
 sec("Euler differential equations  Ehat_r * I_A = beta_r * I_A")
 for i, eq in enumerate(gkz.euler_equations):
@@ -220,7 +220,7 @@ print(f"  Number of vertices      : {len(cfg_tri.newton_polytope_points)}")
 print(f"  Ambient dimension       : {cfg_tri.ambient_dim}")
 print(f"  Affine dimension        : {cfg_tri.affine_dim}")
 print(f"  Normalised volume       : {cfg_tri.normalized_volume}")
-print("    (= holonomic rank = #independent master integrals for generic beta)")
+print("    (= holonomic rank for generic beta; an upper bound for the number of master integrals)")
 print(f"  Smith invariants of A   : {cfg_tri.smith_invariants}")
 print("    (Smith = [1,1,1] -> A-columns span the full Z^3 lattice)")
 
@@ -257,8 +257,8 @@ sec("Bubble toric ideal (trivial case)")
 ti_b = fi_bubble.toric_ideal
 print(f"  Bubble generators: {len(ti_b.generators)}")
 if len(ti_b.generators) == 0:
-    print("  (empty: the three columns of A are linearly independent; this says")
-    print("   nothing about the number of master integrals)")
+    print("  (empty: the three columns of A are linearly independent;")
+    print("   that says nothing about the number of master integrals)")
 
 
 # -----------------------------------------------------------------------------
@@ -409,10 +409,12 @@ if pc_eq.equivalent:
 hdr(11, "Finite-index map  (det != +/-1 integer maps)")
 
 sec("Concept")
-print("  An integer affine map x -> Mx + t with M in GL_n(Z) but |det M| > 1.")
+print("  An integer affine map x -> Mx + t, M an integer matrix with |det M| > 1.")
 print("  Such a map takes every source point to a target point, but the image")
 print("  lattice has index |det M| in the target lattice.")
-print("  For GKZ systems, a det = k map implies the holonomic ranks differ by k.")
+print("  A map of all columns with |det M| = k gives I_A(beta, z_P) = k I_B(T beta, z)")
+print("  and keeps the normalised volume in the lattice the points span, so the")
+print("  holonomic ranks for generic beta agree.")
 
 fi_triangle = finite_index_map(cfg_tri, cfg_tk)
 
@@ -427,11 +429,7 @@ cfg_tri_verts = AConfiguration(
 )
 fi2 = cfg_tri_verts.is_affinely_equivalent_to(cfg_tk_verts)
 print(f"  Equivalent (polytope): {fi2.equivalent}")
-print(
-    f"  det M = {fi2.determinant}   (ratio of normalised volumes: "
-    f"{cfg_tk.normalized_volume} / {cfg_tri.normalized_volume} = "
-    f"{cfg_tk.normalized_volume // cfg_tri.normalized_volume})"
-)
+print(f"  det M = {fi2.determinant}")
 if fi2.witness_map is not None:
     print("  M =")
     sp.pprint(fi2.witness_map)

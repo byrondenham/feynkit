@@ -295,9 +295,10 @@ print(f"""
 The normalised lattice volume of the Newton polytope equals the holonomic rank
 of the GKZ D-module for generic parameters beta (Klausen 2020, Theorem 2.2).
 This is the number of independent A-hypergeometric series in any basis;
-for a Feynman integral it counts the master integrals at generic kinematics.
+for a Feynman integral it is an upper bound for the number of master integrals,
+attained for generic coefficients.
 
-  Triangle   : vol = {vol_tri}  (4 independent Gamma-series / master integrals)
+  Triangle   : vol = {vol_tri}  (4 independent Gamma-series for generic beta)
   Triple-K   : vol = {vol_tpk}  (same, the index-2 sublattice rescales the measure)
   Banana-3   : vol = {vol_ban}
   4-simplex  : vol = {vol_s4}
@@ -343,8 +344,8 @@ print(f"""  Configuration pair: Triangle  vs  Triple-K
   - The finite-index map M = [[0,1,1],[1,0,1],[1,1,0]] (det 2) provides an
     explicit change of basis: A_triple-K = M * A_triangle (up to column
     permutation), relating the two GKZ A-matrices.
-  - Normalized volume = {vol_tri} for both: same holonomic rank, same master-integral
-    count at generic kinematics.  The GKZ systems are isomorphic over Q.
+  - Normalized volume = {vol_tri} for both: same holonomic rank for generic beta.
+    The GKZ systems are isomorphic over Q.
   - Over Z they are NOT isomorphic: the 2-torsion in the lattice quotient
     Z^3 / (even-sum sublattice) ~= Z/2 is the residual difference.
 """)

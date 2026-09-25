@@ -90,7 +90,8 @@ print("           this misses edge-permutation symmetries.")
 print()
 print("|Coeff-pres.| Automorphisms (U,t) in Aut(P) that also preserve the")
 print("           coefficients of G. Each gives I_A(beta, z) = I_A(T beta, z),")
-print("           a relation between parameter vectors at one kinematic point.")
+print("           with T = [[1, 0], [t, U]], a relation between parameter vectors")
+print("           at one kinematic point.")
 print()
 
 # Detailed view for one interesting case.

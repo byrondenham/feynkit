@@ -231,13 +231,18 @@
   canonical form beside it when they differ. The Newton polytope section calls the normalised
   volume the holonomic rank for generic beta, not the holonomic rank.
 - The examples `dissertation_overview.py`, `dissertation_overview_enhanced.py`,
-  `complete_analysis.py`, `feynkit_survey.py`, `toric_ideal_example.py` and
-  `automorphism_survey.py` called the toric generators IBP relations or identities, inferred a
-  single master integral from a trivial toric ideal or a volume of 1, counted finite-index
-  symmetry pairs, of which there are none, and stated functional equations I(z) = I(sigma z).
-  They now call the toric operators an analogue of IBP relations (Chestnov et al. 2022), say
-  that a trivial toric ideal gives no master-integral count, and give
-  I_A(beta, z) = I_A(T beta, z) for a coefficient-preserving automorphism.
+  `complete_analysis.py`, `feynkit_survey.py`, `toric_ideal_example.py`,
+  `automorphism_survey.py`, `conformal_simplex_comparison.py`,
+  `dissertation_configuration_analysis.py` and `symmetry_pairs_example.py` called the toric
+  generators IBP relations or identities, inferred a single master integral from a trivial toric
+  ideal or a volume of 1, equated the holonomic rank with the number of master integrals,
+  counted finite-index symmetry pairs, of which there are none, and stated functional equations
+  I(z) = I(sigma z). They now call the toric operators an analogue of IBP relations (Chestnov et
+  al. 2022), say that a trivial toric ideal gives no master-integral count and that the volume
+  only bounds it, and give I_A(beta, z) = I_A(T beta, z) for a coefficient-preserving
+  automorphism. They also give A with E+1 rows rather than L+1, use the library's
+  beta = (-D/2, -nu_1, ..., -nu_n), and write the finite-index identity as one term with the
+  factor |det M|.
 
 ### Removed
 

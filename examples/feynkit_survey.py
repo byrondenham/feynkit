@@ -658,7 +658,8 @@ def main() -> None:
         _emit(f"  {r.label:<22}  {r.n_pts:>5}  {r.ambient_dim:>7}  {len(r.toric_gens):>10}")
     _emit()
     _emit("  Pattern: n-gon toric count grows rapidly (~C(n,2) x something).")
-    _emit("  Massless bananas have 0 generators: their Newton polytopes are simplices.")
+    _emit("  Massless bananas have 0 generators: their monomials are exactly the vertices")
+    _emit("  of a simplex, so the columns of A are linearly independent.")
     _emit()
 
     # Volume patterns

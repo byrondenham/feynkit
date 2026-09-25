@@ -240,7 +240,7 @@ The triangle/triple-K equivalence (n=3) rests on three coincidences:
     Different monomial counts immediately rule out any bijective equivalence.
 
 3.  Same normalised volume.  Both C_3 and BMS_3 have vol_0 = 4, giving the
-    same GKZ holonomic rank (= same master-integral count at generic beta).
+    same GKZ holonomic rank for generic beta.
     For n=4 the volumes differ:  vol_0(C_4) = {cn4_vol}  vs  vol_0(BMS_4) = {bms4_vol}.
     Different volumes -> different holonomic ranks -> different numbers of
     independent hypergeometric series in the GKZ solution space.
@@ -248,7 +248,7 @@ The triangle/triple-K equivalence (n=3) rests on three coincidences:
 The fundamental reason for all three coincidences is that C_3 = K_3.  The
 G polynomial of the triangle C_3 has the same number of monomials as the
 triple-K because:
-  U(C_3) = u1*u2 + u1*u3 + u2*u3  (3 monomials, from the 3 spanning trees)
+  U(C_3) = u1 + u2 + u3  (3 monomials, from the 3 spanning trees)
   F(C_3) contains 3 bilinear terms (one per Mandelstam invariant)
   Triple-K has 3 "K-denominator" + 3 "scaling" monomials
 

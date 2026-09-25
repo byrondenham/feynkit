@@ -218,10 +218,10 @@ Observations:
     The one-mass case is the most symmetric: its 4 monomials form a configuration
     in R^2 with the full eightfold Kummer symmetry of _2F_1 (de la Cruz 2024 section 3.1).
 
-  - Banana graphs: the L-loop massless banana has N = L+1 monomials in R^L
-    forming the standard L-simplex.  Its symmetry group is S_(L+1) (all
-    permutations of the L+1 vertices), consistent with the propagator-exchange
-    symmetry of a single-scale graph:
+  - Banana graphs: the massless banana with E propagators (E - 1 loops) has
+    N = E+1 monomials in R^E forming an E-simplex.  Its symmetry group is
+    S_(E+1) (all permutations of the E+1 vertices), consistent with the
+    propagator-exchange symmetry of a single-scale graph:
       3-banana (N=4, R^3) : S_4  (order 24)
       4-banana (N=5, R^4) : S_5  (order 120)
 

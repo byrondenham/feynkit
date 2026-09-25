@@ -608,9 +608,13 @@ def test_no_rank_is_claimed_when_the_rows_of_a_are_dependent(cnickel: str) -> No
         "Since $P$ is not full-dimensional, the rows of $A$ are linearly dependent. For "
         "generic $\\beta$ the Euler equations are then inconsistent"
     ) in latex
+    assert text.endswith("its holonomic rank is 0, not the normalised volume.")
     for document in (text, latex):
         assert "equals the normalised volume" not in document
-        assert "feynkit computes neither the holonomic rank at the physical point" in document
+        # For generic beta the rank and the Euler characteristic are both 0, so
+        # the report does not call them uncomputed.
+        assert "feynkit computes neither" not in document
+        assert "Euler characteristic" not in document
 
 
 def test_tadpole_keeps_its_rank_sentence(tadpole: FeynmanIntegral) -> None:

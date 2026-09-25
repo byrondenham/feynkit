@@ -471,8 +471,7 @@ def _polytope(polytope: Polytope, doc: _Document) -> str:
             "",
             "Since $P$ is not full-dimensional, the rows of $A$ are linearly dependent. For "
             "generic $\\beta$ the Euler equations are then inconsistent, and the GKZ system has "
-            "no non-zero solutions: its holonomic rank is 0, not the normalised volume. "
-            f"{NOT_COMPUTED}",
+            "no non-zero solutions: its holonomic rank is 0, not the normalised volume.",
         ]
         return "\n".join(parts)
     parts += [

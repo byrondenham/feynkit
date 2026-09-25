@@ -1522,7 +1522,8 @@ The document has twelve parts:
 6. The Schwinger, Feynman and Lee-Pomeransky representations, written in $U$, $F$ and $G$, and the
    convergence region of the last as one inequality per facet (section 11).
 7. The Newton polytope: vertices, dimension, normalised volume, face counts, a figure, and the
-   conditions under which the holonomic rank equals the volume.
+   conditions under which the holonomic rank equals the volume or, when the polytope is not
+   full-dimensional, why the rank is 0 for generic $\beta$.
 8. The GKZ system: $A$, $\beta = (-D/2, -\nu_1, \ldots, -\nu_N)$, one Euler operator per row of $A$
    and the toric generators.
 9. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
@@ -1536,10 +1537,10 @@ The document has twelve parts:
     configuration and its reduction to the $\tilde F$ block.
 12. References, the works cited in order of first citation.
 
-Parts 6 to 11 appear when their sections are built. When the `polytope` section is built, the
-document also states what feynkit does not compute: the holonomic rank at the physical point, the
-Euler characteristic that counts the master integrals, series solutions, a Pfaffian system and the
-restriction of the GKZ system to physical kinematics.
+Parts 6 to 11 appear when their sections are built. When the `polytope` section is built and the
+polytope is full-dimensional, the document also states what feynkit does not compute: the
+holonomic rank at the physical point, the Euler characteristic that counts the master integrals,
+series solutions, a Pfaffian system and the restriction of the GKZ system to physical kinematics.
 
 The LaTeX source is ASCII and needs only standard TeX Live packages (amsmath, booktabs, longtable,
 geometry, lmodern, TikZ with tikz-3dplot, hyperref). The test `tests/io/test_report_compile.py`

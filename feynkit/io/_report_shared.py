@@ -128,7 +128,7 @@ CITATIONS: dict[str, str] = {
 # The symmetry section writes out at most this many symmetry pairs.
 MAX_PAIRS_SHOWN = 10
 
-# What the Newton polytope section says feynkit leaves uncomputed, whatever the rank.
+# What the Newton polytope section says feynkit leaves uncomputed when P is full-dimensional.
 NOT_COMPUTED = (
     "feynkit computes neither the holonomic rank at the physical point nor the Euler "
     "characteristic, and produces no series solutions, Pfaffian system or restriction to "

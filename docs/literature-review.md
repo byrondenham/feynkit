@@ -251,7 +251,7 @@ What is already settled is that the GKZ approach has changed the way we think ab
 - J. Forsgård, L. F. Matusevich, A. Sobieska, *On transformations of A-hypergeometric functions*, Funkcialaj Ekvacioj 62 (2019) 319, arXiv:1703.03036.
 - R. Grinis, A. M. Kasprzyk, *Normal forms of convex lattice polytopes*, arXiv:1301.6641 (2013).
 - R. P. Klausen, *Hypergeometric series representations of Feynman integrals by GKZ hypergeometric systems*, JHEP 04 (2020) 121, arXiv:1910.08651.
-- R. P. Klausen, *Hypergeometric Feynman Integrals*, PhD thesis, Johannes Gutenberg University Mainz, 2022, arXiv:2302.13184.
+- R. P. Klausen, *Hypergeometric Feynman Integrals*, PhD thesis, Johannes Gutenberg University Mainz, arXiv:2302.13184 (2023).
 - Q. Liu, Z. Cai, *On the Unimodular Isomorphism Problem of Convex Lattice Polytopes*, arXiv:2506.23846 (2025).
 - L. F. Matusevich, E. Miller, U. Walther, *Homological methods for hypergeometric families*, J. Amer. Math. Soc. 18 (2005) 919, arXiv:math/0406383.
 - M. Schulze, U. Walther, *Resonance equals reducibility for A-hypergeometric systems*, Algebra Number Theory 6 (2012) 527, arXiv:1009.3569.

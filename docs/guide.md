@@ -78,69 +78,144 @@ gens = compute_toric_ideal_generators(a_matrix, backend="sympy")
 
 ## CLI: fk
 
-After `pip install -e .` or `uv sync`, the `fk` command is available on the PATH.
-
-### Single-diagram analysis
+After `pip install -e .` or `uv sync`, the `fk` command is on the PATH (run it as `uv run fk`
+under uv). It has two subcommands:
 
 ```
-fk <cnickel> [section flags] [--db PATH]
+fk analyse CNICKEL [section flags] [--latex FILE] [--text FILE] [--json] [--sections NAMES]
+           [--db PATH | --no-db] [--verbose]
+fk compare A B [--db PATH | --no-db] [--verbose]
+fk --version
 ```
 
-With no section flags, `fk` runs all sections in sequence. Pass one or more flags to restrict
-output.
+Quote every CNickel string: an unquoted `|` is a shell pipe. The bare forms `fk CNICKEL` and
+`fk A B` of earlier versions still work and run `fk analyse` and `fk compare`.
+
+### Analysing one diagram
+
+With no section flags, `fk analyse` prints every section. Pass one or more flags to choose.
 
 ```bash
-fk "12e|2e|e|:zzz"                  # full analysis of the massless triangle
-fk "12e|2e|e|:zzz" -g -n            # GKZ and Newton polytope only
-fk "111e|e|:zzz"                     # massless 3-propagator banana
-fk 12e|2e|e|                         # bare Nickel topology (massless assumed)
-fk "12e|2e|e|:nzz" -S               # symmetries only for one-mass triangle
+fk analyse "12e|2e|e|:zzz"              # every section of the massless triangle
+fk analyse "12e|2e|e|:zzz" -g -n        # GKZ system and Newton polytope only
+fk analyse "111e|e|:zzz"                # massless banana with three propagators
+fk analyse "12e|2e|e|"                  # bare topology: every propagator massless
+fk analyse "12e|2e|e|:nzz" -S           # symmetries of the one-mass triangle
 ```
-
-Section flags:
 
 | Flag | Long form | Section |
 |------|-----------|---------|
 | `-s` | `--symanzik` | Symanzik polynomials U, F, G |
-| `-p` | `--params` | Parametrisations (Schwinger, Feynman, Lee-Pom.) |
+| `-p` | `--params` | Schwinger, Feynman and Lee-Pomeransky parametrisations |
 | `-g` | `--gkz` | GKZ A-matrix and Euler equations |
 | `-t` | `--toric` | Toric ideal of the A-matrix |
-| `-n` | `--newton` | Newton polytope (vertices, volume, Smith invariants) |
+| `-n` | `--newton` | Newton polytope: vertices, normalised volume (the holonomic rank for generic $\beta$), Smith invariants |
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
 
-The graph header (CNickel, loop count, propagators, external legs) and database record are
-always printed regardless of section flags.
+The graph header (CNickel string, Nickel index, loop count, propagators, external legs) is
+printed whatever the section flags, and so is the database record unless `--no-db` is given. The
+header shows the string as typed, with its canonical form beside it when the two differ.
 
-#### Database option
+#### Reports and JSON
 
-Results are written to `feynkit.db` by default. Override with `--db`:
+`fk analyse` also writes the analysis report of `FeynmanIntegral.to_latex` and `to_text`
+(section 20). It builds the report once, however many of these options are given.
+
+| Option | Effect |
+|--------|--------|
+| `--latex FILE` | write the report as a LaTeX document |
+| `--text FILE` | write the report as plain text |
+| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `gkz`, `symmetries`, `landau` and `schwinger`; all by default |
+| `--json` | print a JSON summary of the report on stdout, and nothing else |
+
+`--sections` chooses what the report holds, not what `fk analyse` prints. The report always has
+`identity`, `conventions` and `polynomials`.
 
 ```bash
-fk "12e|2e|e|:zzz" --db my_survey.db
+fk analyse "12e|2e|e|:nnn" --latex triangle.tex --text triangle.txt
+fk analyse "12e|2e|e|:nnn" --text triangle.txt --sections polytope,gkz
+fk analyse "12e|2e|e|:nzz" --json --no-db
 ```
 
-### Pairwise equivalence
-
-Pass two CNickel strings to run an equivalence analysis:
+The JSON object holds the string as typed (`input`), its canonical form (`cnickel`), the report
+sections asked for (`sections`) and the numbers of `AnalysisReport.summary()` for the sections
+built (`summary`), keyed in snake case:
 
 ```
-fk <cnickel1> <cnickel2> [--db PATH]
+$ fk analyse "12e|2e|e|:nzz" --json --sections gkz --no-db
+{
+  "input": "12e|2e|e|:nzz",
+  "cnickel": "12e|2e|e|:nzz",
+  "sections": [
+    "gkz"
+  ],
+  "summary": {
+    "loops": 1,
+    "propagators": 3,
+    "external_legs": 3,
+    "monomials_of_f": 4,
+    "monomials_of_g": 7,
+    "independent_invariants": 4,
+    "codimension": 3,
+    "toric_generators": 5
+  }
+}
 ```
+
+`--json` still writes the files of `--latex` and `--text` and stores the integral in the
+database, but does not report either on stdout. It cannot be combined with section flags, and
+`--sections` needs `--latex`, `--text` or `--json`.
+
+### Comparing two diagrams
 
 ```bash
-fk "12e|2e|e|:zzz" "11e|e|:zz"          # triangle vs bubble
-fk "12e|2e|e|:nzz" "12e|2e|e|:znz"      # one-mass triangles: different mass placements
+fk compare "12e|2e|e|:zzz" "11e|e|:zz"        # triangle against bubble
+fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"    # the mass on two different propagators
 ```
 
-The pairwise mode:
-1. Prints a brief per-diagram summary (Symanzik polynomials, A-matrix, Smith invariants).
-2. Runs unimodular, affine-polytope, point-configuration, and finite-index equivalence checks.
-3. For any found map, prints the explicit change-of-variables and the induced GKZ parameter
-   transformation `$\beta$ -> T*$\beta$`.
+`fk compare`:
+1. prints a summary of each diagram: Symanzik polynomials, A-matrix, normalised volume and Smith
+   invariants;
+2. runs the unimodular, affine-polytope, point-configuration and finite-index checks; when the
+   ambient dimensions differ, as for the triangle and the bubble, it reports the mismatch and
+   stops;
+3. for each map of every column (`point_config`, `finite_index`), prints the column permutation
+   $P$, the substitution $u_i = \prod_k v_k^{M_{ki}}$ and the identity
+   $I_A(\beta, z_P) = |\det M|\, I_B(T\beta, z)$ for the integrals without Gamma prefactors. A
+   map of the hull vertices alone gives no identity.
+
+### Database
+
+Both commands store their results in `feynkit.db` in the working directory. Choose another file
+with `--db PATH`, or use no database with `--no-db`:
+
+```bash
+fk analyse "12e|2e|e|:zzz" --db my_survey.db
+fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz" --no-db
+```
+
+### Progress, errors and exit status
+
+Output is flushed after each section, so a long analysis shows its progress. `--verbose` (`-v`)
+also prints the time of each stage on stderr. `fk --version` prints the version.
+
+| Exit status | Meaning |
+|-------------|---------|
+| 0 | success |
+| 1 | a CNickel string that does not parse, a feynkit error, a database error or a report file that cannot be written; one line on stderr, no traceback |
+| 2 | a usage error, such as a missing argument or an unknown option |
+
+A string that does not parse is reported with the grammar:
+
+```
+$ fk analyse "12e|2e|e|:zz"
+fk: error: cannot parse CNickel '12e|2e|e|:zz': Mass-color length 2 does not match internal edge count 3 in '12e|2e|e|:zz'; expected TOPOLOGY or TOPOLOGY:COLOURS, where TOPOLOGY has one '|'-terminated entry per vertex naming the vertices it joins (digits) and its external legs (e), and COLOURS one mass code per propagator (z massless, n massive), as in fk analyse "12e|2e|e|:nzz"
+```
 
 ### Example output (single diagram)
 
 ```
+$ fk analyse "12e|2e|e|:zzz" -g -n --no-db
 ====================================================================
   Feynman integral  12e|2e|e|:zzz
 ====================================================================
@@ -150,21 +225,36 @@ The pairwise mode:
   External legs                3
 
 --------------------------------------------------------------------
-  Symanzik polynomials
---------------------------------------------------------------------
-  U  =  a_1 + a_2 + a_3
-  F  =  ...
-  G  =  U + F  =  ...
-
---------------------------------------------------------------------
   GKZ hypergeometric system
 --------------------------------------------------------------------
   A-matrix  (4 x 6)  [rows = coordinates; cols = monomials of G]
     [ 1  1  1  1  1  1 ]
-    [ 1  1  1  0  0  0 ]
-    [ 1  0  0  1  1  0 ]
-    [ 0  1  0  1  0  1 ]
-  ...
+    [ 1  1  0  1  0  0 ]
+    [ 1  0  1  0  1  0 ]
+    [ 0  1  1  0  0  1 ]
+
+  beta-parameters              [-D/2, -nu_1, -nu_2, -nu_3]
+  z-variables                  [z_1, z_2, z_3, z_4, z_5, z_6]
+
+  Euler equations  (sum_j A_rj z_j d_j = beta_r):
+    [0]  z_1 d_1 + z_2 d_2 + z_3 d_3 + z_4 d_4 + z_5 d_5 + z_6 d_6  =  -D/2
+    [1]  z_1 d_1 + z_2 d_2 + z_4 d_4  =  -nu_1
+    [2]  z_1 d_1 + z_3 d_3 + z_5 d_5  =  -nu_2
+    [3]  z_2 d_2 + z_3 d_3 + z_6 d_6  =  -nu_3
+
+--------------------------------------------------------------------
+  Newton polytope
+--------------------------------------------------------------------
+  Monomials (A-columns)        6
+  Hull vertices                6
+  Ambient dimension            3
+  Affine dimension             3
+  Normalised volume            4  (the holonomic rank for generic beta)
+  Smith invariants             [1, 1, 1]
+  Lattice base point           (1, 1, 0)
+====================================================================
+  Done in 0.1s
+====================================================================
 ```
 
 ---
@@ -707,7 +797,7 @@ ti = fi.toric_ideal
 | `ti.z_variables` | `[z_1, ..., z_m]` |
 
 An empty generator list (`len(ti.generators) == 0`) means the toric ideal is trivial: the
-monomial map is injective, which often indicates a master integral with no further reductions.
+columns of $A$ are linearly independent. That says nothing about the number of master integrals.
 
 ### Checking if the ideal is binomial
 
@@ -1390,6 +1480,9 @@ from feynkit.io.report import SECTION_NAMES
 
 text = fi.to_text([name for name in SECTION_NAMES if name != "landau"])
 ```
+
+From the command line, `fk analyse "12e|2e|e|:nnn" --latex triangle.tex --text triangle.txt`
+builds the report once and writes both documents; see [CLI: fk](#cli-fk).
 
 To render one report twice, or to read its facts directly, build it once and pass it to the
 renderers. `AnalysisReport.from_integral` takes the same `sections` and `max_face_points`, and

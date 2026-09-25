@@ -141,7 +141,7 @@ U(\alpha)^{-D/2}\,\exp\!\left(-\frac{F(\alpha)}{U(\alpha)}\right).}$$
 **Integrand:** $U^{-D/2}\exp(-F/U)$.
 **Domain:** $\alpha_e \in (0,\infty)$ for all $e$.
 
-In the code: `ParametrisationResult.prefactor`, `.measure`, `.integrand`; parameter symbols `a_{e.idx}`.
+In the code: `ParametrisationResult.prefactor`, `.measure`, `.integrand`; parameter symbols `alpha_{e.idx}`.
 
 ### 3.2 Feynman Parametrisation
 
@@ -176,8 +176,8 @@ into one object, making the GKZ structure transparent.
 
 | Symbol | Name | Python identifier | Notes |
 |--------|------|-------------------|-------|
-| $\alpha_e, a_e$ | Schwinger parameter | `a_{e.idx}` | nonneg, real |
-| $x_e$ | Feynman parameter | `alpha_{e.idx}` | nonneg, real, simplex |
+| $\alpha_e$ | Schwinger parameter | `alpha_{e.idx}` | nonneg, real |
+| $x_e$ | Feynman parameter | `a_{e.idx}` | nonneg, real, simplex |
 | $u_e$ | Lee-Pomeransky parameter | `u_{e.idx}` | nonneg, real |
 | $\nu_e$ | propagator exponent | `nu_{e.idx}` | positive, real |
 | $D$ | spacetime dimension | `D` | positive, real |
@@ -185,6 +185,9 @@ into one object, making the GKZ structure transparent.
 | $\gamma_E$ | Euler-Mascheroni constant | `gamma_E` | real |
 | $\mu$ | energy scale | `mu` | positive, real |
 | $L$ | loop count | `fi.loop_count` | positive int |
+
+$U$ and $F$ are written in the symbols `a_{e.idx}` of `graph.schwinger_parameters`, which the
+Feynman representation keeps and the Schwinger representation renames to `alpha_{e.idx}`.
 
 ---
 
@@ -269,7 +272,7 @@ every $\beta$ exactly when the toric ring is Cohen-Macaulay (Matusevich, Miller 
 Klausen's Theorem 3.4.2 (the graph is 1PI and 1VI, the momenta are generic enough that no
 monomial of $\mathcal{G}$ cancels, and either every edge is massive, every edge is massless, or
 every internal vertex is joined to an external vertex by massive edges) the configuration is
-normal, hence Cohen-Macaulay (Klausen 2022, drawing on Tellander and Helmer 2023 and Walther
+normal, hence Cohen-Macaulay (Klausen 2023, drawing on Tellander and Helmer 2023 and Walther
 2022), so there are no rank jumps.  Outside these hypotheses Cohen-Macaulayness is not
 guaranteed: Michaelsen and Tellander (2025) characterise the fully massive one-loop case and give
 a fully massive three-point configuration whose semigroup ring is not Cohen-Macaulay.  Resonance
@@ -509,7 +512,7 @@ Implemented in `feynkit/normal_forms/polytope_automorphisms.py`.
 | Massless bubble | 6 | $S_3$ |
 | One-mass bubble | 8 | Kummer (eightfold $\,_2F_1$) |
 | Massless triangle | 48 | $B_3$ (hyperoctahedral) |
-| $L$-loop massless banana | $(L+1)!$ | $S_{L+1}$ |
+| $L$-loop massless banana | $(L+2)!$ | $S_{L+2}$ |
 | Massless box | 120 | $S_5$ |
 
 ---
@@ -824,7 +827,8 @@ This table maps every mathematical symbol to the corresponding Python identifier
 | $e.\mathrm{idx}$ | edge index | `edge.idx` |
 | $m_e$ | edge mass | `edge.get_mass()` (SymPy expr) |
 | $\nu_e$ | propagator exponent | `fi.propagator_exponents[e.idx]` |
-| $a_e$ | Schwinger parameter | `a_{e.idx}` (SymPy `Symbol`) |
+| $a_e$ | variable of $U$ and $F$; Feynman parameter | `a_{e.idx}` in `graph.schwinger_parameters` |
+| $\alpha_e$ | Schwinger parameter | `alpha_{e.idx}` in `fi.schwinger.parameters` |
 | $u_e$ | Lee-Pomeransky parameter | `u_{e.idx}` (SymPy `Symbol`) |
 | $D$ | spacetime dimension | `fi.dimension` (symbol `D`) |
 | $\varepsilon$ | reg.\ parameter | symbol `epsilon` |
@@ -996,9 +1000,9 @@ All papers cited in the feynkit source and directly relevant to the implemented 
     *Homological methods for hypergeometric families.*
     J.\ Amer.\ Math.\ Soc.\ **18** (2005) 919-941.  arXiv:math/0406383.
 
-24. **Klausen (2022).** R.P. Klausen.
-    *Hypergeometric Feynman Integrals.*  PhD thesis, Johannes Gutenberg University Mainz, 2022.
-    arXiv:2302.13184.
+24. **Klausen (2023).** R.P. Klausen.
+    *Hypergeometric Feynman Integrals.*  PhD thesis, Johannes Gutenberg University Mainz.
+    arXiv:2302.13184 (2023).
 
 25. **Tellander-Helmer (2023).** F. Tellander, M. Helmer.
     *Cohen-Macaulay property of Feynman integrals.*

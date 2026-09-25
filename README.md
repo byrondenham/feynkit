@@ -47,48 +47,24 @@ Feynkit detects 4ti2 automatically (`backend="auto"`, the default).
 
 ## CLI: `fk`
 
-After installation, the `fk` command-line tool is available for instant analysis of any diagram
-specified by its CNickel string.
-
-### Single-diagram analysis
+After installation, the `fk` command analyses any diagram given by its CNickel string. Quote the
+string: an unquoted `|` is a shell pipe.
 
 ```bash
-fk "12e|2e|e|:zzz"                    # full analysis of the massless triangle
-fk "12e|2e|e|:zzz" -g -n              # GKZ and Newton polytope only
-fk "111e|e|:zzz"                       # massless 3-propagator banana
-fk 12e|2e|e|                           # bare Nickel (massless assumed)
+fk analyse "12e|2e|e|:zzz"                     # every section of the massless triangle
+fk analyse "12e|2e|e|:zzz" -g -n               # GKZ system and Newton polytope only
+fk analyse "12e|2e|e|"                         # bare topology: every propagator massless
+fk analyse "12e|2e|e|:nzz" --latex triangle.tex --json --no-db
+fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"     # the mass on two different propagators
 ```
 
-Section flags (omit all to run every section):
-
-| Flag | Section |
-|------|---------|
-| `-s` / `--symanzik` | Symanzik polynomials U, F, G |
-| `-p` / `--params` | Integral parametrisations (Schwinger, Feynman, Lee-Pom.) |
-| `-g` / `--gkz` | GKZ A-matrix and Euler equations |
-| `-t` / `--toric` | Toric ideal of the A-matrix |
-| `-n` / `--newton` | Newton polytope (vertices, volume, Smith invariants) |
-| `-S` / `--symmetries` | Polytope automorphisms and symmetry pairs |
-
-### Pairwise equivalence
-
-Pass two CNickel strings to compare the diagrams:
-
-```bash
-fk "12e|2e|e|:zzz" "11e|e|:zz"        # triangle vs bubble
-fk "12e|2e|e|:nzz" "12e|2e|e|:znz"    # two one-mass triangles
-```
-
-The equivalence analysis runs unimodular, affine, point-configuration, and finite-index checks,
-then prints the change-of-variables map and the induced GKZ parameter transformation.
-
-### Database
-
-Results are written to a local `feynkit.db` SQLite file by default. Override with `--db`:
-
-```bash
-fk "12e|2e|e|:zzz" --db my_survey.db
-```
+`fk analyse` prints the Symanzik polynomials, parametrisations, GKZ system, toric ideal, Newton
+polytope and symmetries, or those its section flags choose. It also writes the analysis report
+with `--latex FILE` and `--text FILE`, and prints a JSON summary with `--json`. `fk compare` runs
+the unimodular, affine, point-configuration and finite-index checks and prints the identity each
+map of every column gives. Results are stored in `feynkit.db` in the working directory; use
+`--db PATH` for another file or `--no-db` for none. The bare forms `fk CNICKEL` and `fk A B`
+still work. See [the guide](docs/guide.md#cli-fk) for every option and the exit status.
 
 ---
 

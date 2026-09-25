@@ -160,7 +160,7 @@ sec("Lee-Pomeransky parametrisation  (u in R_{>0}^E, no constraint)")
 lp = fi_tri.lee_pomeransky
 print(f"  Prefactor  : {lp.prefactor}")
 print(f"  Parameters : {lp.parameters}   (LP u variables)")
-print("  The integrand is u^beta * G^{-beta_0} with G = U + F.")
+print("  The integrand is u^(nu - 1) * G(u)^(-D/2) with G = U + F.")
 
 
 # -----------------------------------------------------------------------------
@@ -282,9 +282,11 @@ sec("Vertex orbits under Aut(P)")
 print("  Orbits (indices into hull vertex list):")
 for orb in aut.vertex_orbits:
     print(f"    {orb}")
-print(f"  The triangle LP Newton polytope has {len(aut.vertex_orbits)} orbits:")
-print(f"  {3} U-monomials (degree-2 face) and {3} F-monomials (degree-1 face)")
-print("  form separate orbits under the symmetry group.")
+n_orbits = len(aut.vertex_orbits)
+print(f"  The triangle LP Newton polytope has {n_orbits} orbit{'' if n_orbits == 1 else 's'}.")
+if n_orbits == 1:
+    print("  Aut(P) maps the 3 U-monomials (degree 1) and the 3 F-monomials (degree 2)")
+    print("  into one another: its elements need not preserve the degree.")
 
 sec("Graph automorphisms (subgroup)")
 g_aut = fi_tri.graph_automorphisms
@@ -365,7 +367,8 @@ hdr(10, "Polytope equivalence")
 
 sec("Unimodular equivalence  (Liu-Cai, arXiv:2506.23846)")
 print("  Tests: there exists U in GL_n(Z), t in Z ^n  such that  {Uv + t} = vertices of Q.")
-print("  Unimodular equivalence => GKZ systems have identical analytic structure.")
+print("  When the map takes every column, not just the hull vertices, onto a column,")
+print("  the GKZ systems agree up to a relabelling of the z_j and beta -> T beta.")
 
 # Two diagrams with the same graph (different edge labelling) are unimodular.
 fi_tri2 = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
@@ -699,8 +702,8 @@ print(f"""
   beta-parameters      : {fi_tri.gkz.beta_parameters}
   Toric generators  : {len(fi_tri.toric_ideal.generators)}
 
-  Newton polytope   : {len(fi_tri.newton_polytope.points)} monomials, "
-  {len(cfg_tri.newton_polytope_points)} hull vertices
+  Newton polytope   : {len(fi_tri.newton_polytope.points)} monomials,
+                      {len(cfg_tri.newton_polytope_points)} hull vertices
   Ambient dim       : {cfg_tri.ambient_dim}
   Normalised vol    : {cfg_tri.normalized_volume}  (= holonomic rank for generic beta)
   Smith invariants  : {cfg_tri.smith_invariants}

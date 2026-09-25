@@ -242,7 +242,8 @@
   only bounds it, and give I_A(beta, z) = I_A(T beta, z) for a coefficient-preserving
   automorphism. They also give A with E+1 rows rather than L+1, use the library's
   beta = (-D/2, -nu_1, ..., -nu_n), and write the finite-index identity as one term with the
-  factor |det M|.
+  factor |det M|. They no longer cite an epsilon-expansion or resonance module, which feynkit
+  does not have, or claim conformal invariance of the triangle in D = 2.
 
 ### Removed
 

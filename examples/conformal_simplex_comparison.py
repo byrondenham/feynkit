@@ -49,7 +49,9 @@ def describe(label: str, cfg: AConfiguration) -> None:
     print(f"    ambient_dim      : {cfg.ambient_dim}")
     print(f"    affine_dim       : {cfg.affine_dim}")
     print(f"    Smith invariants : {cfg.smith_invariants}")
-    print(f"    normalised vol   : {cfg.normalized_volume}  (= GKZ holonomic rank)")
+    print(
+        f"    normalised vol   : {cfg.normalized_volume}  (= GKZ holonomic rank for generic beta)"
+    )
     if cfg.n_points <= _AUT_THRESHOLD:
         print(f"    |Aut(P)|         : {cfg.automorphisms().order}")
     else:
@@ -242,8 +244,9 @@ The triangle/triple-K equivalence (n=3) rests on three coincidences:
 3.  Same normalised volume.  Both C_3 and BMS_3 have vol_0 = 4, giving the
     same GKZ holonomic rank for generic beta.
     For n=4 the volumes differ:  vol_0(C_4) = {cn4_vol}  vs  vol_0(BMS_4) = {bms4_vol}.
-    Different volumes -> different holonomic ranks -> different numbers of
-    independent hypergeometric series in the GKZ solution space.
+    Different volumes -> different holonomic ranks for generic beta ->
+    different numbers of independent hypergeometric series in the GKZ
+    solution space.
 
 The fundamental reason for all three coincidences is that C_3 = K_3.  The
 G polynomial of the triangle C_3 has the same number of monomials as the
@@ -265,6 +268,6 @@ and n=4 "denominator" monomials.
 Conclusion: the triangle/triple-K relation is a unique n=3 coincidence with
 no direct analogue at n >= 4 at the level of A-configurations and Newton
 polytopes.  The GKZ systems for C_n LP (n >= 4) and BMS_n are inequivalent:
-they have different holonomic ranks, different numbers of independent
+they have different holonomic ranks for generic beta, different numbers of independent
 hypergeometric-series solutions, and non-isomorphic Newton polytopes.
 """)

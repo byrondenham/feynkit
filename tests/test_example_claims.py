@@ -41,11 +41,24 @@ RETRACTED = (
     "sum over two cosets",
     "ratio of normalised volumes",
     "wait, the volumes",
+    "Re(beta_0) > 0",
+    "epsilon-expansion module",
+    "resonance module",
 )
 
 RETRACTED_PATTERNS = (
+    # beta = (-D/2, -nu_1, ..., -nu_n): the integrand is u^(nu - 1) G^(-D/2).
+    re.compile(r"u\^beta \* G(?:\(u\))?\^\{?-beta_0\}?"),
+    re.compile(r"-D/2\s*\+\s*\d*\s*nu"),
+    re.compile(r"beta_0\s*=\s*nu"),
+    # dim ker A is the codimension of the toric ideal, not its number of generators.
     re.compile(r"dim ker A\s*=\s*(?:#|number of)\s*toric generators"),
-    re.compile(r"ranks differ by"),
+    re.compile(r"toric generators\s*=\s*dim ker A"),
+    re.compile(r"ranks? differs? by"),
+    # A has E+1 rows and the Newton polytope lies in R^E, E the number of propagators.
+    re.compile(r"N = L\s*\+\s*1"),
+    re.compile(r"\b[RZ]\^\{?L\b"),
+    re.compile(r"GL_\{?L\b"),
 )
 
 

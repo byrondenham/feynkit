@@ -171,7 +171,8 @@ A finite-index map M with |det(M)| = 2 means:
   - The two configurations have the same combinatorial shape (hence affinely
     equivalent) but the triple-K lives in a coarser lattice environment.
   - Their GKZ D-modules are related but not isomorphic over Z, they have the
-    same holonomic rank but different torsion structure at the prime 2.
+    same holonomic rank for generic beta but different torsion structure at
+    the prime 2.
 """)
 
 # Manual verification.
@@ -281,10 +282,10 @@ print(_aut_interp)
 # ------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------
-# Normalized lattice volume (= GKZ holonomic rank)
+# Normalized lattice volume (= GKZ holonomic rank for generic beta)
 # ------------------------------------------------------------------------------
 
-print_section("Normalized Lattice Volume (GKZ Holonomic Rank)")
+print_section("Normalized Lattice Volume (GKZ Holonomic Rank for Generic beta)")
 
 vol_tri = tri.normalized_volume
 vol_tpk = tpk.normalized_volume
@@ -307,7 +308,8 @@ Triangle and triple-K have the same normalised volume even though their
 Euclidean volumes differ by a factor of 2.  This is because the triple-K
 spans a sublattice of index 2, so the lattice-normalised volume is
   vol_0 = 3! x Euclidean_volume / sublattice_index = 6 x (4/3) / 2 = 4.
-The two GKZ systems are isomorphic over Q and have the same holonomic rank.
+The two GKZ systems are isomorphic over Q and have the same holonomic rank
+for generic beta.
 """)
 
 
@@ -332,7 +334,7 @@ print(f"""  Configuration pair: Triangle  vs  Triple-K
   Unimodularly equivalent?        {"YES" if _uni_same else "NO":<6}   {"Witness found" if _uni_same else "Ruled out by Smith invariants"}
   Affinely equivalent (over Q)?   {"YES" if _aff_same else "NO":<6}   {"Witness found" if _aff_same else "Not equivalent"}
   Finite-index map (det)?         {"YES (" + str(_fim_det) + ")" if result_fim.found else "NO":<8} Index-{_fim_det} sublattice embedding
-  Normalized volume (GKZ rank)    {vol_tri} vs {vol_tpk:<3}  {"Same" if _vol_same else "Different"}, same holonomic rank
+  Normalized volume (GKZ rank)    {vol_tri} vs {vol_tpk:<3}  {"Same" if _vol_same else "Different"} holonomic rank for generic beta
   |Aut(P)| same?                  {_aut_same_s:<6}   {auts_tri.order} vs {auts_tpk.order}, both cross-polytopes (B_3)
 
   Physical meaning:

@@ -344,7 +344,7 @@ print(f"  Parameters : {sch.parameters}    (Schwinger alpha-variables)")
 print(f"  Measure    : {sch.measure}")
 note(
     "The Schwinger alpha-variables arise from the Gaussian integral trick for each "
-    "propagator.  Convergence requires Re(nu_i) > 0 and Re(beta_0) > 0.  "
+    "propagator.  Convergence requires Re(nu_i) > 0 and Re(D) > 0, among other conditions.  "
     "Analytically continued in D and nu_i via Gamma-function factors in the prefactor.",
     4,
 )
@@ -451,7 +451,8 @@ for label, fi_x in [("Bubble", fi_bubble), ("Sunrise", fi_sunrise)]:
 hdr(5, "Newton polytope  Delta_G")
 
 note(
-    "The Newton polytope Delta_G = Conv{a_1,...,a_m} subset of R^E encodes ALL analytic "
+    "The Newton polytope Delta_G, the convex hull of the exponent vectors alpha_j of G "
+    "in R^E (column a_j of A is (1, alpha_j)), encodes ALL analytic "
     "properties of the GKZ integral I_A: (i) its holonomic rank = vol(Delta_G) for generic beta, "
     "(ii) its canonical-series solutions via triangulations of Delta_G, (iii) its "
     "transformation identities via Aut(Delta_G), (iv) its Landau singularities via "
@@ -460,7 +461,7 @@ note(
 
 np_tri = fi_tri.newton_polytope
 
-sec("Monomial support, exponent vectors (columns of A projected to rows 1...L)")
+sec("Monomial support, exponent vectors (columns of A projected to rows 1...E)")
 print(f"  {len(np_tri.support)} monomials of G:")
 for pt, coeff in np_tri.support:
     print(f"    u^{pt}   coeff = {coeff}")
@@ -785,9 +786,11 @@ note(
     "(i) Unimodular equivalence: there exists U in GL_n(Z), t in Z^n with {Uv+t} = vert(Q).  "
     "(ii) Affine equivalence: there exists M in GL_n(Q), t in Q^n (hull vertices only).  "
     "(iii) Point-configuration equivalence: same map on ALL A-columns.  "
-    "Unimodular equivalence => the GKZ systems are analytically identical; "
-    "affine equivalence => the polytopes are combinatorially isomorphic; "
-    "point-configuration equivalence => the GKZ A-matrices are lattice-equivalent."
+    "When a unimodular map takes every column, not just the hull vertices, onto a "
+    "column, the two GKZ systems agree up to a relabelling of the z_j and "
+    "beta -> T beta; affine equivalence => the polytopes are combinatorially "
+    "isomorphic; point-configuration equivalence => the GKZ systems agree over Q, "
+    "with the factor |det M| in the identity I_A(beta, z_P) = |det M| I_B(T beta, z)."
 )
 
 cfg_t = triangle_a_config()
@@ -1006,8 +1009,8 @@ print(f"  beta  = {gkz_sym.beta_parameters}")
 print("  (Three nu-symbols collapse to a single nu)")
 note(
     "With nu_1=nu_2=nu_3=nu the integral gains an extra S_3 permutation symmetry "
-    "acting on the three propagators.  The beta-vector beta = [-D/2+3 nu, nu, nu, nu] "
-    "is itself symmetric, enlarging the effective automorphism orbit.",
+    "acting on the three propagators.  The printed beta-vector "
+    "beta = [-D/2, -nu, -nu, -nu] is itself symmetric under those permutations.",
     4,
 )
 
@@ -1020,11 +1023,11 @@ sec("Dimensional regularisation  D = 4 - 2 epsilon")
 fi_dreg = fi_tri.with_(dimension=4 - 2 * eps)
 print(f"  beta_0 = {fi_dreg.gkz.beta_parameters[0]}")
 note(
-    "In dim-reg, beta_0 = nu_1+nu_2+nu_3-2+2 epsilon.  At epsilon = 0 this hits an integer "
-    "(resonant) value; the epsilon-expansion of I_A around this point generates "
-    "logarithms that are controlled by the irregular (resonant) extensions of "
-    "the GKZ D-module.  feynkit provides epsilon-expansion coefficients via the "
-    "resonance module (see the epsilon-expansion section of the dissertation).",
+    "In dim-reg, beta_0 = -D/2 = epsilon - 2.  At epsilon = 0, with integer nu_i, "
+    "beta is an integer vector and so resonant.  The GKZ system is regular "
+    "holonomic, since A has a row of ones, but at resonant parameters its series "
+    "solutions can acquire logarithms, which enter the epsilon-expansion of I_A.  "
+    "feynkit does not compute them.",
     4,
 )
 
@@ -1032,9 +1035,8 @@ sec("D = 2 specialisation  (dimensional reduction to 2D)")
 fi_2d = fi_tri.with_(dimension=sp.Integer(2))
 print(f"  beta_0 in D=2: {fi_2d.gkz.beta_parameters[0]}")
 note(
-    "In two dimensions the triangle integral is conformally invariant, and "
-    "the GKZ system reduces to a known rank-4 system whose solutions are "
-    "expressible in terms of Gauss _2F_1 functions.",
+    "Setting D = 2 changes only beta_0, to -1.  A, and with it vol(Delta_G) = 4, "
+    "is unchanged, so the holonomic rank is still 4 for every beta (section 6).",
     4,
 )
 
@@ -1078,7 +1080,7 @@ note(
     "The banana_3 configuration (3 parallel edges connecting 2 vertices) has "
     "vol = 1, so holonomic rank 1 for generic beta.  The 4-simplex Delta_4 is the standard simplex "
     "with 5 vertices; its A-matrix is square (5 x 5), so it is an "
-    "example where the toric ideal is empty.  triple-K has Smith=[1,1,2] "
+    "example where the toric ideal is zero (its generating set is empty).  triple-K has Smith=[1,1,2] "
     "while the triangle has Smith=[1,1,1], reflecting their finite-index relationship.",
     4,
 )
@@ -1216,9 +1218,10 @@ for src, tgt, cfg_a, cfg_b in chain:
 
 note(
     "The chain C_3 -> BMS_3 -> triple-K -> triangle captures the full conformal "
-    "hierarchy.  The step triple-K -> triangle is the most physically significant: "
-    "the CFT 3-point function (triple-K) is a finite-index cousin of the "
-    "1-loop Feynman triangle, related by a det=2 map that implements the "
+    "hierarchy.  The step between triple-K and the triangle is the most physically "
+    "significant: the CFT 3-point function (triple-K) is a finite-index cousin of "
+    "the 1-loop Feynman triangle, related by the map triangle -> triple-K with "
+    "det 2 (the table lists the inverse direction, det 1/2), which implements the "
     "parity projection onto even conformal dimensions.  The holonomic ranks "
     "for generic beta agree (both 4), since a map of all columns keeps the "
     "normalised volume; what differs is the lattice the points span.",
@@ -1437,7 +1440,7 @@ for label, fi_x, cfg_x, ref in all_entries:
 print("""
   Abbreviations:
     d   = ambient dimension of the Newton polytope
-    |V| = number of hull vertices  (= number of monomials for 1-loop diagrams)
+    |V| = number of hull vertices of the Newton polytope
     vol = normalised volume = holonomic rank for generic beta, an upper bound
           for the number of master integrals
     |Aut| = order of the unimodular automorphism group  (Liu-Cai / GK algorithm)

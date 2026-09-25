@@ -40,11 +40,13 @@ import sympy as sp
 from feynkit.a_configuration import AConfiguration, FiniteIndexResult, finite_index_map
 from feynkit.core.constants import __version__
 from feynkit.core.exceptions import FeynkitError
+from feynkit.core.graph import Graph
 from feynkit.database import FeynkitDatabase
 from feynkit.integral import FeynmanIntegral
 from feynkit.io.report import SECTION_NAMES, AnalysisReport
 from feynkit.io.report_latex import render_latex
 from feynkit.io.report_text import render_text
+from feynkit.polytope import polytope_data
 
 COMMANDS = ("analyse", "compare")
 SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "symmetries")
@@ -206,11 +208,21 @@ class CliError(Exception):
 
 
 def _load(cnickel: str) -> FeynmanIntegral:
-    """The integral of a CNickel string; a string that does not parse raises CliError."""
+    """The integral of a CNickel string.
+
+    A string that does not parse raises CliError with the grammar. The
+    Mandelstam invariants need two external legs, so a graph with fewer, such
+    as the massive tadpole 0|:n, gets generic momentum products instead. Any
+    other failure to build the integral raises CliError without the grammar.
+    """
     try:
-        return FeynmanIntegral.from_cnickel(cnickel)
+        graph = Graph.from_cnickel(cnickel)
     except ValueError as exc:
         raise CliError(f"cannot parse CNickel {cnickel!r}: {exc}; {CNICKEL_GRAMMAR}") from exc
+    try:
+        return FeynmanIntegral(graph, use_mandelstam=graph.external_legs >= 2)
+    except (ValueError, FeynkitError) as exc:
+        raise CliError(f"cannot build the integral of CNickel {cnickel!r}: {exc}") from exc
 
 
 def _fail(message: str) -> NoReturn:
@@ -306,20 +318,43 @@ def _print_toric(fi: FeynmanIntegral) -> None:
         print("  Trivial  (the zero ideal)")
 
 
+def _vertices_and_volume(cfg: AConfiguration) -> tuple[int, int]:
+    """The number of vertices and the normalised volume of the Newton polytope of cfg.
+
+    AConfiguration finds both from a convex hull built for dimension 2 and
+    above, which fails on a segment such as the polytope of the massive
+    tadpole 0|:n. As in the report, polytope_data gives them for a point or a
+    segment.
+    """
+    if cfg.affine_dim < 2:
+        data = polytope_data(cfg.affine_points.tolist())
+        return len(data.vertex_indices), data.normalized_volume
+    return len(cfg.newton_polytope_points), cfg.normalized_volume
+
+
 def _print_newton(fi: FeynmanIntegral) -> None:
     _sec("Newton polytope")
     cfg = AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
+    vertices, volume = _vertices_and_volume(cfg)
     _kv("Monomials (A-columns)", cfg.n_points)
-    _kv("Hull vertices", len(cfg.newton_polytope_points))
+    _kv("Hull vertices", vertices)
     _kv("Ambient dimension", cfg.ambient_dim)
     _kv("Affine dimension", cfg.affine_dim)
-    _kv("Normalised volume", f"{cfg.normalized_volume}  (the holonomic rank for generic beta)")
+    _kv("Normalised volume", f"{volume}  (the holonomic rank for generic beta)")
     _kv("Smith invariants", cfg.smith_invariants)
     _kv("Lattice base point", cfg.intrinsic_model().base_point)
 
 
 def _print_symmetries(fi: FeynmanIntegral) -> None:
     _sec("Symmetries")
+    dimension = AConfiguration(fi.gkz.a_matrix, is_homogenized=True).affine_dim
+    if dimension < 2:
+        # As in the report: the automorphism computation is built for dimension 2 and above.
+        print(
+            "  Not computed for a Newton polytope of dimension below 2; "
+            f"this one has dimension {dimension}."
+        )
+        return
     aut = fi.polytope_automorphisms
     _kv("|Aut(P)|  (polytope automorphisms)", aut.order)
     _kv("|Aut(graph)|", len(fi.graph_automorphisms))
@@ -499,7 +534,7 @@ def _compare(
     verbose: bool,
 ) -> None:
     # -- per-diagram summaries -------------------------------------------------
-    def _brief(given: str, fi: FeynmanIntegral, tag: str) -> AConfiguration:
+    def _brief(given: str, fi: FeynmanIntegral, tag: str) -> tuple[AConfiguration, int]:
         gkz = fi.gkz
         A = gkz.a_matrix
         cfg = AConfiguration(A, is_homogenized=True)
@@ -519,23 +554,21 @@ def _compare(
         print()
         _kv("beta-parameters", gkz.beta_parameters)
         _kv("Toric generators", len(ti.generators))
-        _kv(
-            "Monomials / verts / dim",
-            f"{cfg.n_points} / {len(cfg.newton_polytope_points)} / {cfg.ambient_dim}",
-        )
-        _kv("Normalised volume", cfg.normalized_volume)
+        vertices, volume = _vertices_and_volume(cfg)
+        _kv("Monomials / verts / dim", f"{cfg.n_points} / {vertices} / {cfg.ambient_dim}")
+        _kv("Normalised volume", volume)
         _kv("Smith invariants", cfg.smith_invariants)
         if db is not None:
             db.store(fi, label=fi.cnickel)
-        return cfg
+        return cfg, vertices
 
     with _stage("diagram A", verbose):
         _header("Equivalence analysis")
         print(f"  A  =  {_label(cn1, fi1)}")
         print(f"  B  =  {_label(cn2, fi2)}")
-        cfg1 = _brief(cn1, fi1, "A")
+        cfg1, vertices1 = _brief(cn1, fi1, "A")
     with _stage("diagram B", verbose):
-        cfg2 = _brief(cn2, fi2, "B")
+        cfg2, vertices2 = _brief(cn2, fi2, "B")
 
     with _stage("equivalence checks", verbose):
         # -- quick pre-filter ----------------------------------------------------
@@ -545,12 +578,18 @@ def _compare(
             print("  No affine equivalence is possible between spaces of different dimension.")
             return
 
+        # The two checks of the Newton polytopes rest on convex hulls built for
+        # dimension 2 and above, as the automorphisms of the symmetry section do.
+        flat = min(cfg1.affine_dim, cfg2.affine_dim) < 2
         results = []
         for relation, method in [
             ("unimodular", cfg1.is_unimodular_equivalent_to),
             ("affine_polytope", cfg1.is_affinely_equivalent_to),
             ("point_config", cfg1.is_point_config_equivalent_to),
         ]:
+            if flat and relation != "point_config":
+                print(f"  {relation:<22} n/a  (a Newton polytope of dimension below 2)")
+                continue
             res = method(cfg2)
             status = "YES" if res.equivalent else "no"
             det_str = f"  (det = {res.determinant})" if res.determinant is not None else ""
@@ -583,7 +622,7 @@ def _compare(
         pts2 = cfg2.affine_points.tolist()
         beta1 = list(fi1.gkz.beta_parameters)
         z2 = list(fi2.gkz.z_variables)
-        all_vertices = all(len(c.newton_polytope_points) == c.n_points for c in (cfg1, cfg2))
+        all_vertices = vertices1 == cfg1.n_points and vertices2 == cfg2.n_points
 
         def _witness(relation: str, M: sp.Matrix, t: sp.Matrix | None) -> None:
             _sec(f"Witness map  [{relation}]")

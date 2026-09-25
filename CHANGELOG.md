@@ -271,6 +271,13 @@
 - The Symanzik section of `fk analyse` listed the Schwinger representation's parameters alpha_e
   above U and F, which are written in the a_e. It now lists the Schwinger parameters a_e of
   `graph.schwinger_parameters`.
+- `fk` rejected the massive tadpole `0|:n`, and any graph with fewer than two external legs, as a
+  CNickel string that does not parse. The string parses; only the Mandelstam invariants, which
+  need two legs, failed. `fk` now builds such an integral without them, and reports an integral
+  that cannot be built in one line, apart from parse errors and without the CNickel grammar. When
+  the Newton polytope has dimension below 2, as the tadpole's segment does, `fk analyse` takes its
+  vertices and volume from `polytope_data` and leaves out the symmetries, as the report does, and
+  `fk compare` skips the unimodular and affine-polytope checks.
 
 ### Removed
 

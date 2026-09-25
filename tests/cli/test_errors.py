@@ -34,7 +34,7 @@ def _count_closes(monkeypatch: pytest.MonkeyPatch) -> list[FeynkitDatabase]:
     return closed
 
 
-@pytest.mark.parametrize("bad", ["12e|2e|e|:zz", "abc", "9e|e|", ""])
+@pytest.mark.parametrize("bad", ["12e|2e|e|:zz", "abc", "9e|e|", "", "0|:nn"])
 def test_cnickel_that_does_not_parse_exits_1_with_the_grammar(
     bad: str, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
@@ -47,6 +47,24 @@ def test_cnickel_that_does_not_parse_exits_1_with_the_grammar(
     assert lines[0].startswith(f"fk: error: cannot parse CNickel {bad!r}: ")
     assert "TOPOLOGY:COLOURS" in lines[0]
     assert lines[0].endswith(EXAMPLE)
+    assert not db.exists()
+
+
+def test_integral_that_cannot_be_built_exits_1_without_the_grammar(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    # No CNickel string that parses is known to fail to build, so the kinematics are made to fail.
+    def fail(n_external: int, use_mandelstam: bool = False) -> None:
+        raise ValueError("no kinematics")
+
+    monkeypatch.setattr("feynkit.integral.create_momentum_products", fail)
+    db = tmp_path / "x.db"
+    assert _exit_code(["analyse", "11e|e|:zz", "--db", str(db)]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        "fk: error: cannot build the integral of CNickel '11e|e|:zz': no kinematics\n"
+    )
     assert not db.exists()
 
 
@@ -151,8 +169,13 @@ def test_database_is_closed_when_compare_stops_early(
 
 @pytest.mark.parametrize(
     ("argv", "status"),
-    [(["--version"], 0), (["analyse", "abc", "--no-db"], 1), ([], 2)],
-    ids=["version", "bad-cnickel", "no-command"],
+    [
+        (["--version"], 0),
+        (["analyse", "0|:n", "--no-db"], 0),
+        (["analyse", "abc", "--no-db"], 1),
+        ([], 2),
+    ],
+    ids=["version", "tadpole", "bad-cnickel", "no-command"],
 )
 def test_exit_status_seen_by_the_shell(argv: list[str], status: int, tmp_path: Path) -> None:
     result = subprocess.run(

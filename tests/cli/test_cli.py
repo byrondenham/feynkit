@@ -66,6 +66,19 @@ class TestSingleDiagram:
         assert symbols.findall(params) == ["a_1", "a_2", "a_3"]
         assert set(symbols.findall(u)) == set(symbols.findall(params))
 
+    def test_massive_tadpole_prints_every_section(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        # With no external legs there are no Mandelstam invariants, and the
+        # Newton polytope is a segment.
+        out = _run(capsys, tmp_path, "0|:n")
+        assert "External legs                0" in out
+        assert "F  =  a_1**2*m_1**2/mu**2" in out
+        assert "Hull vertices                2" in out
+        assert "Normalised volume            1  (the holonomic rank" in out
+        assert "Not computed for a Newton polytope of dimension below 2" in out
+        assert "Stored:" in out
+
 
 class TestPairwise:
     def test_equivalent_triangles_reported(
@@ -91,3 +104,13 @@ class TestPairwise:
         assert "T beta  =  [-D/2, -nu_2, -nu_1, -nu_3]" in out
         assert "u_1  =  v_2" in out
         assert "sum_j M_ij" not in out
+
+    def test_tadpoles_are_compared_by_their_columns(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        # The segments of two tadpoles are too small for the checks of the polytopes.
+        out = _run(capsys, tmp_path, "0|:n", "0|:n")
+        assert "unimodular             n/a  (a Newton polytope of dimension below 2)" in out
+        assert "affine_polytope        n/a  (a Newton polytope of dimension below 2)" in out
+        assert "point_config           YES  (det = 1)" in out
+        assert "T beta  =  [-D/2, -nu_1]" in out

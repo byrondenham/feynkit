@@ -7,7 +7,12 @@ from pathlib import Path
 
 import pytest
 
+from feynkit import FeynmanIntegral
 from feynkit.cli import main
+
+# One printed Euler equation, '    [r]  A_r1 z_1 d_1 + ...  =  beta_r', and one of its terms.
+_EULER = re.compile(r"^    \[(\d+)\]  (.*)  =  (.*)$")
+_TERM = re.compile(r"^(?:(\d+) )?z_(\d+) d_\2$")
 
 
 def _run(capsys: pytest.CaptureFixture[str], tmp_path: Path, *args: str) -> str:
@@ -65,6 +70,29 @@ class TestSingleDiagram:
         symbols = re.compile(r"\b[a-z]+_\d+\b")
         assert symbols.findall(params) == ["a_1", "a_2", "a_3"]
         assert set(symbols.findall(u)) == set(symbols.findall(params))
+
+    @pytest.mark.parametrize("cnickel", ["11e|e|:nn", "111e|e|:nnn"])
+    def test_euler_equations_have_the_rows_of_a(
+        self, cnickel: str, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        # A mass m_e puts m_e^2 u_e^2 into G, so row e of A has a 2; the massive
+        # sunrise has two in each row but the first.
+        gkz = FeynmanIntegral.from_cnickel(cnickel).gkz
+        rows = [[int(x) for x in gkz.a_matrix.row(r)] for r in range(gkz.a_matrix.rows)]
+        assert sum(max(row) >= 2 for row in rows) >= 2
+        out = _run(capsys, tmp_path, cnickel, "-g")
+        equations = [match for line in out.splitlines() if (match := _EULER.match(line))]
+        assert [int(match[1]) for match in equations] == list(range(len(rows)))
+        for match in equations:
+            r = int(match[1])
+            printed = [0] * len(rows[r])
+            for term in match[2].split(" + "):
+                parsed = _TERM.match(term)
+                assert parsed, term
+                printed[int(parsed[2]) - 1] = int(parsed[1] or 1)
+            assert printed == rows[r]
+            assert match[3] == str(gkz.beta_parameters[r])
+        assert (equations[0][3], equations[1][3]) == ("-D/2", "-nu_1")
 
     def test_massive_tadpole_prints_every_section(
         self, capsys: pytest.CaptureFixture[str], tmp_path: Path

@@ -89,22 +89,23 @@ def _matrix(M: sp.Matrix, indent: int = 4) -> None:
         print(pad + "[ " + "  ".join(cells) + " ]")
 
 
-def _fmt_euler(eq: sp.Eq) -> str:
-    """Render an Euler equation as 'z_j d_j + ... = beta' (operator form, no Phi)."""
-    lhs_parts = []
-    for term in eq.lhs.as_ordered_terms():
-        derivs = [a for a in sp.preorder_traversal(term) if isinstance(a, sp.Derivative)]
-        if derivs:
-            var = derivs[0].variables[0]
-            idx = str(var).split("_", 1)[1]
-            lhs_parts.append(f"z_{idx} d_{idx}")
+def _fmt_euler(row: Sequence[sp.Expr], z_variables: Sequence[sp.Symbol], beta: sp.Expr) -> str:
+    """The Euler equation of one row of A, 'A_r1 z_1 d_1 + ...  =  beta_r', without Phi.
 
-    phi_atoms = [
-        a for a in sp.preorder_traversal(eq.rhs) if isinstance(a, sp.core.function.AppliedUndef)
-    ]
-    beta = sp.expand(eq.rhs / phi_atoms[0]) if phi_atoms else eq.rhs
-
-    return " + ".join(lhs_parts) + "  =  " + str(beta)
+    Terms with a zero coefficient are left out, and a coefficient of 1 is not written.
+    """
+    terms: list[str] = []
+    for coefficient, z in zip(row, z_variables, strict=True):
+        if coefficient == 0:
+            continue
+        index = str(z).split("_", 1)[1]
+        size = abs(coefficient)
+        term = f"z_{index} d_{index}" if size == 1 else f"{size} z_{index} d_{index}"
+        if terms:
+            terms.append(f"+ {term}" if coefficient > 0 else f"- {term}")
+        else:
+            terms.append(term if coefficient > 0 else f"-{term}")
+    return f"{' '.join(terms) or '0'}  =  {beta}"
 
 
 def _done(t0: float) -> None:
@@ -303,8 +304,8 @@ def _print_gkz(fi: FeynmanIntegral) -> None:
     _kv("z-variables", gkz.z_variables)
     print()
     print("  Euler equations  (sum_j A_rj z_j d_j = beta_r):")
-    for i, eq in enumerate(gkz.euler_equations):
-        print(f"    [{i}]  {_fmt_euler(eq)}")
+    for r, beta in enumerate(gkz.beta_parameters):
+        print(f"    [{r}]  {_fmt_euler(list(A.row(r)), gkz.z_variables, beta)}")
 
 
 def _print_toric(fi: FeynmanIntegral) -> None:

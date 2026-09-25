@@ -278,6 +278,11 @@
   the Newton polytope has dimension below 2, as the tadpole's segment does, `fk analyse` takes its
   vertices and volume from `polytope_data` and leaves out the symmetries, as the report does, and
   `fk compare` skips the unimodular and affine-polytope checks.
+- `fk analyse -g` wrote every term of an Euler equation with coefficient 1, so the equations of
+  a massive diagram, whose A-matrix has entries 2, were wrong: for `11e|e|:nn` it printed
+  `z_1 d_1 + z_2 d_2 + z_4 d_4 = -nu_1` for the row (2, 1, 0, 1, 0). It now writes each term as
+  A_rj z_j d_j, here `2 z_1 d_1 + z_2 d_2 + z_4 d_4 = -nu_1`, in the order of the columns rather
+  than with z_10 before z_2.
 
 ### Removed
 

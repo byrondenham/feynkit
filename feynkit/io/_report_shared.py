@@ -26,6 +26,7 @@ from .report import GKZ, AnalysisReport, Landau, Polytope, Representations, Schw
 __all__ = [
     "CITATIONS",
     "MAX_PAIRS_SHOWN",
+    "NOT_COMPUTED",
     "SYMMETRIES_OMITTED",
     "Citations",
     "LandauFactors",
@@ -131,6 +132,13 @@ MAX_PAIRS_SHOWN = 10
 SYMMETRIES_OMITTED = (
     "The symmetries are not computed for Newton polytopes of dimension below 2, such as "
     "this one."
+)
+
+# What the Newton polytope section says feynkit leaves uncomputed, whatever the rank.
+NOT_COMPUTED = (
+    "feynkit computes neither the holonomic rank at the physical point nor the Euler "
+    "characteristic, and produces no series solutions, Pfaffian system or restriction to "
+    "physical kinematics."
 )
 
 

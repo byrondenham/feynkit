@@ -546,6 +546,13 @@ def test_tadpole_prose_matches_the_latex_word_for_word(tadpole: FeynmanIntegral)
     assert len(latex) > 600
 
 
+def test_dependent_rows_prose_matches_the_latex_word_for_word() -> None:
+    # The figure-eight with one massless loop: P is a segment in R^2.
+    figure_eight = FeynmanIntegral.from_cnickel("00|:nz", use_mandelstam=False)
+    intended = tuple(pair for pair in _INTENDED if not pair[0].startswith("Section"))
+    assert _prose_diff(AnalysisReport.from_integral(figure_eight), intended)[1] == []
+
+
 def test_skipped_face_prose_matches_the_latex_word_for_word() -> None:
     sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
     report = AnalysisReport.from_integral(sunrise, max_face_points=4)
@@ -568,6 +575,34 @@ def test_tadpole_renders_in_both_formats(tadpole: FeynmanIntegral) -> None:
     assert "It has L = 1 loop, N = 1 propagator and 0 external legs." in _flat(text)
     for line in text.splitlines():
         assert len(line) <= 79, line
+
+
+@pytest.mark.parametrize("cnickel", ["00|:nz", "0|:z"])  # type: ignore[misc]
+def test_no_rank_is_claimed_when_the_rows_of_a_are_dependent(cnickel: str) -> None:
+    # A massless loop is scaleless, and P is not full-dimensional.
+    fi = FeynmanIntegral.from_cnickel(cnickel, use_mandelstam=False)
+    text = _flat(_section(fi.to_text(["polytope"]), "Newton polytope"))
+    latex = " ".join(fi.to_latex(["polytope"]).split("\\section{Newton polytope}")[1].split())
+    assert (
+        "Since P is not full-dimensional, the rows of A are linearly dependent. For generic "
+        "beta the Euler equations are then inconsistent, and the GKZ system has no non-zero "
+        "solutions: its holonomic rank is 0, not the normalised volume."
+    ) in text
+    assert (
+        "Since $P$ is not full-dimensional, the rows of $A$ are linearly dependent. For "
+        "generic $\\beta$ the Euler equations are then inconsistent"
+    ) in latex
+    for document in (text, latex):
+        assert "equals the normalised volume" not in document
+        assert "feynkit computes neither the holonomic rank at the physical point" in document
+
+
+def test_tadpole_keeps_its_rank_sentence(tadpole: FeynmanIntegral) -> None:
+    # Its segment spans R^1, so the rows of A are independent.
+    for document in (tadpole.to_text(["polytope"]), tadpole.to_latex(["polytope"])):
+        flat = " ".join(document.split())
+        assert "the holonomic rank of the GKZ system equals the normalised volume, here 1" in flat
+        assert "linearly dependent" not in flat
 
 
 def test_vacuum_graphs_have_no_external_momenta(tadpole: FeynmanIntegral) -> None:

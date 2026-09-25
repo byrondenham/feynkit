@@ -27,6 +27,7 @@ from sympy.printing.str import StrPrinter
 from ._report_shared import (
     CITATIONS,
     MAX_PAIRS_SHOWN,
+    NOT_COMPUTED,
     SYMMETRIES_OMITTED,
     Citations,
     append_signed,
@@ -585,12 +586,23 @@ def _polytope(polytope: Polytope, doc: _Document) -> str:
         ]
     )
     volume = data.normalized_volume
+    description = _paragraph(
+        "The Newton polytope P of G is the convex hull of the exponent vectors of its "
+        f"monomials. It has dimension {data.dimension} in R^{data.ambient_dimension} and "
+        f"normalised volume {volume}{shape}. Its vertices are {vertices}."
+    )
+    if not data.is_full_dimensional:
+        return _blocks(
+            description,
+            _paragraph(
+                "Since P is not full-dimensional, the rows of A are linearly dependent. For "
+                "generic beta the Euler equations are then inconsistent, and the GKZ system has "
+                "no non-zero solutions: its holonomic rank is 0, not the normalised volume. "
+                f"{NOT_COMPUTED}"
+            ),
+        )
     return _blocks(
-        _paragraph(
-            "The Newton polytope P of G is the convex hull of the exponent vectors of its "
-            f"monomials. It has dimension {data.dimension} in R^{data.ambient_dimension} and "
-            f"normalised volume {volume}{shape}. Its vertices are {vertices}."
-        ),
+        description,
         _paragraph(
             "For generic coefficients and non-resonant beta the holonomic rank of the GKZ "
             "system equals the normalised volume, here "
@@ -605,9 +617,7 @@ def _polytope(polytope: Polytope, doc: _Document) -> str:
             "integrals is, up to sign, the Euler characteristic of the complement of "
             "{G = 0} in the torus, at most the normalised volume and equal to it for generic "
             "coefficients; graph-polynomial coefficients are rarely generic"
-            f"{doc.cite('bbkp2017')}. feynkit computes neither the holonomic rank at the "
-            "physical point nor the Euler characteristic, and produces no series solutions, "
-            "Pfaffian system or restriction to physical kinematics."
+            f"{doc.cite('bbkp2017')}. {NOT_COMPUTED}"
         ),
     )
 

@@ -289,7 +289,8 @@
   lattice base point for such a polytope, which the report does not show either, and `fk compare`
   prints n/a for the finite-index check. Nor does the Newton section call the normalised volume
   the holonomic rank for generic beta there: the rows of A are dependent, so for generic beta the
-  Euler equations contradict each other and the rank is 0.
+  Euler equations contradict each other and the rank is 0. The analysis report now says this too,
+  instead of equating the rank with the normalised volume.
 
 ### Removed
 

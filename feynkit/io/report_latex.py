@@ -25,6 +25,7 @@ import sympy as sp
 from ._report_shared import (
     CITATIONS,
     MAX_PAIRS_SHOWN,
+    NOT_COMPUTED,
     SYMMETRIES_OMITTED,
     Citations,
     append_signed,
@@ -465,6 +466,15 @@ def _polytope(polytope: Polytope, doc: _Document) -> str:
             "\\label{fig:newton-polytope}",
             "\\end{figure}",
         ]
+    if not data.is_full_dimensional:
+        parts += [
+            "",
+            "Since $P$ is not full-dimensional, the rows of $A$ are linearly dependent. For "
+            "generic $\\beta$ the Euler equations are then inconsistent, and the GKZ system has "
+            "no non-zero solutions: its holonomic rank is 0, not the normalised volume. "
+            f"{NOT_COMPUTED}",
+        ]
+        return "\n".join(parts)
     parts += [
         "",
         "For generic coefficients and non-resonant $\\beta$ the holonomic rank of the GKZ "
@@ -480,9 +490,7 @@ def _polytope(polytope: Polytope, doc: _Document) -> str:
         "integrals is, up to sign, the Euler characteristic of the complement of "
         "$\\{G = 0\\}$ in the torus, at most the normalised volume and equal to it for "
         "generic coefficients; graph-polynomial coefficients are rarely generic"
-        f"{doc.cite('bbkp2017')}. feynkit computes neither the holonomic rank at the physical "
-        "point nor the Euler characteristic, and produces no series solutions, Pfaffian "
-        "system or restriction to physical kinematics.",
+        f"{doc.cite('bbkp2017')}. {NOT_COMPUTED}",
     ]
     return "\n".join(parts)
 

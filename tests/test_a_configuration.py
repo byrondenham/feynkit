@@ -14,6 +14,8 @@ Key mathematical facts verified:
 import numpy as np
 import pytest
 import sympy as sp
+from sympy.matrices.normalforms import smith_normal_form
+from sympy.polys.domains import ZZ
 
 from feynkit.a_configuration import (
     AConfiguration,
@@ -37,6 +39,8 @@ from feynkit.artifacts.dissertation import (
     triangle_a_config,
     triple_k_a_config,
 )
+from feynkit.core.exceptions import ValidationError
+from feynkit.polytope import normalized_volume
 
 # ------------------------------------------------------------------------------
 # Fixtures
@@ -663,3 +667,53 @@ class TestConformalArtifacts:
     def test_companion_raises_for_n_lt_3(self):
         with pytest.raises(ValueError):
             conformal_companion_a_config(2)
+
+
+CURRENT_STATE = [
+    ([(0, 0), (1, 1), (2, 2)], 2),
+    ([(0, 0), (2, 2)], 1),
+    ([(0, 0, 0), (1, -1, 0), (1, 0, -1)], 1),
+    ([(0, 0, 0), (1, 0, 0), (0, 1, 1)], 1),
+    ([(0, 0, 0, 0), (1, 0, 0, 0), (0, 1, 0, 0), (1, 1, 0, 0)], 2),
+]
+
+
+class TestExactNormalizedVolume:
+    @pytest.mark.parametrize(("points", "volume"), CURRENT_STATE)
+    def test_lower_dimensional_configurations(self, points, volume):
+        cfg = AConfiguration(np.array(points).T, is_homogenized=False)
+        assert cfg.normalized_volume == volume
+        assert normalized_volume(points) == volume
+
+    def test_empty_configuration_raises(self):
+        cfg = AConfiguration(np.zeros((3, 0), dtype=int), is_homogenized=False)
+        with pytest.raises(ValidationError, match="at least one point"):
+            _ = cfg.normalized_volume
+        with pytest.raises(ValidationError, match="at least one point"):
+            normalized_volume([])
+
+    def test_points_have_volume_one(self):
+        assert normalized_volume([(3, 4)]) == 1
+        assert normalized_volume([(3, 4), (3, 4)]) == 1
+
+    def test_bms_sub_configurations_are_unimodular_simplices(self):
+        for n in [2, 3, 4, 5]:
+            u = [sp.Symbol(f"u_{i + 1}") for i in range(n)]
+            monoms = sp.Poly(_bms_g_polynomial(n), *u).monoms()
+            for degree in (n - 1, n + 1):
+                sub = [m for m in monoms if sum(m) == degree]
+                assert AConfiguration(np.array(sub).T, is_homogenized=False).normalized_volume == 1
+
+    def test_affine_dim_is_exact(self):
+        pts = [(0, 0, 0), (1, 10**17, 0), (2, 2 * 10**17 + 1, 0)]
+        cfg = AConfiguration(np.array(pts, dtype=np.int64).T, is_homogenized=False)
+        assert cfg.affine_dim == 2
+
+    def test_smith_invariants_are_exact_beyond_int64_differences(self):
+        # The first coordinates differ by 2^63 + 10, which int64 cannot hold.
+        pts = [(2**62 + 5, 0), (-(2**62) - 5, 1), (0, 2)]
+        cfg = AConfiguration(np.array(pts, dtype=np.int64).T, is_homogenized=False)
+        diffs = sp.Matrix([[a - b for a, b in zip(p, pts[0], strict=True)] for p in pts[1:]])
+        snf = smith_normal_form(diffs, domain=ZZ)
+        assert cfg.smith_invariants == [abs(int(snf[i, i])) for i in range(2)]
+        assert cfg.affine_dim == 2

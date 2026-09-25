@@ -17,6 +17,7 @@ from feynkit.polytope import (
     faces,
     lattice_chart,
     lattice_coordinates,
+    normalized_volume,
     polytope_data,
 )
 
@@ -219,6 +220,20 @@ def diagram_points(cnickel: str) -> list[tuple[int, ...]]:
     return [tuple(int(x) for x in p) for p in fi.newton_polytope.points]
 
 
+def embed(points: list[tuple[int, ...]]) -> list[tuple[int, ...]]:
+    """Points of Z^n, n >= 2, under an injective affine map into Z^(n + 2).
+
+    The map is x -> M x + t with M the rows of diag(2, 1, ..., 1), then
+    (0, 1, ..., 1) and (4, 0, ..., 0, -1). The image of Z^n has index 2 in its
+    saturation, so the chart path meets a lattice that is not saturated.
+    """
+    n = len(points[0])
+    rows = [[(2 if i == 0 else 1) if i == j else 0 for j in range(n)] for i in range(n)]
+    rows += [[0] + [1] * (n - 1), [4] + [0] * (n - 2) + [-1]]
+    shift = [3, -1] + [0] * (n - 2) + [5, 7]
+    return [tuple(t + _exact.dot(r, p) for r, t in zip(rows, shift, strict=True)) for p in points]
+
+
 class TestExactFaces:
     def test_segment_endpoints_hold_every_repeated_point(self) -> None:
         assert faces([(0, 0), (2, 2), (2, 2)]) == [(0, (0,)), (0, (1, 2)), (1, (0, 1, 2))]
@@ -244,6 +259,31 @@ class TestExactFaces:
             (1, (1, 3)),
             (2, (0, 1, 2, 3)),
         ]
+
+    def test_repeated_points_lie_on_every_face_they_belong_to(self) -> None:
+        # A square pyramid, with the midpoint of a base edge and an interior point.
+        distinct = [(0, 0, 0), (2, 0, 0), (0, 2, 0), (2, 2, 0), (1, 1, 2), (1, 0, 0), (1, 1, 1)]
+        order = [0, 5, 4, 1, 5, 2, 3, 6, 0, 4, 6, 3]
+        points = [distinct[i] for i in order]
+        expected = sorted(
+            (k, tuple(j for j, i in enumerate(order) if i in idx)) for k, idx in faces(distinct)
+        )
+        assert len(expected) == 19
+        for pts in (points, embed(points)):
+            assert faces(pts) == expected
+            assert faces(pts, backend="qhull") == expected
+            assert normalized_volume(pts) == 16
+        facets = {f.point_indices for f in polytope_data(points).facets}
+        assert facets == {idx for k, idx in expected if k == 2}
+
+    def test_non_sequence_and_non_2d_input_raise(self) -> None:
+        for bad in (5, [1, 2], np.zeros(3), np.zeros((2, 2, 2))):
+            with pytest.raises(ValidationError, match="sequence|two-dimensional"):
+                faces(bad)
+            with pytest.raises(ValidationError, match="sequence|two-dimensional"):
+                polytope_data(bad)
+            with pytest.raises(ValidationError, match="sequence|two-dimensional"):
+                normalized_volume(bad)
 
     def test_non_integer_input_raises(self) -> None:
         with pytest.raises(ValidationError, match="non-integer"):
@@ -374,3 +414,99 @@ class TestBackends:
         points = diagram_points(cnickel)
         assert polytope._certified_hull(points, "normaliz")[2] == "normaliz"
         assert polytope_data(points, backend="normaliz") == polytope_data(points, backend="python")
+
+    @pytest.mark.parametrize("backend", ["qhull", "normaliz"])
+    @pytest.mark.parametrize("cnickel", ["12e|2e|e|:zzz", "12e|3e|3e|e|:nnnn"])
+    def test_chart_path_through_every_generator(
+        self, monkeypatch: pytest.MonkeyPatch, backend: str, cnickel: str
+    ) -> None:
+        if backend == "normaliz":
+            _fake_pynormaliz(monkeypatch, _FakeCone)
+        original = diagram_points(cnickel)
+        points = embed(original)
+        hull = polytope._hull(points, backend)
+        assert hull.in_chart and hull.dimension >= 2 and hull.generator == backend
+        data = polytope_data(points, backend=backend)
+        assert data == polytope_data(points, backend="python")
+        assert data.dimension < data.ambient_dimension
+        assert data.faces == polytope_data(original).faces
+        assert data.normalized_volume == polytope_data(original).normalized_volume
+
+    @requires_normaliz
+    @pytest.mark.parametrize("cnickel", ["12e|2e|e|:zzz", "12e|3e|3e|e|:nnnn"])
+    def test_chart_path_through_pynormaliz(self, cnickel: str) -> None:
+        points = embed(diagram_points(cnickel))
+        hull = polytope._hull(points, "normaliz")
+        assert hull.in_chart and hull.generator == "normaliz"
+        assert polytope_data(points, backend="normaliz") == polytope_data(points, backend="python")
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            type("NormalizError", (Exception,), {}),
+            type("NormalizInterfaceError", (Exception,), {}),
+            RuntimeError,
+        ],
+    )
+    @pytest.mark.parametrize("method", ["__init__", "SupportHyperplanes"])
+    def test_normaliz_runtime_errors_fall_back(
+        self, monkeypatch: pytest.MonkeyPatch, error: type[Exception], method: str
+    ) -> None:
+        def fail(*args: object, **kwargs: object) -> None:
+            raise error("raised inside PyNormaliz")
+
+        _fake_pynormaliz(monkeypatch, type("FailingCone", (_FakeCone,), {method: fail}))
+        points = diagram_points("12e|3e|3e|e|:zzzz")
+        assert polytope._normaliz_candidates(points) is None
+        assert polytope._certified_hull(points, "normaliz")[2] == "python"
+        assert polytope_data(points, backend="normaliz") == polytope_data(points, backend="python")
+
+
+# A steep set on which a floating hull loses the volume: (177678, -2) repeats, and the hull is
+# the pentagon on points 8, 4, 3, 2, 7, in counterclockwise order.
+STEEP = [
+    (177678, -2),
+    (-88840, 1),
+    (-177677, 2),
+    (266518, -3),
+    (266516, -3),
+    (88840, -1),
+    (177678, -2),
+    (-177679, 2),
+    (-10000000000, 0),
+]
+
+
+class TestNormalizedVolume:
+    def test_matches_polytope_data_and_every_backend(self) -> None:
+        for cnickel in SAMPLE_DIAGRAMS:
+            points = diagram_points(cnickel)
+            volume = polytope_data(points).normalized_volume
+            assert normalized_volume(points) == volume
+            assert normalized_volume(points, backend="qhull") == volume
+
+    def test_bms_volumes(self) -> None:
+        from feynkit import bms_simplex_a_config
+
+        for n, volume in [(3, 4), (4, 8), (5, 16)]:
+            points = [tuple(int(x) for x in p) for p in bms_simplex_a_config(n).affine_points]
+            assert polytope_data(points).normalized_volume == volume
+
+    def test_bad_input_raises(self) -> None:
+        with pytest.raises(ValidationError, match="at least one point"):
+            normalized_volume([])
+        with pytest.raises(ComputationError, match="Unknown backend"):
+            normalized_volume([(0, 0), (1, 0), (0, 1)], backend="bogus")
+
+    def test_steep_set_is_exact(self) -> None:
+        # The differences span Z^2, so the volume is twice the area of the hull, which the
+        # shoelace formula gives as 50000000015. A floating hull gave 50000000005.
+        hull = [STEEP[i] for i in (8, 4, 3, 2, 7)]
+        twice_area = sum(
+            p[0] * q[1] - q[0] * p[1] for p, q in zip(hull, hull[1:] + hull[:1], strict=True)
+        )
+        assert twice_area == 50000000015
+        assert polytope_data(STEEP).vertex_indices == (2, 3, 4, 7, 8)
+        for backend in ("python", "qhull"):
+            assert normalized_volume(STEEP, backend=backend) == twice_area
+            assert polytope_data(STEEP, backend=backend).normalized_volume == twice_area

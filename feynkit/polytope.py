@@ -19,13 +19,13 @@ generic coefficients and non-resonant beta.
 from __future__ import annotations
 
 import importlib.util
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
 
 from . import _exact
-from .a_configuration import AConfiguration
 from .core.exceptions import ComputationError, ValidationError
 
 __all__ = [
@@ -35,6 +35,7 @@ __all__ = [
     "faces",
     "lattice_chart",
     "lattice_coordinates",
+    "normalized_volume",
     "polytope_data",
 ]
 
@@ -217,19 +218,27 @@ def _normaliz_candidates(coords: list[tuple[int, ...]]) -> list[_exact.Halfspace
 
     The points go in as vertices with the homogenising coordinate 1 last, and
     each hyperplane lambda, with lambda . (x, 1) >= 0 on P, contributes the
-    points on which it vanishes. Returns None when the import fails.
+    points on which it vanishes. Returns None when anything inside PyNormaliz
+    fails: the import, the cone or its hyperplanes. Its own errors,
+    NormalizError and NormalizInterfaceError, are classes of its compiled
+    module that derive directly from Exception, and its input conversion
+    raises ordinary Python errors too, so the calls into it are guarded by one
+    broad except. That costs nothing: every candidate is verified, and a
+    failure only means falling back to beneath-beyond.
     """
     try:
         import PyNormaliz
-    except ImportError:
+
+        cone = PyNormaliz.Cone(vertices=[[*p, 1] for p in coords])
+        forms = [[int(v) for v in form] for form in cone.SupportHyperplanes()]
+    except Exception:
         return None
-    cone = PyNormaliz.Cone(vertices=[[*p, 1] for p in coords])
     everything = range(len(coords))
     found: dict[tuple[tuple[int, ...], int], _exact.Halfspace] = {}
-    for form in cone.SupportHyperplanes():
+    for form in forms:
         if len(form) != len(coords[0]) + 1:
             continue
-        *linear, constant = (int(v) for v in form)
+        *linear, constant = form
         associated = [j for j, p in enumerate(coords) if _exact.dot(linear, p) + constant == 0]
         halfspace = _exact.verify_facet(coords, associated, everything)
         if halfspace is not None:
@@ -423,8 +432,9 @@ def faces(
     Raises
     ------
     ValidationError
-        If a coordinate is not an integer, or the points do not all have the
-        same number of coordinates.
+        If pts is not a sequence of coordinate sequences or a two-dimensional
+        array, a coordinate is not an integer, or the points do not all have
+        the same number of coordinates.
     ComputationError
         If backend is unknown or unavailable, or the facets from beneath-beyond
         fail the completeness certificate, which would be a bug.
@@ -454,12 +464,14 @@ def polytope_data(points: Sequence[Sequence[int]], *, backend: str = "auto") -> 
     Raises
     ------
     ValidationError
-        If there are no points, a coordinate is not an integer, or the points
-        do not all have the same number of coordinates.
+        If there are no points, points is not a sequence of coordinate
+        sequences or a two-dimensional array, a coordinate is not an integer,
+        or the points do not all have the same number of coordinates.
     ComputationError
         If backend is unknown, if "normaliz" is requested without PyNormaliz,
-        or if the facets from beneath-beyond fail the completeness
-        certificate, which would be a bug.
+        or if a consistency check fails (the completeness certificate on the
+        "python" path, or a simplex determinant in the volume that is not a
+        positive multiple of [Z^n : L]), which would be a bug.
     """
     pts = _exact.integer_points(points)
     if not pts:
@@ -487,22 +499,56 @@ def polytope_data(points: Sequence[Sequence[int]], *, backend: str = "auto") -> 
         vertex_indices=tuple(sorted(idx[0] for k, idx in all_faces if k == 0)),
         faces=all_faces,
         facets=tuple(facets),
-        normalized_volume=_normalized_volume(np.asarray(pts, dtype=np.int64), hull.dimension),
+        normalized_volume=_volume(hull),
     )
 
 
-def _normalized_volume(pts: np.ndarray, dimension: int) -> int:
-    """Normalised volume of conv(pts) in the lattice its differences span.
+def normalized_volume(
+    points: Sequence[Sequence[int]] | np.ndarray, *, backend: str = "auto"
+) -> int:
+    """Normalised volume of conv(points) in the lattice L its differences span.
 
-    ``AConfiguration.normalized_volume`` measures a full-dimensional
-    configuration, so a polytope of dimension 1, or one lying in a proper
-    affine subspace, is first rewritten in coordinates of that lattice.
+    A d-simplex whose edge vectors form a basis of L has volume 1. The volume
+    is the sum of |det(s_1 - s_0, ..., s_d - s_0)| over the pulling
+    triangulation of the certified face lattice. When conv(points) is
+    full-dimensional the determinants are taken in ambient coordinates and
+    divided by [Z^n : L], the product of the Smith invariants of the
+    difference matrix. Otherwise they are taken in the lattice chart, where
+    the points generate Z^d. A point has volume 1, and the result is always
+    positive. See polytope_data for backend.
+
+    Raises
+    ------
+    ValidationError
+        If there are no points, points is not a sequence of coordinate
+        sequences or a two-dimensional array, a coordinate is not an integer,
+        or the points do not all have the same number of coordinates.
+    ComputationError
+        If backend is unknown or unavailable, or a consistency check fails (the
+        completeness certificate on the "python" path, or a simplex
+        determinant that is not a positive multiple of [Z^n : L]), which
+        would be a bug.
     """
-    if dimension == 0:
+    pts = _exact.integer_points(points)
+    if not pts:
+        raise ValidationError("normalized_volume needs at least one point")
+    return _volume(_hull(pts, backend))
+
+
+def _volume(hull: _Hull, index: int | None = None) -> int:
+    """The normalised volume from the pulling triangulation of hull's certified lattice.
+
+    index is [Z^n : L] for a full-dimensional hull in ambient coordinates,
+    computed from the Smith invariants when not given; chart coordinates need
+    no index.
+    """
+    if hull.dimension == 0:
         return 1
-    if dimension == 1:
-        along = [c[0] for c in lattice_coordinates(pts)]
-        return max(along) - min(along)
-    if dimension < int(pts.shape[1]):
-        pts = np.asarray(lattice_coordinates(pts), dtype=np.int64)
-    return int(AConfiguration(pts.T, is_homogenized=False).normalized_volume)
+    if hull.dimension == 1:
+        return max(c[0] for c in hull.coordinates)
+    if hull.in_chart:
+        index = 1
+    elif index is None:
+        index = math.prod(_exact.smith_invariants(_differences(hull.points), len(hull.points[0])))
+    simplices = _exact.pulling_simplices(hull.lattice, hull.points)
+    return _exact.simplex_volume(hull.coordinates, simplices, index)

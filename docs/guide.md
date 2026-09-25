@@ -4,8 +4,8 @@ Feynkit is a Python library for symbolic computation of Feynman integrals. Start
 description it computes Symanzik polynomials, parametric representations, the GKZ hypergeometric
 system, the Newton polytope, and the toric ideal. It can compare polytopes by unimodular, affine,
 or point-configuration equivalence, detect Landau singularities, write the results up as an
-analysis report in LaTeX or plain text, and provides a `fk` command-line tool for instant analysis
-of any diagram.
+analysis report in LaTeX or plain text, and provides the `fk` command line, which analyses a
+diagram given by its CNickel string.
 
 ---
 
@@ -118,8 +118,9 @@ header shows the string as typed, with its canonical form beside it when the two
 
 #### Reports and JSON
 
-`fk analyse` also writes the analysis report of `FeynmanIntegral.to_latex` and `to_text`
-(section 20). It builds the report once, however many of these options are given.
+With these options, `fk analyse` also writes the analysis report of `FeynmanIntegral.to_latex`
+and `to_text` (section 20), or summarises it as JSON. It builds the report once, however many of
+the options are given.
 
 | Option | Effect |
 |--------|--------|
@@ -128,7 +129,8 @@ header shows the string as typed, with its canonical form beside it when the two
 | `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `gkz`, `symmetries`, `landau` and `schwinger`; all by default |
 | `--json` | print a JSON summary of the report on stdout, and nothing else |
 
-`--sections` chooses what the report holds, not what `fk analyse` prints. The report always has
+`--sections` chooses what the report holds, and so what `--json` summarises; it does not change
+the sections printed on the terminal, which the section flags choose. The report always has
 `identity`, `conventions` and `polynomials`.
 
 ```bash
@@ -209,7 +211,7 @@ A string that does not parse is reported with the grammar:
 
 ```
 $ fk analyse "12e|2e|e|:zz"
-fk: error: cannot parse CNickel '12e|2e|e|:zz': Mass-color length 2 does not match internal edge count 3 in '12e|2e|e|:zz'; expected TOPOLOGY or TOPOLOGY:COLOURS, where TOPOLOGY has one '|'-terminated entry per vertex naming the vertices it joins (digits) and its external legs (e), and COLOURS one mass code per propagator (z massless, n massive), as in fk analyse "12e|2e|e|:nzz"
+fk: error: cannot parse CNickel '12e|2e|e|:zz': Mass-colour length 2 does not match internal edge count 3 in '12e|2e|e|:zz'; expected TOPOLOGY or TOPOLOGY:COLOURS, where TOPOLOGY has one '|'-terminated entry per vertex naming the vertices it joins (digits) and its external legs (e), and COLOURS one mass code per propagator (z massless, n massive), as in fk analyse "12e|2e|e|:nzz"
 ```
 
 ### Example output (single diagram)

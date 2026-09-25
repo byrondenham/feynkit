@@ -148,7 +148,11 @@
   closed on every path.
 - The guide's CLI section and the README describe `fk analyse` and `fk compare`, the report and
   JSON options, `--no-db`, `--verbose` and the exit status, and quote every CNickel string. A test
-  checks that every `fk` command they show parses.
+  takes each `fk` command in the `bash` blocks of those two sections and checks that it quotes its
+  CNickel strings, that `fk` accepts its arguments and that its CNickel strings parse; it also
+  checks that the guide's section names every long option other than `--help`.
+- The error for a CNickel string with the wrong number of mass codes says "Mass-colour" rather
+  than "Mass-color".
 
 ### Fixed
 
@@ -250,16 +254,18 @@
   scripts removed further unsupported statements, among them a database index on volume and
   Smith invariants that does not exist, a parity projection in the triangle to triple-K map,
   and a sunrise with two thresholds where the output lists four.
-- The guide said that a trivial toric ideal often indicates a master integral; it says nothing
-  about the number of master integrals.
+- The guide said that a trivial toric ideal often indicates a master integral; such an ideal
+  gives no master-integral count.
 - The mathematics reference gave the polytope automorphism group of the L-loop massless banana
-  as S_{L+1}, of order (L+1)!. Its L + 1 propagators give L + 2 monomials forming a simplex, so
-  the group is S_{L+2}, of order (L+2)!: 6 for the bubble, 24 and 120 for three and four
-  propagators. The reference's symbol tables swapped the Schwinger and Feynman parameters: the
-  Schwinger representation uses `alpha_{e.idx}`, while U, F and the Feynman representation use
-  the symbols `a_{e.idx}` of `graph.schwinger_parameters`. It labelled Klausen's thesis,
-  arXiv:2302.13184, as Klausen (2022) in two places, a clash with the 2022 JHEP paper, and the
-  literature review dated the thesis 2022; both now give 2023.
+  as S_{L+1}, of order (L+1)!. Its L + 1 propagators give L + 2 monomials forming a unimodular
+  simplex, so the group is S_{L+2}, of order (L+2)!: 6 for the bubble, 24 and 120 for three and
+  four propagators.
+- The symbol tables of the mathematics reference swapped the Schwinger and Feynman parameters.
+  U, F and the Feynman representation use the Schwinger parameters `a_{e.idx}` of
+  `graph.schwinger_parameters`, and the Schwinger representation renames them `alpha_{e.idx}`.
+- The mathematics reference labelled Klausen's thesis, arXiv:2302.13184, as Klausen (2022) in
+  two places, a clash with the 2022 JHEP paper, and the literature review dated the thesis 2022;
+  both now give 2023.
 
 ### Removed
 

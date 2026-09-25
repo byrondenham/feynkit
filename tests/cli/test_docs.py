@@ -1,14 +1,15 @@
-"""The fk commands in the guide and the README quote their CNickel strings and parse."""
+"""Each fk command in the guide and the README parses and quotes CNickel strings that parse."""
 
 from __future__ import annotations
 
+import argparse
 import re
 import shlex
 from pathlib import Path
 
 import pytest
 
-from feynkit.cli import _build_parser, _report_options, _with_command
+from feynkit.cli import _build_parser, _load, _report_options, _with_command
 
 ROOT = Path(__file__).resolve().parents[2]
 GUIDE = ROOT / "docs" / "guide.md"
@@ -44,12 +45,26 @@ def test_documented_command_quotes_its_cnickel_strings(doc: str, command: str) -
     assert not re.search(r"[0-9e]\|", re.sub(r'"[^"]*"', "", code))
 
 
-@pytest.mark.parametrize(("doc", "command"), COMMANDS)
-def test_documented_command_parses(doc: str, command: str) -> None:
+def _parse(command: str) -> argparse.Namespace:
+    """The arguments of command as fk parses them, with the checks analyse adds."""
     parsers = _build_parser()
     args = parsers.main.parse_args(_with_command(shlex.split(command, comments=True)[1:]))
     if args.command == "analyse":
         _report_options(parsers.analyse, args)
+    return args
+
+
+@pytest.mark.parametrize(("doc", "command"), COMMANDS)
+def test_documented_command_parses(doc: str, command: str) -> None:
+    _parse(command)
+
+
+@pytest.mark.parametrize(("doc", "command"), COMMANDS)
+def test_documented_cnickel_strings_parse(doc: str, command: str) -> None:
+    args = _parse(command)
+    strings = [args.cnickel] if args.command == "analyse" else [args.first, args.second]
+    for cnickel in strings:
+        _load(cnickel)
 
 
 def test_guide_documents_every_option() -> None:

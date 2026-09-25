@@ -581,7 +581,7 @@ class Graph:
 
         if mass_str and mass_idx != len(mass_str):
             raise ValueError(
-                f"Mass-color length {len(mass_str)} does not match "
+                f"Mass-colour length {len(mass_str)} does not match "
                 f"internal edge count {mass_idx} in {cnickel!r}"
             )
 

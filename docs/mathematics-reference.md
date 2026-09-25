@@ -176,7 +176,7 @@ into one object, making the GKZ structure transparent.
 
 | Symbol | Name | Python identifier | Notes |
 |--------|------|-------------------|-------|
-| $\alpha_e$ | Schwinger parameter | `alpha_{e.idx}` | nonneg, real |
+| $\alpha_e$ | Schwinger parameter in the Schwinger representation | `alpha_{e.idx}` | nonneg, real |
 | $x_e$ | Feynman parameter | `a_{e.idx}` | nonneg, real, simplex |
 | $u_e$ | Lee-Pomeransky parameter | `u_{e.idx}` | nonneg, real |
 | $\nu_e$ | propagator exponent | `nu_{e.idx}` | positive, real |
@@ -186,8 +186,9 @@ into one object, making the GKZ structure transparent.
 | $\mu$ | energy scale | `mu` | positive, real |
 | $L$ | loop count | `fi.loop_count` | positive int |
 
-$U$ and $F$ are written in the symbols `a_{e.idx}` of `graph.schwinger_parameters`, which the
-Feynman representation keeps and the Schwinger representation renames to `alpha_{e.idx}`.
+$U$ and $F$ are written in the Schwinger parameters $a_e$ of `graph.schwinger_parameters`
+(section 1.2), symbols `a_{e.idx}`, which the Feynman representation keeps as its $x_e$ and the
+Schwinger representation renames to `alpha_{e.idx}`.
 
 ---
 
@@ -827,8 +828,8 @@ This table maps every mathematical symbol to the corresponding Python identifier
 | $e.\mathrm{idx}$ | edge index | `edge.idx` |
 | $m_e$ | edge mass | `edge.get_mass()` (SymPy expr) |
 | $\nu_e$ | propagator exponent | `fi.propagator_exponents[e.idx]` |
-| $a_e$ | variable of $U$ and $F$; Feynman parameter | `a_{e.idx}` in `graph.schwinger_parameters` |
-| $\alpha_e$ | Schwinger parameter | `alpha_{e.idx}` in `fi.schwinger.parameters` |
+| $a_e$ | Schwinger parameter, the variable of $U$ and $F$; also the Feynman parameter | `a_{e.idx}` in `graph.schwinger_parameters` |
+| $\alpha_e$ | Schwinger parameter in the Schwinger representation | `alpha_{e.idx}` in `fi.schwinger.parameters` |
 | $u_e$ | Lee-Pomeransky parameter | `u_{e.idx}` (SymPy `Symbol`) |
 | $D$ | spacetime dimension | `fi.dimension` (symbol `D`) |
 | $\varepsilon$ | reg.\ parameter | symbol `epsilon` |

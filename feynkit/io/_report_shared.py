@@ -60,7 +60,7 @@ CITATIONS: dict[str, str] = {
     ),
     "klausen2023": (
         "R.P. Klausen, \\emph{Hypergeometric Feynman Integrals}, PhD thesis, Johannes Gutenberg "
-        "University Mainz, 2022, arXiv:2302.13184."
+        "University Mainz, arXiv:2302.13184 (2023)."
     ),
     "delacruz2019": (
         "L. de la Cruz, \\emph{Feynman integrals as A-hypergeometric functions}, "

@@ -311,7 +311,10 @@ def test_one_loop_factor_lists_are_sorted_and_explained(latex: str) -> None:
 
 
 def test_klausen_thesis_names_its_university() -> None:
-    assert "PhD thesis, Johannes Gutenberg University Mainz, 2022" in CITATIONS["klausen2023"]
+    assert (
+        "PhD thesis, Johannes Gutenberg University Mainz, arXiv:2302.13184 (2023)."
+        in CITATIONS["klausen2023"]
+    )
 
 
 def test_edge_table_uses_indices_and_endpoints(latex: str) -> None:

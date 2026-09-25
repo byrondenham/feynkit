@@ -264,8 +264,9 @@
   U, F and the Feynman representation use the Schwinger parameters `a_{e.idx}` of
   `graph.schwinger_parameters`, and the Schwinger representation renames them `alpha_{e.idx}`.
 - The mathematics reference labelled Klausen's thesis, arXiv:2302.13184, as Klausen (2022) in
-  two places, a clash with the 2022 JHEP paper, and the literature review dated the thesis 2022;
-  both now give 2023.
+  two places, a clash with the 2022 JHEP paper, and the literature review and the analysis
+  report's bibliography dated the thesis 2022. All three now give 2023, and
+  `docs/triangle_analysis.tex`, `.pdf` and `.txt` are regenerated.
 
 ### Removed
 

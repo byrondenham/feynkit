@@ -476,7 +476,9 @@ each. The Landau analysis keeps the same faces, so its cost is still set by the 
   the triangulation, the lattice it measures in and the exceptions, in place of the Euclidean
   formula. `polytope.py` stops importing `AConfiguration`, which removes the import cycle. The two
   uses in `cli.py` now see the exact volume where they saw 0, and an exception only if a
-  consistency check fails.
+  consistency check fails. `intrinsic_lattice_model` was at first left out of this migration, but
+  has since been rebuilt on the lattice chart: its coordinates are integers in the Hermite normal
+  form basis of $L$, relative to the first point, and it now works below full dimension.
 - `polytope.py`: `_facet`, `_normalized_volume` and `_affine_rank` are removed. The module
   docstring describes the certificate, the relative facets and the lattice forms, and no longer
   says that lower-dimensional polytopes have no facet description.

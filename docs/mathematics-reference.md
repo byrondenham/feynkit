@@ -424,7 +424,8 @@ chart shifts its coordinates to be non-negative, so its own origin need not be o
 The $c_j$ are integral because the columns of $B$ form a basis of $L$, and unique because they are
 linearly independent. This holds for every $r$ from 0 to $n$; for $r = 0$ each $c_j$ is empty.
 `base_point` is $\alpha_1$, `basis` holds the $b_t$, and `intrinsic_rank` is $r$, the affine
-dimension, not the holonomic rank: below full dimension the GKZ system has no non-zero solutions
+dimension. It is not the holonomic rank, which for generic $\beta$ is $\mathrm{vol}_0(P)$ when $P$
+is full-dimensional (section 4.5); below full dimension the GKZ system has no non-zero solutions
 for generic $\beta$ (section 5.3). The Smith normal form supplies only `smith_invariants`.
 
 Accessed via `AConfiguration.smith_invariants`, `AConfiguration.intrinsic_model`.

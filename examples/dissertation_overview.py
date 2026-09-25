@@ -336,7 +336,7 @@ hdr(9, "Intrinsic lattice model")
 
 sec("Concept")
 print("  Express a point configuration in the basis of the lattice it spans.")
-print("  Removes the accident of the ambient Z ^n embedding.")
+print("  Removes the accident of the ambient Z^n embedding, up to a unimodular change of basis.")
 print("  Smith decomposition: D = U*diffs*V  (integer SNF).")
 print(f"  Intrinsic rank = affine dimension = {cfg_tri.affine_dim}.")
 

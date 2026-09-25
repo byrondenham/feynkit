@@ -190,8 +190,10 @@
   the new ones by a unimodular change of basis, and for the massless triangle
   they do. The new field `IntrinsicModel.basis`, which defaults to (), holds
   the basis, so that point i is base_point + sum_t intrinsic_coords[i][t]
-  basis[t]. For a single point, or copies of one, each coordinate is the empty
-  tuple, where it was the zero vector of length n.
+  basis[t]. The field takes part in equality, so a four-field `IntrinsicModel`
+  built by hand, or unpickled from an older version, no longer equals a
+  computed one whose basis is non-empty. For a single point, or copies of one,
+  each coordinate is the empty tuple, where it was the zero vector of length n.
 - `faces` lists every point on a face, so every copy of a repeated endpoint of a
   segment is now in its vertex face, where only one was kept, and the two
   vertices of a segment are sorted by index like all other faces. As a result
@@ -306,16 +308,16 @@
 - `intrinsic_lattice_model`, and so `AConfiguration.intrinsic_model`, took as
   its basis the first linearly independent differences of the points and
   truncated each coordinate towards zero, so its coordinates were wrong
-  whenever those differences were not a basis of the lattice they span: for
-  the points 0, 2, 3 in Z the basis was 2 and the last point got the
-  coordinate 1, where it is 3/2. Below full dimension, as for the Newton
-  polytopes of `01e|e|:zn` and `012e|2e|e|:zzzz`, it raised
-  `NonSquareMatrixError`, and so did the Newton section of `fk`. Its rank came
-  from a floating-point `matrix_rank`, and it took the differences in int64.
-  It is now built on `lattice_chart` in integer arithmetic: the coordinates
-  are integers that reproduce every point, it works in every dimension, and
-  `intrinsic_rank` and `smith_invariants` are exact, the latter equal to
-  `AConfiguration.smith_invariants`.
+  whenever those differences were not a basis of the lattice all the
+  differences span: for the points 0, 2, 3 in Z the basis was 2 and the last
+  point got the coordinate 1, where it is 3/2. When the points were neither
+  full-dimensional nor all equal, as for the Newton polytopes of `01e|e|:zn`
+  and `012e|2e|e|:zzzz`, it raised `NonSquareMatrixError`, and so did the
+  Newton section of `fk`. Its rank came from a floating-point `matrix_rank`,
+  and it took the differences in int64. It is now built on `lattice_chart` in
+  integer arithmetic: the coordinates are integers that reproduce every point,
+  it works in every dimension, and `intrinsic_rank` and `smith_invariants` are
+  exact, the latter equal to `AConfiguration.smith_invariants`.
 - The documents said that the holonomic rank equals the normalised volume
   without limiting this to full-dimensional configurations: section 5.3 of the
   mathematics reference, the `AConfiguration` table of the guide

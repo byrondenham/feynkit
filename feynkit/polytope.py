@@ -417,11 +417,22 @@ def lattice_chart(points: Sequence[Sequence[int]] | np.ndarray) -> LatticeChart:
     return LatticeChart(origin=origin, basis=basis, coordinates=coordinates)
 
 
-def lattice_coordinates(pts: np.ndarray) -> list[tuple[int, ...]]:
+def lattice_coordinates(pts: Sequence[Sequence[int]] | np.ndarray) -> list[tuple[int, ...]]:
     """Integer coordinates of the points in the lattice their differences span.
 
     The coordinates of lattice_chart(pts): non-negative, in the
     Hermite-normal-form basis of the difference lattice.
+
+    Raises
+    ------
+    ValidationError
+        From lattice_chart: if there are no points, pts is not a sequence of
+        coordinate sequences or a two-dimensional array, a coordinate is not
+        an integer, or the points do not all have the same number of
+        coordinates.
+    ComputationError
+        From lattice_chart: if a point is not in the lattice spanned by the
+        differences, which would be a bug.
     """
     return list(lattice_chart(pts).coordinates)
 
@@ -648,7 +659,9 @@ def faces(
     return _hull(points, backend).faces
 
 
-def polytope_data(points: Sequence[Sequence[int]], *, backend: str = "auto") -> PolytopeData:
+def polytope_data(
+    points: Sequence[Sequence[int]] | np.ndarray, *, backend: str = "auto"
+) -> PolytopeData:
     """Face lattice, facet inequalities and normalised volume of conv(points).
 
     Parameters

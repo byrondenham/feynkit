@@ -507,7 +507,10 @@ class TestCertificate:
 
     def test_two_edges_of_a_triangle_fail_c1(self) -> None:
         tri = [(0, 0), (1, 0), (0, 1)]
-        with pytest.raises(_exact.CertificateError, match=r"\(C1\)"):
+        with pytest.raises(
+            _exact.CertificateError,
+            match=r"\(C1\) fails: the edge on points \(0, 1\) has 1 vertex ",
+        ):
             _exact.certified_lattice(tri, _masks(tri, [((0, -1), 0), ((-1, 0), 0)]), 2)
 
     def test_cube_missing_one_facet_fails_c1(self) -> None:
@@ -528,6 +531,23 @@ class TestCertificate:
 
     def test_certificate_error_is_a_computation_error(self) -> None:
         assert issubclass(_exact.CertificateError, ComputationError)
+
+    @pytest.mark.parametrize(
+        ("form", "on"),
+        [
+            (((-1, -1, -1), 0), r"\(0,\) has dimension 0, not 2"),
+            (((-1, -1, 0), 0), r"\(0, 1\) has dimension 1, not 2"),
+            (((0, 0, 0), 0), r"\(0, 1, 2, 3, 4, 5, 6, 7\) is the whole polytope"),
+        ],
+    )
+    def test_a_valid_inequality_that_is_not_a_facet_fails_the_precondition(
+        self, form: tuple[tuple[int, ...], int], on: str
+    ) -> None:
+        # A complete facet list padded with a vertex, an edge or the whole cube.
+        masks = _masks(CUBE, [*CUBE_FACETS, form])
+        pattern = r"^completeness certificate precondition fails: the candidate on points " + on
+        with pytest.raises(_exact.CertificateError, match=pattern):
+            _exact.certified_lattice(CUBE, masks, 3)
 
 
 class TestPullingSimplices:
@@ -558,3 +578,16 @@ class TestPullingSimplices:
         assert _exact.simplex_volume(tri, simplices, 2) == 1
         with pytest.raises(ComputationError, match="sublattice index 4"):
             _exact.simplex_volume(tri, simplices, 4)
+
+    def test_repeated_points_do_not_change_the_volume(self) -> None:
+        def volume(points: list[tuple[int, ...]]) -> int:
+            lattice = _exact.certified_lattice(points, _masks(points, OCTAHEDRON_FACETS), 3)
+            return _exact.simplex_volume(points, _exact.pulling_simplices(lattice, points), 1)
+
+        repeated = [OCTAHEDRON[4], OCTAHEDRON[1], *OCTAHEDRON, OCTAHEDRON[4], OCTAHEDRON[0]]
+        assert volume(OCTAHEDRON) == volume(repeated) == 8
+
+    def test_empty_lattice_raises(self) -> None:
+        lattice = _exact.certified_lattice([], [], 0)
+        with pytest.raises(ComputationError, match="at least one point"):
+            _exact.pulling_simplices(lattice, [])

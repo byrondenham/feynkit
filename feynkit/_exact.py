@@ -699,7 +699,7 @@ class FaceLattice(NamedTuple):
 def face_dimensions(
     points: Sequence[Sequence[int]], facet_masks: Iterable[int], dimension: int
 ) -> dict[int, int]:
-    """Every non-empty intersection of the facets' tight sets, and P itself, with its exact dimension.
+    """Every non-empty intersection of the facets' tight sets, and P, with its exact dimension.
 
     Every face is an intersection of facets, so the lattice is closed by
     intersecting the frontier with the facets only. A new face c = a & f with
@@ -727,6 +727,13 @@ def face_dimensions(
 def certify(dims: dict[int, int], facet_masks: Iterable[int]) -> dict[int, tuple[int, ...]]:
     """Check the certificate and return phi, the facets of every face of dimension at least 1.
 
+    Precondition: the candidates are the tight sets, over all points, of
+    verified facets. dims comes from face_dimensions, so its largest key is
+    the mask of all points, of dimension d. A candidate equal to that mask,
+    or of a dimension other than d - 1, raises: (F3) needs the members of
+    dimension d - 1 to be exactly the candidates, and the check keeps a valid
+    inequality that is not a facet out of an accepted list.
+
     phi(Q) = {Q & F : F a candidate facet, dim(Q & F) = dim Q - 1}. The list
     is accepted if and only if (C1) every edge has exactly two members of
     phi, (C2) every face of dimension at least 2 has one, and (C3) for every
@@ -737,23 +744,41 @@ def certify(dims: dict[int, int], facet_masks: Iterable[int]) -> dict[int, tuple
     Raises
     ------
     CertificateError
-        Naming the condition that fails and the faces involved.
+        Naming the precondition or the condition that fails and the faces
+        involved.
     """
     facets = sorted(set(facet_masks))
+
+    def on(mask: int) -> tuple[int, ...]:
+        return tuple(mask_indices(mask))
+
+    top = max(dims, default=0)
+    for f in facets:
+        if f == top:
+            raise CertificateError(
+                f"completeness certificate precondition fails: the candidate on points {on(f)} "
+                "is the whole polytope, not a facet"
+            )
+    dimension = dims.get(top, 0)
+    for f in facets:
+        k = dims[f] if f else -1
+        if k != dimension - 1:
+            raise CertificateError(
+                f"completeness certificate precondition fails: the candidate on points {on(f)} "
+                f"has dimension {k}, not {dimension - 1}"
+            )
     phi: dict[int, tuple[int, ...]] = {}
     for q, k in dims.items():
         if k >= 1:
             phi[q] = tuple(sorted({q & f for f in facets if q & f and dims[q & f] == k - 1}))
     order = sorted(phi, key=lambda q: (dims[q], mask_indices(q)))
-
-    def on(mask: int) -> tuple[int, ...]:
-        return tuple(mask_indices(mask))
-
     for q in order:
         if dims[q] == 1 and len(phi[q]) != 2:
+            count = len(phi[q])
             raise CertificateError(
                 "completeness certificate condition (C1) fails: the edge on points "
-                f"{on(q)} has {len(phi[q])} vertices among the candidate faces, not 2"
+                f"{on(q)} has {count} {'vertex' if count == 1 else 'vertices'} among the "
+                "candidate faces, not 2"
             )
     for q in order:
         if dims[q] >= 2 and not phi[q]:
@@ -806,7 +831,14 @@ def pulling_simplices(
     least vertex v(Q) to each simplex of each facet of Q not containing v(Q).
     A vertex holding several repeated points is represented by the least of
     their indices. Simplices are memoised per face.
+
+    Raises
+    ------
+    ComputationError
+        If there are no points.
     """
+    if len(points) == 0 or not lattice.top:
+        raise ComputationError("the pulling triangulation needs at least one point")
 
     def lowest(mask: int) -> int:
         return (mask & -mask).bit_length() - 1

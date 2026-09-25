@@ -25,19 +25,59 @@ from dataclasses import dataclass
 import numpy as np
 import sympy as sp
 
+from . import _exact
 from .a_configuration import AConfiguration
-from .core.exceptions import ValidationError
+from .core.exceptions import ComputationError, ValidationError
 
 __all__ = [
     "Facet",
+    "LatticeChart",
     "PolytopeData",
     "faces",
+    "lattice_chart",
     "lattice_coordinates",
     "polytope_data",
 ]
 
 
 # --- data types --------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LatticeChart:
+    """Lattice coordinates x = o + B c for conv(points).
+
+    Attributes
+    ----------
+    origin
+        o, an integer point of the affine hull.
+    basis
+        The d columns of B, each of length n: the Hermite-normal-form basis, in
+        SymPy's convention, of the lattice L spanned by the differences of the
+        points.
+    coordinates
+        c_j for each point, with alpha_j = o + B c_j. Every coordinate is
+        non-negative with minimum 0, and the c_j generate Z^d affinely.
+    """
+
+    origin: tuple[int, ...]
+    basis: tuple[tuple[int, ...], ...]
+    coordinates: tuple[tuple[int, ...], ...]
+
+    def to_ambient(self, c: Sequence[int]) -> tuple[int, ...]:
+        """The ambient point o + B c.
+
+        Raises
+        ------
+        ValidationError
+            If c does not have one entry per basis vector.
+        """
+        if len(c) != len(self.basis):
+            raise ValidationError(f"chart coordinates have length {len(self.basis)}, got {len(c)}")
+        return tuple(
+            o + sum(ct * b[k] for ct, b in zip(c, self.basis, strict=True))
+            for k, o in enumerate(self.origin)
+        )
 
 
 @dataclass(frozen=True)
@@ -175,35 +215,60 @@ def faces(pts: np.ndarray) -> list[tuple[int, tuple[int, ...]]]:
     return out
 
 
+def _differences(points: Sequence[Sequence[int]]) -> list[list[int]]:
+    """The difference matrix: one row p - points[0] for each later point p."""
+    base = points[0]
+    return [[a - b for a, b in zip(p, base, strict=True)] for p in points[1:]]
+
+
+def lattice_chart(points: Sequence[Sequence[int]] | np.ndarray) -> LatticeChart:
+    """The lattice chart x = o + B c of conv(points).
+
+    The columns of B are the Hermite normal form, in SymPy's convention, of
+    the matrix whose columns are the differences alpha_j - alpha_1, so they
+    are a basis of the lattice L those differences span. Each point is
+    alpha_j = o + B c_j with c_j in Z^d, shifted so that every coordinate has
+    minimum 0; in the chart the points generate Z^d affinely.
+
+    Raises
+    ------
+    ValidationError
+        If there are no points or a coordinate is not an integer.
+    """
+    pts = _exact.integer_points(points)
+    if not pts:
+        raise ValidationError("lattice_chart needs at least one point")
+    base = pts[0]
+    ambient = len(base)
+    columns = _differences(pts)
+    hermite = _exact.hermite_normal_form(
+        [[row[k] for row in columns] for k in range(ambient)], len(columns)
+    )
+    rank = len(hermite[0]) if hermite else 0
+    basis = tuple(tuple(hermite[k][t] for k in range(ambient)) for t in range(rank))
+    raw: list[list[int]] = []
+    for point in pts:
+        solution = _exact.solve_hermite(hermite, [a - b for a, b in zip(point, base, strict=True)])
+        if solution is None or any(c.denominator != 1 for c in solution):
+            raise ComputationError(
+                f"point {point} is not in the lattice spanned by the differences"
+            )
+        raw.append([int(c) for c in solution])
+    shift = [min(c[t] for c in raw) for t in range(rank)]
+    coordinates = tuple(tuple(c[t] - shift[t] for t in range(rank)) for c in raw)
+    origin = tuple(
+        base[k] + sum(s * b[k] for s, b in zip(shift, basis, strict=True)) for k in range(ambient)
+    )
+    return LatticeChart(origin=origin, basis=basis, coordinates=coordinates)
+
+
 def lattice_coordinates(pts: np.ndarray) -> list[tuple[int, ...]]:
     """Integer coordinates of the points in the lattice their differences span.
 
-    A Z-basis of the difference lattice comes from the Hermite normal form of
-    the difference matrix; coordinates are shifted to be non-negative.
+    The coordinates of lattice_chart(pts): non-negative, in the
+    Hermite-normal-form basis of the difference lattice.
     """
-    if len(pts) == 1:
-        return [()]
-    from sympy.matrices.normalforms import hermite_normal_form
-
-    diffs = sp.Matrix([[int(x) for x in row] for row in (pts[1:] - pts[0])])
-    hnf = hermite_normal_form(diffs.T).T  # rows: Z-basis of the row lattice of diffs
-    basis = sp.Matrix([row for row in hnf.tolist() if any(x != 0 for x in row)])
-    if basis.rows == 0:
-        return [() for _ in pts]
-    coords: list[tuple[int, ...]] = []
-    for row in pts - pts[0]:
-        target = sp.Matrix([[int(x) for x in row]])
-        sol = (
-            basis.T.solve_least_squares(target.T)
-            if basis.rows < basis.cols
-            else basis.T.solve(target.T)
-        )
-        c = [sp.nsimplify(x) for x in sol]
-        if any(not x.is_integer for x in c):
-            raise ValueError("Point is not in the lattice spanned by the differences")
-        coords.append(tuple(int(x) for x in c))
-    mins = [min(c[i] for c in coords) for i in range(basis.rows)]
-    return [tuple(c[i] - mins[i] for i in range(basis.rows)) for c in coords]
+    return list(lattice_chart(pts).coordinates)
 
 
 # --- public API --------------------------------------------------------------

@@ -320,13 +320,14 @@
   exact, the latter equal to `AConfiguration.smith_invariants`.
 - The documents said that the holonomic rank equals the normalised volume
   without limiting this to full-dimensional configurations: section 5.3 of the
-  mathematics reference, the `AConfiguration` table of the guide
-  ("= holonomic rank"), the `feynkit.polytope` module docstring ("whatever the
-  ambient dimension") and the `AConfiguration.normalized_volume` docstring.
-  Below full dimension the rows of the homogenised A are linearly dependent,
-  and for generic beta the system has no non-zero solutions. They now state
-  the hypothesis, and section 4.5 states it as full row rank of the
-  homogenised A.
+  mathematics reference, the `AConfiguration` table of the guide ("= holonomic
+  rank"), the `feynkit.polytope` module docstring ("whatever the ambient
+  dimension"), the `AConfiguration.normalized_volume` docstring, two passages
+  of `docs/automorphism_groups.md` and the statement of Klausen's Theorem 2.2
+  in the literature review. Below full dimension the rows of the homogenised A
+  are linearly dependent, and for generic beta the system has no non-zero
+  solutions. They now state the hypothesis, and section 4.5 states it as full
+  row rank of the homogenised A.
 - Section 6.3 of the mathematics reference said that a toric operator relates
   integrals with shifted propagator exponents. Since A u = A v, d^u I_A and
   d^v I_A are the same multiple of I_A(beta - A u, z), so a toric operator is a

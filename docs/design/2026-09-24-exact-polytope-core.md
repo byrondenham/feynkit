@@ -318,12 +318,16 @@ closure, certificate, pulling simplices) go in a private module `feynkit/_exact.
 def faces(
     pts: np.ndarray | Sequence[Sequence[int]], *, backend: str = "auto"
 ) -> list[tuple[int, tuple[int, ...]]]
-def polytope_data(points: Sequence[Sequence[int]], *, backend: str = "auto") -> PolytopeData
+def polytope_data(
+    points: Sequence[Sequence[int]] | np.ndarray, *, backend: str = "auto"
+) -> PolytopeData
 def normalized_volume(
     points: Sequence[Sequence[int]] | np.ndarray, *, backend: str = "auto"
 ) -> int
 def lattice_chart(points: Sequence[Sequence[int]] | np.ndarray) -> LatticeChart
-def lattice_coordinates(pts: np.ndarray) -> list[tuple[int, ...]]  # unchanged
+def lattice_coordinates(
+    pts: Sequence[Sequence[int]] | np.ndarray,
+) -> list[tuple[int, ...]]  # output unchanged
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -54,6 +55,16 @@ class TestSingleDiagram:
         out = _run(capsys, tmp_path, "11e|e|:zz", "-S")
         assert "Symmetry pairs  (|det M|=1)  6" in out
         assert "finite-index" not in out
+
+    def test_symanzik_parameters_are_the_symbols_of_u(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        lines = _run(capsys, tmp_path, "12e|2e|e|:zzz", "-s").splitlines()
+        params = next(line for line in lines if line.startswith("  Schwinger params"))
+        u = next(line for line in lines if line.startswith("  U  ="))
+        symbols = re.compile(r"\b[a-z]+_\d+\b")
+        assert symbols.findall(params) == ["a_1", "a_2", "a_3"]
+        assert set(symbols.findall(u)) == set(symbols.findall(params))
 
 
 class TestPairwise:

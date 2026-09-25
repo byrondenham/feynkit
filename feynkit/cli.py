@@ -254,7 +254,7 @@ def _print_graph(given: str, fi: FeynmanIntegral) -> None:
 def _print_symanzik(fi: FeynmanIntegral) -> None:
     _sec("Symanzik polynomials")
     sym = fi.symanzik
-    _kv("Schwinger params", fi.schwinger.parameters)
+    _kv("Schwinger params", sym.schwinger_parameters)
     print(f"  U  =  {sym.u}")
     print(f"  F  =  {sym.f}")
     print(f"  G  =  U + F  =  {sym.g}")

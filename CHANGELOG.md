@@ -267,6 +267,9 @@
   two places, a clash with the 2022 JHEP paper, and the literature review and the analysis
   report's bibliography dated the thesis 2022. All three now give 2023, and
   `docs/triangle_analysis.tex`, `.pdf` and `.txt` are regenerated.
+- The Symanzik section of `fk analyse` listed the Schwinger representation's parameters alpha_e
+  above U and F, which are written in the a_e. It now lists the Schwinger parameters a_e of
+  `graph.schwinger_parameters`.
 
 ### Removed
 

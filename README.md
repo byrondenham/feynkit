@@ -60,10 +60,12 @@ fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"     # the mass on two different propa
 
 `fk analyse` prints the Symanzik polynomials, parametrisations, GKZ system, toric ideal, Newton
 polytope and symmetries, or those its section flags choose. It also writes the analysis report
-with `--latex FILE` and `--text FILE`, and prints a JSON summary with `--json`. `fk compare` runs
-the unimodular, affine, point-configuration and finite-index checks and prints the identity each
-map of every column gives. Results are stored in `feynkit.db` in the working directory; use
-`--db PATH` for another file or `--no-db` for none. The bare forms `fk CNICKEL` and `fk A B`
+with `--latex FILE` and `--text FILE`, and prints a JSON summary with `--json`. `fk compare` tests
+four equivalences between the A-configurations of two diagrams: unimodular, affine,
+point-configuration and finite-index. It prints each map it finds, and for a point-configuration
+or finite-index map, which sends every column of one A-matrix to a column of the other, the
+identity between the two integrals. Results are stored in `feynkit.db` in the working directory;
+use `--db PATH` for another file or `--no-db` for none. The bare forms `fk CNICKEL` and `fk A B`
 still work. See [the guide](docs/guide.md#cli-fk) for every option and the exit status.
 
 ---

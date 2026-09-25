@@ -702,6 +702,15 @@ examples:
 Quote every CNickel string: an unquoted | is a shell pipe.
 """
 
+_COMPARE_DESCRIPTION = """\
+Compare two diagrams. fk compare prints a summary of each, then tests four
+equivalences between their A-configurations: unimodular, affine_polytope,
+point_config and finite_index. It prints each map it finds. A point_config
+or finite_index map sends every column of one A-matrix to a column of the
+other, and for such a map fk compare also prints the identity between the
+two integrals.
+"""
+
 _COMPARE_EPILOG = """\
 examples:
   fk compare "12e|2e|e|:zzz" "11e|e|:zz"       triangle against bubble
@@ -800,10 +809,7 @@ def _build_parser() -> _Parsers:
         "compare",
         parents=[common],
         help="compare two diagrams",
-        description=(
-            "Compare two diagrams: their GKZ data, four equivalence checks and the "
-            "identity that each map of every column gives."
-        ),
+        description=_COMPARE_DESCRIPTION,
         epilog=_COMPARE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,

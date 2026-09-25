@@ -178,13 +178,17 @@ fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"    # the mass on two different propag
 `fk compare`:
 1. prints a summary of each diagram: Symanzik polynomials, A-matrix, normalised volume and Smith
    invariants;
-2. runs the unimodular, affine-polytope, point-configuration and finite-index checks; when the
-   ambient dimensions differ, as for the triangle and the bubble, it reports the mismatch and
-   stops;
-3. for each map of every column (`point_config`, `finite_index`), prints the column permutation
+2. tests four equivalences between the two A-configurations: `unimodular`, `affine_polytope`,
+   `point_config` and `finite_index`. When the ambient dimensions differ, as for the triangle and
+   the bubble, it reports the mismatch and stops. The `unimodular` and `affine_polytope` checks
+   need Newton polytopes of dimension 2 or more, so it skips them for a point or a segment, such
+   as the polytope of the massive tadpole `0|:n`;
+3. prints each map it finds. A `point_config` or `finite_index` map sends every column of one
+   A-matrix to a column of the other, and for such a map it also prints the column permutation
    $P$, the substitution $u_i = \prod_k v_k^{M_{ki}}$ and the identity
-   $I_A(\beta, z_P) = |\det M|\, I_B(T\beta, z)$ for the integrals without Gamma prefactors. A
-   map of the hull vertices alone gives no identity.
+   $I_A(\beta, z_P) = |\det M|\, I_B(T\beta, z)$ between the two integrals without Gamma
+   prefactors. A `unimodular` or `affine_polytope` map relates only the hull vertices and gives
+   no identity.
 
 ### Database
 

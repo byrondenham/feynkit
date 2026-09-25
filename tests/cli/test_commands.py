@@ -149,3 +149,10 @@ def test_analyse_help_describes_each_section_flag_once(capsys: pytest.CaptureFix
     out = capsys.readouterr().out
     assert out.count("Symanzik polynomials U, F, G") == 1
     assert out.count("--symanzik") == 1
+
+
+def test_help_descriptions_fit_in_80_columns() -> None:
+    # The descriptions are printed as written, so each line must fit a terminal.
+    for parser in _build_parser():
+        assert parser.description is not None
+        assert max(len(line) for line in parser.description.splitlines()) < 80

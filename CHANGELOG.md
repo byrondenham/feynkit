@@ -243,7 +243,10 @@
   automorphism. They also give A with E+1 rows rather than L+1, use the library's
   beta = (-D/2, -nu_1, ..., -nu_n), and write the finite-index identity as one term with the
   factor |det M|. They no longer cite an epsilon-expansion or resonance module, which feynkit
-  does not have, or claim conformal invariance of the triangle in D = 2.
+  does not have, or claim conformal invariance of the triangle in D = 2. An audit of the nine
+  scripts removed further unsupported statements, among them a database index on volume and
+  Smith invariants that does not exist, a parity projection in the triangle to triple-K map,
+  and a sunrise with two thresholds where the output lists four.
 
 ### Removed
 

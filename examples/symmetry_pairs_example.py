@@ -7,7 +7,7 @@ a_j, where T = [[1, 0^T], [t, M]] is the (n+1) x (n+1) homogenised matrix
 and P is the induced column permutation.  The condition is T*A = A*Pi_P.
 
 Each pair gives a transformation identity for the generalised Feynman
-integral (Forsgård-Matusevich-Sobieska 2019; de la Cruz 2024):
+integral (Forsgard-Matusevich-Sobieska 2019; de la Cruz 2024):
 
     I_A(beta, z_P) = I_A(T beta, z),      prefactor R(beta) = 1
 
@@ -95,9 +95,9 @@ Observation:
   invariant.  The dimension D and propagator indices nu are mixed by the
   lower block of T.
 
-  Pair [1] maps nu_2 -> -D + nu_1 + nu_2.  At nu_1 = nu_2 = 1, D = 4 this gives
-  nu_2 -> -2: a shift down by 2+nu_2.  Pairs of this type give
-  dimension-shift / index-reduction identities between integrals.
+  Pair [1] sends beta_2 = -nu_2 to -D + nu_1 + nu_2, so nu_2 -> D - nu_1 - nu_2.
+  At nu_1 = nu_2 = 1, D = 4 this gives nu_2 -> 2.  Pairs of this type relate
+  integrals with different propagator exponents.
 """)
 
 
@@ -118,7 +118,8 @@ Massless triangle: G has {fi_tri.newton_polytope.a_matrix.cols} monomials in R^3
 All 48 pairs are unimodular (|det M| = 1), forming the hyperoctahedral
 group B_3, the symmetry group of the octahedron / cross-polytope.
 The Newton polytope of the triangle IS a cross-polytope, centred at
-(1/2, 1/2, 1/2), with vertices at the three antipodal pairs of edge midpoints.
+(1/2, 1/2, 1/2), with its six vertices e_i and e_i + e_j forming three
+antipodal pairs.
 """)
 
 uni_tri = [p for p in pairs_tri if p.is_unimodular]
@@ -181,12 +182,12 @@ for i, p in enumerate(pairs):
 print_section("Survey: symmetry pair counts for standard diagrams")
 
 DIAGRAMS = [
-    ("Massless bubble", "11e|e|:zz", "S_3: 3-simplex symmetry"),
+    ("Massless bubble", "11e|e|:zz", "S_3: 2-simplex symmetry"),
     ("One-mass bubble", "11e|e|:nz", "eightfold _2F_1 symmetry (de la Cruz 2024)"),
     ("Massive bubble", "11e|e|:nn", "Z/2: propagator exchange"),
     ("Massless triangle", "12e|2e|e|:zzz", "B_3: cross-polytope / octahedral symmetry"),
-    ("One-mass triangle", "12e|2e|e|:nzz", "S_3: residual permutation symmetry"),
-    ("Two-mass triangle", "12e|2e|e|:nnz", "V_4: exchange of massive or massless legs"),
+    ("One-mass triangle", "12e|2e|e|:nzz", "S_3"),
+    ("Two-mass triangle", "12e|2e|e|:nnz", "V_4"),
     ("All-mass triangle", "12e|2e|e|:nnn", "S_3: full propagator permutation"),
     ("Massless box", "12e|3e|3e|e|:zzzz", "S_5: 10 = C(5,2) monomial structure"),
     ("One-mass box", "12e|3e|3e|e|:nzzz", "S_4: symmetry breaking by one mass"),

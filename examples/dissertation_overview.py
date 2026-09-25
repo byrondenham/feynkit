@@ -1,7 +1,7 @@
 """
 feynkit, complete feature walkthrough for dissertation.
 
-Covers every public-facing capability in a single linear narrative:
+Covers the main public-facing capabilities in a single linear narrative:
 
   section 1   Graph construction (manual edges + Nickel notation)
   section 2   Symanzik polynomials  U, F, G
@@ -153,7 +153,7 @@ print(f"  Measure    : {sch.measure}")
 sec("Feynman parametrisation  (simplex constraint)")
 fey = fi_tri.feynman
 print(f"  Prefactor  : {fey.prefactor}")
-print(f"  Parameters : {fey.parameters}   (Feynman x variables, sum x_i = 1)")
+print(f"  Parameters : {fey.parameters}   (Feynman parameters, summing to 1)")
 print(f"  Constraints: {fey.constraints}")
 
 sec("Lee-Pomeransky parametrisation  (u in R_{>0}^E, no constraint)")
@@ -270,7 +270,8 @@ aut = fi_tri.polytope_automorphisms
 
 sec("Unimodular automorphism group")
 print(f"  |Aut(P)| = {aut.order}")
-print("  Each (U, t) satisfies:  U in GL_n(Z),  |det U| = 1,  {Uv + t} = vertices")
+print("  Each (U, t) satisfies:  U in GL_n(Z),  |det U| = 1,  {U alpha + t} = {alpha},")
+print("  the exponent vectors of G")
 for k, (U, t) in enumerate(aut.maps[:3]):
     print(f"\n  [{k}]  U =")
     sp.pprint(U)
@@ -292,8 +293,7 @@ sec("Graph automorphisms (subgroup)")
 g_aut = fi_tri.graph_automorphisms
 print(f"  |Aut(graph)| = {len(g_aut)}")
 print("  These are the vertex permutations of the triangle that preserve its")
-print("  edge structure, the dihedral group D_3 (order 6 for the equilateral")
-print("  triangle), embedded in Aut(P).")
+print("  edge structure, the dihedral group D_3 of order 6, embedded in Aut(P).")
 
 
 # -----------------------------------------------------------------------------
@@ -386,7 +386,7 @@ print(f"\n  Massless triangle <-> Massive triangle: {uni_mass.equivalent}")
 
 sec("Affine equivalence  (rational maps, hull vertices only)")
 print("  Tests: there exists M in GL_n(Q), t in Q ^n  with  M*vert(P) + t = vert(Q).")
-print("  Weaker than unimodular; captures same combinatorial shape up to scaling.")
+print("  Weaker than unimodular; it keeps the combinatorial shape, up to a rational affine map.")
 
 # Same-topology diagrams.
 aff_self = fi_tri.is_affinely_equivalent_to(fi_tri2)
@@ -397,7 +397,8 @@ print(
 
 sec("Point-configuration equivalence  (stricter GKZ condition)")
 print("  Tests the same map on ALL A-columns, not just hull vertices.")
-print("  This is the correct condition for GKZ-system isomorphism.")
+print("  Such a map makes the GKZ systems agree up to a relabelling of the z_j and")
+print("  beta -> T beta, with the factor |det M| in the identity.")
 pts_a = cfg_tri.affine_points
 pts_b = triple_k_a_config().affine_points
 pc_eq = is_point_config_equivalent(pts_a, pts_b)
@@ -472,7 +473,7 @@ print(f"  Row permutation    : {pm.row_permutation}")
 print(f"  Column permutation : {pm.col_permutation}")
 print(f"  Symmetry vector    : {pm.symmetry_vector}")
 
-sec("Checking the canonical form is indeed maximal")
+sec("Checking whether the canonical form is maximal")
 from feynkit.normal_forms import is_canonical
 
 print(f"  is_canonical(PM_max) = {is_canonical(pm.PM_max)}")
@@ -496,8 +497,9 @@ print(f"    E_A = {la_tri.principal_a_determinant}")
 print("  Landau surfaces (irreducible factors):")
 for i, surf in enumerate(la_tri.landau_surfaces):
     print(f"    [{i}]  {surf} = 0")
-print("\n  Interpretation: each surface L_k = 0 is a threshold in the")
-print("  external kinematics where the integral develops a leading singularity.")
+print("\n  Interpretation: each surface is a candidate singularity of the integral on")
+print("  some sheet; it need not be singular on the physical sheet (Fevola, Mizera,")
+print("  Telen 2023).")
 
 la_b = landau_analysis(fi_bubble)
 sec("Bubble")
@@ -624,7 +626,8 @@ for n in [3, 4]:
         f"  n={n}: companion -> BMS_n  found={fi_map.found}, "
         f"det={fi_map.determinant if fi_map.found else ' - '}"
     )
-print("  (det=2 map exists for n=3; for n>=4 the map is broken by S_n -> S_{n-1})")
+print("  (every map of all columns has |det M| = 2/(n-2): an integer map exists only")
+print("   for n = 3; for n = 4 the determinant is 1 but no integer map exists)")
 
 
 # -----------------------------------------------------------------------------

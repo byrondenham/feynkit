@@ -45,7 +45,7 @@ def _describe_group(order: int) -> str:
         12: "A_4 or D_6",
         24: "S_4",
         48: "B_3",
-        120: "B_4?",
+        120: "S_5",
     }
     return known.get(order, "?")
 
@@ -82,7 +82,8 @@ print()
 print("Definitions")
 print("-----------")
 print("|Aut(P)|   Unimodular automorphism group of Newton polytope of G.")
-print("           (U, t) with U in GL_n(Z), |det U|=1, {Up+t : p in P} = P.")
+print("           (U, t) with U in GL_n(Z), |det U|=1, {Ua+t : a in A} = A,")
+print("           A the exponent vectors of G.")
 print()
 print("|Aut(G)|   Vertex permutations of the Feynman graph preserving")
 print("           topology and mass colouring. For multi-edge graphs (bananas)")

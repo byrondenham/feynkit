@@ -2,8 +2,8 @@
 feynkit, complete dissertation feature walkthrough  (enhanced edition)
 ========================================================================
 
-This script is the technical backbone of the dissertation.  It covers every
-public-facing capability of feynkit in a single linear narrative designed to
+This script is the technical backbone of the dissertation.  It covers the main
+public-facing capabilities of feynkit in a single linear narrative designed to
 produce output that maps directly to sections of the written report.
 
 NARRATIVE ARC
@@ -24,7 +24,7 @@ PRIMARY EXAMPLE    : massless 1-loop triangle  (complete graph K_3)
 COMPARISON CASES   : massless bubble * massive 2-loop sunrise
 CONFORMAL COUSINS  : triple-K * BMS n-simplex * conformal companion
 
-KEY CROSS-REFERENCES (results in this script should agree with):
+KEY CROSS-REFERENCES (for comparison):
   de la Cruz (2019)  , Tables 1-2, Appendix A
   Klausen (2020)     , Tables 1-3, Theorem 3.2
   de la Cruz (2024)  , Tables 1-3, Section 4
@@ -215,7 +215,7 @@ note(
     "exponents nu_i and masses m_i.  Internal edges participate in the Symanzik "
     "polynomials; external legs fix the kinematic data.  The loop number "
     "L = E - V_int + 1 follows from the Euler characteristic of the graph and "
-    "determines the dimension of the parametric integration domain."
+    "fixes the degrees of U (L) and F (L + 1)."
 )
 
 sec("Manual edge construction, massless triangle (K_3)")
@@ -254,8 +254,7 @@ for label, fi in [
     print(f"  {label:<22} {E:>3}  {V:>3}  {fi.loop_count:>3}  {N:>6}")
 
 note(
-    "For the sunrise, L = 2: both the outer loop and the central 'banana' loop "
-    "contribute independent integration variables.  The dimension of the "
+    "For the sunrise, L = 2: it has two independent loop momenta.  The dimension of the "
     "Lee-Pomeransky domain R_{>0}^E scales as E, giving a 3D integral for the "
     "triangle and a 3D integral for the sunrise (different topology, same E).",
     4,
@@ -289,11 +288,11 @@ note(
 sec("Triangle: F, second Symanzik polynomial (kinematics + masses)")
 print(f"  F = {sym_tri.f}")
 note(
-    "F is a sum over 2-forests (pairs of connected subtrees that together "
-    "span all vertices).  The coefficient of a_i a_j in F is the squared "
-    "momentum p_{ij}^2 flowing across the cut that separates the i-forest "
-    "from the j-forest, divided by 2 mu^2.  Since the triangle is massless, "
-    "F contains only Mandelstam invariants s_{12}, s_{13}, s_{23}.",
+    "F is a sum over spanning 2-forests (pairs of trees that together span "
+    "all vertices).  For the triangle each coefficient is -p_k^2/mu^2, with p_k "
+    "the momentum entering the vertex that the 2-forest cuts off.  Since the "
+    "triangle is massless, F contains only the external invariants p_1^2, "
+    "p_2^2, p_3^2.",
     4,
 )
 
@@ -316,12 +315,10 @@ for label, fi in [("Bubble", fi_bubble), ("Sunrise", fi_sunrise)]:
     print(f"  U = {s.u}")
     print(f"  F = {s.f}")
 note(
-    "The sunrise has a degree-2 polynomial U (reflecting 2-loop spanning trees "
-    "involving pairs of edges), and F carries all mass combinations m_i^2 "
-    "allowed by momentum conservation.  The massive sunrise is one of the "
-    "simplest integrals whose Picard-Fuchs system is of elliptic type, "
-    "emerging from the Calabi-Yau interpretation of its Newton polytope "
-    "(Weinzierl 2022, Sec. 10).",
+    "The sunrise has a degree-2 polynomial U (L = 2: each monomial is the pair "
+    "of edges outside a one-edge spanning tree), and F = F_0 + U sum_i m_i^2 a_i/mu^2 "
+    "carries the masses.  The massive sunrise is one of the simplest integrals "
+    "whose Picard-Fuchs system is of elliptic type (Weinzierl 2022).",
     4,
 )
 
@@ -343,22 +340,22 @@ print(f"  Prefactor  : {sch.prefactor}")
 print(f"  Parameters : {sch.parameters}    (Schwinger alpha-variables)")
 print(f"  Measure    : {sch.measure}")
 note(
-    "The Schwinger alpha-variables arise from the Gaussian integral trick for each "
-    "propagator.  Convergence requires Re(nu_i) > 0 and Re(D) > 0, among other conditions.  "
-    "Analytically continued in D and nu_i via Gamma-function factors in the prefactor.",
+    "The Schwinger alpha-variables come from an exponential representation of each "
+    "propagator.  The integral converges on an open region of (D, nu), which needs "
+    "Re(nu_i) > 0 and Re(D) > 0 among other conditions, and is continued "
+    "meromorphically in D and nu from there.",
     4,
 )
 
-sec("Feynman parametrisation  (simplex sum x_i = 1)")
+sec("Feynman parametrisation  (simplex constraint)")
 fey = fi_tri.feynman
 print(f"  Prefactor  : {fey.prefactor}")
-print(f"  Parameters : {fey.parameters}    (Feynman x-variables)")
+print(f"  Parameters : {fey.parameters}    (Feynman parameters)")
 print(f"  Constraint : {fey.constraints}")
 note(
-    "The simplex constraint fixes the overall alpha-rescaling freedom.  The "
-    "resulting integral over a compact (E-1)-simplex is finite for generic "
-    "kinematics away from Landau surfaces.  The familiar F/U^{D/2} integrand "
-    "makes the mass-dimension and analytic structure transparent.",
+    "The simplex constraint fixes the overall rescaling freedom, so the "
+    "integral runs over the compact (E-1)-simplex.  The integrand is "
+    "U^(sum nu - (L+1) D/2) / F^(sum nu - L D/2).",
     4,
 )
 
@@ -404,10 +401,10 @@ print("  Row 0  : homogenisation row (all 1s), encodes overall Euler scaling")
 print(f"  Rows 1...{r_rows-1}: exponent of u_i in each monomial of G")
 sp.pprint(gkz.a_matrix)
 note(
-    "The A-matrix encodes the Newton polytope of G: each column a_j is the "
-    "exponent vector (in the affine hyperplane sum x_0 = 1) of one monomial of G.  "
-    "Reading the columns as integer vectors in Z^{E+1}, the convex hull "
-    "Conv(a_1,...,a_m) is the Newton polytope Delta_G.",
+    "The A-matrix encodes the Newton polytope of G: each column a_j = (1, alpha_j) "
+    "holds the exponent vector alpha_j of one monomial of G, lifted to the "
+    "hyperplane x_0 = 1.  The convex hull Conv(a_1,...,a_m) in R^{E+1} is a copy "
+    "of the Newton polytope Delta_G in that hyperplane.",
     4,
 )
 
@@ -452,8 +449,8 @@ hdr(5, "Newton polytope  Delta_G")
 
 note(
     "The Newton polytope Delta_G, the convex hull of the exponent vectors alpha_j of G "
-    "in R^E (column a_j of A is (1, alpha_j)), encodes ALL analytic "
-    "properties of the GKZ integral I_A: (i) its holonomic rank = vol(Delta_G) for generic beta, "
+    "in R^E (column a_j of A is (1, alpha_j)), encodes much of the analytic "
+    "structure of the GKZ integral I_A: (i) its holonomic rank = vol(Delta_G) for generic beta, "
     "(ii) its canonical-series solutions via triangulations of Delta_G, (iii) its "
     "transformation identities via Aut(Delta_G), (iv) its Landau singularities via "
     "the principal A-determinant E_A restricted to faces of Delta_G."
@@ -468,8 +465,7 @@ for pt, coeff in np_tri.support:
 note(
     "The 'upper' monomials (those from F, degree >= 2) carry kinematic "
     "dependence; the 'lower' monomials (from U, degree 1 in u) are purely "
-    "topological.  The distinction between upper and lower monomials controls "
-    "which triangulations are relevant for the epsilon-expansion.",
+    "topological.",
     4,
 )
 
@@ -642,11 +638,10 @@ aut = fi_tri.polytope_automorphisms
 sec("Group order and structure")
 print(f"  |Aut(P)| = {aut.order}")
 note(
-    f"  For the triangle, |Aut| = {aut.order} = 8 x 6.  This factorises as "
-    f"(Z/2)^3 semidirect S_3, reflecting the three binary choices (each of the three "
-    f"LP monomials u_i <-> degree-2 monomial s_{{jk}} u_i u_j) combined with "
-    f"the S_3 permutation of the three legs.  This is the automorphism group of "
-    f"the complete bipartite graph K_{{3,3}} acting on its 6 edges.",
+    f"For the triangle, |Aut| = {aut.order} = 8 x 6.  This factorises as "
+    "(Z/2)^3 semidirect S_3: three binary choices, each swapping a monomial u_i "
+    "with the antipodal degree-2 monomial u_j u_k, combined with the S_3 "
+    "permutation of the three propagators.",
     4,
 )
 
@@ -662,7 +657,7 @@ note(
     4,
 )
 
-sec("First three automorphism generators  (U matrices and translations t)")
+sec("First three automorphisms  (U matrices and translations t)")
 for k, (U, t) in enumerate(aut.maps[:3]):
     print(f"\n  [{k}]  U =")
     sp.pprint(U)
@@ -675,10 +670,10 @@ g_aut = fi_tri.graph_automorphisms
 print(f"  |Aut(graph)| = {len(g_aut)}")
 note(
     "The graph automorphism group (vertex relabellings preserving the edge set) "
-    "embeds as a subgroup of Aut(P).  For the equilateral triangle, this is the "
+    "embeds as a subgroup of Aut(P).  For the triangle graph, this is the "
     f"dihedral group D_3 of order 6, accounting for {len(g_aut)} of the {aut.order} "
-    "polytope automorphisms.  The remaining automorphisms arise from the "
-    "LP-variable parity reflections (u_i <-> u_j u_k) not visible at graph level.",
+    "polytope automorphisms.  The others combine these with the swaps "
+    "u_i <-> u_j u_k, which are not visible at graph level.",
     4,
 )
 
@@ -702,8 +697,9 @@ sec(f"Triangle symmetry pairs  ({len(sp_list)} total)")
 n_unimodular = sum(s.is_unimodular for s in sp_list)
 print(f"  |det M| = 1 for {n_unimodular} of {len(sp_list)} pairs, as for every self-map")
 note(
-    "The 48 pairs match |Aut(P)| = 48, confirming that every "
-    "polytope automorphism produces a valid integral identity.  Pairs like "
+    "The 48 pairs match |Aut(P)| = 48: each automorphism is a bijection on the "
+    "support (mathematics reference, section 7.1), so it is a symmetry pair and "
+    "gives an integral identity.  Pairs like "
     "these carry the classical transformations: FMS (Example 4.2) obtain the "
     "Pfaff transformation of 2F1 from a pair with det M = +/-1.",
     4,
@@ -738,11 +734,11 @@ print(
 hdr(10, "Intrinsic lattice model  (Smith normal form basis)")
 
 note(
-    "The intrinsic lattice model re-expresses the Newton polytope P in a "
-    "canonical basis adapted to the Smith normal form of the difference matrix "
-    "[a_2 - a_1 | ... | a_m - a_1].  This basis is independent of the ambient "
-    "embedding and provides a coordinate-free representation for comparing "
-    "polytopes from different Feynman integrals on a common footing."
+    "The intrinsic lattice model re-expresses the Newton polytope P in a basis "
+    "of the lattice its points span, chosen from the difference vectors "
+    "[a_2 - a_1 | ... | a_m - a_1] (mathematics reference, section 5.4).  The "
+    "coordinates depend on that choice; the Smith invariants of the difference "
+    "matrix do not."
 )
 
 model_tri = intrinsic_lattice_model(cfg_tri.affine_points)
@@ -767,10 +763,7 @@ model_tk = intrinsic_lattice_model(cfg_tk.affine_points)
 print(f"  Triple-K Smith invariants: {model_tk.smith_invariants}")
 note(
     "Smith = [1, 1, 2] for triple-K means the A-columns span only an index-2 "
-    "sublattice of Z^3, the even-parity sublattice {x in Z^3 : sum x_i == 0 mod 2}. "
-    "This is the geometric origin of the half-integer constraint on the "
-    "conformal scaling dimensions sigma_i in triple-K integrals: only even-parity "
-    "combinations of nu_i are accessible without a finite-index lift.",
+    "sublattice of Z^3, the even-parity sublattice {x in Z^3 : sum x_i == 0 mod 2}.",
     4,
 )
 
@@ -831,9 +824,9 @@ if pc_eq.equivalent:
 else:
     print()
 note(
-    "Point-configuration equivalence is the physically correct condition for "
-    "GKZ-system isomorphism: it requires not just the hulls but the full "
-    "monomial supports to be equivalent.  The det = 2 result shows that "
+    "A map of all columns, not only of the hulls, makes the two GKZ systems "
+    "agree up to a relabelling of the z_j and beta -> T beta, with the factor "
+    "|det M| in the identity.  The det = 2 result shows that "
     "the triple-K polytope (with its even-parity sublattice) and the triangle "
     "polytope are related by a non-unimodular lattice map, they share the same "
     "combinatorial structure but live in differently embedded sublattices.",
@@ -892,14 +885,11 @@ note(
 hdr(13, "Grinis-Kasprzyk pairing matrix and normal form")
 
 note(
-    "The Grinis-Kasprzyk (2013) algorithm computes the maximal vertex-facet "
-    "pairing matrix PM_max of a lattice polytope: rows correspond to facets, "
-    "columns to vertices, and entry PM_{ij} is the inner product of the i-th "
-    "facet normal with the j-th vertex.  PM_max is brought to canonical form by "
-    "lexicographic maximisation over all row and column permutations.  "
-    "Two polytopes are unimodularly equivalent iff their PM_max agree. "
-    "This is the algorithmic backbone of the polytope-equivalence searches "
-    "in de la Cruz (2024)."
+    "maximal_pairing_matrix returns the lexicographically maximal representative "
+    "of a matrix under independent row and column permutations, the "
+    "canonicalisation step of Grinis and Kasprzyk (2013), who apply it to the "
+    "vertex-facet pairing matrix of a lattice polytope.  Here it is applied to "
+    "the A-matrix itself."
 )
 
 A_tri_mat = gkz.a_matrix
@@ -914,11 +904,8 @@ print(f"  Column permutation : {pm.col_permutation}")
 print(f"  Symmetry vector    : {pm.symmetry_vector}")
 print(f"  Canonical?         : {is_canonical(pm.PM_max)}")
 note(
-    "The symmetry vector records which row permutations are automorphisms of "
-    "PM_max, equivalently, automorphisms of the vertex-facet incidence structure "
-    "of P.  For highly symmetric polytopes like the triangle, this information "
-    "substantially prunes the search tree in the Grinis-Kasprzyk algorithm, "
-    "making it far more efficient than PALP on factorial-size symmetry groups.",
+    "The symmetry vector s_i = (r_i, c_i) counts the distinct rows and columns "
+    "at each step of the maximisation.",
     4,
 )
 
@@ -926,9 +913,8 @@ sec("Hull vertex ordering (indices into A-columns)")
 hv_idx = hull_vertex_indices(cfg_tri.affine_points)
 print(f"  Hull vertex column indices: {hv_idx}")
 note(
-    "Identifying which columns of A are hull vertices restricts the "
-    "pairing-matrix algorithm to the combinatorially essential data, "
-    "avoiding redundant work on interior lattice points.",
+    "hull_vertex_indices picks out the columns of A that are vertices of the "
+    "Newton polytope; for the triangle all six are.",
     4,
 )
 
@@ -939,11 +925,11 @@ note(
 hdr(14, "Landau singularity analysis, principal A-determinant")
 
 note(
-    "The Landau singularities of the Feynman integral I_A, the loci in "
-    "kinematic space where I_A develops a branch cut or a pole, are encoded "
-    "in the principal A-determinant E_A, the product over all faces of the "
-    "Newton polytope of the discriminant of G restricted to that face (GKZ 1994, "
-    "ch. 10).  feynkit computes its reduced form via landau_analysis()."
+    "The singular locus of the GKZ system is the zero set of the principal "
+    "A-determinant E_A, the product over all faces of the Newton polytope of "
+    "the discriminant of G restricted to that face (GKZ 1994, ch. 10); it "
+    "contains the Landau singularities of I_A.  feynkit computes its reduced "
+    "form via landau_analysis()."
 )
 
 la_tri = landau_analysis(fi_tri)
@@ -978,11 +964,10 @@ print(f"  Surfaces ({len(la_sunris.landau_surfaces)} total):")
 for i, surf in enumerate(la_sunris.landau_surfaces):
     print(f"    [{i}]  {surf} = 0")
 note(
-    "The sunrise has mass-shell singularities m_i = 0 and two genuine "
-    "production thresholds in s (the two signs of the square root from the elliptic "
-    "curve discriminant).  For equal masses m_1=m_2=m_3=m these reduce to "
-    "the known normal threshold (m_1+m_2+m_3)^2 = s and the pseudo-threshold "
-    "(m_1-m_2-m_3)^2 = s (Weinzierl 2022, Sec. 9.3).",
+    "The sunrise has the mass singularities m_i = 0, the factor s = 0, the "
+    "normal threshold s = (m_1 + m_2 + m_3)^2 and the pseudo-thresholds "
+    "s = (m_1 + m_2 - m_3)^2 and its permutations (Fevola, Mizera, Telen 2023, "
+    "example 3.4).",
     4,
 )
 
@@ -1049,7 +1034,7 @@ hdr(16, "AConfiguration gallery, standard dissertation configurations")
 note(
     "feynkit.artifacts.dissertation provides pre-built AConfiguration objects "
     "for the key GKZ polytopes studied in the dissertation.  The table below "
-    "collects all invariants.  Results should match de la Cruz (2024) Table 2 "
+    "collects all invariants.  Compare de la Cruz (2024) Table 2 "
     "and Klausen (2020) Tables 1-3."
 )
 
@@ -1099,9 +1084,10 @@ for name_i, cfg_i in cfg_list:
         print(f"  {'  yes':>11}" if r.equivalent else f"  {'  no':>11}", end="")
     print()
 note(
-    "No two distinct standard configurations are unimodularly equivalent: each "
-    "represents a genuinely different GKZ system.  However, as shown in section 12, "
-    "the triangle and triple-K ARE affinely equivalent (det = 2 map).",
+    "No two distinct standard configurations in this table are unimodularly "
+    "equivalent.  The triangle and triple-K are nonetheless point-configuration "
+    "equivalent (section 11), with a det-2 map of all columns (section 12), so "
+    "their GKZ systems agree up to a relabelling of the z_j and beta -> T beta.",
     4,
 )
 
@@ -1112,12 +1098,13 @@ note(
 hdr(17, "Conformal artifacts, BMS simplex and conformal companion")
 
 note(
-    "The BMS simplex integral G_n (Bzowski-McFadden-Skenderis 2021) describes "
-    "the general n-point conformal correlator in momentum space.  Its GKZ "
-    "polytope has Smith = [1,...,1,2] for all n, reflecting the even-parity "
-    "constraint on the conformal dimensions sigma_i.  The conformal companion C_n "
-    "has the same lower monomials as BMS_n (from U) but standard basis vectors "
-    "as upper monomials; it maps to BMS_n with det = 2 for n = 3 only.  "
+    "The BMS simplex integral G_n (Bzowski-McFadden-Skenderis 2021) comes from "
+    "the n-point scalar contact Witten diagram in a holographic CFT.  Its GKZ "
+    "polytope has Smith = [1,...,1,2] for all n: its points span the even-parity "
+    "sublattice, of index 2.  The conformal companion C_n has the same lower "
+    "monomials as BMS_n (from U) but standard basis vectors as upper monomials; "
+    "every affine bijection to BMS_n has |det M| = 2/(n-2), so an integer map "
+    "exists only for n = 3, with det 2.  "
     "feynkit implements all three families via feynkit.artifacts.conformal."
 )
 
@@ -1163,10 +1150,10 @@ for n in [3, 4]:
     det_str = str(fi_m.determinant) if fi_m.found else " - "
     print(f"  n={n}:  C_{n} -> BMS_{n}   found={fi_m.found},  det={det_str}")
 note(
-    "For n=3: the det=2 map C_3 -> BMS_3 is the geometric origin of the nu -> nu+1/2 "
-    "half-integer shift in triple-K reduction formulas.  For n>=4 the map fails "
-    "because fixing one external leg reduces S_n -> S_{n-1}, breaking the lattice "
-    "identification between the companion and BMS polytopes.",
+    "Every affine bijection from the companion to BMS_n has |det M| = 2/(n-2) "
+    "(mathematics reference, section 11.3), so an integer map exists only for "
+    "n = 3, with det 2.  For n = 4 the determinant is 1, but no integer map "
+    "exists; for n >= 5 the determinant is not an integer.",
     4,
 )
 
@@ -1177,12 +1164,9 @@ note(
 hdr(18, "Conformal integral chain:  C_3 -> BMS_3 -> triple-K -> triangle")
 
 note(
-    "The hierarchy of conformal and Feynman integrals is encoded as a chain of "
-    "finite-index polytope maps.  At each step the lattice index (det of the "
-    "map) measures the 'distance' between the two integral families.  This "
-    "section makes the chain explicit via all three levels of equivalence, "
-    "confirming the connections described in Bzowski-McFadden-Skenderis (2021) "
-    "and Caloro (2024)."
+    "The chain relates the conformal configurations to the triangle by affine "
+    "maps of all columns.  This section tests each step at all three levels of "
+    "equivalence and lists the determinant of each map."
 )
 
 cfg_bms3 = bms_simplex_a_config(3)
@@ -1217,12 +1201,12 @@ for src, tgt, cfg_a, cfg_b in chain:
     )
 
 note(
-    "The chain C_3 -> BMS_3 -> triple-K -> triangle captures the full conformal "
-    "hierarchy.  The step between triple-K and the triangle is the most physically "
+    "The chain C_3 -> BMS_3 -> triple-K -> triangle links the conformal "
+    "configurations to the Feynman triangle.  The step between triple-K and the triangle is the most physically "
     "significant: the CFT 3-point function (triple-K) is a finite-index cousin of "
     "the 1-loop Feynman triangle, related by the map triangle -> triple-K with "
-    "det 2 (the table lists the inverse direction, det 1/2), which implements the "
-    "parity projection onto even conformal dimensions.  The holonomic ranks "
+    "det 2 (the table lists the inverse direction, det 1/2); the triple-K points "
+    "span the even-parity sublattice.  The holonomic ranks "
     "for generic beta agree (both 4), since a map of all columns keeps the "
     "normalised volume; what differs is the lattice the points span.",
     4,
@@ -1325,11 +1309,10 @@ print(f"{'='*W}")
 hdr(20, "Database:  store * lookup * find_equivalent")
 
 note(
-    "FeynkitDatabase persists Feynman integrals to a SQLite backend, indexed "
-    "by GKZ invariants (A-matrix shape, normalised volume, Smith invariants) "
-    "for fast lookup.  Equivalence-based retrieval (find_equivalent) runs the "
-    "unimodular isomorphism test against stored polytopes, using the "
-    "Liu-Cai (2025) algorithm."
+    "FeynkitDatabase persists Feynman integrals to a SQLite backend, keyed by "
+    "a hash of the sorted Newton-polytope points.  Equivalence-based retrieval "
+    "(find_equivalent) pre-filters stored integrals by A-matrix shape and then "
+    "runs the unimodular test (Liu-Cai 2025) against each candidate."
 )
 
 tmp = pathlib.Path(tempfile.mktemp(suffix=".db"))
@@ -1343,9 +1326,9 @@ fi_tri_m = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
 db.store(fi_tri_m, label="massive_triangle")
 
 print(db.summary())
-print("  Summary: 4 integrals stored, indexed by (A shape, vol, Smith)")
+print("  Summary: 4 integrals stored, keyed by their sorted Newton-polytope points")
 
-sec("Exact lookup by GKZ fingerprint")
+sec("Exact lookup by Newton-polytope fingerprint")
 rec = db.lookup(fi_tri)
 print(f"  Lookup massless triangle  ->  label = {rec.label if rec else None}")
 rec_none = db.lookup(FeynmanIntegral.from_cnickel("13e|2e|3e|e|:zzzz"))
@@ -1357,8 +1340,8 @@ print(f"  Unimodular-equivalent to massless triangle: {[r.label for r in matches
 note(
     "The massive triangle is NOT unimodularly equivalent to the massless triangle "
     "(adding masses changes F and hence the Newton polytope Delta_G).  "
-    "Only integrals with identical GKZ polytopes, including mass patterns, "
-    "are retrieved by unimodular equivalence.",
+    "Only integrals whose Newton polytopes are unimodularly equivalent to the "
+    "query's are retrieved.",
     4,
 )
 
@@ -1450,11 +1433,12 @@ print("""
   Key structural observations:
     (1) vol(triangle) = vol(triple-K) = vol(BMS_3) = 4:  all three have the same
         holonomic rank for generic beta; they differ only in lattice embedding.
-    (2) Smith = [1,1,2] for triple-K, BMS_3: index-2 sublattice (even-parity constraint).
+    (2) Smith = [1,...,1,2] for triple-K, BMS_3 and BMS_4: index-2 sublattice
+        (even-parity constraint).
     (3) Smith = [1,...,1] for all others:  primitive embedding, no sublattice obstruction.
     (4) banana_3 and 4-simplex both have vol = 1:  holonomic rank 1 for generic beta.
-    (5) |Aut(triangle)| = 48 is the largest in this table, consistent with the
-        octahedral symmetry of the triangle LP Newton polytope.
+    (5) |Aut(triangle)| = 48, the octahedral group B_3 of the triangle LP Newton
+        polytope; the 4-simplex (120) and BMS_4 (384) have larger groups.
 """)
 
 print("=" * W)

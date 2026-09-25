@@ -4,7 +4,8 @@ Dissertation: GKZ A-configuration analysis.
 Compares the massless triangle and triple-K conformal 3-point integral as
 GKZ A-configurations, probing three levels of equivalence:
 
-  1. Unimodular equivalence (GL_n(Z) + translation), same GKZ D-module.
+  1. Unimodular equivalence (GL_n(Z) + translation), same GKZ system up to
+     relabelling when every column maps.
   2. Affine equivalence (GL_n(Q) + translation), same combinatorial type.
   3. Finite-index lattice map, integer linear map of index > 1.
 
@@ -90,7 +91,7 @@ of a point configuration, an invariant of the integer point set independent
 of the ambient embedding.
 
 Two configurations can be unimodularly equivalent only if their Smith
-invariants agree.  Different invariants prove non-unimodular equivalence.
+invariants agree.  Different invariants rule out unimodular equivalence.
 """)
 
 print(f"  Triangle : Smith invariants = {tri.smith_invariants}")
@@ -167,12 +168,13 @@ if result_fim.witness_matrix is not None:
 print("""
 A finite-index map M with |det(M)| = 2 means:
   - The image M(Z^3) is a sublattice of index 2 in Z^3.
-  - The triple-K points all lie in that sublattice.
-  - The two configurations have the same combinatorial shape (hence affinely
-    equivalent) but the triple-K lives in a coarser lattice environment.
-  - Their GKZ D-modules are related but not isomorphic over Z, they have the
-    same holonomic rank for generic beta but different torsion structure at
-    the prime 2.
+  - The triple-K points all lie in a translate of that sublattice.
+  - The two configurations are affinely equivalent, so they have the same
+    combinatorial shape, but the triple-K lives in a coarser lattice.
+  - Their GKZ systems agree over Q, up to a relabelling of the z_j and
+    beta -> T beta, and have the same holonomic rank for generic beta; the
+    difference lies in the lattice the points span (Smith invariants
+    [1,1,1] against [1,1,2]), not in the D-module.
 """)
 
 # Manual verification.
@@ -194,8 +196,7 @@ print_section("Intrinsic Lattice Models")
 
 print("""
 The intrinsic model expresses each configuration in the basis of the lattice
-it generates.  Two configurations with identical intrinsic coords (up to
-relabelling) are unimodularly equivalent.
+it generates.
 """)
 
 model_tri = intrinsic_lattice_model(tri)
@@ -252,14 +253,15 @@ Both Newton polytopes have |Aut(P)| = {auts_tri.order} = {_group_name(auts_tri.o
 This is not a coincidence: both polytopes are cross-polytopes (octahedra) in R^3.
 
   Triangle centred at (1/2, 1/2, 1/2):  vertices are three antipodal pairs
-    +/-(1/2,1/2,-1/2), +/-(1/2,-1/2,1/2), +/-(-1/2,1/2,1/2) in integer coordinates.
+    +/-(1/2,1/2,-1/2), +/-(1/2,-1/2,1/2), +/-(-1/2,1/2,1/2) relative to the centre.
 
   Triple-K centred at (1, 1, 1):  vertices are exactly +/-e_1, +/-e_2, +/-e_3 relative
     to the centre, the standard integer cross-polytope.
 
-The automorphism group of any 3-dimensional cross-polytope is the hyperoctahedral
-group B_3 of order 48 (the symmetry group of the octahedron / cube), so both
-polytopes correctly carry |Aut(P)| = 48.
+The combinatorial automorphism group of a 3-dimensional cross-polytope is the
+hyperoctahedral group B_3 of order 48 (the symmetry group of the octahedron /
+cube).  Both computed groups have order 48, so every combinatorial symmetry is
+realised by a unimodular map.
 
 The same |Aut(P)| is consistent with affine equivalence, they are the same
 abstract convex body.  What distinguishes them is purely their lattice embedding:
@@ -339,15 +341,16 @@ print(f"""  Configuration pair: Triangle  vs  Triple-K
 
   Physical meaning:
   - Both Newton polytopes are cross-polytopes (octahedra) with |Aut(P)| = 48 = B_3.
-    This confirms they are abstractly the same convex body, consistent with
-    affine equivalence.  The distinction is entirely in the lattice embedding.
-  - Smith invariants [1,1,1] != [1,1,2] prove non-unimodular equivalence:
+    They are abstractly the same convex body, as their affine equivalence
+    shows.  The distinction is entirely in the lattice embedding.
+  - Smith invariants [1,1,1] != [1,1,2] rule out unimodular equivalence:
     the triangle spans Z^3 while the triple-K spans the even-sum sublattice.
-  - The finite-index map M = [[0,1,1],[1,0,1],[1,1,0]] (det 2) provides an
-    explicit change of basis: A_triple-K = M * A_triangle (up to column
-    permutation), relating the two GKZ A-matrices.
+  - The finite-index map M = [[0,1,1],[1,0,1],[1,1,0]] (det 2) takes each
+    triangle point to a triple-K point (verified above), so
+    T * A_triangle = A_triple-K * Pi_P with T = [[1, 0], [0, M]]: a rational
+    change of basis relating the two GKZ A-matrices.
   - Normalized volume = {vol_tri} for both: same holonomic rank for generic beta.
     The GKZ systems are isomorphic over Q.
-  - Over Z they are NOT isomorphic: the 2-torsion in the lattice quotient
+  - Over Z the configurations are not equivalent: the quotient
     Z^3 / (even-sum sublattice) ~= Z/2 is the residual difference.
 """)

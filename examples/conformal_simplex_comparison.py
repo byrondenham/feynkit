@@ -112,8 +112,8 @@ print_section("n=3  (the known case)")
 print("""
 For n=3 the 1-loop triangle C_3 = K_3 (complete graph coincides with the
 cycle), so the three families all converge.  The massless triangle and the
-triple-K (BMS 3-point conformal simplex) are the two known A-configurations
-that are rationally affinely equivalent but NOT unimodularly equivalent.
+triple-K (BMS 3-point conformal simplex) are rationally affinely equivalent
+but NOT unimodularly equivalent.
 """)
 
 tri = triangle_a_config()  # C_3 LP = K_3 LP (from dissertation)
@@ -248,8 +248,7 @@ The triangle/triple-K equivalence (n=3) rests on three coincidences:
     different numbers of independent hypergeometric series in the GKZ
     solution space.
 
-The fundamental reason for all three coincidences is that C_3 = K_3.  The
-G polynomial of the triangle C_3 has the same number of monomials as the
+The G polynomial of the triangle C_3 has the same number of monomials as the
 triple-K because:
   U(C_3) = u1 + u2 + u3  (3 monomials, from the 3 spanning trees)
   F(C_3) contains 3 bilinear terms (one per Mandelstam invariant)
@@ -257,7 +256,7 @@ triple-K because:
 
 For n=4:
   U(C_4) = u1 + u2 + u3 + u4  (4 degree-1 monomials, from the 4 spanning trees)
-  F(C_4) contains 6 degree-2 terms (s_12, s_13, ..., one per pair of legs)
+  F(C_4) contains 6 degree-2 terms (one per pair of edges: p_1^2, ..., p_4^2, s_12, s_23)
   Total C_4 monomials = {cn4_n} = 4 + 6
   BMS_4 monomials = {bms4_n} = 4 + 4
 
@@ -267,7 +266,8 @@ and n=4 "denominator" monomials.
 
 Conclusion: the triangle/triple-K relation is a unique n=3 coincidence with
 no direct analogue at n >= 4 at the level of A-configurations and Newton
-polytopes.  The GKZ systems for C_n LP (n >= 4) and BMS_n are inequivalent:
-they have different holonomic ranks for generic beta, different numbers of independent
-hypergeometric-series solutions, and non-isomorphic Newton polytopes.
+polytopes.  At n = 4 and 5 the GKZ systems for C_n LP and BMS_n are
+inequivalent: they have different holonomic ranks for generic beta,
+different numbers of independent hypergeometric-series solutions, and
+non-isomorphic Newton polytopes.
 """)

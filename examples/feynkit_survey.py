@@ -14,7 +14,7 @@ This script systematically processes four families of Feynman diagrams:
 
   Family 3, Massless complete graphs K_n (n = 3, 4)
       K_3 = triangle (3 edges, 1 loop), K_4 = tetrahedron (6 edges, 3 loops).
-      K_5 is excluded: its normalised volume computation takes ~10 minutes.
+      K_5 (235 A-columns in R^10) is excluded to keep the run short.
 
   Family 4, Conformal / CFT A-configurations
       BMS n-point simplex (n = 3 ... 6) and conformal companion (n = 3 ... 6).
@@ -30,10 +30,10 @@ For each diagram the script records:
 
 Then runs a pairwise affine equivalence survey across all pairs with matching
 ambient dimension:
-  - Unimodular equivalence (Liu-Cai; same GKZ system up to z-relabelling)
+  - Unimodular equivalence (Liu-Cai, on hull vertices)
   - Affine-polytope equivalence (rational change of basis on hull vertices)
   - Point-configuration equivalence (affine map on all A-columns)
-  - Finite-index integer map (|det| > 1)
+  - Integer map on all A-columns (finite_index; |det M| >= 1)
 
 For every equivalence found the script prints the linear map M and the
 translation t.  When the map sends every column a_j of A to a column b_P(j) of
@@ -475,7 +475,7 @@ def main() -> None:
 
     # -- Family 3: complete graphs K_n (n = 3, 4) ----------------------------
     _header("FAMILY 3, Massless complete graphs K_n  (n = 3, 4)")
-    _emit("  [K_5 excluded: 235 A-columns in R^10, hull computation takes ~10 min]")
+    _emit("  [K_5 excluded to keep the run short: 235 A-columns in R^10]")
     _emit()
     for n in [3, 4]:
         cfg = complete_graph_a_config(n)
@@ -641,7 +641,8 @@ def main() -> None:
     for r in records:
         smith_groups[str(r.smith)].append(r.label)
     _emit("  Diagrams are grouped by their Smith invariants.")
-    _emit("  Diagrams in the same group span the same sublattice.")
+    _emit("  Diagrams in the same group have isomorphic quotients Z^n / L,")
+    _emit("  L the lattice their points span.")
     _emit()
     for key in sorted(smith_groups):
         labels = smith_groups[key]
@@ -657,7 +658,7 @@ def main() -> None:
     for r in records:
         _emit(f"  {r.label:<22}  {r.n_pts:>5}  {r.ambient_dim:>7}  {len(r.toric_gens):>10}")
     _emit()
-    _emit("  Pattern: n-gon toric count grows rapidly (~C(n,2) x something).")
+    _emit("  Pattern: the n-gon toric count grows quickly with n.")
     _emit("  Massless bananas have 0 generators: their monomials are exactly the vertices")
     _emit("  of a simplex, so the columns of A are linearly independent.")
     _emit()
@@ -670,7 +671,7 @@ def main() -> None:
         _emit(f"  {r.label:<22}  {r.norm_vol:>10}")
     _emit()
     _emit("  BMS_n simplex: vol = 2^(n-1)  (powers of 2: 4, 8, 16, 32 for n=3..6)")
-    _emit("  n-gon: vol grows faster than exponential in n.")
+    _emit("  n-gon: vol roughly doubles from one n to the next.")
     _emit()
 
     # Equivalence class summary

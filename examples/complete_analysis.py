@@ -1,8 +1,9 @@
 """
 Complete Feynman diagram analysis.
 
-Analyses six diagrams of increasing complexity and compares their Newton
-polytopes using affine and unimodular equivalence.
+Analyses the seven diagrams below, the one-mass triangle twice with the mass
+on different propagators, and compares their Newton polytopes using affine
+and unimodular equivalence.
 
 Diagrams
 --------
@@ -273,7 +274,7 @@ def compare(
     print(f"    #monomials : {pts_a}  vs  {pts_b}")
 
     if pts_a != pts_b:
-        print("    -> NOT equivalent (different support sizes)")
+        print("    -> the supports differ in size, so no map of all columns; not tested further")
         return
 
     uni = fi_a.is_unimodular_equivalent_to(fi_b)
@@ -323,8 +324,9 @@ header("POLYTOPE EQUIVALENCE COMPARISONS")
 print("""
   Tests whether the GKZ Newton polytopes of two Feynman integrals are
   related by a unimodular (det +/-1 integer) or affine (rational) map.
-  Unimodular equivalence implies the GKZ systems have identical analytic
-  structure; affine equivalence is strictly weaker.
+  When the unimodular map takes every column, not just the hull vertices,
+  onto a column, the GKZ systems agree up to a relabelling of the z_j and
+  beta -> T beta; affine equivalence is strictly weaker.
 """)
 
 print("-" * W)
@@ -342,8 +344,7 @@ print(f"""
   Note: the planar double box (A: {dbox.gkz.a_matrix.shape}) and
   tetrahedron/K4 (A: {tet.gkz.a_matrix.shape}) have Newton polytopes
   with {len(dbox.newton_polytope.points)} and {len(tet.newton_polytope.points)} monomials
-  respectively, too large for the brute-force affine equivalence backend.
-  Use specialised software for those comparisons.
+  respectively; this script does not compare them.
 """)
 
 print("=" * W)

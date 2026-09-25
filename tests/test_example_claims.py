@@ -44,13 +44,28 @@ RETRACTED = (
     "Re(beta_0) > 0",
     "epsilon-expansion module",
     "resonance module",
+    "maps nu_2 -> -D",
+    "parity projection",
+    "geometric origin of the",
+    "S_n -> S_{n-1}",
+    "is the largest in this table",
+    "genuinely different GKZ system",
+    "K_{3,3}",
+    "divided by 2 mu^2",
+    "F/U^{D/2}",
+    "edge midpoints",
+    "B_4?",
+    "faster than exponential",
+    "torsion structure at the prime 2",
 )
 
 RETRACTED_PATTERNS = (
     # beta = (-D/2, -nu_1, ..., -nu_n): the integrand is u^(nu - 1) G^(-D/2).
     re.compile(r"u\^beta \* G(?:\(u\))?\^\{?-beta_0\}?"),
-    re.compile(r"-D/2\s*\+\s*\d*\s*nu"),
+    re.compile(r"beta(?:_0)?\s*=\s*[\[(]?\s*-D/2\s*\+\s*\d*\s*nu"),
     re.compile(r"beta_0\s*=\s*nu"),
+    # The pre-0.3.0 convention beta_0 = sum nu - D/2.
+    re.compile(r"beta(?:_0)?\s*=\s*[\[(]?\s*(?:Sigma\s*|sum\s*|\d+\s*)?nu\w*\s*-\s*D/2"),
     # dim ker A is the codimension of the toric ideal, not its number of generators.
     re.compile(r"dim ker A\s*=\s*(?:#|number of)\s*toric generators"),
     re.compile(r"toric generators\s*=\s*dim ker A"),

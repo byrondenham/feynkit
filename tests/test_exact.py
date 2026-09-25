@@ -9,6 +9,7 @@ from fractions import Fraction
 import numpy as np
 import pytest
 import sympy as sp
+from scipy.spatial import ConvexHull
 from sympy.matrices.normalforms import hermite_normal_form as sympy_hermite
 from sympy.matrices.normalforms import invariant_factors
 
@@ -94,6 +95,19 @@ class TestDeterminantAndRank:
         assert _exact.rank([]) == 0
         assert _exact.rank([[0, 0, 0]]) == 0
 
+    def test_rank_rejects_ragged_rows(self) -> None:
+        with pytest.raises(ValidationError, match="row 1 has 2"):
+            _exact.rank([[1, 2, 3], [1, 2]])
+        with pytest.raises(ValidationError, match="row 2 has 4"):
+            _exact.rank([[1, 2, 3], [4, 5, 6], [1, 2, 3, 4]])
+
+    def test_rejects_non_integer_entries(self) -> None:
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.determinant([[1, 0], [0, 1.5]])
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.rank([[1, 2], [0.5, 1]])
+        assert _exact.determinant([[2.0, 0], [0, np.int64(3)]]) == 6
+
     def test_determinant_rejects_non_square(self) -> None:
         with pytest.raises(ValidationError, match="square"):
             _exact.determinant([[1, 2, 3], [4, 5, 6]])
@@ -105,6 +119,20 @@ class TestDot:
     def test_dot_rejects_vectors_of_different_length(self) -> None:
         with pytest.raises(ValidationError, match="length"):
             _exact.dot([1, 2], [1])
+
+    def test_dot_rejects_non_integers(self) -> None:
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.dot([1, 2], [1.5, 4])
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.dot([Fraction(1, 2)], [2])
+
+    def test_dot_converts_numpy_integers_exactly(self) -> None:
+        # 2**80 overflows int64, so the product must be taken in Python integers.
+        u = np.array([2**40, 3], dtype=np.int64)
+        result = _exact.dot(u, u)
+        assert result == 2**80 + 9
+        assert type(result) is int
+        assert _exact.dot([2.0, 1], [3, 1]) == 7
 
 
 class TestAffineSpan:
@@ -141,6 +169,13 @@ class TestAffineSpan:
         with pytest.raises(ValidationError, match="coordinates"):
             span.add((1, 2, 3))
 
+    def test_affine_span_rejects_non_integers(self) -> None:
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.affine_rank([(0, 0), (1.5, 0)])
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.affine_rank([(0.5, 0), (1, 1)])
+        assert _exact.affine_rank(np.array([(0, 0), (2**40, 1)], dtype=np.int64)) == 1
+
 
 class TestHyperplaneNormal:
     def test_primitive_normals(self) -> None:
@@ -170,6 +205,12 @@ class TestHyperplaneNormal:
     def test_rejects_ragged_points(self) -> None:
         with pytest.raises(ValidationError, match="coordinates"):
             _exact.hyperplane_normal([(0, 0), (1, 2, 3)])
+
+    def test_rejects_non_integers(self) -> None:
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.hyperplane_normal([(0, 0), (1, 0.5)])
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.hyperplane_normal([(0.5, 0), (1, 1)])
 
     def test_orientation_sign_convention(self) -> None:
         # det([x; diffs]) = g * (normal . x) for every x, with g > 0: this pins
@@ -242,6 +283,10 @@ class TestHermiteNormalForm:
         with pytest.raises(ValidationError, match="ncols"):
             _exact.hermite_normal_form_with_transform([[1, 2]], 3)
 
+    def test_rejects_non_integer_entries(self) -> None:
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.hermite_normal_form([[1, 2.5]], 2)
+
     def test_solve_and_reduce_properties(self) -> None:
         rng = random.Random(9001)
         done = 0
@@ -307,3 +352,92 @@ class TestSmithInvariants:
     def test_rejects_wrong_width(self) -> None:
         with pytest.raises(ValidationError, match="ncols"):
             _exact.smith_invariants([[2, 4, 3]], 2)
+
+    def test_rejects_non_integer_entries(self) -> None:
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.smith_invariants([[2, 0.5]], 2)
+
+
+def _facet_set(
+    halfspaces: list[_exact.Halfspace],
+) -> set[tuple[tuple[int, ...], int, tuple[int, ...]]]:
+    return {(h.normal, h.offset, tuple(_exact.mask_indices(h.mask))) for h in halfspaces}
+
+
+class TestVerifyFacet:
+    def test_accepts_orients_and_records_the_tight_set(self) -> None:
+        square = [(0, 0), (2, 0), (0, 2), (2, 2), (1, 0)]
+        assert _exact.verify_facet(square, [0, 1, 4], range(5)) == _exact.Halfspace(
+            (0, -1), 0, 0b10011
+        )
+
+    def test_rejects_a_hyperplane_with_points_on_both_sides(self) -> None:
+        square = [(0, 0), (2, 0), (0, 2), (2, 2)]
+        assert _exact.verify_facet(square, [0, 3], range(4)) is None
+
+    def test_rejects_too_few_independent_points(self) -> None:
+        cube = [(x, y, z) for x in (0, 1) for y in (0, 1) for z in (0, 1)]
+        assert _exact.verify_facet(cube, [0, 1], range(8)) is None
+
+
+class TestBeneathBeyond:
+    def test_square_with_boundary_and_interior_points(self) -> None:
+        pts = [(0, 0), (2, 0), (0, 2), (2, 2), (1, 0), (1, 1)]
+        assert _facet_set(_exact.beneath_beyond(pts)) == {
+            ((0, -1), 0, (0, 1, 4)),
+            ((-1, 0), 0, (0, 2)),
+            ((1, 0), 2, (1, 3)),
+            ((0, 1), 2, (2, 3)),
+        }
+
+    def test_repeated_points_share_their_faces(self) -> None:
+        pts = [(0, 0), (1, 0), (0, 1), (1, 0)]
+        assert _facet_set(_exact.beneath_beyond(pts)) == {
+            ((0, -1), 0, (0, 1, 3)),
+            ((-1, 0), 0, (0, 2)),
+            ((1, 1), 1, (1, 2, 3)),
+        }
+
+    def test_octahedron(self) -> None:
+        pts = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
+        got = _facet_set(_exact.beneath_beyond(pts))
+        assert {(m, b) for m, b, _ in got} == {
+            ((a, b, c), 1) for a in (1, -1) for b in (1, -1) for c in (1, -1)
+        }
+        assert all(len(idx) == 3 for _, _, idx in got)
+
+    def test_square_pyramid_keeps_its_square_base_whole(self) -> None:
+        pts = [(0, 0, 0), (2, 0, 0), (2, 2, 0), (0, 2, 0), (1, 1, 1)]
+        got = _facet_set(_exact.beneath_beyond(pts))
+        assert ((0, 0, -1), 0, (0, 1, 2, 3)) in got
+        assert len(got) == 5
+
+    def test_needs_full_dimensional_points(self) -> None:
+        with pytest.raises(ComputationError, match="full-dimensional"):
+            _exact.beneath_beyond([(0, 0, 0), (1, 0, 0), (0, 1, 0)])
+        with pytest.raises(ComputationError, match="at least 2"):
+            _exact.beneath_beyond([(0,), (1,)])
+
+    def test_matches_qhull_on_random_configurations(self) -> None:
+        rng = random.Random(11)
+        checked = 0
+        for _ in range(150):
+            d = rng.randint(2, 5)
+            count = rng.randint(d + 1, d + 12)
+            pts = sorted({tuple(rng.randint(-3, 3) for _ in range(d)) for _ in range(count)})
+            if _exact.affine_rank(pts) != d:
+                continue
+            halfspaces = _exact.beneath_beyond(pts)
+            for h in halfspaces:
+                assert all(_exact.dot(h.normal, p) <= h.offset for p in pts)
+                tight = [pts[j] for j in _exact.mask_indices(h.mask)]
+                assert _exact.affine_rank(tight) == d - 1
+            x = np.array(pts, dtype=float)
+            hull = ConvexHull(x)
+            expected = {
+                frozenset(np.flatnonzero(np.abs(x @ eq[:-1] + eq[-1]) < 1e-7).tolist())
+                for eq in hull.equations
+            }
+            assert {frozenset(_exact.mask_indices(h.mask)) for h in halfspaces} == expected
+            checked += 1
+        assert checked >= 140

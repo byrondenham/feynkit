@@ -25,7 +25,16 @@ IntMatrix = list[list[int]]
 # --- input -------------------------------------------------------------------
 
 
-def _as_int(value: object, where: int) -> int:
+def _as_int(value: object, where: str) -> int:
+    """value as a Python integer; where names its source for the error message.
+
+    Raises
+    ------
+    ValidationError
+        If value is not an integer. Integral floats and rationals are accepted.
+    """
+    if type(value) is int:
+        return value
     if isinstance(value, SupportsIndex):
         return operator.index(value)
     if isinstance(value, numbers.Rational) and value.denominator == 1:
@@ -34,7 +43,7 @@ def _as_int(value: object, where: int) -> int:
         as_float = float(value)
         if math.isfinite(as_float) and as_float.is_integer():
             return int(as_float)
-    raise ValidationError(f"point {where} has the non-integer coordinate {value!r}")
+    raise ValidationError(f"{where} has the non-integer coordinate {value!r}")
 
 
 def integer_points(points: object) -> list[tuple[int, ...]]:
@@ -72,7 +81,7 @@ def integer_points(points: object) -> list[tuple[int, ...]]:
             coordinates = tuple(row)
         except TypeError:
             raise ValidationError(f"point {i} is not a sequence of coordinates: {row!r}") from None
-        point = tuple(_as_int(x, i) for x in coordinates)
+        point = tuple(_as_int(x, f"point {i}") for x in coordinates)
         if out and len(point) != len(out[0]):
             raise ValidationError(
                 f"point {i} has {len(point)} coordinates, point 0 has {len(out[0])}"
@@ -105,10 +114,11 @@ def dot(u: Sequence[int], v: Sequence[int]) -> int:
     Raises
     ------
     ValidationError
-        If u and v have different lengths.
+        If u and v have different lengths or an entry is not an integer.
     """
+    where = "a vector passed to dot"
     try:
-        return sum(int(a) * int(b) for a, b in zip(u, v, strict=True))
+        return sum(_as_int(a, where) * _as_int(b, where) for a, b in zip(u, v, strict=True))
     except ValueError:
         raise ValidationError(
             f"dot needs vectors of equal length, got {len(u)} and {len(v)}"
@@ -121,14 +131,25 @@ def _subtract(u: Sequence[int], v: Sequence[int]) -> list[int]:
     Raises
     ------
     ValidationError
-        If u and v have different lengths.
+        If u and v have different lengths or an entry is not an integer.
     """
     try:
-        return [int(a) - int(b) for a, b in zip(u, v, strict=True)]
+        return [_as_int(a, "a point") - _as_int(b, "a point") for a, b in zip(u, v, strict=True)]
     except ValueError:
         raise ValidationError(
             f"points have different numbers of coordinates: {len(u)} and {len(v)}"
         ) from None
+
+
+def _int_rows(rows: Iterable[Iterable[object]]) -> IntMatrix:
+    """The rows as lists of Python integers.
+
+    Raises
+    ------
+    ValidationError
+        If an entry is not an integer.
+    """
+    return [[_as_int(x, f"row {i}") for x in row] for i, row in enumerate(rows)]
 
 
 # --- determinants and rank ---------------------------------------------------
@@ -140,9 +161,9 @@ def determinant(matrix: Sequence[Sequence[int]]) -> int:
     Raises
     ------
     ValidationError
-        If the matrix is not square.
+        If the matrix is not square or an entry is not an integer.
     """
-    a = [[int(x) for x in row] for row in matrix]
+    a = _int_rows(matrix)
     n = len(a)
     widths = [len(row) for row in a]
     if any(w != n for w in widths):
@@ -166,11 +187,21 @@ def determinant(matrix: Sequence[Sequence[int]]) -> int:
 
 
 def rank(rows: Sequence[Sequence[int]]) -> int:
-    """Rank of an integer matrix by fraction-free (Bareiss) elimination."""
-    a = [[int(x) for x in row] for row in rows]
+    """Rank of an integer matrix by fraction-free (Bareiss) elimination.
+
+    Raises
+    ------
+    ValidationError
+        If the rows do not all have the same length or an entry is not an
+        integer.
+    """
+    a = _int_rows(rows)
     if not a:
         return 0
     m, n = len(a), len(a[0])
+    bad = next((i for i, row in enumerate(a) if len(row) != n), None)
+    if bad is not None:
+        raise ValidationError(f"row {bad} has {len(a[bad])} entries, row 0 has {n}")
     r, previous = 0, 1
     for c in range(n):
         pivot_row = next((i for i in range(r, m) if a[i][c]), None)
@@ -213,10 +244,10 @@ class AffineSpan:
         ------
         ValidationError
             If point has a different number of coordinates from the points
-            already added.
+            already added, or a coordinate is not an integer.
         """
         if self._base is None:
-            self._base = tuple(int(x) for x in point)
+            self._base = tuple(_as_int(x, "a point") for x in point)
             return True
         vector = _subtract(point, self._base)
         for pivot, row in self._rows:
@@ -271,14 +302,15 @@ def hyperplane_normal(points: Sequence[Sequence[int]]) -> tuple[int, ...]:
         If there are no points, not d points, or they do not span a
         hyperplane.
     ValidationError
-        If the points do not all have the same number of coordinates.
+        If the points do not all have the same number of coordinates, or a
+        coordinate is not an integer.
     """
     if not points:
         raise ComputationError("hyperplane_normal needs at least one point")
     d = len(points[0])
     if len(points) != d:
         raise ComputationError(f"a hyperplane in Z^{d} needs {d} points, got {len(points)}")
-    base = tuple(int(x) for x in points[0])
+    base = tuple(_as_int(x, "a point") for x in points[0])
     diffs = [_subtract(p, base) for p in points[1:]]
     normal = [(-1) ** j * determinant([row[:j] + row[j + 1 :] for row in diffs]) for j in range(d)]
     g = math.gcd(*normal)
@@ -337,9 +369,9 @@ def _hermite(
     Raises
     ------
     ValidationError
-        If a row does not have ncols entries.
+        If a row does not have ncols entries or an entry is not an integer.
     """
-    a = [[int(x) for x in row] for row in rows]
+    a = _int_rows(rows)
     bad = next((i for i, row in enumerate(a) if len(row) != ncols), None)
     if bad is not None:
         raise ValidationError(f"row {bad} has {len(a[bad])} entries, expected ncols={ncols}")
@@ -471,9 +503,9 @@ def smith_invariants(rows: Sequence[Sequence[int]], ncols: int) -> list[int]:
     Raises
     ------
     ValidationError
-        If a row does not have ncols entries.
+        If a row does not have ncols entries or an entry is not an integer.
     """
-    a = [[int(x) for x in row] for row in rows]
+    a = _int_rows(rows)
     bad = next((i for i, row in enumerate(a) if len(row) != ncols), None)
     if bad is not None:
         raise ValidationError(f"row {bad} has {len(a[bad])} entries, expected ncols={ncols}")
@@ -516,3 +548,127 @@ def smith_invariants(rows: Sequence[Sequence[int]], ncols: int) -> list[int]:
             a[t] = [x + y for x, y in zip(a[t], a[stray], strict=True)]
         out.append(abs(a[t][t]))
     return out
+
+
+# --- facets ------------------------------------------------------------------
+
+
+class Halfspace(NamedTuple):
+    """A facet normal . x <= offset of the hull of a point list; mask is its tight set."""
+
+    normal: tuple[int, ...]
+    offset: int
+    mask: int
+
+
+def verify_facet(
+    points: Sequence[Sequence[int]], associated: Iterable[int], among: Iterable[int]
+) -> Halfspace | None:
+    """Check a facet candidate exactly against the points indexed by among.
+
+    Picks d affinely independent points from associated, greedily in the given
+    order, and takes the primitive normal of the hyperplane through them. The
+    candidate is rejected (None) if there are fewer than d such points, or if
+    the points of among lie on both sides of the hyperplane or all on it.
+    Otherwise the normal is oriented so that every point of among satisfies
+    normal . x <= offset, and the tight set among them is recorded.
+    """
+    d = len(points[0])
+    chosen = affine_basis(points, associated, d)
+    if len(chosen) < d:
+        return None
+    normal = hyperplane_normal([points[i] for i in chosen])
+    offset = dot(normal, points[chosen[0]])
+    indices = list(among)
+    heights = [dot(normal, points[j]) - offset for j in indices]
+    if any(h > 0 for h in heights):
+        if any(h < 0 for h in heights):
+            return None
+        normal = tuple(-x for x in normal)
+        offset = -offset
+        heights = [-h for h in heights]
+    elif not any(heights):
+        return None
+    mask = 0
+    for j, h in zip(indices, heights, strict=True):
+        if h == 0:
+            mask |= 1 << j
+    return Halfspace(normal, offset, mask)
+
+
+def beneath_beyond(points: Sequence[Sequence[int]]) -> list[Halfspace]:
+    """The facets of conv(points), for full-dimensional points in Z^d with d >= 2.
+
+    Starts from the simplex on the first d + 1 affinely independent points in
+    index order, then inserts the other points in index order. A point beneath
+    or on every current facet joins the tight sets of the facets it lies on.
+    Otherwise the facets it is beyond are dropped and those it lies on gain it.
+    For every ridge shared by a facet it is beyond and a facet it is beneath,
+    the facet through that ridge and the point is added, verified against the
+    points inserted so far; its tight set is the ridge's plus the point. The
+    facet list is complete at every step, so ridges are the pairwise
+    intersections of tight sets with at least d - 1 points and affine
+    dimension d - 2.
+
+    Raises
+    ------
+    ComputationError
+        If d < 2 or the points are not full-dimensional, or if a new facet
+        fails verification, which would be a bug.
+    """
+    d = len(points[0])
+    if d < 2:
+        raise ComputationError(f"beneath-beyond needs dimension at least 2, got {d}")
+    simplex = affine_basis(points, range(len(points)), d + 1)
+    if len(simplex) != d + 1:
+        raise ComputationError(
+            "beneath-beyond needs full-dimensional points; these span dimension "
+            f"{len(simplex) - 1} in Z^{d}"
+        )
+    inserted = list(simplex)
+    facets: list[Halfspace] = []
+    for omitted in simplex:
+        facet = verify_facet(points, [i for i in simplex if i != omitted], simplex)
+        if facet is None:
+            raise ComputationError(
+                "beneath-beyond: a facet of the initial simplex failed verification"
+            )
+        facets.append(facet)
+    initial = set(simplex)
+    for p in range(len(points)):
+        if p in initial:
+            continue
+        bit = 1 << p
+        inserted.append(p)
+        heights = [dot(f.normal, points[p]) - f.offset for f in facets]
+        if all(h <= 0 for h in heights):
+            facets = [
+                f._replace(mask=f.mask | bit) if h == 0 else f
+                for f, h in zip(facets, heights, strict=True)
+            ]
+            continue
+        visible = [f for f, h in zip(facets, heights, strict=True) if h > 0]
+        beneath = [f for f, h in zip(facets, heights, strict=True) if h < 0]
+        kept = beneath + [
+            f._replace(mask=f.mask | bit) for f, h in zip(facets, heights, strict=True) if h == 0
+        ]
+        seen = {(f.normal, f.offset) for f in kept}
+        for f in visible:
+            for g in beneath:
+                ridge = f.mask & g.mask
+                if ridge.bit_count() < d - 1:
+                    continue
+                basis = affine_basis(points, mask_indices(ridge), d - 1)
+                if len(basis) < d - 1:
+                    continue
+                new = verify_facet(points, [*basis, p], inserted)
+                if new is None or new.mask != ridge | bit:
+                    raise ComputationError(
+                        "beneath-beyond: the facet through the ridge on points "
+                        f"{tuple(mask_indices(ridge))} and point {p} failed verification"
+                    )
+                if (new.normal, new.offset) not in seen:
+                    seen.add((new.normal, new.offset))
+                    kept.append(new)
+        facets = kept
+    return facets

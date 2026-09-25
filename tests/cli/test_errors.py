@@ -165,3 +165,23 @@ def test_exit_status_seen_by_the_shell(argv: list[str], status: int, tmp_path: P
     )
     assert result.returncode == status
     assert "Traceback" not in result.stderr
+
+
+def test_reader_that_closes_early_gets_status_141_and_no_traceback(tmp_path: Path) -> None:
+    # The reader takes one line and closes, as head -1 does. Output is flushed
+    # after each section, and the box's sections take seconds, so a later
+    # flush meets the closed pipe.
+    err = tmp_path / "stderr.txt"
+    command = [sys.executable, "-m", "feynkit.cli", "analyse", "12e|3e|3e|e|:zzzz", "--no-db"]
+    with (
+        err.open("w", encoding="utf-8") as stderr,
+        subprocess.Popen(
+            command, cwd=tmp_path, stdout=subprocess.PIPE, stderr=stderr, text=True
+        ) as process,
+    ):
+        assert process.stdout is not None
+        assert process.stdout.readline().startswith("=")
+        process.stdout.close()
+        status = process.wait(timeout=120)
+    assert status == 141
+    assert err.read_text(encoding="utf-8") == ""

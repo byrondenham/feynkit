@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 import time
@@ -47,6 +48,8 @@ from feynkit.io.report_text import render_text
 
 COMMANDS = ("analyse", "compare")
 SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "symmetries")
+# 128 + SIGPIPE: the status of a tool that a closed pipe stops, as the shell reports it.
+EXIT_BROKEN_PIPE = 141
 
 # -----------------------------------------------------------------------------
 # Output helpers
@@ -644,7 +647,8 @@ Run fk analyse --help or fk compare --help for their options.
 Quote every CNickel string: an unquoted | is a shell pipe.
 
 Exit status: 0 on success; 1, with one line on stderr, for a CNickel string
-that does not parse or a feynkit, database or file error; 2 for a usage error.
+that does not parse or a feynkit, database or file error; 2 for a usage error;
+141, with nothing on stderr, when the reader of the output closes the pipe.
 """
 
 _ANALYSE_EPILOG = """\
@@ -820,16 +824,8 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
     )
 
 
-def main(argv: Sequence[str] | None = None) -> None:
-    """Run fk.
-
-    A CNickel string that does not parse, a feynkit error or a database error
-    is reported in one line on stderr with exit status 1, and argparse exits
-    with status 2 on a usage error. Any other exception is a bug and keeps
-    its traceback.
-    """
-    parsers = _build_parser()
-    args = parsers.main.parse_args(_with_command(sys.argv[1:] if argv is None else argv))
+def _run(parsers: _Parsers, args: argparse.Namespace) -> None:
+    """Run the subcommand of args, reporting the errors main describes in one line."""
     db_path = None if args.no_db else Path(args.db)
     try:
         if args.command == "analyse":
@@ -845,6 +841,27 @@ def main(argv: Sequence[str] | None = None) -> None:
         _fail(str(exc) or type(exc).__name__)
     except sqlite3.Error as exc:
         _fail(f"database {args.db}: {exc}")
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """Run fk.
+
+    A CNickel string that does not parse, a feynkit error or a database error
+    is reported in one line on stderr with exit status 1, and argparse exits
+    with status 2 on a usage error. When the reader of stdout closes the pipe
+    early, as head does, fk stops without a message and exits with status 141,
+    which is 128 + SIGPIPE, the status a shell reports for cat or grep in the
+    same place. Any other exception is a bug and keeps its traceback.
+    """
+    parsers = _build_parser()
+    args = parsers.main.parse_args(_with_command(sys.argv[1:] if argv is None else argv))
+    try:
+        _run(parsers, args)
+    except BrokenPipeError:
+        # The database is closed by now. Point stdout at devnull so that the
+        # interpreter's final flush does not fail again.
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        raise SystemExit(EXIT_BROKEN_PIPE) from None
 
 
 if __name__ == "__main__":

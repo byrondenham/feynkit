@@ -206,6 +206,7 @@ also prints the time of each stage on stderr. `fk --version` prints the version.
 | 0 | success |
 | 1 | a CNickel string that does not parse, a feynkit error, a database error or a report file that cannot be written; one line on stderr, no traceback |
 | 2 | a usage error, such as a missing argument or an unknown option |
+| 141 | the reader of the output closed the pipe early, as `head` does; nothing on stderr. 141 is 128 + SIGPIPE, the status the shell gives `cat` or `grep` in the same place |
 
 A string that does not parse is reported with the grammar:
 

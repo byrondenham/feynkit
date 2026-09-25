@@ -144,8 +144,9 @@
   repeats the section flags in its epilog.
 - `fk` reports a CNickel string that does not parse, a feynkit error or a database error in one
   line on stderr, without a traceback, and exits with status 1; a parse error also gives the
-  CNickel grammar and a quoted example. Usage errors still exit with status 2. The database is
-  closed on every path.
+  CNickel grammar and a quoted example. Usage errors still exit with status 2. When the reader of
+  the output closes the pipe early, as `head` does, `fk` stops quietly with status 141, which is
+  128 + SIGPIPE. The database is closed on every path.
 - The guide's CLI section and the README describe `fk analyse` and `fk compare`, the report and
   JSON options, `--no-db`, `--verbose` and the exit status, and quote every CNickel string. A test
   takes each `fk` command in the `bash` blocks of those two sections and checks that it quotes its

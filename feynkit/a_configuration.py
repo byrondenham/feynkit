@@ -32,6 +32,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from functools import cached_property
 from itertools import combinations
 from itertools import product as _prod
 from typing import Any, cast
@@ -303,7 +304,7 @@ class AConfiguration:
 
     # -- normalised lattice volume ----------------------------------------------
 
-    @property
+    @cached_property
     def normalized_volume(self) -> int:
         """
         Normalised volume of the Newton polytope, in the lattice its points span.

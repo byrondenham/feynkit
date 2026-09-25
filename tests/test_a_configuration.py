@@ -692,6 +692,20 @@ class TestExactNormalizedVolume:
         with pytest.raises(ValidationError, match="at least one point"):
             normalized_volume([])
 
+    def test_volume_is_computed_once_per_configuration(self, monkeypatch):
+        calls = []
+
+        def counting(points):
+            calls.append(points)
+            return normalized_volume(points)
+
+        monkeypatch.setattr("feynkit.a_configuration._normalized_volume", counting)
+        cfg = triangle_a_config()
+        assert cfg.normalized_volume == cfg.normalized_volume == 4
+        assert len(calls) == 1
+        assert triangle_a_config().normalized_volume == 4
+        assert len(calls) == 2
+
     def test_points_have_volume_one(self):
         assert normalized_volume([(3, 4)]) == 1
         assert normalized_volume([(3, 4), (3, 4)]) == 1

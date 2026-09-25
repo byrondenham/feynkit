@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import math
 import random
 import sys
 import types
+from fractions import Fraction
 
 import numpy as np
 import pytest
 import sympy as sp
 
 from feynkit import FeynmanIntegral, _exact, polytope
+from feynkit.a_configuration import AConfiguration
 from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.polytope import (
     Facet,
@@ -281,6 +284,8 @@ class TestExactFaces:
             with pytest.raises(ValidationError, match="sequence|two-dimensional"):
                 faces(bad)
             with pytest.raises(ValidationError, match="sequence|two-dimensional"):
+                lattice_chart(bad)
+            with pytest.raises(ValidationError, match="sequence|two-dimensional"):
                 polytope_data(bad)
             with pytest.raises(ValidationError, match="sequence|two-dimensional"):
                 normalized_volume(bad)
@@ -510,3 +515,162 @@ class TestNormalizedVolume:
         for backend in ("python", "qhull"):
             assert normalized_volume(STEEP, backend=backend) == twice_area
             assert polytope_data(STEEP, backend=backend).normalized_volume == twice_area
+
+
+def assert_lattice_forms(data: PolytopeData) -> None:
+    """Check each relative facet's lattice form, chart invariants and ambient inequality."""
+    for f in data.relative_facets:
+        form = f.lattice_form
+        values = [
+            form[0] + sum(c * x for c, x in zip(form[1:], p, strict=True)) for p in data.points
+        ]
+        assert all(v.denominator == 1 and v >= 0 for v in values)
+        assert math.gcd(*(int(v) for v in values)) == 1
+        assert tuple(j for j, v in enumerate(values) if v == 0) == f.point_indices
+        assert f.lattice_normal is not None and f.lattice_offset is not None
+        assert math.gcd(*f.normal) == 1 and math.gcd(*f.lattice_normal) == 1
+        assert tuple(_exact.dot(b, f.normal) for b in data.chart.basis) == tuple(
+            f.lattice_index * m for m in f.lattice_normal
+        )
+        assert (
+            f.offset - _exact.dot(f.normal, data.chart.origin) == f.lattice_index * f.lattice_offset
+        )
+        heights = [f.offset - _exact.dot(f.normal, p) for p in data.points]
+        assert all(h >= 0 for h in heights)
+        assert math.gcd(*heights) == f.lattice_index
+    assert len(data.affine_hull) == data.ambient_dimension - data.dimension
+    for row in data.affine_hull:
+        assert all(row[0] + _exact.dot(row[1:], p) == 0 for p in data.points)
+    if data.is_full_dimensional:
+        assert data.relative_facets == data.facets
+    else:
+        assert data.facets == ()
+
+
+class TestLatticeForms:
+    def test_lattice_indices_differ_per_facet(self) -> None:
+        data = polytope_data([(0, 0), (2, 0), (0, 1)])
+        assert data.smith_invariants == (1, 2)
+        assert data.sublattice_index == 2
+        assert [(f.normal, f.offset, f.lattice_index) for f in data.facets] == [
+            ((0, -1), 0, 1),
+            ((-1, 0), 0, 2),
+            ((1, 2), 2, 2),
+        ]
+        assert data.facets[1].lattice_form == (Fraction(0), Fraction(1, 2), Fraction(0))
+        assert_lattice_forms(data)
+
+    def test_index_two_lattice_with_primitive_facets(self) -> None:
+        data = polytope_data([(0, 0), (4, 0), (2, 2), (2, 1)])
+        assert data.sublattice_index == 2
+        assert [f.lattice_index for f in data.facets] == [1, 1, 1]
+        assert_lattice_forms(data)
+
+    def test_trivial_smith_invariants_give_index_one(self) -> None:
+        for cnickel in SAMPLE_DIAGRAMS:
+            data = polytope_data(diagram_points(cnickel))
+            assert data.sublattice_index == 1
+            assert all(f.lattice_index == 1 for f in data.facets)
+            assert_lattice_forms(data)
+
+    def test_facet_defaults(self) -> None:
+        f = Facet((1, 0), 1, (0,))
+        assert f.lattice_normal is None and f.lattice_offset is None and f.lattice_index == 1
+        assert f.homogenised_form == (1, -1, 0)
+        assert f.lattice_form == f.homogenised_form
+
+    def test_full_dimensional_lift_reproduces_the_facets(self) -> None:
+        cases = [
+            [(0, 0), (2, 0), (0, 1)],
+            [(0, 0), (4, 0), (2, 2), (2, 1)],
+            diagram_points("12e|2e|e|:nzz"),
+        ]
+        for points in cases:
+            data = polytope_data(points)
+            lift = polytope._lift_data(list(data.points), data.chart)
+            for f in data.facets:
+                assert polytope._lift_form(lift, f.lattice_normal, f.lattice_offset) == (
+                    f.normal,
+                    f.offset,
+                    f.lattice_index,
+                )
+
+    def test_smith_invariants_match_aconfiguration(self) -> None:
+        for points in (
+            [(0, 0), (2, 0), (0, 1)],
+            [(0, 0, 0), (2, 0, 0), (0, 2, 0)],
+            diagram_points("12e|2e|e|:zzz"),
+        ):
+            cfg = AConfiguration(np.array(points).T, is_homogenized=False)
+            assert list(polytope_data(points).smith_invariants) == cfg.smith_invariants
+
+
+class TestLowerDimensional:
+    def test_parallelogram_in_r3(self) -> None:
+        data = polytope_data([(1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, -1)])
+        assert data.dimension == 2 and data.facets == ()
+        assert data.affine_hull == ((-1, 1, 1, 1),)
+        assert [(f.normal, f.offset, f.point_indices) for f in data.relative_facets] == [
+            ((0, -1, 0), 0, (0, 2)),
+            ((1, 0, 0), 1, (0, 3)),
+            ((-1, 0, 0), 0, (1, 2)),
+            ((0, 1, 0), 1, (1, 3)),
+        ]
+        assert data.normalized_volume == 2
+        assert_lattice_forms(data)
+
+    def test_scaled_triangle_lifts_with_index_two(self) -> None:
+        data = polytope_data([(0, 0, 0), (2, 0, 0), (0, 2, 0)])
+        assert data.chart.coordinates == ((0, 0), (1, 0), (0, 1))
+        assert data.affine_hull == ((0, 0, 0, 1),)
+        assert data.smith_invariants == (2, 2) and data.sublattice_index == 4
+        f = {g.point_indices: g for g in data.relative_facets}[(0, 2)]
+        assert (f.normal, f.offset, f.lattice_index) == ((-1, 0, 0), 0, 2)
+        assert (f.lattice_normal, f.lattice_offset) == ((-1, 0), 0)
+        assert data.normalized_volume == 1
+        assert_lattice_forms(data)
+
+    def test_segment_and_point(self) -> None:
+        seg = polytope_data([(0, 0), (1, 1), (2, 2)])
+        assert seg.facets == ()
+        assert seg.affine_hull == ((0, -1, 1),)
+        assert [
+            (f.normal, f.offset, f.point_indices, f.lattice_index) for f in seg.relative_facets
+        ] == [
+            ((-1, 0), 0, (0,), 1),
+            ((1, 0), 2, (2,), 1),
+        ]
+        point = polytope_data([(3, 4)])
+        assert point.relative_facets == ()
+        assert point.affine_hull == ((-3, 1, 0), (-4, 0, 1))
+        assert point.chart == LatticeChart(origin=(3, 4), basis=(), coordinates=((),))
+
+    def test_random_embeddings(self) -> None:
+        for points in embedded_configurations(10, 120):
+            assert_lattice_forms(polytope_data(points))
+
+    def test_wide_input_keeps_the_affine_hull_small(self) -> None:
+        # 1500 points x = (c, R c + s) of a 4-dimensional affine subspace of Z^15, with c in
+        # [-5, 5]^4 and the 16 corners of that box among them, so that P is the box. The forms
+        # vanishing on the differences have the basis (-R_i, e_i), which is already a Hermite
+        # normal form: the last non-zero entry of column i is a 1 in row 4 + i, with zeros to
+        # its right. affine_hull is therefore exactly the rows (-s_i, -R_i, e_i), and no entry
+        # exceeds 3 in absolute value, however many points there are.
+        rng = random.Random(15)
+        d, n = 4, 15
+        r = [[rng.randint(-3, 3) for _ in range(d)] for _ in range(n - d)]
+        s = [rng.randint(-3, 3) for _ in range(n - d)]
+        corners = [tuple(10 * ((k >> i) & 1) - 5 for i in range(d)) for k in range(2**d)]
+        inner = [tuple(rng.randint(-5, 5) for _ in range(d)) for _ in range(1500 - 2**d)]
+        points = [
+            (*c, *(si + _exact.dot(ri, c) for ri, si in zip(r, s, strict=True)))
+            for c in corners + inner
+        ]
+        data = polytope_data(points)
+        assert data.dimension == d and data.f_vector == (16, 32, 24, 8, 1)
+        assert data.affine_hull == tuple(
+            (-si, *(-x for x in ri), *(int(j == i) for j in range(n - d)))
+            for i, (ri, si) in enumerate(zip(r, s, strict=True))
+        )
+        assert max(abs(x) for row in data.affine_hull for x in row) <= 3
+        assert_lattice_forms(data)

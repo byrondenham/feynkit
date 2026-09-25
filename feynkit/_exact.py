@@ -455,23 +455,72 @@ def pivot_rows(hermite: Sequence[Sequence[int]]) -> list[int]:
     return [max(i for i, row in enumerate(hermite) if row[t]) for t in range(width)]
 
 
+def solve_hermite_scaled(
+    hermite: Sequence[Sequence[int]], target: Sequence[int]
+) -> tuple[list[int], int] | None:
+    """Integers z and the least D >= 1 with hermite @ z = D * target, or None if there are none.
+
+    hermite is a column Hermite normal form of full column rank, so y = z / D
+    is the unique rational solution of hermite @ y = target, and D is the
+    least common denominator of its entries. The back substitution runs along
+    the pivot rows, from the last column to the first, in integers: each step
+    divides the numerator by the pivot p with divmod. When p does not divide
+    it, D and the entries found so far are multiplied by p / g, g the gcd of
+    the numerator and p, and the new entry is the numerator over g, which is
+    prime to p / g. So gcd(D, z) stays 1 and D stays least. The pivot rows
+    then hold by construction, and every other row is checked exactly.
+
+    Raises
+    ------
+    ValidationError
+        If target does not have one entry per row of hermite, or an entry is
+        not an integer.
+    """
+    if len(target) != len(hermite):
+        raise ValidationError(
+            f"the target has {len(target)} entries, the Hermite normal form has {len(hermite)} rows"
+        )
+    goal = [_as_int(x, "the target") for x in target]
+    width = len(hermite[0]) if hermite else 0
+    pivots = pivot_rows(hermite)
+    z = [0] * width
+    scale = 1
+    for t in range(width - 1, -1, -1):
+        row = hermite[pivots[t]]
+        numerator = scale * goal[pivots[t]] - sum(row[s] * z[s] for s in range(t + 1, width))
+        quotient, remainder = divmod(numerator, row[t])
+        if remainder:
+            g = math.gcd(numerator, row[t])
+            factor = row[t] // g
+            scale *= factor
+            for s in range(t + 1, width):
+                z[s] *= factor
+            quotient = numerator // g
+        z[t] = quotient
+    on_pivot = set(pivots)
+    for i, row in enumerate(hermite):
+        if i not in on_pivot and sum(row[s] * z[s] for s in range(width)) != scale * goal[i]:
+            return None
+    return z, scale
+
+
 def solve_hermite(hermite: Sequence[Sequence[int]], target: Sequence[int]) -> list[Fraction] | None:
     """The rational y with hermite @ y = target, or None if there is none.
 
     hermite is a column Hermite normal form of full column rank; y is found by
-    back substitution along the pivot rows, from the last column to the first.
+    integer back substitution along the pivot rows, as in solve_hermite_scaled.
+
+    Raises
+    ------
+    ValidationError
+        If target does not have one entry per row of hermite, or an entry is
+        not an integer.
     """
-    width = len(hermite[0]) if hermite else 0
-    pivots = pivot_rows(hermite)
-    y = [Fraction(0)] * width
-    for t in range(width - 1, -1, -1):
-        i = pivots[t]
-        rest = sum((hermite[i][s] * y[s] for s in range(t + 1, width)), Fraction(0))
-        y[t] = (target[i] - rest) / hermite[i][t]
-    for i, row in enumerate(hermite):
-        if sum((row[s] * y[s] for s in range(width)), Fraction(0)) != target[i]:
-            return None
-    return y
+    solved = solve_hermite_scaled(hermite, target)
+    if solved is None:
+        return None
+    z, scale = solved
+    return [Fraction(x, scale) for x in z]
 
 
 def reduce_modulo(vector: Sequence[int], hermite: Sequence[Sequence[int]]) -> list[int]:

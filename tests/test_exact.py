@@ -247,6 +247,21 @@ class TestHyperplaneNormal:
                 assert det == g * _exact.dot(normal, x)
 
 
+def _solve_hermite_fraction(hermite: list[list[int]], target: list[int]) -> list[Fraction] | None:
+    """The reference for solve_hermite: back substitution and a final check in Fractions."""
+    width = len(hermite[0]) if hermite else 0
+    pivots = _exact.pivot_rows(hermite)
+    y = [Fraction(0)] * width
+    for t in range(width - 1, -1, -1):
+        i = pivots[t]
+        rest = sum((hermite[i][s] * y[s] for s in range(t + 1, width)), Fraction(0))
+        y[t] = (target[i] - rest) / hermite[i][t]
+    for i, row in enumerate(hermite):
+        if sum((row[s] * y[s] for s in range(width)), Fraction(0)) != target[i]:
+            return None
+    return y
+
+
 class TestHermiteNormalForm:
     def test_matches_sympy(self) -> None:
         for rows in MATRICES:
@@ -335,6 +350,50 @@ class TestHermiteNormalForm:
             shift = [rng.randint(-5, 5) for _ in range(width)]
             moved = [v[i] + sum(h[i][t] * shift[t] for t in range(width)) for i in range(m)]
             assert _exact.reduce_modulo(moved, h) == red
+
+    def test_solve_hermite_matches_the_fraction_reference(self) -> None:
+        rng = random.Random(2718)
+        outcomes = {"none": 0, "integral": 0, "fractional": 0}
+        for _ in range(600):
+            m, n = rng.randint(1, 6), rng.randint(1, 6)
+            rows = [[rng.randint(-6, 6) for _ in range(n)] for _ in range(m)]
+            h = _exact.hermite_normal_form(rows, n)
+            width = len(h[0]) if h else 0
+            z = [rng.randint(-9, 9) for _ in range(width)]
+            image = [sum(h[i][t] * z[t] for t in range(width)) for i in range(m)]
+            g = math.gcd(*image) or 1
+            targets = [
+                image,
+                [x // g for x in image],
+                [rng.randint(-9, 9) for _ in range(m)],
+                [rng.randint(-(10**30), 10**30) for _ in range(m)],
+            ]
+            for target in targets:
+                expected = _solve_hermite_fraction(h, target)
+                got = _exact.solve_hermite(h, target)
+                assert got == expected
+                scaled = _exact.solve_hermite_scaled(h, target)
+                if got is None or expected is None or scaled is None:
+                    assert got is None and scaled is None
+                    outcomes["none"] += 1
+                    continue
+                assert all(type(y) is Fraction for y in got)
+                z, scale = scaled
+                assert scale == math.lcm(*(y.denominator for y in expected))
+                assert [Fraction(x, scale) for x in z] == expected
+                outcomes["integral" if scale == 1 else "fractional"] += 1
+        assert min(outcomes.values()) > 200, outcomes
+
+    def test_solve_hermite_edge_cases(self) -> None:
+        assert _exact.solve_hermite([], []) == []
+        assert _exact.solve_hermite([[], []], [0, 0]) == []
+        assert _exact.solve_hermite([[], []], [0, 1]) is None
+        assert _exact.solve_hermite_scaled([[4, 2], [0, 2]], [2, 1]) == ([1, 2], 4)
+        assert _exact.solve_hermite([[3]], [np.int64(2**62)]) == [Fraction(2**62, 3)]
+        with pytest.raises(ValidationError, match="target has 2 entries"):
+            _exact.solve_hermite([[1]], [1, 2])
+        with pytest.raises(ValidationError, match="non-integer"):
+            _exact.solve_hermite([[2]], [0.5])
 
     def test_image_maps_onto_the_hermite_columns(self) -> None:
         rng = random.Random(4242)

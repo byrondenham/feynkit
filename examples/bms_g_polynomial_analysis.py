@@ -261,8 +261,8 @@ For n=3:
 
 For n>=4:
   - N(C_n LP) = n(n+1)/2 > 2n = N(BMS_n) , no bijective map is possible.
-  - The GKZ systems have different holonomic ranks and non-isomorphic Newton
-    polytopes.
+  - For generic beta the GKZ systems have different holonomic ranks, and the
+    Newton polytopes are not isomorphic.
 
 The triangle/triple-K equivalence is a unique n=3 coincidence arising from
 C_3 = K_3 (the cycle and the complete graph on 3 vertices are the same graph).

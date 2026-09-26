@@ -606,7 +606,10 @@ class FeynmanIntegral:
             needed. Each key must be a symbol of the momentum products, with
             its assumptions, as ``Symbol("p1^2", real=True)``. Each value is an
             exact expression, an int, a Fraction, a string or a SymPy
-            expression without floats, and contains no key.
+            expression without floats, and contains no key. A symbol of a
+            value that shares its name with a momentum-product symbol, a mass
+            or the energy scale must be that symbol, so a string such as
+            ``"s12"``, which sympify parses without assumptions, is refused.
         landau
             The Landau analysis of this integral, with ``on_shell`` applied, if
             already computed; it keeps the energy scale symbolic.
@@ -619,8 +622,9 @@ class FeynmanIntegral:
         ValidationError
             If the integral has kinematic constraints, which are not applied;
             if ``on_shell`` names a symbol the momentum products do not
-            contain, gives a value that is not an exact expression or gives a
-            value containing one of its keys; or as
+            contain, gives a value that is not an exact expression, gives a
+            value containing one of its keys or a symbol that only shares a
+            name with one of the integral's; or as
             :func:`~feynkit.point_count.count_torus_points` raises.
         RuntimeError
             If ``backend`` is "flint" and python-flint is not installed.
@@ -669,6 +673,23 @@ class FeynmanIntegral:
                 raise ValidationError(
                     f"on_shell values contain its keys {', '.join(chained)}; substitute them "
                     "in the values first"
+                )
+            # A value can name a symbol of the integral without being it, as sympify makes of
+            # "s12"; that symbol would be drawn separately.
+            masses = (edge.get_mass() for edge in self._graph.get_internal_edges())
+            own = known.union(
+                *(sp.sympify(mass).free_symbols for mass in masses), {self._graph.energy_scale}
+            )
+            names = {str(x) for x in own}
+            strays = sorted(
+                {str(x) for v in substitutions.values() for x in v.free_symbols if x not in own}
+                & names
+            )
+            if strays:
+                clashes = sorted(sp.srepr(x) for x in own if str(x) in strays)
+                raise ValidationError(
+                    f"on_shell values contain symbols {', '.join(strays)} that only share a name "
+                    f"with the integral's; symbols carry their assumptions, as {', '.join(clashes)}"
                 )
             integral = self.with_(
                 momentum_products={

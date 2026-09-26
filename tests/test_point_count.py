@@ -911,3 +911,20 @@ class TestFeynmanIntegralTorusCount:
         fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
         with pytest.raises(ValidationError, match=r"gives p1\^2 the value .* not an exact"):
             fi.torus_count(on_shell={sp.Symbol("p1^2", real=True): value})  # type: ignore[dict-item]
+
+    @pytest.mark.parametrize("value", ["s12", sp.Symbol("s12")], ids=["string", "symbol"])
+    def test_on_shell_values_must_use_the_symbols_of_the_integral(self, value: object) -> None:
+        # sympify makes "s12" a symbol without assumptions, which would be drawn separately.
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+        hint = "carry their assumptions, as Symbol('s12', real=True)"
+        with pytest.raises(ValidationError, match=re.escape(hint)):
+            fi.torus_count(on_shell={sp.Symbol("p1^2", real=True): value})  # type: ignore[dict-item]
+
+    def test_on_shell_values_may_use_the_masses(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nzz")
+        p1 = sp.Symbol("p1^2", real=True)
+        m1 = fi.graph.get_internal_edges()[0].get_mass()
+        assert fi.torus_count(on_shell={p1: m1**2}).on_shell == ((p1, m1**2),)
+        hint = "as Symbol('m_1', nonnegative=True, real=True)"
+        with pytest.raises(ValidationError, match=re.escape(hint)):
+            fi.torus_count(on_shell={p1: "m_1**2"})  # type: ignore[dict-item]

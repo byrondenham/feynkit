@@ -89,9 +89,12 @@ class TestKernel:
                 continue
             assert pc._count_numpy(pc._split(terms, 0), 3, 11) == brute_force(terms, 4, 11)
 
-    def test_two_outer_variables(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # Five variables leave two outer ones, both decoded from each chunk index.
-        monkeypatch.setattr(pc, "_CHUNK", 7)
+    @pytest.mark.parametrize("chunk", [7, 180])
+    def test_two_outer_variables(self, monkeypatch: pytest.MonkeyPatch, chunk: int) -> None:
+        # Five variables leave two outer ones, both decoded from each chunk index. A chunk of
+        # 7 points holds one outer point; one of 180 holds 11 at p = 5 and 5 at p = 7, so the
+        # chunks do not start at a digit boundary.
+        monkeypatch.setattr(pc, "_CHUNK", chunk)
         rng = random.Random(3)
         checked = 0
         for _ in range(10):
@@ -312,8 +315,16 @@ class TestCountTorusPoints:
             ({S**2: 1, M1**2: 2, M2**2: 6}, "the key s"),
             ({S: sp.sqrt(2), M1**2: 2, M2**2: 6}, "not rational"),
             ({S: 1, M1**2: -2, M2**2: 6}, "negative"),
+            ({S: 1, M1: 2, M1**2: 4, M2**2: 6}, "more than one value for m_1"),
         ],
-        ids=["missing", "unknown", "square-of-invariant", "irrational", "negative-square"],
+        ids=[
+            "missing",
+            "unknown",
+            "square-of-invariant",
+            "irrational",
+            "negative-square",
+            "symbol-and-square",
+        ],
     )
     def test_malformed_points_raise(self, point: dict[sp.Expr, object], message: str) -> None:
         with pytest.raises(ValidationError, match=message):
@@ -338,6 +349,14 @@ class TestCountTorusPoints:
             bubble_count(max_evaluations=10)
         with pytest.raises(ValidationError, match="max_prime=13"):
             bubble_count(point={S: 1, M1**2: 2, M2**2: 6}, max_prime=13)
+        with pytest.raises(ValidationError, match="max_prime must be at most"):
+            bubble_count(max_prime=2 * 10**9)
+
+    def test_budget_covers_the_fit_and_the_first_checks(self) -> None:
+        # The fit primes 5, 11 and 13 cost 26 evaluations and the checks at 17, 19, 23 and 29
+        # another 84; the whole is refused before anything is counted.
+        with pytest.raises(ValidationError, match="counting needs at least 110 evaluations"):
+            bubble_count(point={S: 1, M1**2: 2, M2**2: 6}, max_evaluations=50)
 
     def test_check_that_runs_out_of_primes_raises(self) -> None:
         # (-39/p) = -1 at every prime from 7 to 37 that is not excluded, so no prime up to 37
@@ -356,6 +375,9 @@ class TestCountTorusPoints:
         assert count.point == ((S, Fraction(3, 2)),)
         assert count.excluded_primes == (2, 3)
         assert count.candidate_master_count == 1
+        # 2 is excluded anyway; the denominator 3 of 5/3 is excluded for its own sake.
+        count = count_torus_points(bubble_g(massive=False), U, scale=MU, point={S: Fraction(5, 3)})
+        assert count.excluded_primes == (2, 3, 5)
 
     def test_square_test_falls_back_to_the_first_admissible_draw(self) -> None:
         # The discriminant 4 (x^2 + 1) is never a square for a non-zero integer x.
@@ -378,3 +400,127 @@ class TestCountTorusPoints:
             count_torus_points(bubble_g(), [U[0], U[0]], scale=MU)
         with pytest.raises(ValidationError, match="zero"):
             count_torus_points(sp.Integer(0), U)
+        with pytest.raises(ValidationError, match="seed must be an integer"):
+            bubble_count(seed=None)
+        assert bubble_count(seed=None, point={S: 1, M1**2: 2, M2**2: 6}).seed is None
+
+    def test_a_landau_analysis_of_another_polynomial_raises(self) -> None:
+        # Another support, and then the same support with other coefficients.
+        for g in (bubble_g(massive=False), bubble_g().subs(S, sp.Symbol("t"))):
+            other = landau_analysis_from_polynomial(g, list(U), scale=MU)
+            with pytest.raises(ValidationError, match="not a Landau analysis of the polynomial"):
+                bubble_count(landau=other)
+
+    def test_a_character_of_a_face_that_is_not_principal_is_covered(self) -> None:
+        # The one-mass triangle at m_1^2 = 17, p_i^2 = (-5, -8, 18). Its counts depend on
+        # (801/p), 801 being the Kallen function of the p_i^2, a factor of the discriminant of
+        # the top face, which is not principal. (801/p) = -1 at every prime from 7 to 43 that
+        # is not excluded, and the counts there fit a polynomial; 47 rejects it.
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nzz")
+        g = fi.symanzik.g
+        names = {x.name: x for x in g.free_symbols}
+        point = {names["m_1"] ** 2: 17, names["p1^2"]: -5, names["p2^2"]: -8, names["p3^2"]: 18}
+        count = count_torus_points(
+            g, list(fi.symanzik.lp_parameters), scale=fi.graph.energy_scale, point=point
+        )
+        assert count.candidate_master_count is None
+        assert count.verification_primes[-1] == 47
+        assert count.reason is not None and count.reason.startswith("the count at p = 47 ")
+
+    def test_products_of_characters_are_covered(self) -> None:
+        # The edge polynomial u^2 + (x + y) u + (x^2 + x y + y^2)/4 has discriminant x y, so
+        # the count is 1 + (x y/p). At x = 2, y = 45 the characters of -1, 2 and 5 each take
+        # both signs on 7, 11, 17, ..., 29, while (90/p) = -1 there; 31 rejects the fit.
+        u, x, y = sp.symbols("u x y")
+        g = u**2 + (x + y) * u + (x**2 + x * y + y**2) / 4
+        count = count_torus_points(g, [u], point={x: 2, y: 45})
+        assert count.candidate_master_count is None
+        assert count.verification_primes[-1] == 31
+
+    def test_a_constant_the_landau_analysis_drops_is_covered(self) -> None:
+        # u^2 + 37 has 1 + (-37/p) roots, and (-37/p) = -1 at every odd prime up to 17, where
+        # the counts fit 0. The Landau analysis sees no kinematics, but the vertex coefficient
+        # 37 and the edge discriminant -148 carry the character, and 19 rejects the fit.
+        u = sp.Symbol("u")
+        count = count_torus_points(u**2 + 37, [u])
+        assert count.candidate_master_count is None
+        assert count.verification_primes[-1] == 19
+
+    def test_the_check_primes(self) -> None:
+        # u_1 + u_2 + x u_1 u_2 has p - 2 points and C = 1. At x = 1 the only character is
+        # (-1/p), which takes both signs on the fit primes 3, 5 and 7, so the check takes
+        # exactly `verification` primes after them.
+        u1, u2 = U
+        x = sp.Symbol("x")
+        g = u1 + u2 + x * u1 * u2
+        count = count_torus_points(g, U, point={x: 1})
+        assert count.fit_primes == (3, 5, 7)
+        assert count.verification_primes == (11, 13, 17, 19)
+        assert count.candidate_master_count == 1
+        # One check prime is enough, since the fit primes count towards the coverage.
+        assert count_torus_points(g, U, point={x: 1}, verification=1).verification_primes == (11,)
+        # At x = (5 * 13 * 17)^2 the fit primes 3, 7 and 11 are all 3 mod 4, as are 19 and
+        # 23, so (-1/p) needs 29.
+        count = count_torus_points(g, U, point={x: (5 * 13 * 17) ** 2}, verification=1)
+        assert count.fit_primes == (3, 7, 11)
+        assert count.verification_primes == (19, 23, 29)
+        assert count.candidate_master_count == 1
+
+    def test_a_fit_with_a_q_to_the_n_term_is_rejected(self) -> None:
+        # u^2 - 11 has no roots mod 3 and two mod 5: the line through the fit counts is q - 3.
+        u, x = sp.symbols("u x")
+        count = count_torus_points(u**2 - x, [u], point={x: 11})
+        assert count.fit_primes == (3, 5)
+        assert count.reason == "the polynomial through the fit counts has a q^1 term"
+
+    def test_volume_bound(self) -> None:
+        # 1 - u^2 has two roots, so C = 2, while the segment [0, 2] has normalised volume 1 in
+        # the lattice it spans, of index 2. A polytope that is not full-dimensional bounds C
+        # by 0.
+        u, v = sp.symbols("u v")
+        count = count_torus_points(1 - u**2, [u])
+        assert count.candidate_master_count == 2
+        assert pc._volume_bound((((0,), Fraction(1)), ((2,), Fraction(-1)))) == 2
+        assert pc._volume_bound((((0, 0), Fraction(1)), ((1, 1), Fraction(1)))) == 0
+        assert count_torus_points(1 + u * v, [u, v]).candidate_master_count == 0
+
+    def test_edge_discriminants_are_excluded(self) -> None:
+        # The edge 1 + x u^3 has lattice length 3 and discriminant -27 x^2, which the Landau
+        # analysis does not see since the edge is a simplex; mod 3, 1 + u^3 = (1 + u)^3.
+        u, v, x = sp.symbols("u v x")
+        count = count_torus_points(1 + x * u**3 + v, [u, v], point={x: 1})
+        assert count.excluded_primes == (2, 3)
+
+    def test_draws_are_admissible(self) -> None:
+        # The first draw of seed 63 gives x = y = 9, where the coefficient x - y vanishes.
+        u, x, y = sp.symbols("u x y")
+        count = count_torus_points((x - y) * u + 1, [u], seed=63)
+        (_, first_x), (_, first_y) = count.point
+        assert first_x != first_y
+        assert not count.on_landau_surface
+
+    def test_the_variable_of_lowest_degree_is_eliminated(self) -> None:
+        u1, u2 = U
+        g = u1 + u2 + (M1**2 * u1 * (u1 + u2) - S * u1 * u2) / MU**2
+        assert count_torus_points(g, U, scale=MU).eliminated == u2
+        assert count_torus_points(bubble_g(massive=False), U, scale=MU).eliminated == u1
+
+    @pytest.mark.parametrize("cnickel", ["12e|23|3|e|:nzzzz", "12ee|22e|e|:nnnn"])
+    def test_face_discriminants_odd_in_a_mass(self, cnickel: str) -> None:
+        # The Landau analysis factorises in the masses, so a factor m_1^2 of a discriminant
+        # becomes m_1; the count multiplies such a discriminant by its image under
+        # m_1 -> -m_1, a polynomial in m_1^2. Faces of more than 5 points are skipped to save
+        # time; enough odd discriminants remain.
+        fi = FeynmanIntegral.from_cnickel(cnickel)
+        g, mu = fi.symanzik.g, fi.graph.energy_scale
+        variables = list(fi.symanzik.lp_parameters)
+        analysis = landau_analysis_from_polynomial(g, variables, scale=mu, max_face_points=5)
+        masses = [x for x in g.free_symbols if x.name.startswith("m_")]
+        assert any(
+            sp.expand(face.discriminant.subs(m, -m) - face.discriminant) != 0
+            for face in analysis.face_discriminants
+            for m in masses
+        )
+        count = count_torus_points(g, variables, scale=mu, landau=analysis)
+        assert count.skipped_faces == len(analysis.skipped_faces) > 0
+        assert count.counts

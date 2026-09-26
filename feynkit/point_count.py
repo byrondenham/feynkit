@@ -92,27 +92,30 @@ class TorusCount:
         there than for generic kinematics.
     excluded_primes
         2 and the primes up to ``max_prime`` that divide the numerator or the
-        denominator of a coefficient of G, of a non-zero face discriminant or of
-        a non-zero irreducible factor of one, at the point.
+        denominator of a coefficient of G, of a non-zero face discriminant, of
+        a non-zero irreducible factor of one or of the discriminant of G on an
+        edge, at the point.
     fit_primes, verification_primes
         The primes the fit used and the primes it was checked at, in order.
     counts
         (p, #V(F_p)) for every prime counted, in order.
     candidate_polynomial
-        The coefficients of P(q), constant term first, N of them; None when the
-        counts are not polynomial on the tested primes.
+        The coefficients of P(q), constant term first, N of them; None when
+        there is no candidate (see ``reason``).
     candidate_euler_characteristic
         chi(X) = -P(1), or None.
     candidate_master_count
         C = (-1)^N chi(X), or None.
     reason
-        Why the counts are not polynomial on the tested primes; None when there
-        is a candidate.
+        Why there is no candidate: the counts are not polynomial on the tested
+        primes, or the candidate master count is outside [0, N! Vol(Newt G)];
+        None when there is a candidate.
     skipped_faces
         How many faces the Landau analysis skipped; their discriminants are
-        missing from the admissibility test and from the excluded primes.
+        missing from the admissibility test, the excluded primes and the
+        characters the check covers.
     backend
-        The counting backend, "numpy" or "flint".
+        The counting backend, "numpy".
     """
 
     variables: tuple[sp.Symbol, ...]
@@ -226,9 +229,10 @@ def _count_numpy(parts: _Parts, others: int, p: int) -> int:
         # Reduction mod p is deferred: weight is reduced once per group and value once per
         # part. Every term is below p, so weight stays below T p for the T outer terms of a
         # group, and value below E (p - 1)^2 for the E grid exponents of a part, where
-        # E <= (d + 1)^2 for degree d in the grid variables and E <= 9 for a Feynman graph.
-        # int64 holds both exactly while T p and E (p - 1)^2 stay below 2^63: for E = 9, up
-        # to p of about 10^9, far above the default max_prime of 1000.
+        # E <= (d + 1)^2 for degree d in the grid variables and E <= 9 for a Feynman graph;
+        # delta below takes 4 (p - 1)^2. int64 holds all three exactly while they stay below
+        # 2^63: for E = 9, up to p of about 10^9 (_exact_limit), far above the default
+        # max_prime of 1000.
         values = []
         for groups_of_part in grouped:
             value = np.zeros((len(index),) + (p - 1,) * grid, dtype=np.int64)
@@ -252,6 +256,20 @@ def _count_numpy(parts: _Parts, others: int, p: int) -> int:
         )
         total += int(roots.sum())
     return total
+
+
+def _exact_limit(parts: _Parts, others: int) -> int | None:
+    """The largest prime for which _count_numpy is exact in int64, or None without a limit.
+
+    This is where max(4, E) (p - 1)^2 reaches 2^63, E being the most grid
+    exponents of a part (see _count_numpy); one variable is counted with
+    Python integers.
+    """
+    if others == 0:
+        return None
+    grid = min(others, 2)
+    width = max(len({monomial[others - grid :] for monomial in part}) for part in parts)
+    return math.isqrt((2**63 - 1) // max(4, width)) + 1
 
 
 def _interpolate(xs: Sequence[int], ys: Sequence[int]) -> list[Fraction]:
@@ -328,11 +346,20 @@ class _Kinematics:
 
     ``symbols`` are the kinematic symbols in name order. A symbol in ``even``
     occurs in G only to even powers and is drawn through its square, so the
-    polynomials here are written in those squares. ``discriminants`` holds the
-    numerator and denominator of every face discriminant that is not constant,
-    ``factors`` their distinct irreducible factors, and ``square_factors`` the
-    factors from faces of dimension at least 1 with principal discriminants,
-    which the square test asks to be squares.
+    polynomials here are written in those squares. A face discriminant can
+    still be odd in such a symbol m, since the Landau analysis factorises in m
+    and drops multiplicities (m^2 becomes m); it is replaced by its product
+    with its image under m -> -m, which is even in m and vanishes wherever
+    either does.
+
+    ``discriminants`` holds the numerator and denominator of every face
+    discriminant that is not constant, ``factors`` their distinct irreducible
+    factors, and ``square_factors`` the factors from faces of dimension at
+    least 1 with principal discriminants, which the square test asks to be
+    squares. ``edges`` holds the coefficient of G at every vertex and the
+    discriminant of G on every edge, as a polynomial in the edge's lattice
+    coordinate, with the constants and contents the Landau analysis drops and
+    with the lattice index of edges that are simplices.
     """
 
     symbols: tuple[sp.Symbol, ...]
@@ -341,6 +368,7 @@ class _Kinematics:
     discriminants: tuple[tuple[_Terms, _Terms], ...]
     factors: tuple[_Terms, ...]
     square_factors: tuple[_Terms, ...]
+    edges: tuple[_Terms, ...]
 
 
 def _degrees(expr: sp.Expr, symbol: sp.Symbol) -> list[int]:
@@ -367,16 +395,29 @@ def _kinematics(
     def rewrite(expr: sp.Expr) -> sp.Expr:
         return sp.expand(sp.sympify(expr).subs(unit).subs(roots))
 
-    coefficients = tuple(
-        (tuple(int(e) for e in monomial), _terms(rewrite(c), drawn))
+    def norm(expr: sp.Expr) -> sp.Expr:
+        expr = sp.expand(expr)
+        for x in sorted(even, key=lambda x: x.name):
+            image = sp.expand(expr.subs(x, -x))
+            if image != expr:
+                expr = sp.expand(expr * image)
+        return expr
+
+    by_monomial = {
+        tuple(int(e) for e in monomial): rewrite(c)
         for monomial, c in sp.Poly(g, *variables).terms()
-    )
+    }
+    coefficients = tuple((monomial, _terms(c, drawn)) for monomial, c in by_monomial.items())
     discriminants: list[tuple[_Terms, _Terms]] = []
     factors: dict[_Terms, None] = {}
     square_factors: dict[_Terms, None] = {}
+    edges: dict[_Terms, None] = {}
     for face in landau.face_discriminants:
+        if face.dimension <= 1:
+            local = [(e, by_monomial.get(e, sp.Integer(0))) for e in face.exponents]
+            edges.setdefault(_terms(_edge_discriminant(local), drawn), None)
         numerator, denominator = sp.fraction(sp.together(sp.sympify(face.discriminant).subs(unit)))
-        numerator, denominator = rewrite(numerator), rewrite(denominator)
+        numerator, denominator = rewrite(norm(numerator)), rewrite(norm(denominator))
         if not numerator.free_symbols:
             continue
         discriminants.append((_terms(numerator, drawn), _terms(denominator, drawn)))
@@ -386,8 +427,35 @@ def _kinematics(
             if face.dimension >= 1 and face.principal:
                 square_factors.setdefault(factor, None)
     return _Kinematics(
-        symbols, even, coefficients, tuple(discriminants), tuple(factors), tuple(square_factors)
+        symbols,
+        even,
+        coefficients,
+        tuple(discriminants),
+        tuple(factors),
+        tuple(square_factors),
+        tuple(edges),
     )
+
+
+def _edge_discriminant(terms: Sequence[tuple[tuple[int, ...], sp.Expr]]) -> sp.Expr:
+    """The coefficient of a vertex, or the discriminant of G on an edge as a polynomial in the
+    edge's lattice coordinate t, where G restricts to sum_i c_i t^(k_i)."""
+    if len(terms) == 1:
+        return terms[0][1]
+    start = terms[0][0]
+    step = next(tuple(x - y for x, y in zip(e, start, strict=True)) for e, _ in terms if e != start)
+    size = math.gcd(*step)
+    step = tuple(x // size for x in step)
+    axis = next(j for j, x in enumerate(step) if x)
+    positions = [(e[axis] - start[axis]) // step[axis] for e, _ in terms]
+    lowest = min(positions)
+    if max(positions) - lowest < 2:
+        return sp.Integer(1)
+    t = sp.Dummy("t")
+    polynomial = sum(
+        (c * t ** (k - lowest) for (_, c), k in zip(terms, positions, strict=True)), sp.Integer(0)
+    )
+    return sp.expand(sp.discriminant(polynomial, t))
 
 
 def _key(x: sp.Symbol, even: frozenset[sp.Symbol]) -> sp.Expr:
@@ -410,15 +478,19 @@ def _given_point(
     for raw_key, raw in point.items():
         key = sp.sympify(raw_key)
         if key in kinematics.symbols:
-            value = _rational(raw, key)
-            values[key] = value**2 if key in even else value
+            symbol, value = key, _rational(raw, key)
+            if key in even:
+                value = value**2
         elif isinstance(key, sp.Pow) and key.exp == 2 and key.base in even:
-            values[key.base] = _rational(raw, key)
-            if values[key.base] < 0:
+            symbol, value = key.base, _rational(raw, key)
+            if value < 0:
                 raise ValidationError(f"point gives {key} the negative value {raw}")
         else:
             expected = ", ".join(str(_key(x, even)) for x in kinematics.symbols) or "none"
             raise ValidationError(f"point has the key {key}; the keys are {expected}")
+        if symbol in values:
+            raise ValidationError(f"point gives more than one value for {_key(symbol, even)}")
+        values[symbol] = value
     missing = [str(_key(x, even)) for x in kinematics.symbols if x not in values]
     if missing:
         raise ValidationError(f"point gives no value for {', '.join(missing)}")
@@ -471,17 +543,95 @@ def _draw(kinematics: _Kinematics, seed: int) -> tuple[Fraction, ...]:
 def _excluded(
     kinematics: _Kinematics, values: Sequence[Fraction], primes: Sequence[int]
 ) -> tuple[int, ...]:
-    """2 and the primes dividing a coefficient of G, a non-zero face discriminant or a non-zero
-    factor of one at values; at a point on a Landau surface a vanishing discriminant thus
-    still contributes the primes of its other factors."""
+    """2 and the primes dividing a coefficient of G, a non-zero face discriminant, a non-zero
+    factor of one or a non-zero edge discriminant at values; at a point on a Landau surface a
+    vanishing discriminant thus still contributes the primes of its other factors. Every
+    quadratic character the check covers is thus defined at every prime not excluded."""
     quantities = [_evaluate(terms, values) for _, terms in kinematics.coefficients]
     for numerator, denominator in kinematics.discriminants:
         top, bottom = _evaluate(numerator, values), _evaluate(denominator, values)
         if top != 0 and bottom != 0:
             quantities.append(top / bottom)
-    quantities += [_evaluate(factor, values) for factor in kinematics.factors]
+    quantities += [_evaluate(terms, values) for terms in kinematics.factors + kinematics.edges]
     numbers = [n for q in quantities if q != 0 for n in (q.numerator, q.denominator)]
     return (2, *(p for p in primes if any(n % p == 0 for n in numbers)))
+
+
+def _coprime_base(numbers: Sequence[int]) -> list[int]:
+    """Pairwise coprime integers above 1 of whose powers every non-zero number is, up to sign,
+    a product; found with gcds alone, without factorising."""
+    base: list[int] = []
+    pending = [abs(n) for n in numbers]
+    while pending:
+        x = pending.pop()
+        if x <= 1:
+            continue
+        for i, b in enumerate(base):
+            g = math.gcd(x, b)
+            if g > 1:
+                del base[i]
+                pending += [g, x // g, b // g]
+                break
+        else:
+            base.append(x)
+    return base
+
+
+def _square_classes(values: Sequence[Fraction]) -> list[int]:
+    """The class of each non-zero value in Q^* / (Q^*)^2 as a vector over F_2, a bit mask.
+
+    Bit 0 is the sign. The others are the parities of the exponents of the
+    elements of a coprime base of the numerators and denominators that are
+    not squares: their square-free parts are above 1 with disjoint prime
+    supports, so the classes are those of the prime supports of the
+    square-free parts of the values, with the sign.
+    """
+    base = _coprime_base([n for v in values for n in (v.numerator, v.denominator)])
+    base = [b for b in base if math.isqrt(b) ** 2 != b]
+    classes = []
+    for value in values:
+        vector = int(value < 0)
+        for i, b in enumerate(base, start=1):
+            for n in (abs(value.numerator), value.denominator):
+                while n % b == 0:
+                    n //= b
+                    vector ^= 1 << i
+        classes.append(vector)
+    return classes
+
+
+def _insert(pivots: dict[int, int], vector: int) -> bool:
+    """Add vector to a row-echelon basis over F_2 keyed by leading bit; whether it was
+    independent of the vectors already there."""
+    while vector:
+        top = vector.bit_length() - 1
+        if top not in pivots:
+            pivots[top] = vector
+            return True
+        vector ^= pivots[top]
+    return False
+
+
+def _characters(kinematics: _Kinematics, values: Sequence[Fraction]) -> tuple[Fraction, ...]:
+    """Independent generators d_1, ..., d_k of the quadratic characters (d/p) that the check
+    covers: d = -1 and the non-zero values at the point of every factor of a face
+    discriminant, vertex coefficient and edge discriminant, up to squares."""
+    candidates = [Fraction(-1)] + [
+        value
+        for terms in kinematics.factors + kinematics.edges
+        if (value := _evaluate(terms, values)) != 0
+    ]
+    pivots: dict[int, int] = {}
+    return tuple(
+        d
+        for d, vector in zip(candidates, _square_classes(candidates), strict=True)
+        if _insert(pivots, vector)
+    )
+
+
+def _signs(characters: Sequence[Fraction], p: int) -> int:
+    """The vector over F_2 of the characters at p: bit i is set when (d_i/p) = -1."""
+    return sum(1 << i for i, d in enumerate(characters) if _legendre(d, p) == -1)
 
 
 def _volume_bound(terms: _Terms) -> int:
@@ -491,6 +641,18 @@ def _volume_bound(terms: _Terms) -> int:
     if not data.is_full_dimensional:
         return 0
     return data.normalized_volume * data.sublattice_index
+
+
+def _analyses(landau: LandauAnalysis, g: sp.Expr, variables: Sequence[sp.Symbol]) -> bool:
+    """Whether landau is an analysis of g: its faces carry the coefficients of g and, with the
+    faces it skipped, cover the support of g."""
+    terms = {tuple(int(e) for e in m): c for m, c in sp.Poly(g, *variables).terms()}
+    seen: dict[tuple[int, ...], sp.Expr] = {}
+    for face in landau.face_discriminants:
+        seen.update(zip(face.exponents, face.coefficients, strict=True))
+    if set(seen).union(*landau.skipped_faces) != set(terms):
+        return False
+    return all(sp.cancel(c - terms[e]) == 0 for e, c in seen.items())
 
 
 def count_torus_points(
@@ -521,10 +683,12 @@ def count_torus_points(
         The energy scale mu, if G carries one. The Landau analysis runs with mu
         symbolic, then mu is set to 1.
     seed
-        Seed of the kinematic point, drawn with random.Random(seed): in the
-        order of the symbol names, each invariant from the non-zero integers of
-        [-20, 20], and the square of each symbol occurring only to even powers,
-        such as a mass, from 1 to 20. The first of 200 admissible draws, those
+        Seed of the kinematic point, an integer, drawn with
+        random.Random(seed): in the order of the symbol names, each invariant
+        from the non-zero integers of [-20, 20], and the square of each symbol
+        occurring only to even powers, such as a mass, from 1 to 20; a
+        discriminant odd in such a symbol m enters through its product with
+        its image under m -> -m. The first of 200 admissible draws, those
         where every coefficient of G and every face discriminant is non-zero,
         whose square-test factors are all non-zero rational squares is used,
         else the first admissible one. The square-test factors are the
@@ -537,17 +701,22 @@ def count_torus_points(
         Count at a given point on a Landau surface instead of raising.
     landau
         The Landau analysis of ``polynomial`` with mu symbolic, if already
-        computed.
+        computed; its faces must carry the terms of ``polynomial``.
     volume_bound
         The bound N! Vol(Newt G) on C; computed from the Newton polytope of G at
         the point by default.
     verification
-        The number of primes after the N + 1 fit primes to check the fit at. More
-        are added until every quadratic character the counts could depend on,
-        of -1 and of each square-test factor that is not a square at the point,
-        has taken both signs.
+        The least number of primes after the N + 1 fit primes to check the fit
+        at. More are added until every non-trivial product of the quadratic
+        characters (d/p) the counts could depend on takes both signs on the fit
+        and check primes together, so that no such character is constant on
+        the sample. The d are -1 and the values at the point of every
+        irreducible factor of every face discriminant, principal or not, of
+        every vertex coefficient of G and of the discriminant of G on every
+        edge, in its lattice coordinate.
     max_prime
-        The largest prime to count at.
+        The largest prime to count at; at most about 10^9, above which the
+        int64 counts would not be exact.
     max_evaluations
         The most evaluations of G to spend; a prime p costs (p - 1)^(N - 1).
     backend
@@ -562,10 +731,12 @@ def count_torus_points(
     Raises
     ------
     ValidationError
-        If the arguments are malformed, the point lies on a Landau surface and
-        ``allow_singular`` is false, no admissible point is drawn, G has degree
-        above 2 in every variable, there are too few primes up to
-        ``max_prime``, or counting needs more than ``max_evaluations``.
+        If the arguments are malformed, ``landau`` analyses another
+        polynomial, the point lies on a Landau surface and ``allow_singular``
+        is false, no admissible point is drawn, G has degree above 2 in every
+        variable, ``max_prime`` is above the int64 limit, there are too few
+        primes up to ``max_prime`` for the fit and its check, or counting needs
+        more than ``max_evaluations``.
     """
     if backend not in _BACKENDS:
         raise ValidationError(f"backend must be one of {', '.join(_BACKENDS)}; got {backend!r}")
@@ -577,9 +748,13 @@ def count_torus_points(
     g = sp.expand(sp.sympify(polynomial))
     if g == 0:
         raise ValidationError("the polynomial is zero")
+    if point is None and not isinstance(seed, int):
+        raise ValidationError(f"seed must be an integer; got {seed!r}")
     n = len(variables)
     if landau is None:
         landau = landau_analysis_from_polynomial(g, list(variables), scale=scale)
+    elif not _analyses(landau, g, variables):
+        raise ValidationError("landau is not a Landau analysis of the polynomial")
     unit = {scale: 1} if scale is not None else {}
     kinematics = _kinematics(sp.expand(g.subs(unit)), variables, landau, unit)
 
@@ -604,6 +779,12 @@ def count_torus_points(
             f"G has degree at least {degrees[k]} in every variable; the count solves a quadratic"
         )
     parts = _split(specialised, k)
+    limit = _exact_limit(parts, n - 1)
+    if limit is not None and max_prime > limit:
+        raise ValidationError(
+            f"max_prime must be at most {limit}, where the int64 counts are exact; "
+            f"got {max_prime}"
+        )
     bound = _volume_bound(specialised) if volume_bound is None else volume_bound
 
     primes = list(sp.primerange(3, max_prime + 1))
@@ -659,12 +840,17 @@ def count_torus_points(
     if not 0 <= master <= bound:
         return outcome(None, f"the candidate master count {master} is not in [0, {bound}]")
 
-    at_point = [_evaluate(f, values) for f in kinematics.square_factors]
-    characters = [Fraction(-1)] + [v for v in at_point if v != 0 and not _is_square(v)]
-    signs: dict[Fraction, set[int]] = {d: {_legendre(d, p) for p in fit} for d in characters}
+    # Every non-trivial product of the characters must take both signs on the fit and check
+    # primes together: their vectors over F_2 must affinely span F_2^k, that is their
+    # differences from the first must have rank k.
+    characters = _characters(kinematics, values)
+    first = _signs(characters, fit[0])
+    spanned: dict[int, int] = {}
+    for p in fit[1:]:
+        _insert(spanned, _signs(characters, p) ^ first)
     spent = sum((p - 1) ** (n - 1) for p in fit)
     remaining = iter(usable[n + 1 :])
-    while len(verified) < verification or not all({-1, 1} <= s for s in signs.values()):
+    while len(verified) < verification or len(spanned) < len(characters):
         p = next(remaining, None)
         if p is None:
             raise ValidationError(
@@ -679,8 +865,7 @@ def count_torus_points(
         observed = _count_numpy(parts, n - 1, p)
         counts.append((p, observed))
         verified.append(p)
-        for d in characters:
-            signs[d].add(_legendre(d, p))
+        _insert(spanned, _signs(characters, p) ^ first)
         predicted = sum(c * p**i for i, c in enumerate(fitted))
         if observed != predicted:
             return outcome(

@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -58,6 +59,9 @@ DEFAULT_TORUS_SEED = 0
 DEFAULT_TORUS_BUDGET = 2 * 10**9
 # 128 + SIGPIPE: the status of a tool that a closed pipe stops, as the shell reports it.
 EXIT_BROKEN_PIPE = 141
+# The budget of the point counts as their errors name it, after the keyword of
+# count_torus_points; fk calls it --torus-budget.
+_MAX_EVALUATIONS = re.compile(r"max_evaluations=(\d+)")
 
 # -----------------------------------------------------------------------------
 # Output helpers
@@ -418,7 +422,7 @@ def _print_torus(count: TorusCount) -> None:
     checks = ", ".join(f"{p}: {n}" for p, n in count.counts if p not in fit)
     _kv("Counts #V(F_p) to check", checks or "none")
     if count.skipped_faces:
-        _kv("Faces the Landau analysis skipped", count.skipped_faces)
+        _kv("Skipped faces", f"{count.skipped_faces}  (by the Landau analysis)")
     if count.candidate_polynomial is None:
         print(f"  No candidate: {count.reason}.")
     else:
@@ -458,6 +462,28 @@ class ReportOptions:
     @property
     def writes_files(self) -> bool:
         return self.latex is not None or self.text is not None
+
+
+def _integer(text: str, least: int) -> int:
+    """Parse an integer option of at least ``least``; anything else is a usage error."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected an integer; got {text!r}") from None
+    if value < least:
+        raise argparse.ArgumentTypeError(f"must be at least {least}; got {value}")
+    return value
+
+
+def _seed(text: str) -> int:
+    """Parse --seed, 0 or more: random.Random seeds with the absolute value of an integer, so
+    -1 would draw the point of seed 1 and report it as seed -1."""
+    return _integer(text, 0)
+
+
+def _budget(text: str) -> int:
+    """Parse --torus-budget, 1 or more evaluations of G."""
+    return _integer(text, 1)
 
 
 def _section_list(text: str) -> tuple[str, ...]:
@@ -890,8 +916,8 @@ def _build_parser() -> _Parsers:
     counting = analyse.add_argument_group(
         "point counts", "for --torus-count and the torus report section"
     )
-    counting.add_argument("--seed", type=int, metavar="N", help="seed for the kinematic point")
-    counting.add_argument("--torus-budget", type=int, metavar="N", help="maximum evaluations")
+    counting.add_argument("--seed", type=_seed, metavar="N", help="seed for the kinematic point")
+    counting.add_argument("--torus-budget", type=_budget, metavar="N", help="maximum evaluations")
     report = analyse.add_argument_group(
         "report", "the analysis report of FeynmanIntegral.to_latex and to_text"
     )
@@ -1002,7 +1028,7 @@ def _run(parsers: _Parsers, args: argparse.Namespace) -> None:
     except CliError as exc:
         _fail(str(exc))
     except FeynkitError as exc:
-        _fail(str(exc) or type(exc).__name__)
+        _fail(_MAX_EVALUATIONS.sub(r"--torus-budget \1", str(exc)) or type(exc).__name__)
     except sqlite3.Error as exc:
         _fail(f"database {args.db}: {exc}")
 

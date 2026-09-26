@@ -103,6 +103,7 @@ def _latex_summary(latex: str) -> list[tuple[str, str]]:
 _MATH_WORDS = frozenset(
     {"sum", "prod", "int", "exp", "gamma", "theta", "beta", "sigma", "mu", "lambda", "infinity"}
     | {"epsilon", "delta", "not", "alpha", "Re", "rank", "Aut", "pi", "nu", "Cayley", "dz"}
+    | {"Newt", "Vol"}
 )
 
 # What the text says differently on purpose, as substitutions on the LaTeX:
@@ -783,7 +784,7 @@ def test_point_count_section_states_the_counts(torus_report: AnalysisReport) -> 
 # How each test that refuses a candidate begins its reason.
 _REASONS = {
     "check": "the count at p = 41 is 37,",
-    "bound": "the master count 3 given by the fit is not in [0, N! Vol] = [0, 2]",
+    "bound": "the master count 3 given by the fit is not in [0, N! Vol(Newt G)] = [0, 2]",
     "integer": "the polynomial through the fit counts has non-integer coefficients",
     "degree": "the polynomial through the fit counts has a q^1 term",
     "guard": "the Newton polytope has an edge of lattice length 6,",
@@ -871,6 +872,22 @@ def test_the_check_names_the_characters_it_covers(torus_report: AnalysisReport) 
     )
     assert "could depend on" not in counts
     assert "The counts fit the candidate for P P(q) = q - 4 at every prime counted" in counts
+
+
+def test_the_squared_masses_are_named_only_with_a_mass(
+    torus_report: AnalysisReport, triangle: FeynmanIntegral
+) -> None:
+    # A factor odd in a mass is covered through its norm, written in the squared masses; the
+    # massless triangle has no mass to write it in.
+    massless = AnalysisReport.from_integral(triangle, SECTION_NAMES)
+    for report, massive in ((torus_report, True), (massless, False)):
+        assert report.torus is not None and report.torus.verification_primes
+        text = _flat(_section(render_text(report), TORUS_HEADING))
+        latex = render_latex(report)
+        assert ("the face discriminants, written in the squared masses, and the" in text) is massive
+        assert ("the face discriminants and the discriminants of G" in text) is not massive
+        assert ("written in the squared masses" in latex) is massive
+        assert _prose_diff(report, _TORUS_INTENDED)[1] == []
 
 
 def test_the_primes_left_out_are_stated_up_to_the_largest_prime(

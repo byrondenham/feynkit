@@ -424,7 +424,9 @@ class TestCountTorusPoints:
     def test_candidate_above_the_volume_bound_is_rejected(self) -> None:
         count = bubble_count(point={S: 1, M1**2: 2, M2**2: 6}, volume_bound=2)
         assert count.candidate_master_count is None
-        assert count.reason == "the master count 3 given by the fit is not in [0, N! Vol] = [0, 2]"
+        assert count.reason == (
+            "the master count 3 given by the fit is not in [0, N! Vol(Newt G)] = [0, 2]"
+        )
 
     def test_argument_checks(self) -> None:
         with pytest.raises(ValidationError, match="backend"):

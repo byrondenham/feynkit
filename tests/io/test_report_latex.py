@@ -401,8 +401,11 @@ def test_reasons_without_a_candidate_set_their_maths() -> None:
     assert _reason("the count at p = 3 is 0, where the fit predicts -1") == (
         "the count at $p = 3$ is 0, where the fit predicts $-1$"
     )
-    assert _reason("the master count -3 given by the fit is not in [0, N! Vol] = [0, 12]") == (
-        "the master count $-3$ given by the fit is not in $[0, N!\\,\\mathrm{Vol}] = [0, 12]$"
+    assert _reason(
+        "the master count -3 given by the fit is not in [0, N! Vol(Newt G)] = [0, 12]"
+    ) == (
+        "the master count $-3$ given by the fit is not in "
+        "$[0, N!\\,\\mathrm{Vol}(\\mathrm{Newt}\\,G)] = [0, 12]$"
     )
     guard = (
         "the Newton polytope has a face of dimension 2 whose lattice quotient has exponent 3, "

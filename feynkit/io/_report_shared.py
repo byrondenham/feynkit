@@ -37,6 +37,7 @@ __all__ = [
     "count_polynomial",
     "display_factors",
     "face_names",
+    "in_squared_masses",
     "integrand_templates",
     "join_words",
     "landau_factors",
@@ -253,6 +254,18 @@ def primes_left_out(torus: TorusCount) -> str:
         return f"Up to {torus.max_prime} only {primes[0]} is left out."
     listed = join_words([str(p) for p in primes])
     return f"Up to {torus.max_prime} the primes left out are {listed}."
+
+
+def in_squared_masses(torus: TorusCount) -> str:
+    """The clause ", written in the squared masses," if the point has a squared mass, else "".
+
+    The counts write the face discriminants in the squares of the symbols that
+    occur in G only to even powers, the masses of a Feynman graph, which the
+    point lists as m_e**2. A factor odd in a mass is covered through its norm
+    f(m) f(-m), so the check's sentence says so, but only where a mass occurs.
+    """
+    squared = any(isinstance(key, sp.Pow) for key, _ in torus.point)
+    return ", written in the squared masses," if squared else ""
 
 
 def torus_skipped_faces(torus: TorusCount) -> str | None:

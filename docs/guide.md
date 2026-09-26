@@ -128,13 +128,15 @@ the counts give no candidate. These are candidates, not proofs.
 
 | Option | Effect |
 |--------|--------|
-| `--seed N` | seed for the kinematic point; 0 by default |
-| `--torus-budget N` | maximum evaluations of $G$; $2 \times 10^9$ by default, which admits up to six propagators |
+| `--seed N` | seed for the kinematic point, 0 or more; 0 by default |
+| `--torus-budget N` | maximum evaluations of $G$, 1 or more; $2 \times 10^9$ by default, which admits up to six propagators |
 
 Both need `--torus-count`, or `torus` among the report sections of `--sections`. `--json` does not
 take `--torus-count`: name `torus` in `--sections` instead, and the summary gains
 `candidate_master_count`, which is `null` when the counts give no candidate. Given
-`--torus-count` and a report with the `torus` section, `fk analyse` counts once for both.
+`--torus-count` and a report with the `torus` section, `fk analyse` counts once for both. A
+count that needs more evaluations than `--torus-budget` allows stops with an error that names the
+option.
 
 ```bash
 fk analyse "11e|e|:nn" --torus-count --seed 1

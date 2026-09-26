@@ -123,10 +123,11 @@ class TorusCount:
     reason
         Why there is no candidate, naming the test that failed: the counts are
         not polynomial on the tested primes, the master count the fit gives is
-        outside [0, N! Vol(Newt G)], or an edge of lattice length at least 3 or
-        a face whose lattice quotient has exponent at least 3 lets characters
-        of order above 2, which the check does not cover, into the counts; None
-        when there is a candidate.
+        outside [0, N! Vol(Newt G)], Newt G being the Newton polytope of G at
+        the point and Vol its Euclidean volume, or an edge of lattice length at
+        least 3 or a face whose lattice quotient has exponent at least 3 lets
+        characters of order above 2, which the check does not cover, into the
+        counts; None when there is a candidate.
     skipped_faces
         How many faces the Landau analysis skipped; their discriminants are
         missing from the admissibility test, the excluded primes and the
@@ -954,7 +955,9 @@ def count_torus_points(
     master = (-1) ** (n + 1) * sum(fitted)
     if not 0 <= master <= bound:
         return outcome(
-            None, f"the master count {master} given by the fit is not in [0, N! Vol] = [0, {bound}]"
+            None,
+            f"the master count {master} given by the fit is not in [0, N! Vol(Newt G)] = "
+            f"[0, {bound}]",
         )
     if refusal is not None:
         return outcome(None, refusal)

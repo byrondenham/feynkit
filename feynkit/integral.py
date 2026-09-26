@@ -31,7 +31,8 @@ Examples
 
 from __future__ import annotations
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
+from fractions import Fraction
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
@@ -39,6 +40,8 @@ import sympy as sp
 
 if TYPE_CHECKING:
     from .database import FeynkitDatabase
+    from .landau import LandauAnalysis
+    from .point_count import TorusCount
 
 from .algebra.toric import compute_toric_ideal_generators
 from .core.constants import LEE_POMERANSKY_PARAM_PREFIX
@@ -564,6 +567,102 @@ class FeynmanIntegral:
 
         report = AnalysisReport.from_integral(self, sections, max_face_points=max_face_points)
         return render_text(report, title=title)
+
+    def torus_count(
+        self,
+        *,
+        seed: int = 0,
+        point: Mapping[sp.Expr, int | Fraction] | None = None,
+        allow_singular: bool = False,
+        on_shell: Mapping[sp.Symbol, sp.Expr] | None = None,
+        landau: LandauAnalysis | None = None,
+        verification: int = 4,
+        max_face_points: int = 12,
+        max_evaluations: int = 2 * 10**9,
+        backend: str = "numpy",
+    ) -> TorusCount:
+        """
+        Finite-field point counts of G = 0 in the torus, and the candidates they give.
+
+        Counts the points of {G = 0} in (F_p^*)^N at one rational kinematic
+        point for finitely many primes, with the energy scale set to 1, and
+        fits a polynomial P(q). When the counts are polynomial on the tested
+        primes, chi(X) = -P(1) for the complement X of {G = 0} in the torus is a
+        candidate Euler characteristic, and C = (-1)^N chi(X) a candidate
+        number of master integrals (Bitoun, Bogner, Klausen and Panzer 2019,
+        Corollary 37). A candidate is not a proof: Katz's theorem needs the
+        count to be polynomial for every finite field of all but finitely many
+        characteristics. See :func:`feynkit.point_count.count_torus_points`.
+
+        Parameters
+        ----------
+        seed, point, allow_singular, verification, max_evaluations, backend
+            As for :func:`~feynkit.point_count.count_torus_points`.
+        on_shell
+            Substitutions made in the momentum products first, such as
+            ``{p1^2: 0}`` for a massless leg; each key must be a symbol of the
+            momentum products.
+        landau
+            The Landau analysis of this integral, with ``on_shell`` applied, if
+            already computed; it keeps the energy scale symbolic.
+        max_face_points
+            Passed to :func:`~feynkit.landau.landau_analysis` when ``landau`` is
+            not given.
+
+        Raises
+        ------
+        ValidationError
+            If the integral has kinematic constraints, which are not applied,
+            if ``on_shell`` names a symbol the momentum products do not
+            contain, or as :func:`~feynkit.point_count.count_torus_points`
+            raises.
+        """
+        import dataclasses
+
+        from .landau import landau_analysis
+        from .point_count import count_torus_points
+
+        if self._kinematic_constraints:
+            raise ValidationError(
+                "torus_count does not apply kinematic_constraints; substitute them with on_shell"
+            )
+        substitutions = dict(on_shell or {})
+        integral = self
+        if substitutions:
+            products = self.momentum_products
+            known: set[sp.Basic] = set().union(
+                *(sp.sympify(value).free_symbols for value in products.values())
+            )
+            unknown = sorted(str(key) for key in substitutions if key not in known)
+            if unknown:
+                raise ValidationError(
+                    f"on_shell names {', '.join(unknown)}, which the momentum products do not "
+                    f"contain; they contain {', '.join(sorted(map(str, known)))}"
+                )
+            integral = self.with_(
+                momentum_products={
+                    key: sp.expand(sp.sympify(value).subs(substitutions))
+                    for key, value in products.items()
+                }
+            )
+        if landau is None:
+            landau = landau_analysis(integral, max_face_points=max_face_points)
+        symanzik = integral.symanzik
+        count = count_torus_points(
+            symanzik.g,
+            symanzik.lp_parameters,
+            scale=integral.graph.energy_scale,
+            seed=seed,
+            point=point,
+            allow_singular=allow_singular,
+            landau=landau,
+            verification=verification,
+            max_evaluations=max_evaluations,
+            backend=backend,
+        )
+        return dataclasses.replace(
+            count, on_shell=tuple(sorted(substitutions.items(), key=lambda item: item[0].name))
+        )
 
     # -------- Comparison --------
 

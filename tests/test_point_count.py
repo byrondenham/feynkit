@@ -19,9 +19,10 @@ import pytest
 import sympy as sp
 
 from feynkit import FeynmanIntegral
+from feynkit import landau as landau_module
 from feynkit import point_count as pc
 from feynkit.core.exceptions import ComputationError, ValidationError
-from feynkit.landau import _singular_binary, landau_analysis_from_polynomial
+from feynkit.landau import _singular_binary, landau_analysis, landau_analysis_from_polynomial
 from feynkit.point_count import count_torus_points, critical_point_count
 from feynkit.polytope import polytope_data
 
@@ -737,6 +738,17 @@ class TestCriticalPointCount:
         with pytest.raises(ValidationError, match="timeout"):
             critical_point_count(g, U, point, timeout=0)
 
+    def test_polynomial_vanishing_at_the_point_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Raised before Singular is needed. Unchecked, the zero generators would send the search
+        # for primes through every prime below 2^31; hiding Singular makes a regression fail
+        # at once instead.
+        monkeypatch.setattr(pc, "_singular_binary", lambda: None)
+        x, y = sp.symbols("x y")
+        with pytest.raises(ValidationError, match="vanishes identically"):
+            critical_point_count(S * x + S * y, [x, y], {S: 0})
+
     def test_needs_singular(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(pc, "_singular_binary", lambda: None)
         with pytest.raises(RuntimeError, match="Singular"):
@@ -805,3 +817,51 @@ class TestCriticalPointsModuloPrimes:
         fake_singular(monkeypatch, error=subprocess.TimeoutExpired(["Singular"], 7))
         with pytest.raises(ComputationError, match="timeout=7"):
             critical_point_count(self.G, U, self.POINT, timeout=7)
+
+
+class TestFeynmanIntegralTorusCount:
+    def test_massive_bubble(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        count = fi.torus_count(seed=0)
+        m1, m2 = (edge.get_mass() for edge in fi.graph.get_internal_edges())
+        assert [key for key, _ in count.point] == [m1**2, m2**2, sp.Symbol("s", real=True)]
+        assert count.variables == tuple(fi.symanzik.lp_parameters)
+        assert count.on_shell == ()
+        assert count.candidate_master_count == 3
+
+    def test_on_shell_substitutes_the_momentum_products(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+        legs = {sp.Symbol(f"p{i}^2", real=True): 0 for i in range(1, 5)}
+        count = fi.torus_count(on_shell=legs)
+        assert [str(key) for key, _ in count.point] == ["s12", "s23"]
+        assert count.on_shell == tuple(legs.items())
+        assert count.candidate_master_count == 3
+
+    def test_on_shell_names_symbols_of_the_momentum_products(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+        # The invariants are real symbols; a symbol without that assumption is another symbol.
+        with pytest.raises(ValidationError, match=r"on_shell names p1\^2, which"):
+            fi.torus_count(on_shell={sp.Symbol("p1^2"): 0})
+
+    def test_massive_tadpole_has_one_variable_and_one_master(self) -> None:
+        count = FeynmanIntegral.from_cnickel("0|:n", use_mandelstam=False).torus_count()
+        assert len(count.variables) == 1
+        assert count.candidate_polynomial == (1,)
+        assert count.candidate_master_count == 1
+
+    def test_kinematic_constraints_are_not_applied(self) -> None:
+        s = sp.Symbol("s", real=True)
+        fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematic_constraints=[s - 1])
+        with pytest.raises(ValidationError, match="kinematic_constraints"):
+            fi.torus_count()
+
+    def test_a_given_landau_analysis_is_used(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nz")
+        analysis = landau_analysis(fi)
+        expected = fi.torus_count(seed=4)
+
+        def fail(*args: object, **kwargs: object) -> None:
+            raise AssertionError("the Landau analysis was repeated")
+
+        monkeypatch.setattr(landau_module, "landau_analysis", fail)
+        assert fi.torus_count(seed=4, landau=analysis) == expected

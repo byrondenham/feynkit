@@ -1042,8 +1042,9 @@ def critical_point_count(
         If ``variables`` are not one or more distinct symbols, ``timeout`` is
         not positive, G is not a polynomial with rational coefficients in its
         symbols, or ``point`` misses a symbol of G, has any other key, gives a
-        value that is not rational or a negative value for a square, or keys by
-        its square a symbol occurring to odd powers.
+        value that is not rational or a negative value for a square, keys by
+        its square a symbol occurring to odd powers, or G vanishes
+        identically at the point.
     ComputationError
         If Singular runs out of time, the counts modulo the two primes differ,
         or the critical points do not form a finite set at the exponents drawn.
@@ -1070,6 +1071,8 @@ def critical_point_count(
         x: sp.sqrt(v) if x in even else v for x, v in zip(symbols, rationals, strict=True)
     }
     g = sp.expand(g.subs(substitution))
+    if g == 0:
+        raise ValidationError("G vanishes identically at the point")
     binary = _singular_binary()
     if binary is None:
         raise RuntimeError("critical_point_count needs Singular, which was not found")

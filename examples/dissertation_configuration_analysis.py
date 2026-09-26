@@ -9,8 +9,9 @@ GKZ A-configurations, probing three levels of equivalence:
   2. Affine equivalence (GL_n(Q) + translation), same combinatorial type.
   3. Finite-index lattice map, integer linear map of index > 1.
 
-Also computes the intrinsic lattice model (Smith normal form) of each
-configuration, and the unimodular automorphism groups of their Newton polytopes.
+Also computes the intrinsic lattice model (Hermite normal form basis and Smith
+invariants) of each configuration, and the unimodular automorphism groups of
+their Newton polytopes.
 
 Run with:
     uv run python examples/dissertation_configuration_analysis.py
@@ -195,8 +196,9 @@ print(f"  Verification (M_known applied to all triangle points in triple-K): {al
 print_section("Intrinsic Lattice Models")
 
 print("""
-The intrinsic model expresses each configuration in the basis of the lattice
-it generates.
+The intrinsic model expresses each configuration in the Hermite normal form
+basis of the lattice its difference vectors span, with its first point as
+origin.
 """)
 
 model_tri = intrinsic_lattice_model(tri)
@@ -207,10 +209,10 @@ describe_intrinsic("Triple-K", model_tpk)
 
 print("""
 Observation:
-  The intrinsic coordinates are expressed in the greedy Z-basis chosen from
-  the difference vectors of each configuration separately.  Because the bases
-  differ, the coordinate sets differ even though the configurations are
-  rationally affinely equivalent.
+  The intrinsic coordinates are expressed in the Hermite normal form basis of
+  the lattice of each configuration separately.  Because the bases differ, the
+  coordinate sets differ even though the configurations are rationally
+  affinely equivalent.
 
   The Smith invariants are basis-independent invariants:
     Triangle [1,1,1] -> spans Z^3 (full lattice, index 1).

@@ -30,7 +30,7 @@ import sqlite3
 import sys
 import time
 from collections.abc import Callable, Iterator, Sequence
-from contextlib import ExitStack, contextmanager, suppress
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple, NoReturn
@@ -323,11 +323,11 @@ def _print_toric(fi: FeynmanIntegral) -> None:
 def _vertices_and_volume(cfg: AConfiguration) -> tuple[int, int]:
     """The number of vertices and the normalised volume of the Newton polytope of cfg.
 
-    AConfiguration finds both from a convex hull built for a full-dimensional
-    polytope of dimension 2 and above. It fails on a segment, such as the
-    polytope of the massive tadpole 0|:n, and on a polytope that is not
-    full-dimensional, such as that of 011e|e|:znn. As in the report,
-    polytope_data gives them in both cases.
+    AConfiguration finds the vertices from a floating convex hull built for a
+    full-dimensional polytope of dimension 2 and above, which fails on a
+    segment, such as the polytope of the massive tadpole 0|:n, and on a
+    polytope that is not full-dimensional, such as that of 011e|e|:znn. As in
+    the report, polytope_data gives both numbers in those cases.
     """
     if cfg.affine_dim < max(2, cfg.ambient_dim):
         data = polytope_data(cfg.affine_points.tolist())
@@ -348,10 +348,7 @@ def _print_newton(fi: FeynmanIntegral) -> None:
     full = cfg.affine_dim == cfg.ambient_dim
     _kv("Normalised volume", f"{volume}  (the holonomic rank for generic beta)" if full else volume)
     _kv("Smith invariants", cfg.smith_invariants)
-    # intrinsic_model fails on a polytope that is not full-dimensional, such as
-    # that of 01e|e|:zn. The report shows no base point, so the line is left out.
-    with suppress(NonSquareMatrixError):
-        _kv("Lattice base point", cfg.intrinsic_model().base_point)
+    _kv("Lattice base point", cfg.intrinsic_model().base_point)
 
 
 def _print_symmetries(fi: FeynmanIntegral) -> None:

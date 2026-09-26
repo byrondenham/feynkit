@@ -90,9 +90,10 @@ print_section("n=3, the known triangle / triple-K equivalence")
 
 print("""
 Both the massless triangle (C_3 LP) and the triple-K (BMS_3) are A-configurations
-in R^3 with N=6 monomials and holonomic rank 4, but with Smith invariants [1,1,1]
-vs [1,1,2].  They are NOT unimodularly equivalent, but there exists a finite-index
-affine map from the triangle's monomial support into the triple-K's.
+in R^3 with N=6 monomials and holonomic rank 4 for generic beta, but with Smith
+invariants [1,1,1] vs [1,1,2].  They are NOT unimodularly equivalent, but there
+exists a finite-index affine map from the triangle's monomial support into the
+triple-K's.
 
 The explicit map:
     M = [[-1, -1, 0],
@@ -206,10 +207,12 @@ The BMS_n G polynomial splits into two geometrically distinct parts:
     upper : 4 sum_i u_i^2 prod_{j!=i} u_j, n monomials, each with one exponent=2
 
 The lower sub-configuration (monomials of degree n-1) and upper sub-configuration
-(monomials of degree n+1) are each polytopes in R ^n.  Together their convex hull
-gives vol_0(BMS_n) = 2^{n-1}.
+(monomials of degree n+1) are each an (n-1)-simplex in R^n, unimodular in the
+lattice its own differences span, so each has vol_0 = 1. Together their convex
+hull gives vol_0(BMS_n) = 2^{n-1}.
 """)
 
+powers_of_two = True
 for n in [2, 3, 4, 5]:
     G = _bms_g_polynomial(n)
     u = [sp.Symbol(f"u_{i+1}") for i in range(n)]
@@ -225,15 +228,17 @@ for n in [2, 3, 4, 5]:
     cfg_lower = AConfiguration(lower_A, is_homogenized=True)
     cfg_upper = AConfiguration(upper_A, is_homogenized=True)
 
-    full_cfg = bms_simplex_a_config(n)
+    full_vol = bms_simplex_a_config(n).normalized_volume
+    powers_of_two = powers_of_two and full_vol == 2 ** (n - 1)
     print(
-        f"  n={n}:  full vol_0={full_cfg.normalized_volume} = 2^{n-1}={2**(n-1)}"
+        f"  n={n}:  full vol_0={full_vol} = 2^{n-1}={2**(n-1)}"
         f"  |  lower vol_0={cfg_lower.normalized_volume}"
         f"  |  upper vol_0={cfg_upper.normalized_volume}"
     )
 
 print()
-print("  BMS_n holonomic rank = 2^{n-1}:  confirmed for n=2,3,4,5.")
+print(f"  vol_0(BMS_n) = 2^{{n-1}} for n=2,3,4,5: {powers_of_two}")
+print("  For generic beta the holonomic rank of BMS_n is vol_0(BMS_n).")
 
 
 # -----------------------------------------------------------------------------
@@ -256,8 +261,8 @@ For n=3:
 
 For n>=4:
   - N(C_n LP) = n(n+1)/2 > 2n = N(BMS_n) , no bijective map is possible.
-  - The GKZ systems have different holonomic ranks and non-isomorphic Newton
-    polytopes.
+  - For generic beta the GKZ systems have different holonomic ranks, and the
+    Newton polytopes are not isomorphic.
 
 The triangle/triple-K equivalence is a unique n=3 coincidence arising from
 C_3 = K_3 (the cycle and the complete graph on 3 vertices are the same graph).

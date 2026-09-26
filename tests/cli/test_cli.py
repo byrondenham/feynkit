@@ -134,7 +134,7 @@ class TestSingleDiagram:
         assert f"  Ambient dimension            {ambient}" in lines
         assert f"  Affine dimension             {affine}" in lines
         assert f"  Normalised volume            {volume}" in lines
-        assert not any("Lattice base point" in line for line in lines)
+        assert any(line.startswith("  Lattice base point") for line in lines)
 
     def test_symmetries_are_omitted_below_full_dimension(
         self, capsys: pytest.CaptureFixture[str], tmp_path: Path

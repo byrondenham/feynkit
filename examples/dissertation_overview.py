@@ -11,7 +11,7 @@ Covers the main public-facing capabilities in a single linear narrative:
   section 6   Toric ideal  (generators * toric operators)
   section 7   Polytope automorphisms  (Aut(P) * orbits)
   section 8   Symmetry pairs  (integer affine self-maps * transformation identities)
-  section 9   Intrinsic lattice model  (SNF basis * intrinsic coordinates)
+  section 9   Intrinsic lattice model  (HNF basis * intrinsic coordinates)
   section 10  Polytope equivalence  (unimodular * affine * point-configuration)
   section 11  Finite-index map  (triangle -> triple-K, det = 2)
   section 12  Pairing-matrix canonical form  (Grinis-Kasprzyk)
@@ -224,7 +224,7 @@ print("    (= holonomic rank for generic beta; an upper bound for the number of 
 print(f"  Smith invariants of A   : {cfg_tri.smith_invariants}")
 print("    (Smith = [1,1,1] -> A-columns span the full Z^3 lattice)")
 
-sec("Intrinsic model, same computation, explicit SNF basis")
+sec("Intrinsic model, same computation, Hermite normal form basis")
 model = cfg_tri.intrinsic_model()
 print(f"  Base point       : {model.base_point}")
 print(f"  Intrinsic rank   : {model.intrinsic_rank}")
@@ -338,7 +338,7 @@ hdr(9, "Intrinsic lattice model")
 
 sec("Concept")
 print("  Express a point configuration in the basis of the lattice it spans.")
-print("  Removes the accident of the ambient Z ^n embedding.")
+print("  Removes the accident of the ambient Z^n embedding, up to a unimodular change of basis.")
 print("  Smith decomposition: D = U*diffs*V  (integer SNF).")
 print(f"  Intrinsic rank = affine dimension = {cfg_tri.affine_dim}.")
 

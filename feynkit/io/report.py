@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Literal
 
 import sympy as sp
 
+from .. import _exact
 from ..a_configuration import SymmetryPair
 from ..core.exceptions import ValidationError
 from ..kinematics.mandelstam import KinematicInvariants, standard_invariants
@@ -529,9 +530,7 @@ def _landau(fi: FeynmanIntegral, max_face_points: int) -> Landau:
 
 def _affine_dimension(points: tuple[tuple[int, ...], ...]) -> int:
     """The dimension of the affine hull of the points."""
-    base = points[0]
-    differences = [[a - b for a, b in zip(p, base, strict=True)] for p in points[1:]]
-    return int(sp.Matrix(differences).rank()) if differences else 0
+    return _exact.affine_rank(points)
 
 
 def _lp_to_cayley(n_edges: int, loop_count: int) -> sp.Matrix:

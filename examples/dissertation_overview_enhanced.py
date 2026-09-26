@@ -43,7 +43,7 @@ SECTIONS
   section 7   Toric ideal (toric operators * codimension check)
   section 8   Polytope automorphisms Aut(P) (orbits * graph embedding)
   section 9   Symmetry pairs (transformation identities for I_A)
-  section 10  Intrinsic lattice model (Smith normal form basis)
+  section 10  Intrinsic lattice model (Hermite normal form basis)
   section 11  Polytope equivalence (unimodular * affine * point-config)
   section 12  Finite-index map triangle -> triple-K  (det = 2)
   section 13  Grinis-Kasprzyk pairing matrix canonical form
@@ -729,16 +729,15 @@ print(
 
 
 # -----------------------------------------------------------------------------
-# section 10  Intrinsic lattice model  (Smith normal form basis)
+# section 10  Intrinsic lattice model  (Hermite normal form basis)
 # -----------------------------------------------------------------------------
-hdr(10, "Intrinsic lattice model  (Smith normal form basis)")
+hdr(10, "Intrinsic lattice model  (Hermite normal form basis)")
 
 note(
-    "The intrinsic lattice model re-expresses the Newton polytope P in a basis "
-    "of the lattice its points span, chosen from the difference vectors "
-    "[a_2 - a_1 | ... | a_m - a_1] (mathematics reference, section 5.4).  The "
-    "coordinates depend on that choice; the Smith invariants of the difference "
-    "matrix do not."
+    "The intrinsic lattice model re-expresses the Newton polytope P in the "
+    "Hermite normal form basis of the lattice spanned by the columns of the "
+    "difference matrix [a_2 - a_1 | ... | a_m - a_1], with a_1 as origin "
+    "(mathematics reference, section 5.4)."
 )
 
 model_tri = intrinsic_lattice_model(cfg_tri.affine_points)

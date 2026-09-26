@@ -2,6 +2,162 @@
 
 ## Unreleased
 
+### Breaking changes
+
+- An `AConfiguration` without points raises `ValidationError` from
+  `normalized_volume`, where it returned 1. `AConfiguration.normalized_volume`,
+  `faces` and `polytope_data` raise `ComputationError` if a consistency check of
+  the exact computation fails, which would be a bug; the volume used to be 0
+  whenever Qhull failed.
+- `faces`, `polytope_data`, `lattice_coordinates` and `intrinsic_lattice_model`
+  raise `ValidationError` on a non-integer coordinate, which `faces` used as a
+  float and the others truncated, and on points with different numbers of
+  coordinates, which raised `ValueError` or `TypeError`. Integral floats such as
+  `2.0` are still accepted. `intrinsic_lattice_model` also raises
+  `ValidationError` when there are no points, where it raised `IndexError`.
+- `PolytopeData` gains four fields and `Facet` three (see Added). The new
+  `PolytopeData` fields have no defaults, so code that builds a `PolytopeData`
+  by hand must pass them. The new `Facet` fields have defaults but take part in
+  equality, so a `Facet(normal, offset, point_indices)` built by hand no longer
+  equals the facet `polytope_data` returns.
+- `intrinsic_lattice_model` and `AConfiguration.intrinsic_model` give
+  `intrinsic_coords` in the Hermite normal form basis of the lattice L spanned
+  by the differences of the points, the basis `lattice_chart` uses, with the
+  first point at 0. Where the old coordinates were right they can differ from
+  the new ones by a unimodular change of basis, and for the massless triangle
+  they do. The new field `IntrinsicModel.basis`, which defaults to (), holds
+  the basis, so that point i is base_point + sum_t intrinsic_coords[i][t]
+  basis[t]. The field takes part in equality, so a four-field `IntrinsicModel`
+  built by hand, or unpickled from an older version, no longer equals a
+  computed one whose basis is non-empty. For a single point, or copies of one,
+  each coordinate is the empty tuple, where it was the zero vector of length n.
+
+### Added
+
+- `feynkit.polytope.normalized_volume(points)`, the exact normalised volume, and
+  a keyword `backend` of `faces`, `polytope_data` and `normalized_volume` that
+  chooses where facet candidates come from: `"python"` (integer beneath-beyond,
+  the reference, which the default `"auto"` uses), `"qhull"` or `"normaliz"`.
+  Every candidate is verified exactly and the list certified complete, so all
+  backends give the same result. `"normaliz"` needs PyNormaliz, which feynkit
+  detects at run time and does not depend on. `faces` and `lattice_coordinates`
+  also accept a sequence of points, not only an array.
+- Facets of lower-dimensional polytopes and lattice-primitive facet forms.
+  `PolytopeData` gains `relative_facets`, the facets relative to the affine hull
+  for a polytope of any dimension at least 1, as primitive integer inequalities
+  that cut out the polytope together with the equations in the new field
+  `affine_hull`; `chart`, a `LatticeChart` x = o + B c in which the points
+  generate Z^d affinely, as the new `feynkit.polytope.lattice_chart` returns it;
+  `smith_invariants`, the non-zero Smith invariants of the difference matrix;
+  and the property `sublattice_index`, their product. `Facet` gains
+  `lattice_normal` and `lattice_offset`, the facet in the chart, and
+  `lattice_index`, the gcd g_F of b - m . alpha_j over the points, and the
+  properties `homogenised_form`, (b, -m), and `lattice_form`, (b, -m) / g_F,
+  the facet form primitive with respect to the lattice ZA.
+- A `slow` pytest marker, deselected by default like `examples`, and acceptance
+  tests against the f-vectors of the principal Landau determinant database of
+  Fevola, Mizera and Telen (2024). Three entries are committed under
+  `tests/data/pld/` with their attribution and CC BY 4.0 licence; set
+  `FEYNKIT_PLD_DATA` to the unpacked database to check all 114.
+
+### Changed
+
+- `faces` and `polytope_data` work in integer arithmetic. The facets come from
+  an integer beneath-beyond construction, and the list is certified complete,
+  from the face lattice it generates, before anything is derived from it. They
+  used to come from Qhull with a tolerance of 1e-7 and were not checked. Qhull,
+  and Normaliz when installed, are optional sources of facet candidates, each
+  verified exactly; when either fails, or its list fails the certificate,
+  beneath-beyond takes over. `polytope_data` is faster on large polytopes:
+  about 0.13 s instead of 1 s for the massless planar double box.
+- The normalised volume comes from a pulling triangulation of the certified
+  face lattice. `AConfiguration.normalized_volume` delegates to it and is
+  cached; on large polytopes it is slower than the floating hull was, about
+  0.12 s instead of 0.01 s for the massless planar double box.
+  `AConfiguration.affine_dim` and `AConfiguration.smith_invariants` are computed
+  exactly in pure Python.
+- `faces` lists every point on a face, so every copy of a repeated endpoint of a
+  segment is now in its vertex face, where only one was kept, and the two
+  vertices of a segment are sorted by index like all other faces. As a result
+  `landau_analysis_from_polynomial` can list the two vertex `face_discriminants`
+  of a polynomial whose Newton polytope is a segment in the other order, as for
+  x + s x^2 y^2 in x and y. Feynman polytopes keep their order, and the
+  discriminants and surfaces do not change.
+
+### Fixed
+
+- `AConfiguration.normalized_volume` was wrong on configurations that are not
+  full-dimensional: it projected onto the wrong singular vectors and divided by
+  the product of the Smith invariants where the covolume of the difference
+  lattice was needed. It raised a NumPy shape error for (0, 0), (1, 1), (2, 2),
+  whose volume is 2; gave 0 for (0, 0), (2, 2) and for (0, 0, 0), (1, 0, 0),
+  (0, 1, 1), and 2 for (0, 0, 0), (1, -1, 0), (1, 0, -1), whose volumes are 1;
+  and gave 1 for the unit square in a coordinate plane of R^4, whose volume
+  is 2. `examples/bms_g_polynomial_analysis.py` therefore prints 1 for the
+  lower and upper sub-configurations of BMS_n, which are unimodular simplices,
+  where it printed 0 for n = 2 and 2 for n >= 3.
+- `AConfiguration.normalized_volume` gave 0 for a segment in Z^1, such as the
+  Newton polytope (1), (2) of the massive tadpole `0|:n`, which now gives 1. On
+  full-dimensional input with large coordinates its floating hull could be
+  wrong: for the pentagon (-177677, 2), (266518, -3), (266516, -3),
+  (-177679, 2), (-10^10, 0) it gave 50000000005, where the volume is
+  50000000015.
+- `faces` and `polytope_data` could return a wrong face lattice for large
+  coordinates, where the floating tolerances of Qhull and of the rank
+  computation misplaced points. For the pentagon above `faces` found three of
+  its five vertices and `polytope_data` raised, and the cube [0, 2]^3 sheared by
+  x -> (x_1 + 10^9 x_2, x_2 + 10^9 x_3, x_3) was taken to be 2-dimensional.
+- `AConfiguration.affine_dim` used a floating rank and gave 1 for (0, 0, 0),
+  (1, 10^17, 0), (2, 2 * 10^17 + 1, 0), whose affine dimension is 2.
+  `AConfiguration.smith_invariants` and `lattice_coordinates` took the
+  differences of the points in int64, which overflows silently for coordinates
+  near 2^62, and returned wrong invariants and coordinates there.
+- `intrinsic_lattice_model`, and so `AConfiguration.intrinsic_model`, took as
+  its basis the first linearly independent differences of the points and
+  truncated each coordinate towards zero, so its coordinates were wrong whenever
+  those differences were not a basis of the lattice all the differences span:
+  for the points 0, 2, 3 in Z the basis was 2 and the last point got the
+  coordinate 1, where it is 3/2. When the points were neither full-dimensional
+  nor all equal, as for the Newton polytopes of `01e|e|:zn` and
+  `012e|2e|e|:zzzz`, it raised `NonSquareMatrixError`; `fk` 0.3.0 therefore left
+  the lattice base point out of its Newton section, and now prints it. Its rank
+  came from a floating-point `matrix_rank`, and it took the differences in
+  int64. It is now built on `lattice_chart` in integer arithmetic: the
+  coordinates are integers that reproduce every point, it works in every
+  dimension, and `intrinsic_rank` and `smith_invariants` are exact, the latter
+  equal to `AConfiguration.smith_invariants`.
+- The documents said that the holonomic rank equals the normalised volume
+  without limiting this to full-dimensional configurations: section 5.3 of the
+  mathematics reference, the `AConfiguration` table of the guide ("= holonomic
+  rank"), the `feynkit.polytope` module docstring ("whatever the ambient
+  dimension"), the `AConfiguration.normalized_volume` docstring, two passages
+  of `docs/automorphism_groups.md` and the statement of Klausen's Theorem 2.2
+  in the literature review. Below full dimension the rows of the homogenised A
+  are linearly dependent, and for generic beta the system has no non-zero
+  solutions. They now state the hypothesis, and section 4.5 states it as full
+  row rank of the homogenised A.
+- Section 6.3 of the mathematics reference said that a toric operator relates
+  integrals with shifted propagator exponents. Since A u = A v, d^u I_A and
+  d^v I_A are the same multiple of I_A(beta - A u, z), so a toric operator is a
+  differential equation in z, not a reduction between different integrals.
+- Section 5.4 of the mathematics reference said that the intrinsic coordinates
+  W^-1 (alpha_j - alpha_1) are integers for any r independent rows W of the
+  difference matrix. They are integers only when the columns of W form a basis
+  of the lattice L the differences span. The section now describes the
+  Hermite normal form basis of L that `AConfiguration.intrinsic_model` uses,
+  and says that the product of the Smith invariants is the index of L in its
+  saturation, which is [Z^n : L] only for a full-dimensional configuration.
+- The intrinsic lattice model example in section 16 of the guide raised
+  `AttributeError`: it printed `model.basis` and `model.intrinsic_points`, and
+  `IntrinsicModel` had neither. It now prints the fields `IntrinsicModel` has,
+  for three points on a line in Z^2, and a test runs it and checks its output
+  against the guide.
+- `examples/bms_g_polynomial_analysis.py` printed that the holonomic rank of
+  BMS_n was "confirmed" to be 2^{n-1} for n = 2, 3, 4, 5, although feynkit
+  computes only the volume. It now prints whether vol_0(BMS_n) = 2^{n-1} and
+  says that for generic beta the holonomic rank is vol_0(BMS_n); its other
+  statements about the rank now say "for generic beta" too.
+
 ## 0.3.0 (2026-09-25)
 
 ### Breaking changes

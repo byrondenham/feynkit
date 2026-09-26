@@ -21,7 +21,7 @@ A holomorphic function annihilated by $H_A(\beta)$ is called *A-hypergeometric*.
 
 ### 2.2 The polytope and the holonomic rank
 
-A central structural result, stated as Theorem 2.2 of Klausen (2020) following Gelfand-Kapranov-Zelevinsky and Saito-Sturmfels-Takayama, is that for very generic $\beta$,
+A central structural result, stated as Theorem 2.2 of Klausen (2020) following Gelfand-Kapranov-Zelevinsky and Saito-Sturmfels-Takayama, is that for a full-dimensional configuration and very generic $\beta$,
 
 $$
 \operatorname{rank} H_A(\beta) \;=\; \operatorname{vol}_0(\operatorname{Conv}(A)),

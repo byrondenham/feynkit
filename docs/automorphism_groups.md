@@ -13,13 +13,13 @@ $$
 where $z = (z_1, \ldots, z_m)$ are the coefficients of the monomials of $G$,
 functions of the masses and momentum invariants. The Newton polytope
 $P = \mathrm{Newt}(G) \subset \mathbb{R}^n$ controls the combinatorics of the
-GKZ $D$-module associated with $I_A$: for generic coefficients and non-resonant
-$\beta$ its holonomic rank equals the normalised volume $\mathrm{vol}(P)$, and
-the set of GKZ exponents is read off from the face structure of $P$. The number
-of master integrals is, up to sign, the Euler characteristic of the complement
-of $\{G = 0\}$ in the torus: at most $\mathrm{vol}(P)$, and equal to it for
-generic coefficients, which graph polynomials rarely have (Bitoun, Bogner,
-Klausen, Panzer 2019).
+GKZ $D$-module associated with $I_A$: for full-dimensional $P$, generic
+coefficients and non-resonant $\beta$ its holonomic rank equals the normalised
+volume $\mathrm{vol}(P)$, and the set of GKZ exponents is read off from the
+face structure of $P$. The number of master integrals is, up to sign, the
+Euler characteristic of the complement of $\{G = 0\}$ in the torus: at most
+$\mathrm{vol}(P)$, and equal to it for generic coefficients, which graph
+polynomials rarely have (Bitoun, Bogner, Klausen, Panzer 2019).
 
 A unimodular automorphism of $P$ is a lattice-preserving affine bijection
 $(U, t)$ of $P$. When it maps the monomials of $G$ onto themselves, with $\sigma$
@@ -246,12 +246,13 @@ symmetry is reduced, in agreement with the table above.
 
 ## 6. Physical Interpretation
 
-For generic coefficients and non-resonant $\beta$ the holonomic rank of the
-GKZ $D$-module equals the normalised volume $\mathrm{vol}(P)$, a unimodular
-invariant, so two configurations related by a unimodular map of all their
-points have GKZ systems of the same generic rank. The number of master
-integrals, the Euler characteristic, is at most $\mathrm{vol}(P)$ and depends
-on the coefficients, so equal volumes alone do not give equal counts.
+For full-dimensional $P$, generic coefficients and non-resonant $\beta$ the
+holonomic rank of the GKZ $D$-module equals the normalised volume
+$\mathrm{vol}(P)$, a unimodular invariant, so two configurations related by a
+unimodular map of all their points have GKZ systems of the same generic rank.
+The number of master integrals, the Euler characteristic, is at most
+$\mathrm{vol}(P)$ and depends on the coefficients, so equal volumes alone do
+not give equal counts.
 
 Coefficient-preserving automorphisms give exact identities
 $I_A(\beta, z) = I_A(T\beta, z)$ between the integral at two parameter vectors

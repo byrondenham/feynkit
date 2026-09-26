@@ -152,7 +152,8 @@ Let $X = (\mathbb{C}^*)^N \setminus V$, with $\mu = 1$.
   face of dimension 2 or more, passes if all sampled primes agree on it.
   Characters of higher order entering through long edges or faces of large
   exponent are refused; other sources, such as non-abelian Frobenius
-  behaviour on faces of index 1, can still pass if the sample agrees.
+  behaviour on faces of exponent at most 2, can still pass if the sample
+  agrees.
 
 ### Output
 
@@ -211,8 +212,8 @@ point, a cross-check without a vectorised Legendre symbol, hence no
 - A `_report_shared.py` helper on `report.torus` builds the not-computed
   sentence: unchanged without the section; with a candidate, a pointer
   replaces the Euler characteristic (`\ref` in LaTeX, the heading "Candidate
-  Euler characteristic from point counts" in text); otherwise it says the
-  counts are not polynomial on the tested primes.
+  Euler characteristic from point counts" in text); otherwise it says that
+  the counts give no candidate.
 - The section, after the Newton polytope, gives the point, primes, counts and
   candidates, cites `bbkp2017` and the new `katz2008` and `fmt2024` (the CPC
   paper), and says finitely many primes prove nothing. `summary()` gains a
@@ -279,10 +280,10 @@ $N = 7$ an hour or more, $N \ge 8$ days; the default budget admits $N \le 6$.
 Massive graphs often give no candidate, as many factors must be squares at
 once. For massless graphs, solving $A + Bx + Cy + Dxy = 0$ by cases on $A$,
 $B$, $C$, $D$ and $AD - BC$ would cut the cost to $(p-1)^{N-2}$. The flint
-backend manages about $10^5$ evaluations a second, 75 to 180 times slower
-than numpy. `critical_point_count` works modulo two primes near $2^{31}$,
-where the fully massive kite takes 0.1 s, against more than 15 minutes over
-$\mathbb{Q}$.
+backend manages 5 to $8 \times 10^4$ evaluations a second in two
+measurements, 75 to 180 times slower than numpy. `critical_point_count` works
+modulo two primes near $2^{31}$, where the fully massive kite takes 0.1 s,
+against more than 15 minutes over $\mathbb{Q}$.
 
 ## Open questions
 

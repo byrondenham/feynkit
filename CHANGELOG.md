@@ -31,6 +31,13 @@
   built by hand, or unpickled from an older version, no longer equals a
   computed one whose basis is non-empty. For a single point, or copies of one,
   each coordinate is the empty tuple, where it was the zero vector of length n.
+- `feynkit.io.report.SECTION_NAMES` gains `torus`, the finite-field point
+  counts, which take seconds for five propagators; seven exceed the default
+  budget. Code that passes `SECTION_NAMES` to build every section now counts
+  points too, and raises `ValidationError` where the count cannot run, as for an
+  integral with kinematic constraints or seven propagators. The new
+  `DEFAULT_SECTIONS`, every section but `torus`, is what `from_integral`,
+  `to_latex`, `to_text` and `fk analyse --sections` use by default.
 
 ### Added
 
@@ -59,6 +66,71 @@
   Fevola, Mizera and Telen (2024). Three entries are committed under
   `tests/data/pld/` with their attribution and CC BY 4.0 licence; set
   `FEYNKIT_PLD_DATA` to the unpacked database to check all 114.
+- Finite-field point counts of G = 0 in the torus, in the new module
+  `feynkit.point_count`. `count_torus_points` counts the points of V = {G = 0}
+  in (F_p^*)^N for finitely many primes p at one rational kinematic point, drawn
+  with a seed or given, and fits a polynomial P(q) exactly. When the fit passes
+  the tests below, it reports P(q), the candidate Euler characteristic
+  chi(X) = -P(1) of the complement X of V in the torus, and the candidate master
+  count C = (-1)^N chi(X) of Bitoun, Bogner, Klausen and Panzer (Corollary 37).
+  These are candidates, not proofs: Katz's theorem needs every finite field of
+  all but finitely many characteristics. The result is a frozen `TorusCount`;
+  its `max_prime` is the largest prime the count could use, up to which
+  `excluded_primes` lists the primes left out.
+- The fit is tested in this order: integer coefficients, no q^N term,
+  0 <= C <= N! Vol(Newt G) (Bitoun et al., Theorem 44, after Kouchnirenko),
+  computed as `normalized_volume * sublattice_index`, or 0 when the polytope is
+  not full-dimensional, then a guard and a check at further primes. The guard
+  refuses a fit when the Newton polytope has an edge of lattice length 3 or
+  more, or a face of dimension 2 or more whose lattice quotient has exponent
+  (largest Smith invariant) 3 or more, since the counts may then depend on
+  characters of order above 2. The check continues until every non-trivial
+  product of the quadratic characters of -1 and of the non-zero values of the
+  vertex coefficients, the face-discriminant factors, written in the squared
+  masses, and the edge discriminants has taken both signs; the constants of the
+  discriminants of faces of dimension 2 or more, and the discriminants of
+  skipped faces, are not covered. The divisors of the edge discriminants are
+  among the primes left out, and a factor f odd in a mass m enters through its
+  norm f(m) f(-m). A fit that fails a test gives no candidate, and `reason`
+  names the test. Massive graphs and off-shell legs often give no candidate at
+  the drawn point, since many factors must be squares at once: the off-shell
+  massless box `12e|3e|3e|e|:zzzz` gives none at seeds 0 to 149, and 11 at
+  p_i^2 = (-12, -6, 5, -4), s12 = 20, s23 = -41, where its square-test factors
+  are squares.
+- `FeynmanIntegral.torus_count` substitutes `on_shell` into the momentum
+  products and counts the points of G. The values of `on_shell` are exact
+  expressions without floats and contain none of its keys, and a symbol in them
+  that shares its name with one of the integral's symbols must be that symbol.
+  String values are parsed by SymPy, so "p1^2" means p1**2.
+- `critical_point_count` counts the critical points of
+  sum_e nu_e log u_e - (D/2) log G on X with Singular, which number |chi(X)| for
+  generic exponents (Fevola, Mizera and Telen 2024, proof of Theorem 3.1, after
+  Huh 2013). It works modulo two primes near 2^31 and requires the two results
+  to agree, so it is a cross-check, not a certificate, and it raises
+  `ComputationError` after `timeout` seconds, 300 by default. `backend="flint"`
+  counts with python-flint instead of numpy, 75 to 180 times slower, as another
+  cross-check. Neither Singular nor python-flint is required.
+- The analysis report gains the section `torus`, "Candidate Euler characteristic
+  from point counts", after the Newton polytope, built only when named, and a
+  "Candidate master count" row in its summary. With it the Newton polytope
+  section points to the candidate, or says that the counts give no candidate,
+  instead of saying that the Euler characteristic is not computed.
+  `AnalysisReport` gains the field `torus`, and `from_integral` the arguments
+  `torus_seed` and `torus_budget`; the `torus` and `landau` sections share one
+  Landau analysis.
+- `fk analyse --torus-count` prints the point counts and the candidates, or why
+  there are none. Runs without section flags leave it out. `--seed N`, 0 or
+  more, and `--torus-budget N`, 1 or more, set the seed of the kinematic point
+  and the most evaluations of G (2 * 10^9 by default), for `--torus-count` or a
+  report whose `--sections` names `torus`, which is how `--json` gets the
+  counts; its summary then gains `candidate_master_count`, which is null when
+  the counts give no candidate. A count over the budget stops with an error
+  naming `--torus-budget`. Given `--torus-count` and a report with `torus`, the
+  count runs once.
+- Acceptance tests of the candidate master counts against the literature and
+  against the generic Euler characteristics of the principal Landau determinant
+  database. The sweep over its entries with at most five variables needs
+  `FEYNKIT_PLD_DATA` and the `slow` marker.
 
 ### Changed
 
@@ -83,6 +155,9 @@
   of a polynomial whose Newton polytope is a segment in the other order, as for
   x + s x^2 y^2 in x and y. Feynman polytopes keep their order, and the
   discriminants and surfaces do not change.
+- `fk analyse --sections`, `AnalysisReport.from_integral`,
+  `FeynmanIntegral.to_latex` and `FeynmanIntegral.to_text` build every section
+  but `torus` by default (see Breaking changes).
 
 ### Fixed
 

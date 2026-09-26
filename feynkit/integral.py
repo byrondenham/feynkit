@@ -611,6 +611,8 @@ class FeynmanIntegral:
             value that shares its name with a momentum-product symbol, a mass
             or the energy scale must be that symbol, so a string such as
             ``"s12"``, which sympify parses without assumptions, is refused.
+            String values are parsed by SymPy, so ``"p1^2"`` means ``p1**2``;
+            pass SymPy symbols for invariants.
         landau
             The Landau analysis of this integral, with ``on_shell`` applied, if
             already computed; it keeps the energy scale symbolic.

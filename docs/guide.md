@@ -28,11 +28,12 @@ diagram given by its CNickel string.
 15. [Deriving modified integrals](#deriving-modified-integrals)
 16. [AConfiguration: arbitrary GKZ inputs](#aconfiguration-arbitrary-gkz-inputs)
 17. [Landau singularities](#landau-singularities)
-18. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
-19. [The database](#the-database)
-20. [Visualisation and export](#visualisation-and-export)
-21. [Standard diagram library](#standard-diagram-library)
-22. [References](#references)
+18. [Torus point counts](#torus-point-counts)
+19. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
+20. [The database](#the-database)
+21. [Visualisation and export](#visualisation-and-export)
+22. [Standard diagram library](#standard-diagram-library)
+23. [References](#references)
 
 ---
 
@@ -122,14 +123,15 @@ header shows the string as typed, with its canonical form beside it when the two
 #### Point counts
 
 `--torus-count` counts the points of $G = 0$ in the torus over finite fields $\mathbb{F}_p$ at one
-kinematic point and fits a polynomial in $p$. It prints the point, the excluded primes and the
-counts, then either the candidate polynomial, Euler characteristic and master count or the reason
-the counts give no candidate. These are candidates, not proofs.
+kinematic point and fits a polynomial in $p$ (see [Torus point counts](#torus-point-counts)). It
+prints the point, the excluded primes and the counts, then either the candidate polynomial, Euler
+characteristic and master count or the reason the counts give no candidate. These are candidates,
+not proofs.
 
 | Option | Effect |
 |--------|--------|
 | `--seed N` | seed for the kinematic point, 0 or more; 0 by default |
-| `--torus-budget N` | maximum evaluations of $G$, 1 or more; $2 \times 10^9$ by default, which admits up to six propagators |
+| `--torus-budget N` | maximum evaluations of $G$, 1 or more; $2 \times 10^9$ by default, enough for six propagators unless many small primes are left out, and never for seven |
 
 Both need `--torus-count`, or `torus` among the report sections of `--sections`. `--json` does not
 take `--torus-count`: name `torus` in `--sections` instead, and the summary gains
@@ -146,7 +148,7 @@ fk analyse "12e|2e|e|:zzz" --json --sections polytope,torus --no-db
 #### Reports and JSON
 
 With these options, `fk analyse` also writes the analysis report of `FeynmanIntegral.to_latex`
-and `to_text` (section 20), or summarises it as JSON. It builds the report once, however many of
+and `to_text` (section 21), or summarises it as JSON. It builds the report once, however many of
 the options are given.
 
 | Option | Effect |
@@ -545,14 +547,15 @@ fi.graph_automorphisms      # list[list[int]], vertex permutations
 fi.symmetry_pairs           # list[SymmetryPair], all integer affine maps
 ```
 
-The polytope data and the analysis report are built on request and not cached:
+The polytope data, the point counts and the analysis report are built on request and not cached:
 
 ```python
 from feynkit import polytope_data
 from feynkit.io import AnalysisReport
 
 polytope_data(fi.newton_polytope.points)   # PolytopeData: faces, facets, volume (section 11)
-AnalysisReport.from_integral(fi)           # every fact the analysis report states (section 20)
+fi.torus_count()                           # TorusCount: point counts and candidates (section 18)
+AnalysisReport.from_integral(fi)           # every fact the analysis report states (section 21)
 fi.to_latex()                              # the report as a LaTeX document
 fi.to_text()                               # the report as plain text
 ```
@@ -807,7 +810,7 @@ positive real part, and $\mathrm{Re}\, D > 0$, the integral converges absolutely
 $$b\, \mathrm{Re}(D/2) - m \cdot \mathrm{Re}(\nu) > 0$$
 
 for every facet, with $\nu = (\nu_1, \ldots, \nu_N)$ in the same edge order. When the polytope is
-not full-dimensional, the integral converges for no $D$ and $\nu$. The analysis report (section 20)
+not full-dimensional, the integral converges for no $D$ and $\nu$. The analysis report (section 21)
 lists one such expression per facet:
 
 ```python
@@ -1352,6 +1355,215 @@ listed in `la.skipped_faces`.
 
 ---
 
+## Torus point counts
+
+`FeynmanIntegral.torus_count` counts the points of $V = \{G = 0\}$ in the torus $(\mathbb{F}_p^*)^N$
+for finitely many primes $p$, at one rational kinematic point and with $\mu = 1$, and fits a
+polynomial $P(q)$ to the counts. Let $X$ be the complement of $V$ in the complex torus
+$(\mathbb{C}^*)^N$. The number of master integrals, subsectors included, symmetries unused and $D$
+symbolic, is $C = (-1)^N \chi(X)$ (Bitoun, Bogner, Klausen and Panzer 2019, Corollary 37). When the
+fit passes the tests below, $\chi(X) = -P(1)$ is a candidate Euler characteristic and $C$ a
+candidate master count. The normalised volume counts master integrals only for generic coefficients
+and when the exponent differences span $\mathbb{Z}^N$; the point counts look at the physical
+coefficients.
+
+Every result is a candidate, not a proof. Katz's theorem gives $\chi(V) = P(1)$ when
+$\#V(\mathbb{F}_q) = P(q)$ for every finite field $\mathbb{F}_q$ whose characteristic avoids a
+finite set, and counts over finitely many prime fields cannot establish that. Section 4.5 of the
+mathematics reference states the master count and its bound, and section 4.7 the point counts.
+
+```python
+import sympy as sp
+
+from feynkit import FeynmanIntegral
+
+fi = FeynmanIntegral.from_cnickel("11e|e|:nn")  # the massive bubble
+count = fi.torus_count(seed=0)
+print(", ".join(f"{key} = {value}" for key, value in count.point))
+print(count.fit_primes, count.verification_primes)
+print(count.candidate_polynomial, count.candidate_master_count)
+
+# lambda(1, 1, 1) = -3 is not a square: p - 3 - (-3/p) points, not a polynomial in p.
+s = sp.Symbol("s", real=True)
+m1, m2 = (edge.get_mass() for edge in fi.graph.get_internal_edges())
+generic = fi.torus_count(point={s: 1, m1**2: 1, m2**2: 1})
+print(generic.candidate_master_count, generic.reason)
+
+# On the threshold s = (m_1 + m_2)^2 the count is p - 3, and C drops from 3 to 2.
+threshold = fi.torus_count(point={s: 9, m1**2: 1, m2**2: 4}, allow_singular=True)
+print(threshold.on_landau_surface, threshold.candidate_master_count)
+```
+
+prints
+
+```
+m_1**2 = 3, m_2**2 = 18, s = 6
+(7, 11, 13) (17, 19, 23, 29)
+(-4, 1) 3
+None the polynomial through the fit counts has non-integer coefficients
+True 2
+```
+
+The massive bubble has $p - 3 - (\lambda/p)$ points for every prime not left out, with $\lambda$ the
+Källén function of $s$, $m_1^2$ and $m_2^2$: a polynomial in $p$ only when $\lambda$ is the square
+of a rational number. At seed 0 the draw makes $\lambda = 9$, and the counts fit $P(q) = q - 4$
+(`candidate_polynomial` lists the coefficients from the constant term up), so $C = 3$. At
+$s = m_1^2 = m_2^2 = 1$ the master count is 3 as well, but the counts give no candidate: a missing
+candidate says nothing about $C$.
+
+### How the point is chosen
+
+Without `point`, the kinematic symbols of $G$ are drawn with `random.Random(seed)` in the order of
+their names: each invariant from the non-zero integers of $[-20, 20]$, and the square $m_e^2$ of
+each mass, or of any symbol that occurs in $G$ only to even powers, from 1 to 20. A draw is
+admissible when every coefficient of $G$ and every face discriminant of the Landau analysis is
+non-zero; 10,000 draws without an admissible one raise `ValidationError`. Of the first 200
+admissible draws, the first at which every irreducible factor of the principal discriminants of the
+faces of dimension at least 1 is a non-zero rational square is used, and otherwise the first
+admissible draw. These factors are written in the squared masses: the Landau analysis factorises in
+the masses, and a factor $f$ odd in a mass $m$ is replaced by its norm $f(m) f(-m)$.
+
+A draw where the factors are all squares gives polynomial counts far more often. Massive graphs and
+off-shell legs often give no candidate, since many factors must be squares at once. The off-shell
+massless box `12e|3e|3e|e|:zzzz` gives no candidate at any seed from 0 to 149, while at
+$p_i^2 = (-12, -6, 5, -4)$, $s_{12} = 20$ and $s_{23} = -41$, where its five square-test factors are
+squares, it gives $C = 11$.
+
+`point` gives the point instead, as a rational value for each kinematic symbol of $G$. A symbol that
+occurs only to even powers, such as a mass, can be keyed by its square instead, so `{m1**2: 4}` and
+`{m1: 2}` give the same point. A point on a Landau surface, where a coefficient of $G$ or a face
+discriminant vanishes, raises `ValidationError` unless `allow_singular=True`; there $C$ may be
+smaller than for generic kinematics, and the result has `on_landau_surface` set.
+
+`on_shell` substitutes into the momentum products before anything else, so that legs can be put on
+shell. Its keys are symbols of the momentum products with their assumptions, such as
+`sp.Symbol("p1^2", real=True)`, not the string `"p1^2"`. Its values are exact: ints, `Fraction`s,
+strings or SymPy expressions without floats. They may not contain a key, and a symbol in them that
+shares its name with one of the integral's symbols must be that symbol, so the string `"s12"` is
+refused for the box below. SymPy parses string values, so `"p2^2"` means `p2**2`, the square of a
+new symbol `p2` that is then drawn like the others; pass SymPy symbols for invariants.
+
+```python
+import sympy as sp
+
+from feynkit import FeynmanIntegral
+
+box = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")        # the massless box
+legs = {sp.Symbol(f"p{i}^2", real=True): 0 for i in range(1, 5)}
+print(box.torus_count(on_shell=legs).candidate_master_count)  # 3
+```
+
+The Landau analysis runs on the integral with `on_shell` applied and $\mu$ symbolic, before $\mu$ is
+set to 1; `landau` passes one already computed for that integral. An integral with
+`kinematic_constraints` raises `ValidationError`, since `torus_count` does not apply them;
+substitute them with `on_shell` instead.
+
+### Primes, the fit and its check
+
+The primes left out are 2 and, up to `max_prime` (1000), those dividing the numerator or the
+denominator of a non-zero value at the point of a coefficient of $G$, a face discriminant, an
+irreducible factor of one, or the discriminant of $G$ on an edge of its Newton polytope. The rule is
+heuristic: it misses the integer content of eliminants, skipped faces and components the Landau
+analysis does not list. A bad prime it misses is likely to make the fit or its check fail rather
+than give a wrong candidate.
+
+$G$ is solved for the first variable of lowest degree, which is at most 2 for a Feynman graph, so
+each count is a sum, over the other variables, of numbers of roots in $\mathbb{F}_p^*$ of
+quadratics. The polynomial of degree at most $N$ through the counts at the first $N + 1$ primes not
+left out is computed exactly. It is then tested in this order, and the first test it fails leaves
+the candidates None and gives the `reason`:
+
+1. Its coefficients are integers, as those of a counting polynomial must be.
+2. Its $q^N$ term is zero, since $V$ has dimension $N - 1$.
+3. $0 \le C \le N!\,\mathrm{Vol}(\mathrm{Newt}\,G)$, where $\mathrm{Newt}\,G$ is the Newton polytope
+   of $G$ at the point and $\mathrm{Vol}$ its Euclidean volume (Bitoun et al. 2019, Theorem 44,
+   after Kouchnirenko). The bound is `normalized_volume * sublattice_index` of its `polytope_data`,
+   or 0 when the polytope is not full-dimensional.
+4. No edge of $\mathrm{Newt}\,G$ has lattice length 3 or more, and no face of dimension 2 or more
+   has a quotient $L_\mathrm{sat}/L$ of exponent 3 or more, where $L$ is the lattice spanned by the
+   differences of the face's points, $L_\mathrm{sat}$ the integer points of their span, and the
+   exponent the largest Smith invariant of $L_\mathrm{sat}/L$, not its index. Otherwise the counts
+   may depend on characters of order above 2, which the check does not cover, and only the fit
+   primes are counted. When $G$ has degree at most 2 in every variable, as for a Feynman graph,
+   every edge has lattice length at most 2.
+5. It agrees with the counts at the next `verification` primes (4 by default), continued until every
+   non-trivial product of the quadratic characters the check covers has taken both signs on the fit
+   and check primes together.
+
+The characters covered are $(d/p)$ for $d$ in the group generated by $-1$ and the non-zero values at
+the point of the vertex coefficients of $G$, the irreducible factors of every face discriminant,
+principal or not, written in the squared masses, and the discriminants of $G$ on its edges, each in
+the edge's lattice coordinate. Characters outside that group are not covered. They can come from the
+constant factors of the discriminants of faces of dimension 2 or more, or from the discriminants of
+skipped faces, and a count that depends on one passes the check if the primes counted agree on it.
+Running out of primes up to `max_prime` before the check is done raises `ValidationError`.
+
+### Cost
+
+A prime $p$ costs $(p - 1)^{N - 1}$ evaluations of $G$, at about $10^7$ a second, and a run that
+reaches a candidate counts at least $N + 5$ primes. Besides the Landau analysis, five propagators
+take seconds, six about a minute, and seven, given a larger `max_evaluations`, an hour or more.
+`max_evaluations`, $2 \times 10^9$ by default, is compared with the cost of the fit primes and the
+first `verification` check primes before anything is counted, and with the cost of each further
+check prime before it is counted; going over raises `ValidationError`. The default is enough for six
+propagators unless many small primes are left out, and never for seven.
+
+### TorusCount fields
+
+| Attribute | Description |
+|-----------|-------------|
+| `variables`, `eliminated` | The variables of $G$, and the one solved for |
+| `point` | The kinematic point as (symbol, value) pairs in the order of the symbol names; a symbol that occurs only to even powers, such as a mass, appears as its square |
+| `on_shell` | The substitutions made first, as (symbol, value) pairs; empty from `count_torus_points` |
+| `seed` | The seed of the draw, or None for a given point |
+| `on_landau_surface` | Whether a coefficient of $G$ or a face discriminant vanishes at the point |
+| `excluded_primes`, `max_prime` | The primes left out, and the largest prime the count could use, up to which they are listed |
+| `fit_primes`, `verification_primes` | The primes fitted and checked, in order |
+| `counts` | $(p, \#V(\mathbb{F}_p))$ for every prime counted |
+| `candidate_polynomial` | The $N$ coefficients of $P(q)$, constant term first, or None |
+| `candidate_euler_characteristic`, `candidate_master_count` | $\chi(X) = -P(1)$ and $C = (-1)^N \chi(X)$, or None |
+| `reason` | Why there is no candidate, or None |
+| `skipped_faces` | The number of faces the Landau analysis skipped; their discriminants take no part in the draw, the excluded primes or the check |
+| `backend` | `"numpy"` or `"flint"` |
+
+### Any polynomial, and a cross-check
+
+`count_torus_points` in `feynkit.point_count` counts for any polynomial $G$ of degree at most 2 in
+one of the given variables, and takes the energy scale as `scale` if $G$ has one. It has the
+keywords of `torus_count` except `on_shell` and `max_face_points`, and two more: `volume_bound`,
+which replaces $N!\,\mathrm{Vol}(\mathrm{Newt}\,G)$, and `max_prime`, the largest prime counted,
+1000 by default and at most about $10^9$, where the int64 counts stop being exact. In both functions
+`backend="flint"` counts with python-flint instead of numpy, point by point, at 5 to $8 \times 10^4$
+evaluations a second: a cross-check 75 to 180 times slower. It raises `RuntimeError` unless
+python-flint is installed.
+
+`critical_point_count(g, variables, point)` counts the critical points of
+$\sum_e \nu_e \log u_e - (D/2) \log G$ on $X$ at random rational exponents drawn with `seed`; for
+generic exponents they number $|\chi(X)|$ (Fevola, Mizera and Telen 2024, proof of Theorem 3.1,
+after Huh 2013). $G$ must have $\mu = 1$ already, and `point` gives every other symbol, keyed as for
+`count_torus_points`. Singular computes the number modulo the two largest primes below $2^{31}$ that
+divide no numerator or denominator of the coefficients and exponents, and the two results must
+agree. The number over $\mathbb{Q}$ is the same modulo all but finitely many primes, so this is a
+cross-check, not a certificate. It raises `RuntimeError` without Singular, and `ComputationError`
+when the two results differ, when the critical points are not finite at the exponents drawn, or when
+Singular runs past `timeout` seconds (300 by default).
+
+```python
+import sympy as sp
+
+from feynkit.point_count import count_torus_points, critical_point_count
+
+u1, u2, s = sp.symbols("u1 u2 s")
+g = u1 + u2 - s * u1 * u2                                     # the massless bubble at mu = 1
+print(count_torus_points(g, [u1, u2]).candidate_polynomial)  # (-2, 1)
+print(critical_point_count(g, [u1, u2], {s: 3}))             # 1
+```
+
+The massless bubble has $p - 2$ points, so $\chi(X) = -P(1) = 1$ and $C = 1$, and its log-likelihood
+function has one critical point.
+
+---
+
 ## Conformal and BMS artifact factories
 
 The `feynkit.artifacts` module provides ready-made A-configurations for families studied in
@@ -1579,14 +1791,19 @@ Both methods take the same arguments:
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `sections` | all | Names of the sections to build, from `SECTION_NAMES` |
+| `sections` | all but `torus` | Names of the sections to build, from `SECTION_NAMES` |
 | `title` | "Feynman integral" and the CNickel string | Document title; `to_latex` escapes it |
 | `max_face_points` | 12 | Faces of the Newton polytope with more monomials are left out of the Landau analysis and listed as skipped |
 
 The section names, in `feynkit.io.report.SECTION_NAMES`, are `identity`, `conventions`,
-`polynomials`, `representations`, `polytope`, `gkz`, `symmetries`, `landau` and `schwinger`. The
-first three are always built. The rest are built only when named, so a survey can ask for a short
-report without the automorphism and Landau computations:
+`polynomials`, `representations`, `polytope`, `torus`, `gkz`, `symmetries`, `landau` and
+`schwinger`. The first three are always built. The rest are built only when named, so a survey can
+ask for a short report without the automorphism and Landau computations. Without `sections` every
+section but `torus` is built, the tuple `DEFAULT_SECTIONS`. The point counts of `torus` take seconds
+for five propagators, and seven exceed the default budget (see
+[Torus point counts](#torus-point-counts)); `to_latex` and `to_text` count with seed 0 and the
+default budget, and raise `ValidationError` when the count cannot run, as for an integral with
+kinematic constraints.
 
 ```python
 latex = fi.to_latex(["polytope", "gkz"], title="Massive triangle")
@@ -1597,17 +1814,19 @@ over 4 s of it in the Landau analysis, and the massive box `12e|3e|3e|e|:nnnn` a
 it Landau. A survey over many graphs can leave it out and keep everything else:
 
 ```python
-from feynkit.io.report import SECTION_NAMES
+from feynkit.io.report import DEFAULT_SECTIONS
 
-text = fi.to_text([name for name in SECTION_NAMES if name != "landau"])
+text = fi.to_text([name for name in DEFAULT_SECTIONS if name != "landau"])
 ```
 
 From the command line, `fk analyse "12e|2e|e|:nnn" --latex triangle.tex --text triangle.txt`
 builds the report once and writes both documents; see [CLI: fk](#cli-fk).
 
 To render one report twice, or to read its facts directly, build it once and pass it to the
-renderers. `AnalysisReport.from_integral` takes the same `sections` and `max_face_points`, and
-`figure_max_vertices` (default 12): a polytope with more vertices gets no figure.
+renderers. `AnalysisReport.from_integral` takes the same `sections` and `max_face_points`,
+`figure_max_vertices` (default 12): a polytope with more vertices gets no figure, and `torus_seed`
+and `torus_budget` (defaults 0 and $2 \times 10^9$), the `seed` and `max_evaluations` of the point
+counts. The `torus` and `landau` sections share one Landau analysis.
 
 ```python
 from feynkit.io import AnalysisReport, render_latex, render_text
@@ -1618,12 +1837,13 @@ latex = render_latex(report)
 text = render_text(report, title="Massive triangle")
 ```
 
-The document has twelve parts:
+The document has up to thirteen parts:
 
 1. The title; no author, date or abstract.
 2. A summary table: loops, propagators, external legs, the monomial counts of $F$ and $G$,
-   independent invariants, codimension, polytope vertices, normalised volume,
-   $|\mathrm{Aut}(P)|$, toric generators and Landau surfaces.
+   independent invariants, codimension, polytope vertices, normalised volume, the candidate master
+   count (with `torus`; "none" when the counts give no candidate), $|\mathrm{Aut}(P)|$, toric
+   generators and Landau surfaces.
 3. The graph: a TikZ figure and a table of the propagators with their endpoints, exponents and
    masses.
 4. Conventions: the momentum-space integral and its normalisation, $D = D_0 - 2\epsilon$, the
@@ -1637,23 +1857,29 @@ The document has twelve parts:
 7. The Newton polytope: vertices, dimension, normalised volume, face counts, a figure, and the
    conditions under which the holonomic rank equals the volume or, when the polytope is not
    full-dimensional, why the rank is 0 for generic $\beta$.
-8. The GKZ system: $A$, $\beta = (-D/2, -\nu_1, \ldots, -\nu_N)$, one Euler operator per row of $A$
+8. The candidate Euler characteristic from point counts, only when `torus` is named: the master
+   count and Katz's theorem, the kinematic point, the excluded primes, the characters the check
+   covers, a table of the counts, and the candidate polynomial, Euler characteristic and master
+   count, or why the counts give no candidate.
+9. The GKZ system: $A$, $\beta = (-D/2, -\nu_1, \ldots, -\nu_N)$, one Euler operator per row of $A$
    and the toric generators.
-9. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
-   coefficient-preserving subgroup, and the symmetry pairs with the identity each gives. For a
-   Newton polytope of dimension below 2, such as the segment of the massive tadpole, or one that
-   is not full-dimensional, the section says only that the symmetries are not computed, and why.
-10. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
+10. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
+    coefficient-preserving subgroup, and the symmetry pairs with the identity each gives. For a
+    Newton polytope of dimension below 2, such as the segment of the massive tadpole, or one that
+    is not full-dimensional, the section says only that the symmetries are not computed, and why.
+11. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
     into first and second type for one-loop graphs, with the skipped faces, each named by its
     dimension and number of points, and the caveats.
-11. The Schwinger-representation system (section 10), its equivalence to the Lee-Pomeransky
+12. The Schwinger-representation system (section 10), its equivalence to the Lee-Pomeransky
     configuration and its reduction to the $\tilde F$ block.
-12. References, the works cited in order of first citation.
+13. References, the works cited in order of first citation.
 
-Parts 6 to 11 appear when their sections are built. When the `polytope` section is built and the
+Parts 6 to 12 appear when their sections are built. When the `polytope` section is built and the
 polytope is full-dimensional, the document also states what feynkit does not compute: the
 holonomic rank at the physical point, the Euler characteristic that counts the master integrals,
 series solutions, a Pfaffian system and the restriction of the GKZ system to physical kinematics.
+With the `torus` section, that sentence points to the candidate Euler characteristic instead, or
+says that the counts give no candidate.
 
 The LaTeX source is ASCII and needs only standard TeX Live packages (amsmath, booktabs, longtable,
 geometry, lmodern, TikZ with tikz-3dplot, hyperref). The test `tests/io/test_report_compile.py`

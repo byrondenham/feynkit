@@ -930,3 +930,51 @@ class TestFeynmanIntegralTorusCount:
         hint = "as Symbol('m_1', nonnegative=True, real=True)"
         with pytest.raises(ValidationError, match=re.escape(hint)):
             fi.torus_count(on_shell={p1: "m_1**2"})  # type: ignore[dict-item]
+
+
+GUIDE = Path(__file__).resolve().parents[1] / "docs" / "guide.md"
+GUIDE_HEADING = "\n## Torus point counts\n"
+
+
+def test_guide_example_prints_what_the_guide_says(capsys: pytest.CaptureFixture[str]) -> None:
+    guide = GUIDE.read_text(encoding="utf-8")
+    assert GUIDE_HEADING in guide
+    section = guide.split(GUIDE_HEADING, 1)[1]
+    code = section.split("```python\n", 1)[1].split("```", 1)[0]
+    printed = section.split("prints\n\n```\n", 1)[1].split("```", 1)[0]
+    exec(compile(code, "docs/guide.md", "exec"), {})
+    assert capsys.readouterr().out == printed
+    assert printed.splitlines()[2:] == [
+        "(-4, 1) 3",
+        "None the polynomial through the fit counts has non-integer coefficients",
+        "True 2",
+    ]
+
+
+def _later_guide_examples() -> list[str]:
+    """The Python blocks of the guide's point-count section after the first."""
+    guide = GUIDE.read_text(encoding="utf-8")
+    if GUIDE_HEADING not in guide:
+        return []
+    section = guide.split(GUIDE_HEADING, 1)[1].split("\n## ", 1)[0]
+    return re.findall(r"```python\n(.*?)```", section, re.DOTALL)[1:]
+
+
+def test_guide_has_later_examples() -> None:
+    assert len(_later_guide_examples()) == 2
+
+
+@pytest.mark.parametrize(
+    "code",
+    [pytest.param(code, id=f"example-{i}") for i, code in enumerate(_later_guide_examples(), 2)],
+)
+def test_later_guide_examples_print_their_comments(
+    code: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Each print line ends with a comment giving exactly what it prints.
+    if "critical_point_count(" in code and _singular_binary() is None:
+        pytest.skip("Singular not installed")
+    expected = [line.rsplit("# ", 1)[1] for line in code.splitlines() if line.startswith("print(")]
+    assert expected
+    exec(compile(code, "docs/guide.md", "exec"), {})
+    assert capsys.readouterr().out.splitlines() == expected

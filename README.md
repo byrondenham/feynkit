@@ -55,12 +55,15 @@ fk analyse "12e|2e|e|:zzz"                     # every section of the massless t
 fk analyse "12e|2e|e|:zzz" -g -n               # GKZ system and Newton polytope only
 fk analyse "12e|2e|e|"                         # bare topology: every propagator massless
 fk analyse "12e|2e|e|:nzz" --latex triangle.tex --json --no-db
+fk analyse "11e|e|:nn" --torus-count           # candidate master count from point counts
 fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"     # the mass on two different propagators
 ```
 
 `fk analyse` prints the Symanzik polynomials, parametrisations, GKZ system, toric ideal, Newton
-polytope and symmetries, or those its section flags choose. It also writes the analysis report
-with `--latex FILE` and `--text FILE`, and prints a JSON summary with `--json`. `fk compare` tests
+polytope and symmetries, or those its section flags choose. `--torus-count` adds a candidate
+number of master integrals from finite-field point counts: evidence from finitely many primes, not
+a proof, and often no candidate for massive or off-shell graphs. `fk analyse` also writes the
+analysis report with `--latex FILE` and `--text FILE`, and prints a JSON summary with `--json`. `fk compare` tests
 four equivalences between the A-configurations of two diagrams: unimodular, affine,
 point-configuration and finite-index. It prints each map it finds, and for a point-configuration
 or finite-index map, which sends every column of one A-matrix to a column of the other, the
@@ -195,6 +198,7 @@ same CNickel string, the canonical form minimises the mass colouring lexicograph
 | `feynkit.polytope` | Face lattice, facet inequalities and normalised volume of a lattice polytope (`polytope_data`) |
 | `feynkit.a_configuration` | Arbitrary GKZ A-configurations: equivalence, finite-index maps, Smith invariants, symmetry pairs |
 | `feynkit.landau` | Principal A-determinant over all polytope faces; one-loop closed form |
+| `feynkit.point_count` | Finite-field point counts of G = 0 in the torus: a candidate Euler characteristic and master count |
 | `feynkit.artifacts` | Conformal simplex, BMS simplex, complete-graph, and massless-polygon A-configurations |
 | `feynkit.database` | SQLite cache for GKZ analysis results, CNickel, and automorphism data |
 | `feynkit.visualisation` | TikZ diagrams and Newton polytope plots |

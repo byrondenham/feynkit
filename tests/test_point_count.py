@@ -265,7 +265,7 @@ class TestCountTorusPoints:
 
     def test_two_mass_bubble_on_its_threshold(self) -> None:
         # lambda(9, 1, 4) = 0: p - 3 points and C = 2, where generic kinematics give 3.
-        with pytest.raises(ValidationError, match="Landau surface"):
+        with pytest.raises(ValidationError, match="face discriminant vanishes at the point"):
             bubble_count(point={S: 9, M1**2: 1, M2**2: 4})
         count = bubble_count(point={S: 9, M1**2: 1, M2**2: 4}, allow_singular=True)
         assert count.on_landau_surface

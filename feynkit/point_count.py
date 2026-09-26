@@ -106,6 +106,9 @@ class TorusCount:
         denominator of a coefficient of G, of a non-zero face discriminant, of
         a non-zero irreducible factor of one or of the discriminant of G on an
         edge, at the point.
+    max_prime
+        The largest prime the count could use, and the limit of
+        ``excluded_primes``.
     fit_primes, verification_primes
         The primes the fit used and the primes it was checked at, in order.
     counts
@@ -139,6 +142,7 @@ class TorusCount:
     seed: int | None
     on_landau_surface: bool
     excluded_primes: tuple[int, ...]
+    max_prime: int
     fit_primes: tuple[int, ...]
     verification_primes: tuple[int, ...]
     counts: tuple[tuple[int, int], ...]
@@ -782,7 +786,8 @@ def count_torus_points(
         The kinematic point instead of a draw, keyed by symbol, or by the
         square x**2 of a symbol x occurring only to even powers.
     allow_singular
-        Count at a given point on a Landau surface instead of raising.
+        Count at a given point where a coefficient of G or a face discriminant
+        vanishes instead of raising.
     landau
         The Landau analysis of ``polynomial`` with mu symbolic, if already
         computed; its faces must carry the terms of ``polynomial``.
@@ -824,8 +829,8 @@ def count_torus_points(
     ------
     ValidationError
         If the arguments are malformed, ``landau`` analyses another
-        polynomial, the point lies on a Landau surface and ``allow_singular``
-        is false, no admissible point is drawn, G has degree above 2 in every
+        polynomial, a coefficient of G or a face discriminant vanishes at the
+        point and ``allow_singular`` is false, no admissible point is drawn, G has degree above 2 in every
         variable, ``max_prime`` is above the int64 limit, there are too few
         primes up to ``max_prime`` for the fit and its check, or counting needs
         more than ``max_evaluations``.
@@ -865,8 +870,8 @@ def count_torus_points(
     on_surface = not _admissible(kinematics, values)
     if on_surface and not allow_singular:
         raise ValidationError(
-            "the point lies on a Landau surface, where a coefficient of G or a face "
-            "discriminant vanishes; pass allow_singular=True to count there"
+            "a coefficient of G or a face discriminant vanishes at the point; pass "
+            "allow_singular=True to count there"
         )
     specialised = tuple(
         (monomial, value)
@@ -928,6 +933,7 @@ def count_torus_points(
             seed=seed if point is None else None,
             on_landau_surface=on_surface,
             excluded_primes=excluded,
+            max_prime=max_prime,
             fit_primes=tuple(fit),
             verification_primes=tuple(verified),
             counts=tuple(counts),

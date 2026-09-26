@@ -41,12 +41,14 @@ __all__ = [
     "join_words",
     "landau_factors",
     "not_computed",
+    "primes_left_out",
     "render_sections",
     "signed_terms",
     "skipped_faces",
     "sorted_factors",
     "split_g",
     "symmetries_omitted",
+    "torus_skipped_faces",
 ]
 
 
@@ -242,6 +244,38 @@ def count_polynomial(coefficients: Sequence[int]) -> sp.Expr:
     """P(q) from its coefficients, constant term first."""
     q = sp.Symbol("q")
     return sp.Add(*(c * q**i for i, c in enumerate(coefficients)))
+
+
+def primes_left_out(torus: TorusCount) -> str:
+    """The sentence listing the primes the counts leave out, up to the largest they could use."""
+    primes = torus.excluded_primes
+    if len(primes) == 1:
+        return f"Up to {torus.max_prime} only {primes[0]} is left out."
+    listed = join_words([str(p) for p in primes])
+    return f"Up to {torus.max_prime} the primes left out are {listed}."
+
+
+def torus_skipped_faces(torus: TorusCount) -> str | None:
+    """The sentence naming the faces the Landau analysis skipped and the steps of the count
+    that miss their discriminants, or None if none was skipped.
+
+    Only the steps that ran are named: the draw for a drawn point, the test for a
+    vanishing discriminant for a given one, and the check at further primes when
+    the fit reached it.
+    """
+    if not torus.skipped_faces:
+        return None
+    drawn = torus.seed is not None
+    steps = [
+        *(["the draw" if drawn else "the test of the given point"] if torus.point else []),
+        "the choice of excluded primes",
+        *(["the check"] if torus.verification_primes else []),
+    ]
+    whose = "whose discriminant is" if torus.skipped_faces == 1 else "whose discriminants are"
+    return (
+        f"The Landau analysis skipped {count_noun(torus.skipped_faces, 'face')}, {whose} "
+        f"left out of {join_words(steps)}."
+    )
 
 
 def symmetries_omitted(report: AnalysisReport) -> str:

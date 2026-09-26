@@ -6,9 +6,8 @@ undefined references or citations, and so must the bubble's document with the
 point-count section, with a candidate and without one. Each document is
 written to a temporary directory and compiled twice, so that the citations
 resolve on the second pass. The tests are skipped when pdflatex is not
-installed. The Landau
-analysis of the box is slow without Singular, so the box is also skipped
-when Singular is not installed.
+installed. The Landau analysis of the box is slow without Singular, so the
+box is also skipped when Singular is not installed.
 """
 
 from __future__ import annotations

@@ -157,10 +157,10 @@ Let $X = (\mathbb{C}^*)^N \setminus V$, with $\mu = 1$.
 ### Output
 
 A frozen `TorusCount`: `variables`, `eliminated`, `point`, `on_shell`, `seed`,
-`on_landau_surface`, the excluded, fit and verification primes, `counts`,
-`candidate_polynomial`, `candidate_euler_characteristic`,
-`candidate_master_count` (None without a fit), `reason`, `skipped_faces: int`,
-`backend`.
+`on_landau_surface`, the excluded primes with their limit `max_prime`, the fit
+and verification primes, `counts`, `candidate_polynomial`,
+`candidate_euler_characteristic`, `candidate_master_count` (None without a
+fit), `reason`, `skipped_faces: int`, `backend`.
 
 ## Interfaces
 

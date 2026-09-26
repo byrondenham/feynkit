@@ -402,17 +402,17 @@ by default, and more until the fit and check primes together pass this test.
 **Guard.** The check covers quadratic characters only. On an edge of $\Delta_z$ of lattice length
 $k$, $G$ restricts to a polynomial of degree $k$ in the edge's lattice coordinate, whose roots
 modulo $p$ follow its Galois group; for $k \ge 3$ they can need a character of order 3 or more, even
-when every lattice point of the edge carries a monomial: $u^3 - u^2 - 2u + 1$ has three roots modulo
-$p$ when $p \equiv \pm 1 \pmod 7$ and none otherwise. On a face of dimension 2 or more, let $L$ be
-the lattice spanned by the differences of its points and $L_\mathrm{sat}$ the integer points of
-their span. Up to a monomial, $G$ restricted to the face is a function on the torus with character
-lattice $L$, pulled back along the isogeny from the torus with character lattice $L_\mathrm{sat}$.
-Over $\mathbb{F}_p$ the non-empty fibres of that isogeny are torsors under
-$\mathrm{Hom}(L_\mathrm{sat}/L, \mathbb{F}_p^*)$, so the counts can depend on $p$ through
-power-residue characters whose orders divide the exponent of $L_\mathrm{sat}/L$, its largest Smith
-invariant, which may be smaller than its index. So a fit is refused before the check when an edge
-has lattice length at least 3 or such a face has exponent at least 3. The exponents of $G$ lie in
-$\{0, 1, 2\}^n$, so every edge of $\Delta_z$ has lattice length at most 2.
+when every lattice point of the edge carries a monomial: for $p \ne 7$, $u^3 - u^2 - 2u + 1$ has
+three roots modulo $p$ when $p \equiv \pm 1 \pmod 7$ and none otherwise. On a face of dimension 2
+or more, let $L$ be the lattice spanned by the differences of its points, $L_\mathrm{sat}$ the
+integer points of their span, and $T_L$ and $T_{L_\mathrm{sat}}$ the tori with these character
+lattices. Up to a monomial, $G$ restricted to the face is a function on $T_L$, pulled back along
+the isogeny $T_{L_\mathrm{sat}} \to T_L$. Over $\mathbb{F}_p$ the non-empty fibres of that isogeny
+are torsors under $\mathrm{Hom}(L_\mathrm{sat}/L, \mathbb{F}_p^*)$, so the counts can depend on $p$
+through power-residue characters whose orders divide the exponent of $L_\mathrm{sat}/L$, its
+largest Smith invariant, which may be smaller than its index. So a fit is refused before the check
+when an edge has lattice length at least 3 or such a face has exponent at least 3. The exponents of
+$G$ lie in $\{0, 1, 2\}^n$, so every edge of $\Delta_z$ has lattice length at most 2.
 
 **Evidence, not proof.** A candidate is evidence, not a proof. The counts are over prime fields at
 finitely many primes, where Katz's theorem needs every finite field of all but finitely many

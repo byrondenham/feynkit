@@ -128,6 +128,24 @@
   the counts give no candidate. A count over the budget stops with an error
   naming `--torus-budget`. Given `--torus-count` and a report with `torus`, the
   count runs once.
+- Acceptance tests of the candidate master counts. At seeds 0 and 1 the
+  massless, one-mass and two-mass bubbles, the massless triangle, the massless
+  box with p_i^2 = 0 and the massless kite give the master counts of Fevola,
+  Mizera and Telen (2024, Tables 1 and 2) and Bitoun et al. (Example 53); the
+  one-mass bubble, which neither lists, gives the C = 2 derived in section 4.7
+  of the mathematics reference. The off-shell massless box gives 11 at a point
+  where its square-test factors are squares. The massless triangle at
+  p_i^2 = (1, 4, 9), where the Källén function vanishes, raises unless
+  `allow_singular` is set, and then gives 3. The two-mass bubble, the massless
+  triangle and the three-mass sunrise give no candidate at a point where their
+  counts are not polynomial, and there `critical_point_count` gives their
+  generic master counts, 3, 4 and 7. It also gives the candidate at the seed-0
+  point of each of the first six graphs. The committed entry `A4_zero_generic`
+  of the principal Landau determinant database, and `A4_zero_zero` when
+  `FEYNKIT_PLD_DATA` is set, give the Euler characteristic the database lists
+  for generic kinematics. With the `slow` marker as well, every entry with at
+  most five variables is counted at seed 0, and a candidate must equal that
+  Euler characteristic.
 
 ### Changed
 

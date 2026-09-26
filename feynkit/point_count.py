@@ -121,13 +121,14 @@ class TorusCount:
     candidate_master_count
         C = (-1)^N chi(X), or None.
     reason
-        Why there is no candidate, naming the test that failed: the counts are
-        not polynomial on the tested primes, the master count the fit gives is
-        outside [0, N! Vol(Newt G)], Newt G being the Newton polytope of G at
-        the point and Vol its Euclidean volume, or an edge of lattice length at
-        least 3 or a face whose lattice quotient has exponent at least 3 lets
-        characters of order above 2, which the check does not cover, into the
-        counts; None when there is a candidate.
+        Why there is no candidate, naming the test that failed: the polynomial
+        through the fit counts has non-integer coefficients or a q^N term; the
+        master count the fit gives is outside [0, N! Vol(Newt G)], Newt G being
+        the Newton polytope of G at the point and Vol its Euclidean volume; an
+        edge of lattice length at least 3 or a face whose lattice quotient has
+        exponent at least 3 lets characters of order above 2, which the check
+        does not cover, into the counts; or the fit disagrees with the count at
+        a check prime. None when there is a candidate.
     skipped_faces
         How many faces the Landau analysis skipped; their discriminants are
         missing from the admissibility test, the excluded primes and the
@@ -704,15 +705,16 @@ def _higher_order(data: PolytopeData) -> str | None:
     k, G is a polynomial of degree k in the edge's lattice coordinate, whose
     roots mod p follow its Galois group: for k >= 3 they can need a character
     of order 3 or more even when every lattice point of the edge is present,
-    as for u^3 - u^2 - 2u + 1, which has three roots mod p when p = +-1 mod 7
-    and none otherwise. On a face of dimension 2 or more whose points span a
-    lattice L in the lattice L_sat of the integer points of its affine hull, G
-    is, up to a monomial, pulled back from the torus of L along an isogeny
-    whose non-empty fibres over F_p are torsors under Hom(L_sat/L, F_p^*). The
-    counts can then depend on p through power-residue characters whose orders
-    divide the exponent of L_sat/L, its largest Smith invariant, which may be
-    smaller than its index. When G has degree at most 2 in every variable, as
-    for a Feynman graph, every edge has lattice length at most 2.
+    as for u^3 - u^2 - 2u + 1, which for p != 7 has three roots mod p when
+    p = +-1 mod 7 and none otherwise. On a face of dimension 2 or more whose
+    points span a lattice L in the lattice L_sat of the integer points of its
+    affine hull, G is, up to a monomial, pulled back from the torus of L along
+    an isogeny whose non-empty fibres over F_p are torsors under
+    Hom(L_sat/L, F_p^*). The counts can then depend on p through power-residue
+    characters whose orders divide the exponent of L_sat/L, its largest Smith
+    invariant, which may be smaller than its index. When G has degree at most
+    2 in every variable, as for a Feynman graph, every edge has lattice length
+    at most 2.
     """
     for dimension, indices in sorted(data.faces):
         if dimension == 0:

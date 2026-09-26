@@ -1361,16 +1361,17 @@ listed in `la.skipped_faces`.
 for finitely many primes $p$, at one rational kinematic point and with $\mu = 1$, and fits a
 polynomial $P(q)$ to the counts. Let $X$ be the complement of $V$ in the complex torus
 $(\mathbb{C}^*)^N$. The number of master integrals, subsectors included, symmetries unused and $D$
-symbolic, is $C = (-1)^N \chi(X)$ (Bitoun, Bogner, Klausen and Panzer 2019, Corollary 37). When the
-fit passes the tests below, $\chi(X) = -P(1)$ is a candidate Euler characteristic and $C$ a
-candidate master count. The normalised volume counts master integrals only for generic coefficients
-and when the exponent differences span $\mathbb{Z}^N$; the point counts look at the physical
-coefficients.
+symbolic, is $C = (-1)^N \chi(X)$ (Bitoun, Bogner, Klausen and Panzer 2019, arXiv:1712.09215,
+Corollary 37). When the fit passes the tests below, $\chi(X) = -P(1)$ is a candidate Euler
+characteristic and $C$ a candidate master count. The normalised volume counts master integrals only
+for generic coefficients and when the exponent differences span $\mathbb{Z}^N$; the point counts
+look at the physical coefficients.
 
-Every result is a candidate, not a proof. Katz's theorem gives $\chi(V) = P(1)$ when
-$\#V(\mathbb{F}_q) = P(q)$ for every finite field $\mathbb{F}_q$ whose characteristic avoids a
-finite set, and counts over finitely many prime fields cannot establish that. Section 4.5 of the
-mathematics reference states the master count and its bound, and section 4.7 the point counts.
+Every result is a candidate, not a proof. Katz's theorem (appendix to Hausel and Rodriguez-Villegas
+2008, arXiv:math/0612668, Theorem 6.1.2(3)) gives $\chi(V) = P(1)$ when $\#V(\mathbb{F}_q) = P(q)$
+for every finite field $\mathbb{F}_q$ whose characteristic avoids a finite set, and counts over
+finitely many prime fields cannot establish that. Section 4.5 of the mathematics reference states
+the master count and its bound, and section 4.7 the point counts.
 
 ```python
 import sympy as sp
@@ -1404,12 +1405,12 @@ None the polynomial through the fit counts has non-integer coefficients
 True 2
 ```
 
-The massive bubble has $p - 3 - (\lambda/p)$ points for every prime not left out, with $\lambda$ the
-Källén function of $s$, $m_1^2$ and $m_2^2$: a polynomial in $p$ only when $\lambda$ is the square
-of a rational number. At seed 0 the draw makes $\lambda = 9$, and the counts fit $P(q) = q - 4$
-(`candidate_polynomial` lists the coefficients from the constant term up), so $C = 3$. At
-$s = m_1^2 = m_2^2 = 1$ the master count is 3 as well, but the counts give no candidate: a missing
-candidate says nothing about $C$.
+For non-zero $s$, $m_1$ and $m_2$, the massive bubble has $p - 3 - (\lambda/p)$ points for every
+prime not left out, with $\lambda$ the Källén function of $s$, $m_1^2$ and $m_2^2$: a polynomial in
+$p$ only when $\lambda$ is the square of a rational number. At seed 0 the draw makes $\lambda = 9$,
+and the counts fit $P(q) = q - 4$ (`candidate_polynomial` lists the coefficients from the constant
+term up), so $C = 3$. At $s = m_1^2 = m_2^2 = 1$ the master count is 3 as well, but the counts give
+no candidate: a missing candidate says nothing about $C$.
 
 ### How the point is chosen
 
@@ -1476,9 +1477,10 @@ the candidates None and gives the `reason`:
 1. Its coefficients are integers, as those of a counting polynomial must be.
 2. Its $q^N$ term is zero, since $V$ has dimension $N - 1$.
 3. $0 \le C \le N!\,\mathrm{Vol}(\mathrm{Newt}\,G)$, where $\mathrm{Newt}\,G$ is the Newton polytope
-   of $G$ at the point and $\mathrm{Vol}$ its Euclidean volume (Bitoun et al. 2019, Theorem 44,
-   after Kouchnirenko). The bound is `normalized_volume * sublattice_index` of its `polytope_data`,
-   or 0 when the polytope is not full-dimensional.
+   of $G$ at the point and $\mathrm{Vol}$ its Euclidean volume (Bitoun et al. 2019,
+   arXiv:1712.09215, Theorem 44, after Kouchnirenko, Invent. Math. 32 (1976) 1). The bound is
+   `normalized_volume * sublattice_index` of its `polytope_data`, or 0 when the polytope is not
+   full-dimensional.
 4. No edge of $\mathrm{Newt}\,G$ has lattice length 3 or more, and no face of dimension 2 or more
    has a quotient $L_\mathrm{sat}/L$ of exponent 3 or more, where $L$ is the lattice spanned by the
    differences of the face's points, $L_\mathrm{sat}$ the integer points of their span, and the
@@ -1501,12 +1503,16 @@ Running out of primes up to `max_prime` before the check is done raises `Validat
 ### Cost
 
 A prime $p$ costs $(p - 1)^{N - 1}$ evaluations of $G$, at about $10^7$ a second, and a run that
-reaches a candidate counts at least $N + 5$ primes. Besides the Landau analysis, five propagators
-take seconds, six about a minute, and seven, given a larger `max_evaluations`, an hour or more.
-`max_evaluations`, $2 \times 10^9$ by default, is compared with the cost of the fit primes and the
-first `verification` check primes before anything is counted, and with the cost of each further
-check prime before it is counted; going over raises `ValidationError`. The default is enough for six
-propagators unless many small primes are left out, and never for seven.
+reaches a candidate counts at least $N + 1 +$ `verification` primes, $N + 5$ with the default
+`verification` of 4. With that default, and besides the Landau analysis, five propagators take
+seconds and six about a minute. Seven need a larger `max_evaluations`: at least $7.6 \times 10^9$
+evaluations, about 13 minutes, when only 2 is left out, and about two hours when 3, 5, 7 and 19 are
+left out as well. `max_evaluations`, $2 \times 10^9$ by default, is compared with the cost of the
+fit primes and the first `verification` check primes before anything is counted, and with the cost
+of each further check prime before it is counted; going over raises `ValidationError`. With the
+default `verification`, the default budget is enough for six propagators unless many small primes
+are left out, and never for seven; with `verification` of 1 or 2, seven can pass the comparison made
+before counting.
 
 ### TorusCount fields
 
@@ -1539,14 +1545,15 @@ python-flint is installed.
 
 `critical_point_count(g, variables, point)` counts the critical points of
 $\sum_e \nu_e \log u_e - (D/2) \log G$ on $X$ at random rational exponents drawn with `seed`; for
-generic exponents they number $|\chi(X)|$ (Fevola, Mizera and Telen 2024, proof of Theorem 3.1,
-after Huh 2013). $G$ must have $\mu = 1$ already, and `point` gives every other symbol, keyed as for
-`count_torus_points`. Singular computes the number modulo the two largest primes below $2^{31}$ that
-divide no numerator or denominator of the coefficients and exponents, and the two results must
-agree. The number over $\mathbb{Q}$ is the same modulo all but finitely many primes, so this is a
-cross-check, not a certificate. It raises `RuntimeError` without Singular, and `ComputationError`
-when the two results differ, when the critical points are not finite at the exponents drawn, or when
-Singular runs past `timeout` seconds (300 by default).
+generic exponents they number $|\chi(X)|$ (Fevola, Mizera and Telen 2024, arXiv:2311.16219, proof of
+Theorem 3.1, after Huh 2013, arXiv:1207.0553). $G$ must have $\mu = 1$ already, and `point` gives
+every other symbol, keyed as for `count_torus_points`. Singular computes the number modulo the two
+largest primes below $2^{31}$ that divide no numerator or denominator of the coefficients and
+exponents. A count modulo a prime can differ from the count over $\mathbb{Q}$, which it equals for
+all but finitely many primes, so this is a cross-check, not a certificate; requiring the two results
+to agree guards against an unlucky prime. It raises `RuntimeError` without Singular, and
+`ComputationError` when the two results differ, when the critical points are not finite at the
+exponents drawn, or when Singular runs past `timeout` seconds (300 by default).
 
 ```python
 import sympy as sp

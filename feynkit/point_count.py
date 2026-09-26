@@ -704,13 +704,15 @@ def _higher_order(data: PolytopeData) -> str | None:
     k, G is a polynomial of degree k in the edge's lattice coordinate, whose
     roots mod p follow its Galois group: for k >= 3 they can need a character
     of order 3 or more even when every lattice point of the edge is present,
-    as for u^3 - 3u + 1. On a face of dimension 2 or more whose points span a
+    as for u^3 - u^2 - 2u + 1, which has three roots mod p when p = +-1 mod 7
+    and none otherwise. On a face of dimension 2 or more whose points span a
     lattice L in the lattice L_sat of the integer points of its affine hull, G
-    is pulled back from the torus of L, and its fibres are counted by the
-    characters of Hom(L_sat/L, F_p^*); their orders divide the exponent of
-    L_sat/L, its largest Smith invariant, which may be smaller than its index.
-    When G has degree at most 2 in every variable, as for a Feynman graph,
-    every edge has lattice length at most 2.
+    is, up to a monomial, pulled back from the torus of L along an isogeny
+    whose non-empty fibres over F_p are torsors under Hom(L_sat/L, F_p^*). The
+    counts can then depend on p through power-residue characters whose orders
+    divide the exponent of L_sat/L, its largest Smith invariant, which may be
+    smaller than its index. When G has degree at most 2 in every variable, as
+    for a Feynman graph, every edge has lattice length at most 2.
     """
     for dimension, indices in sorted(data.faces):
         if dimension == 0:
@@ -817,8 +819,8 @@ def count_torus_points(
     Returns
     -------
     TorusCount
-        The counts and, when they are polynomial on the tested primes, the
-        candidate polynomial, Euler characteristic and master count. When an
+        The counts and, when the fit passes its tests, the candidate
+        polynomial, Euler characteristic and master count. When an
         edge of the Newton polytope of G at the point has lattice length at
         least 3, or a face of dimension 2 or more has a lattice quotient of
         exponent at least 3 (its largest Smith invariant, not its index), the

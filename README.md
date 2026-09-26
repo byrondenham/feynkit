@@ -63,13 +63,13 @@ fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"     # the mass on two different propa
 polytope and symmetries, or those its section flags choose. `--torus-count` adds a candidate
 number of master integrals from finite-field point counts: evidence from finitely many primes, not
 a proof, and often no candidate for massive or off-shell graphs. `fk analyse` also writes the
-analysis report with `--latex FILE` and `--text FILE`, and prints a JSON summary with `--json`. `fk compare` tests
-four equivalences between the A-configurations of two diagrams: unimodular, affine,
-point-configuration and finite-index. It prints each map it finds, and for a point-configuration
-or finite-index map, which sends every column of one A-matrix to a column of the other, the
-identity between the two integrals. Results are stored in `feynkit.db` in the working directory;
-use `--db PATH` for another file or `--no-db` for none. The bare forms `fk CNICKEL` and `fk A B`
-still work. See [the guide](docs/guide.md#cli-fk) for every option and the exit status.
+analysis report with `--latex FILE` and `--text FILE`, and prints a JSON summary with `--json`.
+`fk compare` tests four equivalences between the A-configurations of two diagrams: unimodular,
+affine, point-configuration and finite-index. It prints each map it finds, and for a
+point-configuration or finite-index map, which sends every column of one A-matrix to a column of the
+other, the identity between the two integrals. Results are stored in `feynkit.db` in the working
+directory; use `--db PATH` for another file or `--no-db` for none. The bare forms `fk CNICKEL` and
+`fk A B` still work. See [the guide](docs/guide.md#cli-fk) for every option and the exit status.
 
 ---
 

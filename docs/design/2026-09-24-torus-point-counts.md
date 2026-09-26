@@ -274,9 +274,15 @@ compiling, the option rules.
 
 ## Performance and limits
 
-A prime costs $(p-1)^{N-1}$ evaluations; a run uses at least $N + 5$. At an
-expected $10^7$ a second, $N \le 5$ takes seconds, $N = 6$ a minute,
-$N = 7$ an hour or more, $N \ge 8$ days; the default budget admits $N \le 6$.
+A prime costs $(p-1)^{N-1}$ evaluations; a run that reaches a candidate uses
+at least $N + 1 +$ `verification` primes, $N + 5$ by default. At an expected
+$10^7$ a second and the default `verification`, $N \le 5$ takes seconds,
+$N = 6$ a minute, $N = 7$ at least 13 minutes ($7.6 \times 10^9$
+evaluations with only 2 excluded; about two hours with 3, 5, 7 and 19
+excluded as well), and $N = 8$ at least 14 hours. With the default
+`verification`, the default budget is enough for $N = 6$ unless many small
+primes are excluded, and never for $N = 7$; with `verification` of 1 or 2,
+$N = 7$ can pass the comparison made before counting.
 Massive graphs often give no candidate, as many factors must be squares at
 once. For massless graphs, solving $A + Bx + Cy + Dxy = 0$ by cases on $A$,
 $B$, $C$, $D$ and $AD - BC$ would cut the cost to $(p-1)^{N-2}$. The flint
@@ -292,6 +298,7 @@ against more than 15 minutes over $\mathbb{Q}$.
   $p \equiv 1 \pmod 3$. Katz over $\mathbb{Z}[1/M, \sqrt{d}]$, with $M$ the
   product of the excluded primes, would need every finite field receiving
   that ring.
-- Unchecked: components missing from the Landau list, the Khovanskii
-  reference, and the lattice index behind the $\mathrm{vol}_0$ bound in
-  mathematics reference 4.5.
+- Unchecked: components missing from the Landau list, and the Khovanskii
+  reference. The lattice index is settled: the bound of item 2 is
+  $N!\,\mathrm{Vol} = [\mathbb{Z}^N : L]\,\mathrm{vol}_0$ for a
+  full-dimensional polytope, as mathematics reference 4.5 states.

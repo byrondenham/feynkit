@@ -105,8 +105,9 @@
 - `critical_point_count` counts the critical points of
   sum_e nu_e log u_e - (D/2) log G on X with Singular, which number |chi(X)| for
   generic exponents (Fevola, Mizera and Telen 2024, proof of Theorem 3.1, after
-  Huh 2013). It works modulo two primes near 2^31 and requires the two results
-  to agree, so it is a cross-check, not a certificate, and it raises
+  Huh 2013). It counts modulo two primes near 2^31. A count modulo a prime can
+  differ from the count over Q, so it is a cross-check, not a certificate, and
+  requiring the two primes to agree guards against an unlucky prime. It raises
   `ComputationError` after `timeout` seconds, 300 by default. `backend="flint"`
   counts with python-flint instead of numpy, 75 to 180 times slower, as another
   cross-check. Neither Singular nor python-flint is required.
@@ -127,10 +128,6 @@
   the counts give no candidate. A count over the budget stops with an error
   naming `--torus-budget`. Given `--torus-count` and a report with `torus`, the
   count runs once.
-- Acceptance tests of the candidate master counts against the literature and
-  against the generic Euler characteristics of the principal Landau determinant
-  database. The sweep over its entries with at most five variables needs
-  `FEYNKIT_PLD_DATA` and the `slow` marker.
 
 ### Changed
 
@@ -155,9 +152,6 @@
   of a polynomial whose Newton polytope is a segment in the other order, as for
   x + s x^2 y^2 in x and y. Feynman polytopes keep their order, and the
   discriminants and surfaces do not change.
-- `fk analyse --sections`, `AnalysisReport.from_integral`,
-  `FeynmanIntegral.to_latex` and `FeynmanIntegral.to_text` build every section
-  but `torus` by default (see Breaking changes).
 
 ### Fixed
 

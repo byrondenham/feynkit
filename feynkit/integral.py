@@ -588,13 +588,14 @@ class FeynmanIntegral:
 
         Counts the points of {G = 0} in (F_p^*)^N at one rational kinematic
         point for finitely many primes, with the energy scale set to 1, and
-        fits a polynomial P(q). When the counts are polynomial on the tested
-        primes, chi(X) = -P(1) for the complement X of {G = 0} in the torus is a
-        candidate Euler characteristic, and C = (-1)^N chi(X) a candidate
-        number of master integrals (Bitoun, Bogner, Klausen and Panzer 2019,
-        Corollary 37). A candidate is not a proof: Katz's theorem needs the
-        count to be polynomial for every finite field of all but finitely many
-        characteristics. See :func:`feynkit.point_count.count_torus_points`.
+        fits a polynomial P(q). When the fit passes its tests, among them a
+        check at further primes, chi(X) = -P(1) for the complement X of
+        {G = 0} in the torus is a candidate Euler characteristic, and
+        C = (-1)^N chi(X) a candidate number of master integrals (Bitoun,
+        Bogner, Klausen and Panzer 2019, Corollary 37). A candidate is not a
+        proof: Katz's theorem needs the count to be polynomial for every finite
+        field of all but finitely many characteristics. See
+        :func:`feynkit.point_count.count_torus_points`.
 
         Parameters
         ----------

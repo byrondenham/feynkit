@@ -122,7 +122,7 @@ class TorusCount:
         C = (-1)^N chi(X), or None.
     reason
         Why there is no candidate, naming the test that failed: the counts are
-        not polynomial on the tested primes, the candidate master count is
+        not polynomial on the tested primes, the master count the fit gives is
         outside [0, N! Vol(Newt G)], or an edge of lattice length at least 3 or
         a face whose lattice quotient has exponent at least 3 lets characters
         of order above 2, which the check does not cover, into the counts; None
@@ -830,10 +830,10 @@ def count_torus_points(
     ValidationError
         If the arguments are malformed, ``landau`` analyses another
         polynomial, a coefficient of G or a face discriminant vanishes at the
-        point and ``allow_singular`` is false, no admissible point is drawn, G has degree above 2 in every
-        variable, ``max_prime`` is above the int64 limit, there are too few
-        primes up to ``max_prime`` for the fit and its check, or counting needs
-        more than ``max_evaluations``.
+        point and ``allow_singular`` is false, no admissible point is drawn, G
+        has degree above 2 in every variable, ``max_prime`` is above the int64
+        limit, there are too few primes up to ``max_prime`` for the fit and its
+        check, or counting needs more than ``max_evaluations``.
     RuntimeError
         If ``backend`` is "flint" and python-flint is not installed.
     """
@@ -953,7 +953,9 @@ def count_torus_points(
     fitted = tuple(int(c) for c in coefficients[:n])
     master = (-1) ** (n + 1) * sum(fitted)
     if not 0 <= master <= bound:
-        return outcome(None, f"the candidate master count {master} is not in [0, {bound}]")
+        return outcome(
+            None, f"the master count {master} given by the fit is not in [0, N! Vol] = [0, {bound}]"
+        )
     if refusal is not None:
         return outcome(None, refusal)
 

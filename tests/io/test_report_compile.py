@@ -58,9 +58,9 @@ def test_report_with_point_counts_compiles(tmp_path: Path) -> None:
 
 
 @requires_pdflatex
-@pytest.mark.parametrize("kind", ["check", "degree"])  # type: ignore[misc]
+@pytest.mark.parametrize("kind", ["check", "bound", "degree"])  # type: ignore[misc]
 def test_report_without_a_candidate_compiles(kind: str, tmp_path: Path) -> None:
-    # The reasons write p = 41 and q^1, which the document sets as maths.
+    # The reasons write p = 41, [0, N! Vol] = [0, 2] and q^1, which the document sets as maths.
     bubble = FeynmanIntegral.from_cnickel("11e|e|:nn")
     report = AnalysisReport.from_integral(bubble, SECTION_NAMES)
     assert report.torus is not None
@@ -68,6 +68,13 @@ def test_report_without_a_candidate_compiles(kind: str, tmp_path: Path) -> None:
         # m_1^2 = 5, m_2^2 = 8 and s = 2, where lambda = -39; the check fails at p = 41.
         point = {key: value for (key, _), value in zip(report.torus.point, (5, 8, 2), strict=True)}
         count = bubble.torus_count(point=point)
+    elif kind == "bound":
+        count = count_torus_points(
+            bubble.symanzik.g,
+            bubble.symanzik.lp_parameters,
+            scale=bubble.graph.energy_scale,
+            volume_bound=2,
+        )
     else:
         u, x = sp.symbols("u x")
         count = count_torus_points(u**2 - x, [u], point={x: 11})

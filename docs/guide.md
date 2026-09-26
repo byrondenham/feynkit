@@ -83,7 +83,7 @@ under uv). It has two subcommands:
 
 ```
 fk analyse CNICKEL [section flags] [--latex FILE] [--text FILE] [--json] [--sections NAMES]
-           [--db PATH | --no-db] [--verbose]
+           [--seed N] [--torus-budget N] [--db PATH | --no-db] [--verbose]
 fk compare A B [--db PATH | --no-db] [--verbose]
 fk --version
 ```
@@ -93,7 +93,8 @@ Quote every CNickel string: an unquoted `|` is a shell pipe. The bare forms `fk 
 
 ### Analysing one diagram
 
-With no section flags, `fk analyse` prints every section. Pass one or more flags to choose.
+With no section flags, `fk analyse` prints every section except the point counts of
+`--torus-count`, which can take minutes. Pass one or more flags to choose.
 
 ```bash
 fk analyse "12e|2e|e|:zzz"              # every section of the massless triangle
@@ -101,6 +102,7 @@ fk analyse "12e|2e|e|:zzz" -g -n        # GKZ system and Newton polytope only
 fk analyse "111e|e|:zzz"                # massless banana with three propagators
 fk analyse "12e|2e|e|"                  # bare topology: every propagator massless
 fk analyse "12e|2e|e|:nzz" -S           # symmetries of the one-mass triangle
+fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive bubble
 ```
 
 | Flag | Long form | Section |
@@ -111,10 +113,33 @@ fk analyse "12e|2e|e|:nzz" -S           # symmetries of the one-mass triangle
 | `-t` | `--toric` | Toric ideal of the A-matrix |
 | `-n` | `--newton` | Newton polytope: vertices, normalised volume (the holonomic rank for generic $\beta$), Smith invariants |
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
+| | `--torus-count` | Candidate Euler characteristic from finite-field point counts; left out when no flag is given |
 
 The graph header (CNickel string, Nickel index, loop count, propagators, external legs) is
 printed whatever the section flags, and so is the database record unless `--no-db` is given. The
 header shows the string as typed, with its canonical form beside it when the two differ.
+
+#### Point counts
+
+`--torus-count` counts the points of $G = 0$ in the torus over finite fields $\mathbb{F}_p$ at one
+kinematic point and fits a polynomial in $p$. It prints the point, the excluded primes and the
+counts, then either the candidate polynomial, Euler characteristic and master count or the reason
+the counts give no candidate. These are candidates, not proofs.
+
+| Option | Effect |
+|--------|--------|
+| `--seed N` | seed for the kinematic point; 0 by default |
+| `--torus-budget N` | maximum evaluations of $G$; $2 \times 10^9$ by default, which admits up to six propagators |
+
+Both need `--torus-count`, or `torus` among the report sections of `--sections`. `--json` does not
+take `--torus-count`: name `torus` in `--sections` instead, and the summary gains
+`candidate_master_count`, which is `null` when the counts give no candidate. Given
+`--torus-count` and a report with the `torus` section, `fk analyse` counts once for both.
+
+```bash
+fk analyse "11e|e|:nn" --torus-count --seed 1
+fk analyse "12e|2e|e|:zzz" --json --sections polytope,torus --no-db
+```
 
 #### Reports and JSON
 
@@ -126,7 +151,7 @@ the options are given.
 |--------|--------|
 | `--latex FILE` | write the report as a LaTeX document |
 | `--text FILE` | write the report as plain text |
-| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `gkz`, `symmetries`, `landau` and `schwinger`; all by default |
+| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `symmetries`, `landau` and `schwinger`; all but `torus` by default |
 | `--json` | print a JSON summary of the report on stdout, and nothing else |
 
 `--sections` chooses what the report holds, and so what `--json` summarises; it does not change

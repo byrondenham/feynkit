@@ -15,6 +15,7 @@ Examples
 --------
     fk analyse "12e|2e|e|:zzz"
     fk analyse "12e|2e|e|:zzz" --gkz --newton
+    fk analyse "11e|e|:nn" --torus-count       # candidate master count from point counts
     fk analyse "12e|2e|e|"                     # bare topology: every propagator massless
     fk compare "12e|2e|e|:zzz" "11e|e|:zz"     # triangle against bubble
 
@@ -47,10 +48,14 @@ from feynkit.integral import FeynmanIntegral
 from feynkit.io.report import DEFAULT_SECTIONS, SECTION_NAMES, AnalysisReport
 from feynkit.io.report_latex import render_latex
 from feynkit.io.report_text import render_text
+from feynkit.point_count import TorusCount
 from feynkit.polytope import polytope_data
 
 COMMANDS = ("analyse", "compare")
 SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "symmetries")
+# The seed and budget of the point counts when --seed and --torus-budget are not given.
+DEFAULT_TORUS_SEED = 0
+DEFAULT_TORUS_BUDGET = 2 * 10**9
 # 128 + SIGPIPE: the status of a tool that a closed pipe stops, as the shell reports it.
 EXIT_BROKEN_PIPE = 141
 
@@ -390,6 +395,40 @@ def _print_database(fi: FeynmanIntegral, db: FeynkitDatabase) -> None:
         print("  No unimodular equivalents in DB.")
 
 
+def _print_torus(count: TorusCount) -> None:
+    _sec("Candidate Euler characteristic from point counts")
+    if count.point:
+        point = ", ".join(f"{key} = {value}" for key, value in count.point)
+        origin = "given" if count.seed is None else f"seed {count.seed}"
+        _kv("Kinematic point", f"{point}  ({origin})")
+    else:
+        _kv("Kinematic point", "none needed: G has no kinematic symbols")
+    if count.on_shell:
+        _kv("On shell", ", ".join(f"{key} = {value}" for key, value in count.on_shell))
+    if count.on_landau_surface:
+        print(
+            "  A coefficient of G or a face discriminant vanishes at the point, where C can be "
+            "smaller than for generic kinematics."
+        )
+    _kv("Solved for", count.eliminated)
+    excluded = ", ".join(map(str, count.excluded_primes))
+    _kv("Excluded primes", f"{excluded}  (up to {count.max_prime})")
+    fit = set(count.fit_primes)
+    _kv("Counts #V(F_p) to fit", ", ".join(f"{p}: {n}" for p, n in count.counts if p in fit))
+    checks = ", ".join(f"{p}: {n}" for p, n in count.counts if p not in fit)
+    _kv("Counts #V(F_p) to check", checks or "none")
+    if count.skipped_faces:
+        _kv("Faces the Landau analysis skipped", count.skipped_faces)
+    if count.candidate_polynomial is None:
+        print(f"  No candidate: {count.reason}.")
+    else:
+        q = sp.Symbol("q")
+        _kv("Candidate P(q)", sp.Add(*(c * q**i for i, c in enumerate(count.candidate_polynomial))))
+        _kv("Candidate chi(X) = -P(1)", count.candidate_euler_characteristic)
+        _kv("Candidate master count", count.candidate_master_count)
+    print("  A fit on finitely many primes is evidence, not a proof.")
+
+
 _PRINTERS: dict[str, Callable[[FeynmanIntegral], None]] = {
     "symanzik": _print_symanzik,
     "params": _print_params,
@@ -413,6 +452,8 @@ class ReportOptions:
     latex: Path | None = None
     text: Path | None = None
     as_json: bool = False
+    torus_seed: int = DEFAULT_TORUS_SEED
+    torus_budget: int = DEFAULT_TORUS_BUDGET
 
     @property
     def writes_files(self) -> bool:
@@ -453,8 +494,10 @@ def _write_reports(report: AnalysisReport, options: ReportOptions, *, announce: 
             print(f"  Wrote the text report to {options.text}")
 
 
-def _json_value(value: str) -> int | str:
-    """A summary value as an integer when it is one, otherwise as given."""
+def _json_value(value: str) -> int | str | None:
+    """A summary value as an integer when it is one, None for "none", otherwise as given."""
+    if value == "none":
+        return None
     try:
         return int(value)
     except ValueError:
@@ -488,22 +531,37 @@ def analyse_one(
     """Analyse one diagram: every section or the chosen ones, then the reports asked for.
 
     With --json, only the report's summary is printed, as JSON. Stdout is
-    flushed after each stage; verbose prints each stage's time on stderr.
+    flushed after each stage; verbose prints each stage's time on stderr. The
+    point counts are printed only when ``sections`` holds "torus", and run once
+    when the report holds them too.
     """
     options = report if report is not None else ReportOptions()
     t0 = time.perf_counter()
     with _stage("parse", verbose):
         fi = _load(cnickel)
+    built: list[AnalysisReport] = []
+
+    def build() -> AnalysisReport:
+        if not built:
+            built.append(
+                AnalysisReport.from_integral(
+                    fi,
+                    options.sections,
+                    torus_seed=options.torus_seed,
+                    torus_budget=options.torus_budget,
+                )
+            )
+        return built[0]
+
     with ExitStack() as stack:
         db = _open_database(stack, db_path)
         if options.as_json:
             with _stage("report", verbose):
-                built = AnalysisReport.from_integral(fi, options.sections)
-                _write_reports(built, options, announce=False)
+                _write_reports(build(), options, announce=False)
             if db is not None:
                 with _stage("database", verbose):
                     db.store(fi, label=fi.cnickel)
-            print(_summary_json(cnickel, fi, built, options.sections))
+            print(_summary_json(cnickel, fi, build(), options.sections))
             return
         with _stage("graph", verbose):
             _print_graph(cnickel, fi)
@@ -511,11 +569,20 @@ def analyse_one(
             if not sections or name in sections:
                 with _stage(name, verbose):
                     _PRINTERS[name](fi)
+        if "torus" in sections:
+            with _stage("torus", verbose):
+                count = None
+                if options.writes_files and "torus" in options.sections:
+                    count = build().torus
+                if count is None:
+                    count = fi.torus_count(
+                        seed=options.torus_seed, max_evaluations=options.torus_budget
+                    )
+                _print_torus(count)
         if options.writes_files:
             with _stage("report", verbose):
                 _sec("Report")
-                built = AnalysisReport.from_integral(fi, options.sections)
-                _write_reports(built, options, announce=True)
+                _write_reports(build(), options, announce=True)
         if db is not None:
             with _stage("database", verbose):
                 _print_database(fi, db)
@@ -701,7 +768,7 @@ def _compare(
 
 # Options that take a value. The bare form needs them to tell a value from a
 # second diagram: fk "12e|2e|e|" --db x.db names one diagram, not two.
-_VALUE_OPTIONS = frozenset({"--db", "--latex", "--text", "--sections"})
+_VALUE_OPTIONS = frozenset({"--db", "--latex", "--text", "--sections", "--seed", "--torus-budget"})
 
 _MAIN_EPILOG = """\
 examples:
@@ -724,6 +791,7 @@ examples:
   fk analyse "12e|2e|e|:zzz" -g -n             GKZ system and Newton polytope only
   fk analyse "12e|3e|3e|e|:zzzz" -n -S         the massless box: polytope and symmetries
   fk analyse "12e|2e|e|"                       bare topology: every propagator massless
+  fk analyse "11e|e|:nn" --torus-count         the point counts alone; slow for larger graphs
   fk analyse "12e|2e|e|:nnn" --latex triangle.tex --text triangle.txt
   fk analyse "12e|2e|e|:nzz" --json --sections gkz,polytope --no-db
 
@@ -794,7 +862,7 @@ def _build_parser() -> _Parsers:
         "cnickel", metavar="CNICKEL", help='CNickel string, quoted, e.g. "12e|2e|e|:nzz"'
     )
     shown = analyse.add_argument_group(
-        "sections", "sections to print; all of them when no flag is given"
+        "sections", "sections to print; all but --torus-count when no flag is given"
     )
     shown.add_argument("-s", "--symanzik", action="store_true", help="Symanzik polynomials U, F, G")
     shown.add_argument(
@@ -814,6 +882,16 @@ def _build_parser() -> _Parsers:
     shown.add_argument(
         "-S", "--symmetries", action="store_true", help="polytope automorphisms and symmetry pairs"
     )
+    shown.add_argument(
+        "--torus-count",
+        action="store_true",
+        help="print the candidate Euler characteristic from finite-field point counts; slow",
+    )
+    counting = analyse.add_argument_group(
+        "point counts", "for --torus-count and the torus report section"
+    )
+    counting.add_argument("--seed", type=int, metavar="N", help="seed for the kinematic point")
+    counting.add_argument("--torus-budget", type=int, metavar="N", help="maximum evaluations")
     report = analyse.add_argument_group(
         "report", "the analysis report of FeynmanIntegral.to_latex and to_text"
     )
@@ -831,8 +909,8 @@ def _build_parser() -> _Parsers:
         type=_section_list,
         metavar="NAMES",
         help=(
-            "comma-separated report sections, all but torus by default: "
-            f"{', '.join(SECTION_NAMES)}"
+            f"comma-separated report sections from {', '.join(SECTION_NAMES)}; "
+            "all but torus by default"
         ),
     )
 
@@ -882,8 +960,9 @@ def _with_command(argv: Sequence[str]) -> list[str]:
 
 
 def _section_flags(args: argparse.Namespace) -> set[str]:
-    """The sections that the section flags of analyse choose."""
-    return {name for name in SECTION_FLAGS if getattr(args, name)}
+    """The sections that the section flags of analyse choose; --torus-count chooses "torus"."""
+    chosen = {name for name in SECTION_FLAGS if getattr(args, name)}
+    return chosen | {"torus"} if args.torus_count else chosen
 
 
 def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> ReportOptions:
@@ -892,11 +971,20 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         parser.error("--json prints only the summary; drop the section flags")
     if args.sections is not None and not (args.latex or args.text or args.json):
         parser.error("--sections chooses report sections; add --latex, --text or --json")
+    counts = args.torus_count or (args.sections is not None and "torus" in args.sections)
+    for option, value in (("--seed", args.seed), ("--torus-budget", args.torus_budget)):
+        if value is not None and not counts:
+            parser.error(
+                f"{option} applies to the point counts; add --torus-count or name torus in "
+                "--sections"
+            )
     return ReportOptions(
         sections=DEFAULT_SECTIONS if args.sections is None else args.sections,
         latex=args.latex,
         text=args.text,
         as_json=args.json,
+        torus_seed=DEFAULT_TORUS_SEED if args.seed is None else args.seed,
+        torus_budget=DEFAULT_TORUS_BUDGET if args.torus_budget is None else args.torus_budget,
     )
 
 

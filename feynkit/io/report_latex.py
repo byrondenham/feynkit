@@ -4,10 +4,11 @@ LaTeX rendering of an analysis report.
 :func:`render_latex` turns an :class:`AnalysisReport` into a complete
 ``article`` document: a summary table, the graph, the conventions, the
 Symanzik polynomials, the parametric representations with the convergence
-region, the Newton polytope with the rank statement, the GKZ system, the
-symmetries, the Landau surfaces, the Schwinger-representation system and the
-references. Each section is rendered by its own function and omitted when the
-report does not carry it. Citations and the width of the widest matrix are
+region, the Newton polytope with the rank statement, the candidate Euler
+characteristic from finite-field point counts, the GKZ system, the symmetries,
+the Landau surfaces, the Schwinger-representation system and the references.
+Each section is rendered by its own function and omitted when the report does
+not carry it. Citations and the width of the widest matrix are
 collected while the sections are rendered, so the bibliography lists exactly
 the works the text cites, in the order of first citation, and the preamble
 allows exactly as many matrix columns as the document needs. What the text
@@ -19,20 +20,23 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from fractions import Fraction
 
 import sympy as sp
 
+from ..point_count import TorusCount
 from ._report_shared import (
     CITATIONS,
     MAX_PAIRS_SHOWN,
-    NOT_COMPUTED,
     Citations,
     append_signed,
     count_noun,
+    count_polynomial,
     face_names,
     integrand_templates,
     join_words,
     landau_factors,
+    not_computed,
     render_sections,
     signed_terms,
     skipped_faces,
@@ -54,6 +58,13 @@ from .report import (
 
 __all__ = ["CITATIONS", "render_latex"]
 
+
+# How the Newton polytope section refers to the point-count section.
+_TORUS_REFERENCE = "Section~\\ref{sec:torus-counts}"
+
+# The maths in point_count's reasons for no candidate, which it writes as plain text: a
+# power of q, a prime p = 41, an interval [0, 6] and a negative number.
+_REASON_MATHS = re.compile(r"q\^\d+|p = \d+|\[-?\d+, -?\d+\]|(?<![\w-])-\d+")
 
 # amsmath matrices stop at this many columns unless MaxMatrixCols is raised.
 _AMSMATH_MATRIX_COLUMNS = 10
@@ -134,6 +145,18 @@ class _Document(Citations):
 def _escape(text: str) -> str:
     """Escape the characters that LaTeX treats specially in running text."""
     return text.translate(_ESCAPES)
+
+
+def _reason(reason: str) -> str:
+    """A reason for no candidate, escaped, with its maths set as maths."""
+    pieces = []
+    start = 0
+    for match in _REASON_MATHS.finditer(reason):
+        maths = re.sub(r"\^(\d+)", r"^{\1}", match.group())
+        pieces += [_escape(reason[start : match.start()]), f"${maths}$"]
+        start = match.end()
+    pieces.append(_escape(reason[start:]))
+    return "".join(pieces)
 
 
 def _math(expr: sp.Expr) -> str:
@@ -433,7 +456,7 @@ def _representations(
     return "\n".join(parts)
 
 
-def _polytope(polytope: Polytope, doc: _Document) -> str:
+def _polytope(report: AnalysisReport, polytope: Polytope, doc: _Document) -> str:
     data = polytope.data
     counts = [
         count_noun(n, singular, plural)
@@ -490,7 +513,108 @@ def _polytope(polytope: Polytope, doc: _Document) -> str:
         "$\\{G = 0\\}$ in the torus, at most $N!$ times the Euclidean volume of $P$, with "
         "equality for generic coefficients; graph-polynomial coefficients are rarely generic"
         f"{doc.cite('bbkp2017')}. The bound equals the normalised volume when the exponent "
-        f"differences span $\\mathbb{{Z}}^N$. {NOT_COMPUTED}",
+        f"differences span $\\mathbb{{Z}}^N$. {not_computed(report, _TORUS_REFERENCE)}",
+    ]
+    return "\n".join(parts)
+
+
+def _rational(value: Fraction) -> str:
+    return to_latex(sp.Rational(value.numerator, value.denominator))
+
+
+def _torus(torus: TorusCount, doc: _Document) -> str:
+    intro = (
+        "Let $X$ be the complement of $V = \\{G = 0\\}$ in the torus $(\\mathbb{C}^*)^N$, with "
+        "$\\mu = 1$. The number of master integrals, with subsectors included, symmetries unused "
+        f"and $D$ symbolic, is $C = (-1)^N \\chi(X)$ by Corollary~37 of{doc.cite('bbkp2017')}. "
+        "If the number of points of $V$ in $(\\mathbb{F}_q^*)^N$ is a polynomial $P(q)$ for "
+        "every finite field $\\mathbb{F}_q$ whose characteristic avoids a finite set, then "
+        "$\\chi(V) = P(1)$ by Theorem~6.1.2(3) of Katz's appendix to the paper of Hausel and "
+        f"Rodriguez-Villegas{doc.cite('katz2008')}, and $\\chi(X) = -P(1)$, since the Euler "
+        "characteristic is additive and vanishes on the torus."
+    )
+    where = join_words([f"${to_latex(key)} = {_rational(v)}$" for key, v in torus.point])
+    if torus.on_shell:
+        settings = join_words([f"${to_latex(key)} = {to_latex(v)}$" for key, v in torus.on_shell])
+        where += f", with {settings} in the momentum products"
+    if not torus.point:
+        origin = "$G$ has no kinematic symbols, so the counts need no kinematic point."
+    elif torus.seed is None:
+        origin = f"The counts are taken at the kinematic point {where}, given by the caller."
+    else:
+        origin = (
+            f"The counts are taken at the kinematic point {where}, drawn with seed {torus.seed} "
+            "so that every coefficient of $G$ and every face discriminant is non-zero. The value "
+            "of $|\\chi(X)|$ is the same on an open dense set of kinematics"
+            f"{doc.cite('fmt2024')}, and the draw avoids the Landau surfaces found, on which it "
+            "can be smaller."
+        )
+    if torus.on_landau_surface:
+        origin += (
+            " The point lies on a Landau surface, where $C$ can be smaller than for generic "
+            "kinematics."
+        )
+    if torus.skipped_faces:
+        origin += (
+            f" The Landau analysis skipped {count_noun(torus.skipped_faces, 'face')}, whose "
+            "discriminants the draw, the excluded primes and the check leave out."
+        )
+    n = len(torus.variables)
+    if torus.verification_primes:
+        # A fit that fails no test before the check; the check stops at a disagreement.
+        stops = "" if torus.candidate_polynomial is not None else ", unless a count disagrees first"
+        fit = (
+            f"The polynomial of degree at most {n} through the counts at the first {n + 1} primes "
+            "not left out is checked at further primes, at least until every quadratic character "
+            f"the counts could depend on has taken both signs{stops}:"
+        )
+    else:
+        fit = (
+            f"The counts at the first {n + 1} primes not left out determine a polynomial of "
+            f"degree at most {n}:"
+        )
+    fit_primes = set(torus.fit_primes)
+    rows = [f"{p} & {c} & {'fit' if p in fit_primes else 'check'} \\\\" for p, c in torus.counts]
+    parts = [
+        "\\label{sec:torus-counts}",
+        intro,
+        "",
+        origin,
+        "",
+        f"$G$ is solved for ${to_latex(torus.eliminated)}$, in which it has degree at most 2, so "
+        "each count is a sum of numbers of roots of quadratics over $\\mathbb{F}_p$. The primes "
+        "left out are 2 and those dividing the value at the point of a coefficient of $G$, a "
+        "face discriminant, a factor of one or the discriminant of $G$ on an edge: here "
+        f"{join_words([str(p) for p in torus.excluded_primes])}. {fit}",
+        "\\begin{center}",
+        "\\begin{tabular}{rrl}",
+        "\\toprule",
+        "$p$ & $\\#V(\\mathbb{F}_p)$ & Use \\\\",
+        "\\midrule",
+        *rows,
+        "\\bottomrule",
+        "\\end{tabular}",
+        "\\end{center}",
+    ]
+    if torus.candidate_polynomial is None:
+        refusal = f"The counts give no candidate: {_reason(torus.reason or '')}."
+        if not torus.verification_primes:
+            refusal += " The fit is not checked at further primes."
+        parts.append(refusal)
+    else:
+        parts += [
+            "The counts fit",
+            _equation("P(q)", to_latex_lines(count_polynomial(torus.candidate_polynomial))),
+            "at every prime counted, which gives the candidates "
+            f"$\\chi(X) = -P(1) = {torus.candidate_euler_characteristic}$ and "
+            f"$C = (-1)^N \\chi(X) = {torus.candidate_master_count}$.",
+        ]
+    parts += [
+        "",
+        "A fit on finitely many primes is evidence, not a proof: Katz's theorem needs the count "
+        "to be polynomial for every finite field of all but finitely many characteristics"
+        f"{doc.cite('katz2008')}. The rule that excludes primes is heuristic, and a bad prime it "
+        "misses would make the fit or its check fail rather than give a wrong candidate.",
     ]
     return "\n".join(parts)
 
@@ -738,7 +862,8 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
         conventions=lambda: _conventions(report, doc),
         polynomials=lambda: _polynomials(report, doc),
         representations=lambda section: _representations(report, section, doc),
-        polytope=lambda section: _polytope(section, doc),
+        polytope=lambda section: _polytope(report, section, doc),
+        torus=lambda section: _torus(section, doc),
         gkz=lambda section: _gkz(section, doc),
         symmetries=lambda section: _symmetries(report, section, doc),
         landau=lambda section: _landau(section, report.conventions.energy_scale, doc),

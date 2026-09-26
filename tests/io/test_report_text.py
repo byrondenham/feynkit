@@ -9,6 +9,7 @@ plain-text wording of the sentences the LaTeX tests pin.
 
 from __future__ import annotations
 
+import dataclasses
 import difflib
 import re
 from itertools import pairwise
@@ -17,9 +18,11 @@ import pytest
 import sympy as sp
 
 from feynkit import Edge, FeynmanIntegral, Graph
-from feynkit.io.report import AnalysisReport
+from feynkit.io._report_shared import NOT_COMPUTED, TORUS_HEADING
+from feynkit.io.report import SECTION_NAMES, AnalysisReport
 from feynkit.io.report_latex import CITATIONS, render_latex
 from feynkit.io.report_text import _str, _strip_latex, render_text
+from feynkit.point_count import TorusCount, count_torus_points
 
 _KEY = r"[a-z]+\d{4}"
 
@@ -678,3 +681,174 @@ def test_edge_table(text: str) -> None:
 
 def test_schwinger_condition(text: str) -> None:
     assert "here nu_1 + nu_2 + nu_3 = D [britto2026]" in _flat(text)
+
+
+# --- the point counts --------------------------------------------------------
+
+# The Newton polytope section points at the point-count section, by reference in LaTeX and by
+# its heading in the text.
+_TORUS_INTENDED = (
+    *_INTENDED,
+    ("Section~\\ref{sec:torus-counts}", f'the section "{TORUS_HEADING}"'),
+)
+
+
+@pytest.fixture(scope="module")  # type: ignore[misc]
+def torus_report() -> AnalysisReport:
+    # Every section of the massive bubble, whose counts at seed 0 are p - 4.
+    return AnalysisReport.from_integral(FeynmanIntegral.from_cnickel("11e|e|:nn"), SECTION_NAMES)
+
+
+def _without_candidate(report: AnalysisReport) -> AnalysisReport:
+    assert report.torus is not None
+    torus = dataclasses.replace(
+        report.torus,
+        candidate_polynomial=None,
+        candidate_euler_characteristic=None,
+        candidate_master_count=None,
+        reason="the count at p = 41 is 37, where the fit predicts 39",
+    )
+    return dataclasses.replace(report, torus=torus)
+
+
+def test_point_counts_follow_the_newton_polytope(
+    torus_report: AnalysisReport, triangle_report: AnalysisReport
+) -> None:
+    headings = _text_headings(render_text(torus_report))
+    assert headings[headings.index("Newton polytope") + 1] == TORUS_HEADING
+    assert headings == _latex_headings(render_latex(torus_report))
+    assert TORUS_HEADING not in _text_headings(render_text(triangle_report))
+
+
+@pytest.mark.parametrize(  # type: ignore[misc]
+    "candidate", [True, False], ids=["candidate", "no-candidate"]
+)
+def test_point_count_report_agrees_with_the_latex(
+    torus_report: AnalysisReport, candidate: bool
+) -> None:
+    report = torus_report if candidate else _without_candidate(torus_report)
+    text, latex = render_text(report), render_latex(report)
+    assert _text_summary(text) == _latex_summary(latex) == list(report.summary())
+    bibliography = re.findall(r"\\bibitem\{([^}]*)\}", latex)
+    assert {"bbkp2017", "katz2008", "fmt2024"} <= set(bibliography)
+    assert _first_citations(text.split("\nReferences\n----------\n")[0]) == bibliography
+    assert _prose_diff(report, _TORUS_INTENDED)[1] == []
+    for line in text.splitlines():
+        assert len(line) <= 79, line
+
+
+def test_uncomputed_sentence_points_at_the_candidate(torus_report: AnalysisReport) -> None:
+    text = _flat(_section(render_text(torus_report), "Newton polytope"))
+    latex = " ".join(render_latex(torus_report).split())
+    assert NOT_COMPUTED not in text
+    assert (
+        "feynkit does not compute the holonomic rank at the physical point, and gives the Euler "
+        "characteristic only as a candidate from the point counts of the section "
+        f'"{TORUS_HEADING}".'
+    ) in text
+    assert "point counts of Section~\\ref{sec:torus-counts}." in latex
+    assert "\\label{sec:torus-counts}" in latex
+
+
+def test_uncomputed_sentence_without_a_candidate(torus_report: AnalysisReport) -> None:
+    text = render_text(_without_candidate(torus_report))
+    polytope = _flat(_section(text, "Newton polytope"))
+    assert (
+        "feynkit computes neither the holonomic rank at the physical point nor the Euler "
+        "characteristic, and the point counts of the section "
+        f'"{TORUS_HEADING}" give no candidate.'
+    ) in polytope
+    counts = _flat(_section(text, TORUS_HEADING))
+    assert (
+        "The counts give no candidate: the count at p = 41 is 37, where the fit predicts 39."
+    ) in counts
+    assert "P(q) =" not in counts
+
+
+def test_uncomputed_sentence_is_unchanged_without_the_section(text: str) -> None:
+    assert NOT_COMPUTED in _flat(_section(text, "Newton polytope"))
+
+
+def test_point_count_section_states_the_counts(torus_report: AnalysisReport) -> None:
+    assert torus_report.torus is not None
+    counts = _section(render_text(torus_report), TORUS_HEADING)
+    for p, n in torus_report.torus.counts:
+        assert re.search(rf"^    {p} +{n} +(fit|check)$", counts, re.M)
+    flat = _flat(counts)
+    assert "drawn with seed 0" in flat
+    assert "C = (-1)^N chi(X) = 3." in flat
+    assert "finitely many primes is evidence, not a proof" in flat
+
+
+# How each test that refuses a candidate begins its reason.
+_REASONS = {
+    "check": "the count at p = 41 is 37,",
+    "bound": "the candidate master count 3 is not in [0, 2]",
+    "integer": "the polynomial through the fit counts has non-integer coefficients",
+    "degree": "the polynomial through the fit counts has a q^1 term",
+    "guard": "the Newton polytope has an edge of lattice length 6,",
+}
+
+
+@pytest.fixture(scope="module")  # type: ignore[misc]
+def refusals(torus_report: AnalysisReport) -> dict[str, AnalysisReport]:
+    """The bubble's report with counts that give no candidate, one for each test that refuses.
+
+    Every count comes from point_count: the bubble at m_1^2 = 5, m_2^2 = 8 and s = 2, where
+    lambda = -39 and the check fails at p = 41; the bubble under a volume bound of 2; and the
+    small polynomials of the point-count tests for non-integer coefficients, a q^N term and the
+    guard on characters of higher order, which no Feynman graph reaches.
+    """
+    assert torus_report.torus is not None
+    bubble = FeynmanIntegral.from_cnickel("11e|e|:nn")
+    lambda_39 = {
+        key: value for (key, _), value in zip(torus_report.torus.point, (5, 8, 2), strict=True)
+    }
+    u, v, x = sp.symbols("u v x")
+    counts: dict[str, TorusCount] = {
+        "check": bubble.torus_count(point=lambda_39),
+        "bound": count_torus_points(
+            bubble.symanzik.g,
+            bubble.symanzik.lp_parameters,
+            scale=bubble.graph.energy_scale,
+            volume_bound=2,
+        ),
+        "integer": count_torus_points(1 + x * u**3 + v, [u, v], point={x: 1}),
+        "degree": count_torus_points(u**2 - x, [u], point={x: 11}),
+        "guard": count_torus_points(v + u**6 + x, [u, v], point={x: 108}),
+    }
+    for kind, count in counts.items():
+        assert count.reason is not None and count.reason.startswith(_REASONS[kind]), kind
+    return {kind: dataclasses.replace(torus_report, torus=count) for kind, count in counts.items()}
+
+
+@pytest.mark.parametrize("kind", list(_REASONS))  # type: ignore[misc]
+def test_a_result_without_a_candidate_says_why(
+    refusals: dict[str, AnalysisReport], kind: str
+) -> None:
+    report = refusals[kind]
+    assert report.torus is not None
+    text, latex = render_text(report), render_latex(report)
+    counts = _flat(_section(text, TORUS_HEADING))
+    assert f"The counts give no candidate: {report.torus.reason}." in counts
+    assert "P(q) =" not in counts
+    # Only a fit that passes the tests before the check is checked at further primes.
+    checked = (
+        "is checked at further primes, at least until every quadratic character the counts "
+        "could depend on has taken both signs"
+    )
+    if report.torus.verification_primes:
+        assert f"{checked}, unless a count disagrees first:" in counts
+    else:
+        assert checked not in counts
+        assert "The fit is not checked at further primes." in counts
+    # The bound and the guard refuse counts that may well be polynomial.
+    assert f'the section "{TORUS_HEADING}" give no candidate.' in _flat(text)
+    assert "point counts of Section~\\ref{sec:torus-counts} give no candidate." in _flat(latex)
+    for document in (text, latex):
+        assert "not polynomial" not in _flat(document)
+    assert "\\textasciicircum" not in latex
+    assert _text_summary(text) == _latex_summary(latex) == list(report.summary())
+    assert _prose_diff(report, _TORUS_INTENDED)[1] == []
+    for line in text.splitlines():
+        assert len(line) <= 79, line

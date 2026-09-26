@@ -18,7 +18,7 @@ import sympy as sp
 from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.io._report_shared import integrand_templates
 from feynkit.io.report import AnalysisReport
-from feynkit.io.report_latex import CITATIONS, render_latex
+from feynkit.io.report_latex import CITATIONS, _reason, render_latex
 from feynkit.normal_forms._invariants import hull_vertex_indices, to_integer_points
 from feynkit.polytope import polytope_data
 
@@ -391,3 +391,23 @@ def test_self_contained_symmetry_identity_uses_one_with_clause(
     identity = symmetries.split("Each gives the identity")[1].split(".")[0]
     assert identity.count(" with ") == 1
     assert "be the Lee-Pomeransky integral without its prefactor" in symmetries
+
+
+def test_reasons_without_a_candidate_set_their_maths() -> None:
+    # point_count writes its reasons as plain text, maths included.
+    assert _reason("the polynomial through the fit counts has a q^1 term") == (
+        "the polynomial through the fit counts has a $q^{1}$ term"
+    )
+    assert _reason("the count at p = 3 is 0, where the fit predicts -1") == (
+        "the count at $p = 3$ is 0, where the fit predicts $-1$"
+    )
+    assert _reason("the candidate master count -3 is not in [0, 12]") == (
+        "the candidate master count $-3$ is not in $[0, 12]$"
+    )
+    guard = (
+        "the Newton polytope has a face of dimension 2 whose lattice quotient has exponent 3, "
+        "so the counts may depend on characters of order above 2, which the check does not "
+        "cover"
+    )
+    assert _reason(guard) == guard
+    assert _reason("a_1 & 50%") == "a\\_1 \\& 50\\%"

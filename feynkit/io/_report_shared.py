@@ -20,6 +20,7 @@ from typing import NamedTuple
 
 import sympy as sp
 
+from ..point_count import TorusCount
 from .latex import factor_energy_scale
 from .report import GKZ, AnalysisReport, Landau, Polytope, Representations, Schwinger, Symmetries
 
@@ -27,16 +28,19 @@ __all__ = [
     "CITATIONS",
     "MAX_PAIRS_SHOWN",
     "NOT_COMPUTED",
+    "TORUS_HEADING",
     "Citations",
     "LandauFactors",
     "Templates",
     "append_signed",
     "count_noun",
+    "count_polynomial",
     "display_factors",
     "face_names",
     "integrand_templates",
     "join_words",
     "landau_factors",
+    "not_computed",
     "render_sections",
     "signed_terms",
     "skipped_faces",
@@ -119,6 +123,15 @@ CITATIONS: dict[str, str] = {
         "differential equations for Feynman integrals from $\\mathcal{A}$-hypergeometric "
         "systems in the Schwinger representation}, arXiv:2609.16107."
     ),
+    "katz2008": (
+        "T. Hausel and F. Rodriguez-Villegas, \\emph{Mixed Hodge polynomials of character "
+        "varieties}, with an appendix by N.M. Katz, Invent. Math. 174 (2008) 555--624, "
+        "arXiv:math/0612668."
+    ),
+    "fmt2024": (
+        "C. Fevola, S. Mizera and S. Telen, \\emph{Principal Landau determinants}, "
+        "Comput. Phys. Commun. 303 (2024) 109278, arXiv:2311.16219."
+    ),
     "britto2026": (
         "R. Britto, T.W. Grimm and A. Hoefnagels, \\emph{Resonance and differential reduction "
         "of Feynman integrals}, JHEP 09 (2026) 018, arXiv:2606.09978."
@@ -134,6 +147,9 @@ NOT_COMPUTED = (
     "characteristic, and produces no series solutions, Pfaffian system or restriction to "
     "physical kinematics."
 )
+
+# The heading of the point-count section, which the text report also uses to refer to it.
+TORUS_HEADING = "Candidate Euler characteristic from point counts"
 
 
 class Citations:
@@ -160,6 +176,7 @@ def render_sections(
     polynomials: Callable[[], str],
     representations: Callable[[Representations], str],
     polytope: Callable[[Polytope], str],
+    torus: Callable[[TorusCount], str],
     gkz: Callable[[GKZ], str],
     symmetries: Callable[[Symmetries | None], str],
     landau: Callable[[Landau], str],
@@ -184,6 +201,8 @@ def render_sections(
         sections.append(("Parametric representations", representations(report.representations)))
     if report.polytope is not None:
         sections.append(("Newton polytope", polytope(report.polytope)))
+    if report.torus is not None:
+        sections.append((TORUS_HEADING, torus(report.torus)))
     if report.gkz is not None:
         sections.append(("GKZ system", gkz(report.gkz)))
     if report.symmetries is not None or report.symmetries_omitted is not None:
@@ -193,6 +212,36 @@ def render_sections(
     if report.schwinger is not None:
         sections.append(("Schwinger-representation system", schwinger(report.schwinger)))
     return sections
+
+
+def not_computed(report: AnalysisReport, pointer: str) -> str:
+    """What the Newton polytope section says feynkit leaves uncomputed.
+
+    Without the point-count section this is NOT_COMPUTED. With it, ``pointer``
+    names that section as the renderer refers to it, and the sentence says that
+    the Euler characteristic there is only a candidate, or that the counts give
+    no candidate. It does not say why: the section gives the reason, and the
+    volume bound and the guard on characters of higher order refuse counts
+    that may well be polynomial.
+    """
+    if report.torus is None:
+        return NOT_COMPUTED
+    rest = "It produces no series solutions, Pfaffian system or restriction to physical kinematics."
+    if report.torus.candidate_master_count is not None:
+        return (
+            "feynkit does not compute the holonomic rank at the physical point, and gives the "
+            f"Euler characteristic only as a candidate from the point counts of {pointer}. {rest}"
+        )
+    return (
+        "feynkit computes neither the holonomic rank at the physical point nor the Euler "
+        f"characteristic, and the point counts of {pointer} give no candidate. {rest}"
+    )
+
+
+def count_polynomial(coefficients: Sequence[int]) -> sp.Expr:
+    """P(q) from its coefficients, constant term first."""
+    q = sp.Symbol("q")
+    return sp.Add(*(c * q**i for i, c in enumerate(coefficients)))
 
 
 def symmetries_omitted(report: AnalysisReport) -> str:

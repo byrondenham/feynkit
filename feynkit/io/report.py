@@ -82,7 +82,7 @@ SECTION_NAMES = (
 )
 
 # The sections built when none are named: all but the point counts, which take seconds for
-# five propagators and hours for seven.
+# five propagators; seven exceed the default budget.
 DEFAULT_SECTIONS = tuple(name for name in SECTION_NAMES if name != "torus")
 
 
@@ -641,8 +641,9 @@ class AnalysisReport:
         ValidationError
             If ``sections`` names something that is not a section, or as
             :meth:`FeynmanIntegral.torus_count` raises for the ``torus`` section,
-            for instance when counting needs more than ``torus_budget``
-            evaluations of G.
+            for instance when the integral has kinematic constraints, which is
+            checked before any section is built, or when counting needs more
+            than ``torus_budget`` evaluations of G.
         """
         wanted = set(DEFAULT_SECTIONS) if sections is None else set(sections)
         unknown = sorted(wanted - set(SECTION_NAMES))
@@ -650,6 +651,13 @@ class AnalysisReport:
             raise ValidationError(
                 f"Unknown report section(s): {', '.join(unknown)}; "
                 f"expected any of {', '.join(SECTION_NAMES)}"
+            )
+
+        # torus_count rejects kinematic constraints; say so before the Landau analysis runs.
+        if "torus" in wanted and integral.kinematic_constraints:
+            raise ValidationError(
+                "the torus section does not apply kinematic_constraints; leave it out, or count "
+                "with FeynmanIntegral.torus_count and substitute them with on_shell"
             )
 
         representations: Representations | None = None

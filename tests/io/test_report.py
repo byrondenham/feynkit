@@ -18,10 +18,15 @@ import sympy as sp
 
 from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit import landau as landau_module
+from feynkit import point_count as point_count_module
 from feynkit.core.exceptions import ValidationError
 from feynkit.io import report as report_module
 from feynkit.io.report import DEFAULT_SECTIONS, SECTION_NAMES, AnalysisReport
-from feynkit.landau import landau_analysis, one_loop_landau_surfaces_by_type
+from feynkit.landau import (
+    landau_analysis,
+    landau_analysis_from_polynomial,
+    one_loop_landau_surfaces_by_type,
+)
 from feynkit.polytope import polytope_data
 from feynkit.systems.monomial import extract_monomial_support
 
@@ -576,6 +581,33 @@ class TestTorus:
     def test_one_landau_analysis_serves_both_sections(
         self, bubble: FeynmanIntegral, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        # landau_analysis runs landau_analysis_from_polynomial once; count_torus_points would
+        # run it again if it did not use the analysis it is given.
+        calls: list[FeynmanIntegral] = []
+        eliminations: list[sp.Expr] = []
+
+        def counting(fi: FeynmanIntegral, **kwargs: int) -> object:
+            calls.append(fi)
+            return landau_analysis(fi, **kwargs)
+
+        def eliminating(g: sp.Expr, *args: object, **kwargs: object) -> object:
+            eliminations.append(g)
+            return landau_analysis_from_polynomial(g, *args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(report_module, "landau_analysis", counting)
+        monkeypatch.setattr(landau_module, "landau_analysis", counting)
+        monkeypatch.setattr(landau_module, "landau_analysis_from_polynomial", eliminating)
+        monkeypatch.setattr(point_count_module, "landau_analysis_from_polynomial", eliminating)
+        report = AnalysisReport.from_integral(bubble, ["landau", "torus"])
+        assert len(calls) == 1
+        assert len(eliminations) == 1
+        assert report.landau is not None and report.torus is not None
+
+    def test_kinematic_constraints_are_rejected_before_the_landau_analysis(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        s = sp.Symbol("s", real=True)
+        fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematic_constraints=[s - 1])
         calls: list[FeynmanIntegral] = []
 
         def counting(fi: FeynmanIntegral, **kwargs: int) -> object:
@@ -583,10 +615,11 @@ class TestTorus:
             return landau_analysis(fi, **kwargs)
 
         monkeypatch.setattr(report_module, "landau_analysis", counting)
-        monkeypatch.setattr(landau_module, "landau_analysis", counting)
-        report = AnalysisReport.from_integral(bubble, ["landau", "torus"])
+        with pytest.raises(ValidationError, match="kinematic_constraints"):
+            AnalysisReport.from_integral(fi, ["landau", "torus"])
+        assert calls == []
+        assert AnalysisReport.from_integral(fi, ["landau"]).landau is not None
         assert len(calls) == 1
-        assert report.landau is not None and report.torus is not None
 
     def test_summary_has_a_candidate_row_only_with_the_section(
         self, bubble: FeynmanIntegral, bubble_report: AnalysisReport

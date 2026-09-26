@@ -88,7 +88,7 @@ def test_off_shell_box() -> None:
 
 
 def test_triangle_where_the_kallen_function_vanishes() -> None:
-    # lambda(1, 4, 9) = 0: the Kallen function of the external masses vanishes, a
+    # lambda(1, 4, 9) = 0: the Källén function of the external masses vanishes, a
     # second-type singularity, so the point is on a Landau surface. C = 3 there, where
     # generic kinematics give 4.
     fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
@@ -102,7 +102,7 @@ def test_triangle_where_the_kallen_function_vanishes() -> None:
 
 # Points where a square-test factor is not a square, with the number of critical points, the
 # generic C: FMT Table 2 for the bubble and the triangle, BBKP Proposition 55 (2^(L+1) - 1
-# for L loops) for the sunrise. The Kallen function is -3, not a square, at the bubble's and
+# for L loops) for the sunrise. The Källén function is -3, not a square, at the bubble's and
 # the triangle's points, where the bubble has p - 3 - (-3/p) points; s = 7 is not a square
 # at the sunrise's.
 NOT_SQUARE = [

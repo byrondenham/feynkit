@@ -2,7 +2,7 @@
 
 Oracles: brute-force enumeration of (F_p^*)^N for small p, and the massive
 bubble, whose zero set is an affine conic with p - 3 - (lambda/p) points in
-the torus, lambda being the Kallen function of s, m_1^2 and m_2^2.
+the torus, lambda being the Källén function of s, m_1^2 and m_2^2.
 """
 
 from __future__ import annotations
@@ -449,7 +449,7 @@ class TestCountTorusPoints:
                 bubble_count(landau=other)
 
     def test_a_character_of_a_face_that_is_not_principal_is_covered(self) -> None:
-        # The one-mass triangle at m_1^2 = 17, p_i^2 = (-5, -8, 18). 801, the Kallen function
+        # The one-mass triangle at m_1^2 = 17, p_i^2 = (-5, -8, 18). 801, the Källén function
         # of the p_i^2, is a factor of the discriminant of the top face, which is not
         # principal. (801/p) = -1 at every prime from 7 to 43 that is not excluded, so the
         # check runs on to 47, where (801/47) = 1, and 47 rejects the fit.

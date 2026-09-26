@@ -31,6 +31,7 @@ Examples
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Collection, Mapping
 from fractions import Fraction
 from functools import cached_property
@@ -599,9 +600,13 @@ class FeynmanIntegral:
         seed, point, allow_singular, verification, max_evaluations, backend
             As for :func:`~feynkit.point_count.count_torus_points`.
         on_shell
-            Substitutions made in the momentum products first, such as
-            ``{p1^2: 0}`` for a massless leg; each key must be a symbol of the
-            momentum products.
+            Substitutions made in the momentum products first. With Mandelstam
+            invariants (``use_mandelstam=True``) ``{p1^2: 0}`` makes a leg
+            massless; with dot products a relation such as ``{p1p2: -p1p3}`` is
+            needed. Each key must be a symbol of the momentum products, with
+            its assumptions, as ``Symbol("p1^2", real=True)``. Each value is an
+            exact expression, an int, a Fraction, a string or a SymPy
+            expression without floats, and contains no key.
         landau
             The Landau analysis of this integral, with ``on_shell`` applied, if
             already computed; it keeps the energy scale symbolic.
@@ -612,13 +617,14 @@ class FeynmanIntegral:
         Raises
         ------
         ValidationError
-            If the integral has kinematic constraints, which are not applied,
+            If the integral has kinematic constraints, which are not applied;
             if ``on_shell`` names a symbol the momentum products do not
-            contain, or as :func:`~feynkit.point_count.count_torus_points`
-            raises.
+            contain, gives a value that is not an exact expression or gives a
+            value containing one of its keys; or as
+            :func:`~feynkit.point_count.count_torus_points` raises.
+        RuntimeError
+            If ``backend`` is "flint" and python-flint is not installed.
         """
-        import dataclasses
-
         from .landau import landau_analysis
         from .point_count import count_torus_points
 
@@ -626,7 +632,20 @@ class FeynmanIntegral:
             raise ValidationError(
                 "torus_count does not apply kinematic_constraints; substitute them with on_shell"
             )
-        substitutions = dict(on_shell or {})
+        substitutions: dict[sp.Symbol, sp.Expr] = {}
+        for key, raw in (on_shell or {}).items():
+            value: object
+            try:
+                value = sp.sympify(raw)
+            except sp.SympifyError:
+                value = None
+            # A float would reach the Landau analysis, which cannot parse it back from Singular.
+            if not isinstance(value, sp.Expr) or value.has(sp.Float):
+                raise ValidationError(
+                    f"on_shell gives {key} the value {raw!r}, which is not an exact expression; "
+                    "give an int, a Fraction, a string or a SymPy expression without floats"
+                )
+            substitutions[key] = value
         integral = self
         if substitutions:
             products = self.momentum_products
@@ -635,9 +654,21 @@ class FeynmanIntegral:
             )
             unknown = sorted(str(key) for key in substitutions if key not in known)
             if unknown:
+                # A key can share its name with a symbol of the products but not its assumptions.
+                clashes = sorted(sp.srepr(x) for x in known if str(x) in unknown)
+                hint = f"; keys carry their assumptions, as {', '.join(clashes)}" if clashes else ""
                 raise ValidationError(
                     f"on_shell names {', '.join(unknown)}, which the momentum products do not "
-                    f"contain; they contain {', '.join(sorted(map(str, known)))}"
+                    f"contain; they contain {', '.join(sorted(map(str, known)))}{hint}"
+                )
+            # Substituted one after the other, a value containing a key would depend on the order.
+            chained = sorted(
+                str(key) for key in substitutions if any(v.has(key) for v in substitutions.values())
+            )
+            if chained:
+                raise ValidationError(
+                    f"on_shell values contain its keys {', '.join(chained)}; substitute them "
+                    "in the values first"
                 )
             integral = self.with_(
                 momentum_products={

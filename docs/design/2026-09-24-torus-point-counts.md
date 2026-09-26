@@ -188,8 +188,9 @@ Without `landau`, `count_torus_points` runs
 `landau_analysis_from_polynomial(polynomial, variables, scale=scale)`, then
 sets `scale` to 1; above `max_evaluations` it raises `ValidationError`.
 `torus_count` applies `on_shell` via `with_`, runs
-`landau_analysis(self, max_face_points=...)` unless given `landau` (also with
-$\mu$ symbolic), then sets $\mu = 1$, and rejects `kinematic_constraints`.
+`landau_analysis(..., max_face_points=...)` of the integral with `on_shell`
+applied unless given `landau` (also with $\mu$ symbolic), then sets
+$\mu = 1$, and rejects `kinematic_constraints`.
 `critical_point_count` returns Singular's `vdim(std(I))` for Fevola et al.,
 eq. (3.2), at random rational exponents, modulo two primes near $2^{31}$ that
 must agree, raising `RuntimeError` without Singular and `ComputationError`

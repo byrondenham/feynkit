@@ -850,7 +850,10 @@ def count_torus_points(
     if landau is None:
         landau = landau_analysis_from_polynomial(g, list(variables), scale=scale)
     elif not _analyses(landau, g, variables):
-        raise ValidationError("landau is not a Landau analysis of the polynomial")
+        raise ValidationError(
+            "landau is not a Landau analysis of the polynomial; from "
+            "FeynmanIntegral.torus_count it must analyse the integral with on_shell applied"
+        )
     unit = {scale: 1} if scale is not None else {}
     kinematics = _kinematics(sp.expand(g.subs(unit)), variables, landau, unit)
 

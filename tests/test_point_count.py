@@ -865,3 +865,49 @@ class TestFeynmanIntegralTorusCount:
 
         monkeypatch.setattr(landau_module, "landau_analysis", fail)
         assert fi.torus_count(seed=4, landau=analysis) == expected
+
+    def test_a_landau_analysis_without_on_shell_raises(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+        legs = {sp.Symbol(f"p{i}^2", real=True): 0 for i in range(1, 5)}
+        with pytest.raises(ValidationError, match="with on_shell applied"):
+            fi.torus_count(on_shell=legs, landau=landau_analysis(fi))
+
+    @pytest.mark.parametrize("key", [sp.Symbol("p1^2"), "p1^2"], ids=["symbol", "string"])
+    def test_a_key_without_the_assumptions_of_the_products_is_explained(self, key: object) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+        hint = "keys carry their assumptions, as Symbol('p1^2', real=True)"
+        with pytest.raises(ValidationError, match=re.escape(hint)):
+            fi.torus_count(on_shell={key: 0})  # type: ignore[dict-item]
+        with pytest.raises(ValidationError) as info:
+            fi.torus_count(on_shell={sp.Symbol("t", real=True): 0})
+        assert "assumptions" not in str(info.value)
+
+    def test_on_shell_values_must_not_contain_its_keys(self) -> None:
+        # Substituted one after the other, {p2^2: p1^2, p1^2: 0} would depend on the order.
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+        p1, p2 = (sp.Symbol(f"p{i}^2", real=True) for i in (1, 2))
+        for on_shell, key in (({p2: p1, p1: 0}, "p1"), ({p1: p2, p2: 0}, "p2")):
+            with pytest.raises(ValidationError, match=rf"values contain its keys {key}\^2;"):
+                fi.torus_count(on_shell=on_shell)
+
+    def test_on_shell_values_become_sympy_expressions(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+        p1, p2 = (sp.Symbol(f"p{i}^2", real=True) for i in (1, 2))
+        expected = fi.torus_count(on_shell={p1: sp.Rational(3, 2)})
+        assert expected.on_shell == ((p1, sp.Rational(3, 2)),)
+        for value in (Fraction(3, 2), "3/2"):
+            assert fi.torus_count(on_shell={p1: value}) == expected  # type: ignore[dict-item]
+        for value in (0, p2 / 4):
+            ((_, recorded),) = fi.torus_count(on_shell={p1: value}).on_shell
+            assert isinstance(recorded, sp.Expr)
+            assert recorded == value
+
+    @pytest.mark.parametrize(
+        "value",
+        [0.5, "0.5", sp.Float(0.5), sp.Symbol("s12", real=True) / 2.0, None, [0]],
+        ids=["float", "string", "sympy-float", "expression", "none", "list"],
+    )
+    def test_on_shell_values_must_be_exact_expressions(self, value: object) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+        with pytest.raises(ValidationError, match=r"gives p1\^2 the value .* not an exact"):
+            fi.torus_count(on_shell={sp.Symbol("p1^2", real=True): value})  # type: ignore[dict-item]

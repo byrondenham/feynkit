@@ -87,13 +87,20 @@ Let $X = (\mathbb{C}^*)^N \setminus V$, with $\mu = 1$.
   a missed bad prime causes a rejection, not a wrong result: the two-mass
   bubble at $s = 1$, $m_e^2 = (2, 6)$ has no points at $p = 3$, where the
   fit predicts $-1$.
-- If an edge of the Newton polytope at the point has lattice length at least
-  3, or a face has lattice index at least 3, the counts may depend on
-  characters of order above 2, which the check cannot cover: $v + u^6 + 108$
-  counts $p - 1$ at every prime from 5 to 29 and fits $C = 0$, where $C = 6$.
-  Only the fit primes are then counted, and no candidate is given. Graphs
-  have edges of length at most 2 (item 5), and every graph tested has faces
-  of index 1.
+- Guard: the check covers only quadratic characters. On an edge of lattice
+  length $k$ the count follows the Galois group of $G$'s restriction, of
+  degree $k$, even when the edge has index 1 ($u^3 - 3u + 1$ needs a cubic
+  character). On a face of dimension 2 or more whose points span $L$ in the
+  lattice $L_\mathrm{sat}$ of its affine hull, the characters of
+  $\mathrm{Hom}(L_\mathrm{sat}/L, \mathbb{F}_p^*)$ enter, of orders dividing
+  the exponent of $L_\mathrm{sat}/L$, its largest Smith invariant, not its
+  index. So an edge of length at least 3, or a face of exponent at least 3,
+  refuses the candidate: $v + u^6 + 108$ counts $p - 1$ at every prime from
+  5 to 29 and fits $C = 0$, where $C = 6$. Only the fit primes are then
+  counted. Graphs have edges of length at most 2 (item 5); special kinematic
+  points give faces of index 2 and 4, but the exponent stayed at most 2 over
+  all 114 PLD polytopes and some 600 supports from 3000 sampled special
+  points of five massive graphs.
 
 ### Counting
 
@@ -136,13 +143,16 @@ Let $X = (\mathbb{C}^*)^N \setminus V$, with $\mu = 1$.
   13 excluded) the fit primes 7, 17, 19 and verification primes 23, 29, 31, 37
   all have $(\lambda/p) = -1$ and accept $C = 1$; coverage adds 41, where the
   count, 37 against 39, rejects it.
-- Accept integer coefficients, a zero $q^N$ term, agreement at every
-  verification prime and $0 \le C \le N!\,\mathrm{Vol}$; otherwise report "not
-  polynomial on the tested primes" with a `reason`.
+- Accept, in this order, integer coefficients, a zero $q^N$ term,
+  $0 \le C \le N!\,\mathrm{Vol}$, the guard (see Kinematics) and agreement at
+  every verification prime; otherwise give no candidate, with a `reason`
+  naming the test that failed.
 - A pass is evidence, not proof: a count depending on $(d/p)$ for $d$ outside
   the coverage group, such as the constant or content of a discriminant of a
-  face of dimension 2 or more, or on a character of higher order, passes if
-  all sampled primes agree on it.
+  face of dimension 2 or more, passes if all sampled primes agree on it.
+  Characters of higher order entering through long edges or faces of large
+  exponent are refused; other sources, such as non-abelian Frobenius
+  behaviour on faces of index 1, can still pass if the sample agrees.
 
 ### Output
 
@@ -164,7 +174,8 @@ def count_torus_points(polynomial: sp.Expr, variables: Sequence[sp.Symbol], *,
                        max_prime: int = 1000, max_evaluations: int = 2 * 10**9,
                        backend: str = "numpy") -> TorusCount: ...
 def critical_point_count(polynomial: sp.Expr, variables: Sequence[sp.Symbol],
-                         point: Mapping[sp.Expr, int | Fraction], *, seed: int = 0) -> int: ...
+                         point: Mapping[sp.Expr, int | Fraction], *, seed: int = 0,
+                         timeout: float = 300) -> int: ...
 # FeynmanIntegral
 def torus_count(self, *, seed: int = 0, point: Mapping[sp.Expr, int | Fraction] | None = None,
                 allow_singular: bool = False, on_shell: Mapping[sp.Symbol, sp.Expr] | None = None,
@@ -180,8 +191,9 @@ sets `scale` to 1; above `max_evaluations` it raises `ValidationError`.
 `landau_analysis(self, max_face_points=...)` unless given `landau` (also with
 $\mu$ symbolic), then sets $\mu = 1$, and rejects `kinematic_constraints`.
 `critical_point_count` returns Singular's `vdim(std(I))` for Fevola et al.,
-eq. (3.2), at random rational exponents, raising `RuntimeError` without
-Singular. `backend="flint"` (found with `importlib.util.find_spec`,
+eq. (3.2), at random rational exponents, modulo two primes near $2^{31}$ that
+must agree, raising `RuntimeError` without Singular and `ComputationError`
+after `timeout` seconds. `backend="flint"` (found with `importlib.util.find_spec`,
 `RuntimeError` if absent) counts roots of `nmod_poly([c, b, a], p)` per
 point, a cross-check without a vectorised Legendre symbol, hence no
 `"auto"`.
@@ -219,6 +231,8 @@ point, a cross-check without a vectorised Legendre symbol, hence no
 
 Kernel: the per-prime count against brute force for $p \le 23$, item 5,
 rejected fits, deterministic draws, the $p = 3$ example, flint against numpy.
+Guard: it refuses $v + u^6 + 108$ and $v + u^3 - 3u + 1$ and accepts
+$(1 - u^2)(1 - v^2)$, of exponent 2 and index 4, with $C = 4$.
 
 At seeds 0 and 1 each case has an integer candidate polynomial and
 `candidate_master_count`:
@@ -263,7 +277,11 @@ expected $10^7$ a second, $N \le 5$ takes seconds, $N = 6$ a minute,
 $N = 7$ an hour or more, $N \ge 8$ days; the default budget admits $N \le 6$.
 Massive graphs often give no candidate, as many factors must be squares at
 once. For massless graphs, solving $A + Bx + Cy + Dxy = 0$ by cases on $A$,
-$B$, $C$, $D$ and $AD - BC$ would cut the cost to $(p-1)^{N-2}$.
+$B$, $C$, $D$ and $AD - BC$ would cut the cost to $(p-1)^{N-2}$. The flint
+backend manages about $10^5$ evaluations a second, 75 to 180 times slower
+than numpy. `critical_point_count` works modulo two primes near $2^{31}$,
+where the fully massive kite takes 0.1 s, against more than 15 minutes over
+$\mathbb{Q}$.
 
 ## Open questions
 

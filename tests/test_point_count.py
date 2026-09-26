@@ -10,14 +10,17 @@ from __future__ import annotations
 import itertools
 import math
 import random
+import re
+import subprocess
 from fractions import Fraction
+from pathlib import Path
 
 import pytest
 import sympy as sp
 
 from feynkit import FeynmanIntegral
 from feynkit import point_count as pc
-from feynkit.core.exceptions import ValidationError
+from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.landau import _singular_binary, landau_analysis_from_polynomial
 from feynkit.point_count import count_torus_points, critical_point_count
 from feynkit.polytope import polytope_data
@@ -219,8 +222,7 @@ def test_graph_polytopes_admit_no_characters_of_higher_order(cnickel: str) -> No
     variables = list(fi.symanzik.lp_parameters)
     on_shell = {x: 0 for x in g.free_symbols if x.name.startswith("p") and x.name.endswith("^2")}
     for h in (g, sp.expand(g.subs(on_shell))):
-        monomials = sp.Poly(h, *variables).monoms()
-        assert pc._higher_order(tuple((m, Fraction(1)) for m in monomials)) is None
+        assert pc._higher_order(polytope_data(sp.Poly(h, *variables).monoms())) is None
 
 
 MU = sp.Symbol("mu", positive=True)
@@ -512,8 +514,8 @@ class TestCountTorusPoints:
         u, v = sp.symbols("u v")
         count = count_torus_points(1 - u**2, [u])
         assert count.candidate_master_count == 2
-        assert pc._volume_bound((((0,), Fraction(1)), ((2,), Fraction(-1)))) == 2
-        assert pc._volume_bound((((0, 0), Fraction(1)), ((1, 1), Fraction(1)))) == 0
+        assert pc._volume_bound(polytope_data([(0,), (2,)])) == 2
+        assert pc._volume_bound(polytope_data([(0, 0), (1, 1)])) == 0
         assert count_torus_points(1 + u * v, [u, v]).candidate_master_count == 0
 
     def test_edge_discriminants_are_excluded(self) -> None:
@@ -549,15 +551,39 @@ class TestCountTorusPoints:
 
     def test_edges_and_faces_that_admit_characters_of_higher_order(self) -> None:
         def reason(*monomials: tuple[int, ...]) -> str | None:
-            return pc._higher_order(tuple((m, Fraction(1)) for m in monomials))
+            return pc._higher_order(polytope_data(monomials))
 
-        # Lattice length 2 and index 2 pass; length 3 fails with every point present.
+        # Lattice length 2 passes; length 3 fails even with every point present.
         assert reason((0,), (2,)) is None
         assert reason((0,), (1,), (2,), (3,)) is not None
         assert "an edge of lattice length 3" in str(reason((0,), (3,)))
-        # A triangle of index 2 passes; 1 + u^2 v + u v^2 has edges of length 1 and index 3.
+        # A face is judged by the exponent of its lattice quotient, the largest Smith invariant.
+        # A triangle with quotient Z/2 and the square [0, 2]^2 with (Z/2)^2, of index 4, pass;
+        # 1 + u^2 v + u v^2 (Z/3) and 1 + u + u^2 v^4 (Z/4) fail, with edges of length 1 or 2.
         assert reason((0, 0), (1, 1), (2, 0)) is None
-        assert "a face of dimension 2 and lattice index 3" in str(reason((0, 0), (2, 1), (1, 2)))
+        assert reason((0, 0), (2, 0), (0, 2), (2, 2)) is None
+        found = "a face of dimension 2 whose lattice quotient has exponent"
+        assert f"{found} 3," in str(reason((0, 0), (2, 1), (1, 2)))
+        assert f"{found} 4," in str(reason((0, 0), (1, 0), (2, 4)))
+
+    def test_a_face_whose_quotient_has_exponent_two_is_accepted(self) -> None:
+        # (1 - u^2)(1 - v^2) has 4p - 8 points, so C = 4: X is (C^* less +-1)^2. The square
+        # [0, 2]^2 has lattice quotient (Z/2)^2, of index 4 but exponent 2.
+        u, v = sp.symbols("u v")
+        count = count_torus_points(sp.expand((1 - u**2) * (1 - v**2)), [u, v])
+        assert all(n == 4 * p - 8 for p, n in count.counts)
+        assert count.candidate_master_count == 4
+
+    def test_an_edge_of_length_three_refuses_the_candidate(self) -> None:
+        # u^3 - 3u + 1 has a cyclic Galois group and discriminant 81, a square, so the number
+        # of its roots mod p, 0 or 3, follows a cubic character that no quadratic character
+        # sees. The counts at 5, 7 and 11 fit q - 1 and C = 0, where C = 3. The edge [0, 3]
+        # holds every point, so its index is 1, but its lattice length is 3.
+        u, v = sp.symbols("u v")
+        count = count_torus_points(v + u**3 - 3 * u + 1, [u, v])
+        assert count.counts == ((5, 4), (7, 6), (11, 10))
+        assert count.candidate_master_count is None
+        assert str(count.reason).startswith("the Newton polytope has an edge of lattice length 3")
 
     def test_draws_are_admissible(self) -> None:
         # The first draw of seed 63 gives x = y = 9, where the coefficient x - y vanishes.
@@ -663,17 +689,119 @@ class TestCriticalPointCount:
             assert critical_point_count(g, U, dict(count.point)) == count.candidate_master_count
 
     @requires_singular
-    def test_point_must_give_every_symbol(self) -> None:
-        with pytest.raises(ValidationError, match="no value for m_2"):
-            critical_point_count(bubble_g().subs(MU, 1), U, {S: 1, M1**2: 1})
+    def test_masses_are_given_through_their_squares(self) -> None:
+        # s = 1 = (m_2 - m_1)^2 is the pseudo-threshold of m_e = (2, 3), where lambda = 0 and 2
+        # critical points remain; m_e = (4, 9) would give the generic 3.
+        g = bubble_g().subs(MU, 1)
+        assert critical_point_count(g, U, {S: 1, M1**2: 4, M2**2: 9}) == 2
+        assert critical_point_count(g, U, {S: 1, M1: 2, M2: 3}) == 2
 
     @requires_singular
-    def test_point_must_leave_rational_coefficients(self) -> None:
-        # s occurs to the first power, so its square 2 would make it sqrt(2).
+    def test_fully_massive_kite(self) -> None:
+        # 30 critical points, as for generic masses; modulo two primes this takes a fraction
+        # of a second, where the same count over Q ran for more than 15 minutes.
+        fi = FeynmanIntegral.from_cnickel("12e|23|3|e|:nnnnn")
+        g = fi.symanzik.g.subs(fi.graph.energy_scale, 1)
+        names = {x.name: x for x in g.free_symbols}
+        point = {names["s"]: 13} | {
+            names[f"m_{e}"] ** 2: m for e, m in enumerate((2, 3, 5, 7, 11), start=1)
+        }
+        assert critical_point_count(g, list(fi.symanzik.lp_parameters), point) == 30
+
+    @pytest.mark.parametrize(
+        ("point", "message"),
+        [
+            ({S: 1, M1**2: 1}, "no value for m_2"),
+            ({S**2: 4, M1**2: 1, M2**2: 1}, r"the key s\*\*2"),
+            ({S: 1, M1**2: 1, M2**2: 1, U[0]: 1}, "the key u_1"),
+            ({S: 1, M1**2: 1, M2**2: 1, sp.Symbol("t"): 1}, "the key t"),
+            ({S: 1, M1**2: -1, M2**2: 1}, "negative"),
+        ],
+        ids=["missing", "square-of-invariant", "variable", "unknown", "negative-square"],
+    )
+    def test_malformed_points_raise(self, point: dict[sp.Expr, object], message: str) -> None:
+        # The keys follow count_torus_points: s occurs to the first power, so s**2 = 4 would
+        # leave its sign open.
+        with pytest.raises(ValidationError, match=message):
+            critical_point_count(bubble_g().subs(MU, 1), U, point)  # type: ignore[arg-type]
+
+    def test_malformed_arguments_raise(self) -> None:
+        g, point = bubble_g().subs(MU, 1), {S: 1, M1**2: 1, M2**2: 1}
+        for variables in ([], [U[0], U[0]]):
+            with pytest.raises(ValidationError, match="distinct"):
+                critical_point_count(g, variables, point)
+        with pytest.raises(ValidationError, match="energy scale"):
+            critical_point_count(bubble_g(), U, point)
         with pytest.raises(ValidationError, match="rational coefficients"):
-            critical_point_count(bubble_g().subs(MU, 1), U, {S**2: 2, M1**2: 1, M2**2: 1})
+            critical_point_count(sp.sqrt(2) * U[0] + U[1], U, {})
+        with pytest.raises(ValidationError, match="timeout"):
+            critical_point_count(g, U, point, timeout=0)
 
     def test_needs_singular(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(pc, "_singular_binary", lambda: None)
         with pytest.raises(RuntimeError, match="Singular"):
             critical_point_count(bubble_g().subs(MU, 1), U, {S: 1, M1**2: 1, M2**2: 1})
+
+
+def fake_singular(
+    monkeypatch: pytest.MonkeyPatch, stdout: str = "", error: Exception | None = None
+) -> dict[str, object]:
+    """Replace Singular by a stub printing stdout or raising error; returns what it was given."""
+    seen: dict[str, object] = {}
+
+    def run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen.update(kwargs, script=Path(args[-1]).read_text())
+        if error is not None:
+            raise error
+        return subprocess.CompletedProcess(args, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(pc, "_singular_binary", lambda: "Singular")
+    monkeypatch.setattr(pc.subprocess, "run", run)
+    return seen
+
+
+class TestCriticalPointsModuloPrimes:
+    G, POINT = bubble_g().subs(MU, 1), {S: 1, M1**2: 1, M2**2: 1}
+
+    def test_counts_modulo_the_two_largest_primes_below_2_to_the_31(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen = fake_singular(monkeypatch, "3\n3\n")
+        assert critical_point_count(self.G, U, self.POINT, timeout=7) == 3
+        assert seen["timeout"] == 7
+        script = str(seen["script"])
+        assert "ring r0 = 2147483647," in script
+        assert "ring r1 = 2147483629," in script
+        # The coefficients, cleared of denominators up to about 6 * 10^10, reach Singular mod p.
+        ideals = [line for line in script.splitlines() if line.startswith("ideal")]
+        assert max(int(n) for line in ideals for n in re.findall(r"\d+", line)) < 2**31
+
+    def test_primes_avoid_the_denominators_of_the_point(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen = fake_singular(monkeypatch, "3\n3\n")
+        critical_point_count(self.G, U, {S: Fraction(1, 2147483647), M1**2: 1, M2**2: 1})
+        assert "ring r0 = 2147483629," in str(seen["script"])
+        assert "ring r1 = 2147483587," in str(seen["script"])
+
+    def test_counts_that_differ_raise(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_singular(monkeypatch, "3\n4\n")
+        with pytest.raises(ComputationError, match="3 modulo 2147483647 and 4 modulo"):
+            critical_point_count(self.G, U, self.POINT)
+
+    def test_a_locus_that_is_not_finite_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_singular(monkeypatch, "-1\n-1\n")
+        with pytest.raises(ComputationError, match="finite"):
+            critical_point_count(self.G, U, self.POINT)
+
+    def test_output_that_is_not_two_counts_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Singular exits with 0 after an error in the script and prints the error.
+        for stdout in ("   ? error occurred in or before critical.sing line 2\n", "3\n", ""):
+            fake_singular(monkeypatch, stdout)
+            with pytest.raises(RuntimeError, match="Singular"):
+                critical_point_count(self.G, U, self.POINT)
+
+    def test_timeout_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_singular(monkeypatch, error=subprocess.TimeoutExpired(["Singular"], 7))
+        with pytest.raises(ComputationError, match="timeout=7"):
+            critical_point_count(self.G, U, self.POINT, timeout=7)

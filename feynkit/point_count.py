@@ -49,7 +49,7 @@ from .landau import (
     _singular_binary,
     landau_analysis_from_polynomial,
 )
-from .polytope import polytope_data
+from .polytope import PolytopeData, polytope_data
 
 __all__ = ["TorusCount", "count_torus_points", "critical_point_count"]
 
@@ -118,10 +118,12 @@ class TorusCount:
     candidate_master_count
         C = (-1)^N chi(X), or None.
     reason
-        Why there is no candidate: the counts are not polynomial on the tested
-        primes, the candidate master count is outside [0, N! Vol(Newt G)], or
-        the Newton polytope of G admits characters of order above 2, which the
-        check does not cover; None when there is a candidate.
+        Why there is no candidate, naming the test that failed: the counts are
+        not polynomial on the tested primes, the candidate master count is
+        outside [0, N! Vol(Newt G)], or an edge of lattice length at least 3 or
+        a face whose lattice quotient has exponent at least 3 lets characters
+        of order above 2, which the check does not cover, into the counts; None
+        when there is a candidate.
     skipped_faces
         How many faces the Landau analysis skipped; their discriminants are
         missing from the admissibility test, the excluded primes and the
@@ -516,14 +518,16 @@ def _rational(raw: object, key: sp.Expr) -> Fraction:
 
 
 def _given_point(
-    point: Mapping[sp.Expr, int | Fraction], kinematics: _Kinematics
+    point: Mapping[sp.Expr, int | Fraction],
+    symbols: Sequence[sp.Symbol],
+    even: frozenset[sp.Symbol],
 ) -> tuple[Fraction, ...]:
-    """The drawn quantities at a point the caller gave: a symbol's value, or its square's."""
-    even = kinematics.even
+    """The value of each of symbols at a point the caller gave, or of its square for a symbol
+    in even, which occurs only to even powers and may be keyed by itself or by its square."""
     values: dict[sp.Symbol, Fraction] = {}
     for raw_key, raw in point.items():
         key = sp.sympify(raw_key)
-        if key in kinematics.symbols:
+        if key in symbols:
             symbol, value = key, _rational(raw, key)
             if key in even:
                 value = value**2
@@ -532,15 +536,15 @@ def _given_point(
             if value < 0:
                 raise ValidationError(f"point gives {key} the negative value {raw}")
         else:
-            expected = ", ".join(str(_key(x, even)) for x in kinematics.symbols) or "none"
+            expected = ", ".join(str(_key(x, even)) for x in symbols) or "none"
             raise ValidationError(f"point has the key {key}; the keys are {expected}")
         if symbol in values:
             raise ValidationError(f"point gives more than one value for {_key(symbol, even)}")
         values[symbol] = value
-    missing = [str(_key(x, even)) for x in kinematics.symbols if x not in values]
+    missing = [str(_key(x, even)) for x in symbols if x not in values]
     if missing:
         raise ValidationError(f"point gives no value for {', '.join(missing)}")
-    return tuple(values[x] for x in kinematics.symbols)
+    return tuple(values[x] for x in symbols)
 
 
 def _admissible(kinematics: _Kinematics, values: Sequence[Fraction]) -> bool:
@@ -680,27 +684,29 @@ def _signs(characters: Sequence[Fraction], p: int) -> int:
     return sum(1 << i for i, d in enumerate(characters) if _legendre(d, p) == -1)
 
 
-def _volume_bound(terms: _Terms) -> int:
+def _volume_bound(data: PolytopeData) -> int:
     """N! Vol of the Newton polytope: the normalised volume times the lattice index, or 0
     when the polytope is not full-dimensional."""
-    data = polytope_data([monomial for monomial, _ in terms])
     if not data.is_full_dimensional:
         return 0
     return data.normalized_volume * data.sublattice_index
 
 
-def _higher_order(terms: _Terms) -> str | None:
+def _higher_order(data: PolytopeData) -> str | None:
     """Why the counts may depend on characters of order above 2, or None.
 
-    The check covers quadratic characters only. Others can enter through an
-    edge of the Newton polytope of lattice length k >= 3, on which G is a
-    polynomial of degree k in the edge's lattice coordinate, or through a
-    face whose points span a sublattice of index k >= 3 in the lattice points
-    of its affine hull, on which G is pulled back along a map of tori of
-    degree k. When G has degree at most 2 in every variable, as for a Feynman
-    graph, every edge has lattice length at most 2.
+    The check covers quadratic characters only. On an edge of lattice length
+    k, G is a polynomial of degree k in the edge's lattice coordinate, whose
+    roots mod p follow its Galois group: for k >= 3 they can need a character
+    of order 3 or more even when every lattice point of the edge is present,
+    as for u^3 - 3u + 1. On a face of dimension 2 or more whose points span a
+    lattice L in the lattice L_sat of the integer points of its affine hull, G
+    is pulled back from the torus of L, and its fibres are counted by the
+    characters of Hom(L_sat/L, F_p^*); their orders divide the exponent of
+    L_sat/L, its largest Smith invariant, which may be smaller than its index.
+    When G has degree at most 2 in every variable, as for a Feynman graph,
+    every edge has lattice length at most 2.
     """
-    data = polytope_data([monomial for monomial, _ in terms])
     for dimension, indices in sorted(data.faces):
         if dimension == 0:
             continue
@@ -711,8 +717,8 @@ def _higher_order(terms: _Terms) -> str | None:
         else:
             points = [data.points[i] for i in indices]
             differences = [[x - y for x, y in zip(q, points[0], strict=True)] for q in points[1:]]
-            size = math.prod(smith_invariants(differences, data.ambient_dimension))
-            found = f"a face of dimension {dimension} and lattice index {size}"
+            size = max(smith_invariants(differences, data.ambient_dimension), default=1)
+            found = f"a face of dimension {dimension} whose lattice quotient has exponent {size}"
         if size >= 3:
             return (
                 f"the Newton polytope has {found}, so the counts may depend on characters of "
@@ -808,9 +814,11 @@ def count_torus_points(
         The counts and, when they are polynomial on the tested primes, the
         candidate polynomial, Euler characteristic and master count. When an
         edge of the Newton polytope of G at the point has lattice length at
-        least 3, or a face has lattice index at least 3, the counts may depend
-        on characters of order above 2, which the check does not cover: the
-        fit primes are counted, but a fit is refused without a check.
+        least 3, or a face of dimension 2 or more has a lattice quotient of
+        exponent at least 3 (its largest Smith invariant, not its index), the
+        counts may depend on characters of order above 2, which the check does
+        not cover: the fit primes are counted, but a fit is refused without a
+        check.
 
     Raises
     ------
@@ -846,7 +854,11 @@ def count_torus_points(
     unit = {scale: 1} if scale is not None else {}
     kinematics = _kinematics(sp.expand(g.subs(unit)), variables, landau, unit)
 
-    values = _draw(kinematics, seed) if point is None else _given_point(point, kinematics)
+    values = (
+        _draw(kinematics, seed)
+        if point is None
+        else _given_point(point, kinematics.symbols, kinematics.even)
+    )
     on_surface = not _admissible(kinematics, values)
     if on_surface and not allow_singular:
         raise ValidationError(
@@ -873,10 +885,11 @@ def count_torus_points(
             f"max_prime must be at most {limit}, where the int64 counts are exact; "
             f"got {max_prime}"
         )
-    bound = _volume_bound(specialised) if volume_bound is None else volume_bound
+    polytope = polytope_data([monomial for monomial, _ in specialised])
+    bound = _volume_bound(polytope) if volume_bound is None else volume_bound
     # A fit the check cannot vouch for is refused before the check, so only the fit primes are
     # counted; their counts are still reported, and a fit that fails outright says so instead.
-    refusal = _higher_order(specialised)
+    refusal = _higher_order(polytope)
     checks = verification if refusal is None else 0
 
     primes = list(sp.primerange(3, max_prime + 1))
@@ -969,21 +982,41 @@ def count_torus_points(
     return outcome(fitted, None)
 
 
+def _singular_polynomial(poly: sp.Poly, p: int) -> str:
+    """poly, with integer coefficients in the ring variables v0, v1, ..., reduced mod p for
+    Singular."""
+    terms = []
+    for monomial, coefficient in poly.terms():
+        residue = int(coefficient) % p
+        if residue:
+            powers = [f"v{i}^{e}" if e > 1 else f"v{i}" for i, e in enumerate(monomial) if e]
+            terms.append("*".join([str(residue), *powers]))
+    return "+".join(terms) or "0"
+
+
 def critical_point_count(
     polynomial: sp.Expr,
     variables: Sequence[sp.Symbol],
     point: Mapping[sp.Expr, int | Fraction],
     *,
     seed: int = 0,
+    timeout: float = 300,
 ) -> int:
-    """The number of critical points of sum_e nu_e log u_e - (D/2) log G on X.
+    """The number of critical points of sum_e nu_e log u_e - (D/2) log G on X, modulo primes.
 
     X is the complement of {G = 0} in the torus. For generic exponents nu_e and
     D the critical points are all regular and number |chi(X)| (Fevola, Mizera
     and Telen, Comput. Phys. Commun. 303 (2024) 109278, proof of Theorem 3.1,
     eq. (3.2), after Huh 2013). The exponents are random rationals drawn with
-    random.Random(seed), and the count is Singular's vdim(std(I)) for the ideal
-    I of nu_e G - (D/2) u_e dG/du_e, e = 1, ..., N, and 1 - t u_1 ... u_N G.
+    random.Random(seed). The critical points are the zeros of the ideal I of
+    nu_e G - (D/2) u_e dG/du_e, e = 1, ..., N, and 1 - t u_1 ... u_N G, and
+    their number is its vector-space dimension vdim(std(I)).
+
+    Singular computes it over F_p rather than Q, where the Groebner basis can
+    take hours, at the two largest primes below 2^31 that divide no numerator
+    or denominator of a coefficient of the generators or of an exponent, and
+    the two results must agree. The dimension over F_p equals the one over Q
+    for all but finitely many p, so this is a cross-check, not a certificate.
 
     Parameters
     ----------
@@ -992,77 +1025,118 @@ def critical_point_count(
     variables
         The N variables of G.
     point
-        A value for every other symbol of G, keyed by the symbol or by its
-        square, as :attr:`TorusCount.point` gives them.
+        A value for every other symbol of G, keyed by the symbol or, for a
+        symbol occurring only to even powers, by its square, as
+        :attr:`TorusCount.point` gives them.
     seed
         Seed of the random exponents.
+    timeout
+        The most seconds to give Singular.
 
     Raises
     ------
     RuntimeError
-        If Singular is not installed, or fails.
+        If Singular is not installed, fails, or prints anything but the two
+        counts.
     ValidationError
-        If ``point`` leaves a symbol of G without a value, has a key that is
-        neither a symbol nor the square of one, or leaves G with coefficients
-        that are not rational.
+        If ``variables`` are not one or more distinct symbols, ``timeout`` is
+        not positive, G is not a polynomial with rational coefficients in its
+        symbols, or ``point`` misses a symbol of G, has any other key, gives a
+        value that is not rational or a negative value for a square, or keys by
+        its square a symbol occurring to odd powers.
     ComputationError
-        If the critical points do not form a finite set at the exponents drawn.
+        If Singular runs out of time, the counts modulo the two primes differ,
+        or the critical points do not form a finite set at the exponents drawn.
     """
+    variables = tuple(variables)
+    if not variables or len(set(variables)) != len(variables):
+        raise ValidationError("variables must be one or more distinct symbols")
+    if not timeout > 0:
+        raise ValidationError(f"timeout must be positive; got {timeout}")
+    g = sp.expand(sp.sympify(polynomial))
+    symbols = tuple(sorted(g.free_symbols - set(variables), key=lambda x: x.name))
+    try:
+        sp.Poly(g, *variables, *symbols, domain="QQ")
+    except (sp.PolynomialError, sp.CoercionFailed) as exc:
+        raise ValidationError(
+            "G must be a polynomial with rational coefficients in its symbols; set the energy "
+            "scale to 1"
+        ) from exc
+    even = frozenset(x for x in symbols if all(d % 2 == 0 for d in _degrees(g, x)))
+    values = _given_point(point, symbols, even)
+    # A symbol in even occurs only to even powers, and its value is that of its square.
+    rationals = [sp.Rational(v.numerator, v.denominator) for v in values]
+    substitution = {
+        x: sp.sqrt(v) if x in even else v for x, v in zip(symbols, rationals, strict=True)
+    }
+    g = sp.expand(g.subs(substitution))
     binary = _singular_binary()
     if binary is None:
         raise RuntimeError("critical_point_count needs Singular, which was not found")
-    variables = tuple(variables)
-    substitution: dict[sp.Symbol, sp.Expr] = {}
-    for raw_key, raw in point.items():
-        key = sp.sympify(raw_key)
-        value = sp.Rational(_rational(raw, key))
-        if isinstance(key, sp.Symbol):
-            substitution[key] = value
-        elif isinstance(key, sp.Pow) and key.exp == 2 and isinstance(key.base, sp.Symbol):
-            substitution[key.base] = sp.sqrt(value)
-        else:
-            raise ValidationError(f"point has the key {key}; keys are symbols or their squares")
-    g = sp.expand(sp.sympify(polynomial).subs(substitution))
-    missing = g.free_symbols - set(variables)
-    if missing:
-        listed = ", ".join(sorted(map(str, missing)))
-        raise ValidationError(f"point gives no value for {listed}")
-    try:
-        sp.Poly(g, *variables, domain="QQ")
-    except (sp.PolynomialError, sp.CoercionFailed) as exc:
-        raise ValidationError(
-            "G does not have rational coefficients at the point; a symbol occurring to odd powers "
-            "must be keyed by itself, not by its square"
-        ) from exc
+
     rng = random.Random(seed)
-    half_d, *nu = (
+    exponents = [
         sp.Rational(rng.randint(1, 10**6), rng.randint(1, 10**6)) for _ in range(len(variables) + 1)
-    )
+    ]
+    half_d, *nu = exponents
     t = sp.Dummy("t")
     generators = [
         nu_e * g - half_d * u * sp.diff(g, u) for nu_e, u in zip(nu, variables, strict=True)
     ]
     generators.append(1 - t * sp.Mul(*variables) * g)
-    names = {x: f"v{i}" for i, x in enumerate([t, *variables])}
-    ideal = []
-    for generator in generators:
-        _, integral = sp.Poly(generator, t, *variables, domain="QQ").clear_denoms()
-        ideal.append(str(integral.as_expr().subs(names, simultaneous=True)).replace("**", "^"))
-    script = (
-        f"ring r = 0, ({','.join(names.values())}), dp;\n"
-        f"ideal I = {','.join(ideal)};\n"
-        "print(vdim(std(I)));\n"
-        "quit;\n"
-    )
+    polys = [sp.Poly(generator, t, *variables, domain="QQ") for generator in generators]
+    avoided = [
+        abs(int(n))
+        for q in [c for poly in polys for c in poly.coeffs()] + exponents
+        for n in (q.p, q.q)
+    ]
+    primes: list[int] = []
+    p = 2**31
+    while len(primes) < 2:
+        p = sp.prevprime(p)
+        if all(n % p for n in avoided):
+            primes.append(p)
+    # No coefficient vanishes modulo the primes, so each generator keeps its support there.
+    integral = [poly.clear_denoms(convert=True)[1] for poly in polys]
+    ring = ",".join(f"v{i}" for i in range(len(variables) + 1))
+    script = ""
+    for i, prime in enumerate(primes):
+        ideal = ",".join(_singular_polynomial(poly, prime) for poly in integral)
+        script += (
+            f"ring r{i} = {prime}, ({ring}), dp;\n"
+            f"ideal I{i} = {ideal};\n"
+            f"print(vdim(std(I{i})));\n"
+        )
+    script += "quit;\n"
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "critical.sing"
         path.write_text(script)
-        run = subprocess.run(
-            [binary, "-q", "--no-warn", str(path)], capture_output=True, text=True, check=False
-        )
+        try:
+            run = subprocess.run(
+                [binary, "-q", "--no-warn", str(path)],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise ComputationError(f"Singular did not finish within timeout={timeout} s") from exc
     if run.returncode != 0:
         raise RuntimeError(f"Singular failed: {run.stderr.strip()}")
-    count = int(run.stdout.split()[-1])
-    if count < 0:
+    # Singular reports an error in the script on stdout and still exits with 0.
+    try:
+        counts = [int(line) for line in run.stdout.split()]
+    except ValueError:
+        counts = []
+    if len(counts) != 2:
+        output = (run.stdout.strip() or run.stderr.strip() or "nothing")[:500]
+        raise RuntimeError(f"Singular printed {output!r} instead of two counts")
+    first, second = counts
+    if first != second:
+        raise ComputationError(
+            f"the critical points number {first} modulo {primes[0]} and {second} modulo "
+            f"{primes[1]}"
+        )
+    if first < 0:
         raise ComputationError("the critical points do not form a finite set at these exponents")
-    return count
+    return first

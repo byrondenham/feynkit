@@ -27,20 +27,31 @@ of a x^2 + b x + c in F_p^*, read off a table of Legendre symbols.
 
 from __future__ import annotations
 
+import importlib.util
+import itertools
 import math
 import random
+import subprocess
+import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
+from pathlib import Path
 
 import numpy as np
 import sympy as sp
 
-from .core.exceptions import ValidationError
-from .landau import LandauAnalysis, _factor_list, landau_analysis_from_polynomial
+from ._exact import smith_invariants
+from .core.exceptions import ComputationError, ValidationError
+from .landau import (
+    LandauAnalysis,
+    _factor_list,
+    _singular_binary,
+    landau_analysis_from_polynomial,
+)
 from .polytope import polytope_data
 
-__all__ = ["TorusCount", "count_torus_points"]
+__all__ = ["TorusCount", "count_torus_points", "critical_point_count"]
 
 # A polynomial as (exponent vector, coefficient) pairs with non-zero coefficients.
 _Terms = tuple[tuple[tuple[int, ...], Fraction], ...]
@@ -60,7 +71,7 @@ _INVARIANTS = tuple(k for k in range(-20, 21) if k != 0)
 _ADMISSIBLE_DRAWS = 200
 # Draws tried before giving up on finding an admissible one.
 _MAX_DRAWS = 10_000
-_BACKENDS = ("numpy",)
+_BACKENDS = ("numpy", "flint")
 
 
 @dataclass(frozen=True)
@@ -108,14 +119,15 @@ class TorusCount:
         C = (-1)^N chi(X), or None.
     reason
         Why there is no candidate: the counts are not polynomial on the tested
-        primes, or the candidate master count is outside [0, N! Vol(Newt G)];
-        None when there is a candidate.
+        primes, the candidate master count is outside [0, N! Vol(Newt G)], or
+        the Newton polytope of G admits characters of order above 2, which the
+        check does not cover; None when there is a candidate.
     skipped_faces
         How many faces the Landau analysis skipped; their discriminants are
         missing from the admissibility test, the excluded primes and the
         characters the check covers.
     backend
-        The counting backend, "numpy".
+        The counting backend, "numpy" or "flint".
     """
 
     variables: tuple[sp.Symbol, ...]
@@ -270,6 +282,40 @@ def _exact_limit(parts: _Parts, others: int) -> int | None:
     grid = min(others, 2)
     width = max(len({monomial[others - grid :] for monomial in part}) for part in parts)
     return math.isqrt((2**63 - 1) // max(4, width)) + 1
+
+
+def _flint_available() -> bool:
+    """Whether python-flint can be imported; the analogue of _singular_binary."""
+    return importlib.util.find_spec("flint") is not None
+
+
+def _count_flint(parts: _Parts, others: int, p: int) -> int:
+    """#V(F_p) in the torus, counting the roots of nmod_poly([c, b, a], p) point by point.
+
+    A cross-check of _count_numpy that needs no Legendre symbol, and far slower.
+    """
+    import flint
+
+    a, b, c = (_modular(part, p) for part in parts)
+
+    def value(part: dict[tuple[int, ...], int], y: tuple[int, ...]) -> int:
+        return (
+            sum(
+                coefficient * math.prod(pow(v, e, p) for v, e in zip(y, monomial, strict=True))
+                for monomial, coefficient in part.items()
+            )
+            % p
+        )
+
+    total = 0
+    for y in itertools.product(range(1, p), repeat=others):
+        av, bv, cv = value(a, y), value(b, y), value(c, y)
+        if av == bv == cv == 0:
+            total += p - 1
+        elif av or bv:
+            roots = flint.nmod_poly([cv, bv, av], p).roots()
+            total += sum(1 for root, _ in roots if int(root) != 0)
+    return total
 
 
 def _interpolate(xs: Sequence[int], ys: Sequence[int]) -> list[Fraction]:
@@ -643,6 +689,38 @@ def _volume_bound(terms: _Terms) -> int:
     return data.normalized_volume * data.sublattice_index
 
 
+def _higher_order(terms: _Terms) -> str | None:
+    """Why the counts may depend on characters of order above 2, or None.
+
+    The check covers quadratic characters only. Others can enter through an
+    edge of the Newton polytope of lattice length k >= 3, on which G is a
+    polynomial of degree k in the edge's lattice coordinate, or through a
+    face whose points span a sublattice of index k >= 3 in the lattice points
+    of its affine hull, on which G is pulled back along a map of tori of
+    degree k. When G has degree at most 2 in every variable, as for a Feynman
+    graph, every edge has lattice length at most 2.
+    """
+    data = polytope_data([monomial for monomial, _ in terms])
+    for dimension, indices in sorted(data.faces):
+        if dimension == 0:
+            continue
+        if dimension == 1:
+            start, end = (data.points[i] for i in indices if i in data.vertex_indices)
+            size = math.gcd(*(x - y for x, y in zip(end, start, strict=True)))
+            found = f"an edge of lattice length {size}"
+        else:
+            points = [data.points[i] for i in indices]
+            differences = [[x - y for x, y in zip(q, points[0], strict=True)] for q in points[1:]]
+            size = math.prod(smith_invariants(differences, data.ambient_dimension))
+            found = f"a face of dimension {dimension} and lattice index {size}"
+        if size >= 3:
+            return (
+                f"the Newton polytope has {found}, so the counts may depend on characters of "
+                "order above 2, which the check does not cover"
+            )
+    return None
+
+
 def _analyses(landau: LandauAnalysis, g: sp.Expr, variables: Sequence[sp.Symbol]) -> bool:
     """Whether landau is an analysis of g: its faces carry the coefficients of g and, with the
     faces it skipped, cover the support of g."""
@@ -720,13 +798,19 @@ def count_torus_points(
     max_evaluations
         The most evaluations of G to spend; a prime p costs (p - 1)^(N - 1).
     backend
-        "numpy", which evaluates G on grids of points at once.
+        "numpy", which evaluates G on grids of points at once, or "flint", which
+        counts the roots of each quadratic with python-flint point by point: a
+        slower cross-check that needs python-flint installed.
 
     Returns
     -------
     TorusCount
         The counts and, when they are polynomial on the tested primes, the
-        candidate polynomial, Euler characteristic and master count.
+        candidate polynomial, Euler characteristic and master count. When an
+        edge of the Newton polytope of G at the point has lattice length at
+        least 3, or a face has lattice index at least 3, the counts may depend
+        on characters of order above 2, which the check does not cover: the
+        fit primes are counted, but a fit is refused without a check.
 
     Raises
     ------
@@ -737,9 +821,13 @@ def count_torus_points(
         variable, ``max_prime`` is above the int64 limit, there are too few
         primes up to ``max_prime`` for the fit and its check, or counting needs
         more than ``max_evaluations``.
+    RuntimeError
+        If ``backend`` is "flint" and python-flint is not installed.
     """
     if backend not in _BACKENDS:
         raise ValidationError(f"backend must be one of {', '.join(_BACKENDS)}; got {backend!r}")
+    if backend == "flint" and not _flint_available():
+        raise RuntimeError("the flint backend needs python-flint, which is not installed")
     if verification < 1:
         raise ValidationError(f"verification must be at least 1; got {verification}")
     variables = tuple(variables)
@@ -786,24 +874,29 @@ def count_torus_points(
             f"got {max_prime}"
         )
     bound = _volume_bound(specialised) if volume_bound is None else volume_bound
+    # A fit the check cannot vouch for is refused before the check, so only the fit primes are
+    # counted; their counts are still reported, and a fit that fails outright says so instead.
+    refusal = _higher_order(specialised)
+    checks = verification if refusal is None else 0
 
     primes = list(sp.primerange(3, max_prime + 1))
     excluded = _excluded(kinematics, values, primes)
     usable = [p for p in primes if p not in excluded]
-    if len(usable) < n + 1 + verification:
+    if len(usable) < n + 1 + checks:
         raise ValidationError(
             f"{len(usable)} primes up to max_prime={max_prime} are not excluded, and the fit "
-            f"and its check need {n + 1 + verification}"
+            f"and its check need {n + 1 + checks}"
         )
-    needed = sum((p - 1) ** (n - 1) for p in usable[: n + 1 + verification])
+    needed = sum((p - 1) ** (n - 1) for p in usable[: n + 1 + checks])
     if needed > max_evaluations:
         raise ValidationError(
             f"counting needs at least {needed} evaluations of G, above "
             f"max_evaluations={max_evaluations}"
         )
 
+    count = _count_flint if backend == "flint" else _count_numpy
     fit = usable[: n + 1]
-    counts = [(p, _count_numpy(parts, n - 1, p)) for p in fit]
+    counts = [(p, count(parts, n - 1, p)) for p in fit]
     verified: list[int] = []
 
     def outcome(polynomial_: tuple[int, ...] | None, reason: str | None) -> TorusCount:
@@ -839,6 +932,8 @@ def count_torus_points(
     master = (-1) ** (n + 1) * sum(fitted)
     if not 0 <= master <= bound:
         return outcome(None, f"the candidate master count {master} is not in [0, {bound}]")
+    if refusal is not None:
+        return outcome(None, refusal)
 
     # Every non-trivial product of the characters must take both signs on the fit and check
     # primes together: their vectors over F_2 must affinely span F_2^k, that is their
@@ -862,7 +957,7 @@ def count_torus_points(
             raise ValidationError(
                 f"checking the fit needs more than max_evaluations={max_evaluations} evaluations"
             )
-        observed = _count_numpy(parts, n - 1, p)
+        observed = count(parts, n - 1, p)
         counts.append((p, observed))
         verified.append(p)
         _insert(spanned, _signs(characters, p) ^ first)
@@ -872,3 +967,102 @@ def count_torus_points(
                 None, f"the count at p = {p} is {observed}, where the fit predicts {predicted}"
             )
     return outcome(fitted, None)
+
+
+def critical_point_count(
+    polynomial: sp.Expr,
+    variables: Sequence[sp.Symbol],
+    point: Mapping[sp.Expr, int | Fraction],
+    *,
+    seed: int = 0,
+) -> int:
+    """The number of critical points of sum_e nu_e log u_e - (D/2) log G on X.
+
+    X is the complement of {G = 0} in the torus. For generic exponents nu_e and
+    D the critical points are all regular and number |chi(X)| (Fevola, Mizera
+    and Telen, Comput. Phys. Commun. 303 (2024) 109278, proof of Theorem 3.1,
+    eq. (3.2), after Huh 2013). The exponents are random rationals drawn with
+    random.Random(seed), and the count is Singular's vdim(std(I)) for the ideal
+    I of nu_e G - (D/2) u_e dG/du_e, e = 1, ..., N, and 1 - t u_1 ... u_N G.
+
+    Parameters
+    ----------
+    polynomial
+        G, with the energy scale already set to 1.
+    variables
+        The N variables of G.
+    point
+        A value for every other symbol of G, keyed by the symbol or by its
+        square, as :attr:`TorusCount.point` gives them.
+    seed
+        Seed of the random exponents.
+
+    Raises
+    ------
+    RuntimeError
+        If Singular is not installed, or fails.
+    ValidationError
+        If ``point`` leaves a symbol of G without a value, has a key that is
+        neither a symbol nor the square of one, or leaves G with coefficients
+        that are not rational.
+    ComputationError
+        If the critical points do not form a finite set at the exponents drawn.
+    """
+    binary = _singular_binary()
+    if binary is None:
+        raise RuntimeError("critical_point_count needs Singular, which was not found")
+    variables = tuple(variables)
+    substitution: dict[sp.Symbol, sp.Expr] = {}
+    for raw_key, raw in point.items():
+        key = sp.sympify(raw_key)
+        value = sp.Rational(_rational(raw, key))
+        if isinstance(key, sp.Symbol):
+            substitution[key] = value
+        elif isinstance(key, sp.Pow) and key.exp == 2 and isinstance(key.base, sp.Symbol):
+            substitution[key.base] = sp.sqrt(value)
+        else:
+            raise ValidationError(f"point has the key {key}; keys are symbols or their squares")
+    g = sp.expand(sp.sympify(polynomial).subs(substitution))
+    missing = g.free_symbols - set(variables)
+    if missing:
+        listed = ", ".join(sorted(map(str, missing)))
+        raise ValidationError(f"point gives no value for {listed}")
+    try:
+        sp.Poly(g, *variables, domain="QQ")
+    except (sp.PolynomialError, sp.CoercionFailed) as exc:
+        raise ValidationError(
+            "G does not have rational coefficients at the point; a symbol occurring to odd powers "
+            "must be keyed by itself, not by its square"
+        ) from exc
+    rng = random.Random(seed)
+    half_d, *nu = (
+        sp.Rational(rng.randint(1, 10**6), rng.randint(1, 10**6)) for _ in range(len(variables) + 1)
+    )
+    t = sp.Dummy("t")
+    generators = [
+        nu_e * g - half_d * u * sp.diff(g, u) for nu_e, u in zip(nu, variables, strict=True)
+    ]
+    generators.append(1 - t * sp.Mul(*variables) * g)
+    names = {x: f"v{i}" for i, x in enumerate([t, *variables])}
+    ideal = []
+    for generator in generators:
+        _, integral = sp.Poly(generator, t, *variables, domain="QQ").clear_denoms()
+        ideal.append(str(integral.as_expr().subs(names, simultaneous=True)).replace("**", "^"))
+    script = (
+        f"ring r = 0, ({','.join(names.values())}), dp;\n"
+        f"ideal I = {','.join(ideal)};\n"
+        "print(vdim(std(I)));\n"
+        "quit;\n"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "critical.sing"
+        path.write_text(script)
+        run = subprocess.run(
+            [binary, "-q", "--no-warn", str(path)], capture_output=True, text=True, check=False
+        )
+    if run.returncode != 0:
+        raise RuntimeError(f"Singular failed: {run.stderr.strip()}")
+    count = int(run.stdout.split()[-1])
+    if count < 0:
+        raise ComputationError("the critical points do not form a finite set at these exponents")
+    return count

@@ -18,8 +18,8 @@ import sympy as sp
 from feynkit import FeynmanIntegral
 from feynkit import point_count as pc
 from feynkit.core.exceptions import ValidationError
-from feynkit.landau import landau_analysis_from_polynomial
-from feynkit.point_count import count_torus_points
+from feynkit.landau import _singular_binary, landau_analysis_from_polynomial
+from feynkit.point_count import count_torus_points, critical_point_count
 from feynkit.polytope import polytope_data
 
 SMALL_PRIMES = (3, 5, 7, 11, 13, 17, 19, 23)
@@ -189,6 +189,38 @@ def test_graph_polynomials_have_degree_at_most_two_in_each_variable(cnickel: str
         if dimension == 1:
             ends = [data.points[i] for i in indices if i in data.vertex_indices]
             assert math.gcd(*(x - y for x, y in zip(ends[0], ends[1], strict=True))) <= 2
+
+
+@pytest.mark.parametrize(
+    "cnickel",
+    [
+        "11e|e|:zz",
+        "11e|e|:nz",
+        "11e|e|:nn",
+        "12e|2e|e|:zzz",
+        "12e|2e|e|:nzz",
+        "12e|2e|e|:nnn",
+        "12e|3e|3e|e|:zzzz",
+        "12e|3e|3e|e|:nnzz",
+        "12e|3e|3e|e|:nnnn",
+        "12e|23|3|e|:zzzzz",
+        "12e|23|3|e|:nzzzz",
+        "12e|23|3|e|:nnnnn",
+        "12e|22|e|:nzzz",
+        "12ee|22e|e|:nnnn",
+        "111e|e|:nnn",
+    ],
+)
+def test_graph_polytopes_admit_no_characters_of_higher_order(cnickel: str) -> None:
+    # Every edge has lattice length at most 2 and every face lattice index 1, for generic
+    # kinematics and with every external p_i^2 = 0, so the check's guard never refuses them.
+    fi = FeynmanIntegral.from_cnickel(cnickel)
+    g = fi.symanzik.g
+    variables = list(fi.symanzik.lp_parameters)
+    on_shell = {x: 0 for x in g.free_symbols if x.name.startswith("p") and x.name.endswith("^2")}
+    for h in (g, sp.expand(g.subs(on_shell))):
+        monomials = sp.Poly(h, *variables).monoms()
+        assert pc._higher_order(tuple((m, Fraction(1)) for m in monomials)) is None
 
 
 MU = sp.Symbol("mu", positive=True)
@@ -486,10 +518,46 @@ class TestCountTorusPoints:
 
     def test_edge_discriminants_are_excluded(self) -> None:
         # The edge 1 + x u^3 has lattice length 3 and discriminant -27 x^2, which the Landau
-        # analysis does not see since the edge is a simplex; mod 3, 1 + u^3 = (1 + u)^3.
+        # analysis does not see since the edge is a simplex; mod 3, 1 + u^3 = (1 + u)^3. The
+        # counts, p - 1 - gcd(3, p - 1), fail the fit, which the reason prefers to the edge.
         u, v, x = sp.symbols("u v x")
         count = count_torus_points(1 + x * u**3 + v, [u, v], point={x: 1})
         assert count.excluded_primes == (2, 3)
+        assert count.reason == "the polynomial through the fit counts has non-integer coefficients"
+
+    def test_a_character_of_higher_order_refuses_the_candidate(self) -> None:
+        # v + u^6 + 108 has p - 1 points less the sixth roots of -108 = -4 * 27, which exist
+        # only when p = 1 mod 3 and 2 is a cube mod p: at 31, but at no prime up to 29. The
+        # counts fit q - 1 and C = 0, where chi(X) = 6. The edge from 108 to u^6 has lattice
+        # length 6, so the candidate is refused before the check, and the budget need only
+        # cover the fit primes 5, 7 and 11.
+        u, v, x = sp.symbols("u v x")
+        g = v + u**6 + x
+        count = count_torus_points(g, [u, v], point={x: 108})
+        assert count.counts == ((5, 4), (7, 6), (11, 10))
+        assert count.verification_primes == ()
+        assert count.candidate_polynomial is None
+        assert count.candidate_euler_characteristic is None
+        assert count.candidate_master_count is None
+        assert count.reason == (
+            "the Newton polytope has an edge of lattice length 6, so the counts may depend on "
+            "characters of order above 2, which the check does not cover"
+        )
+        assert count_torus_points(g, [u, v], point={x: 108}, max_evaluations=20) == count
+        terms = (((0, 1), Fraction(1)), ((6, 0), Fraction(1)), ((0, 0), Fraction(108)))
+        assert pc._count_numpy(pc._split(terms, 1), 1, 31) == 31 - 7
+
+    def test_edges_and_faces_that_admit_characters_of_higher_order(self) -> None:
+        def reason(*monomials: tuple[int, ...]) -> str | None:
+            return pc._higher_order(tuple((m, Fraction(1)) for m in monomials))
+
+        # Lattice length 2 and index 2 pass; length 3 fails with every point present.
+        assert reason((0,), (2,)) is None
+        assert reason((0,), (1,), (2,), (3,)) is not None
+        assert "an edge of lattice length 3" in str(reason((0,), (3,)))
+        # A triangle of index 2 passes; 1 + u^2 v + u v^2 has edges of length 1 and index 3.
+        assert reason((0, 0), (1, 1), (2, 0)) is None
+        assert "a face of dimension 2 and lattice index 3" in str(reason((0, 0), (2, 1), (1, 2)))
 
     def test_draws_are_admissible(self) -> None:
         # The first draw of seed 63 gives x = y = 9, where the coefficient x - y vanishes.
@@ -505,12 +573,16 @@ class TestCountTorusPoints:
         assert count_torus_points(g, U, scale=MU).eliminated == u2
         assert count_torus_points(bubble_g(massive=False), U, scale=MU).eliminated == u1
 
-    @pytest.mark.parametrize("cnickel", ["12e|23|3|e|:nzzzz", "12ee|22e|e|:nnnn"])
-    def test_face_discriminants_odd_in_a_mass(self, cnickel: str) -> None:
+    @pytest.mark.parametrize(
+        ("cnickel", "master"),
+        [("12e|23|3|e|:nzzzz", 7), ("12e|22|e|:nzzz", 3), ("12ee|22e|e|:nnnn", None)],
+    )
+    def test_face_discriminants_odd_in_a_mass(self, cnickel: str, master: int | None) -> None:
         # The Landau analysis factorises in the masses, so a factor m_1^2 of a discriminant
         # becomes m_1; the count multiplies such a discriminant by its image under
         # m_1 -> -m_1, a polynomial in m_1^2. Faces of more than 5 points are skipped to save
-        # time; enough odd discriminants remain.
+        # time; enough odd discriminants remain. The candidates 7 and 3 agree with counts at
+        # further primes; the last graph's result is not pinned.
         fi = FeynmanIntegral.from_cnickel(cnickel)
         g, mu = fi.symanzik.g, fi.graph.energy_scale
         variables = list(fi.symanzik.lp_parameters)
@@ -524,3 +596,84 @@ class TestCountTorusPoints:
         count = count_torus_points(g, variables, scale=mu, landau=analysis)
         assert count.skipped_faces == len(analysis.skipped_faces) > 0
         assert count.counts
+        if master is not None:
+            assert count.candidate_master_count == master
+
+
+requires_singular = pytest.mark.skipif(_singular_binary() is None, reason="Singular not installed")
+
+
+class TestFlint:
+    def test_flint_agrees_with_numpy(self) -> None:
+        pytest.importorskip("flint")
+        rng = random.Random(5)
+        for _ in range(100):
+            n = rng.randint(1, 3)
+            terms = random_terms(rng, n)
+            if not terms:
+                continue
+            parts = pc._split(terms, rng.randrange(n))
+            for p in (3, 5, 7, 11, 13):
+                if any(c.denominator % p == 0 for _, c in terms):
+                    continue
+                assert pc._count_flint(parts, n - 1, p) == pc._count_numpy(parts, n - 1, p)
+
+    def test_flint_backend_gives_the_numpy_result(self) -> None:
+        pytest.importorskip("flint")
+        numpy = bubble_count(seed=2)
+        flint = bubble_count(seed=2, backend="flint")
+        assert flint.backend == "flint"
+        assert flint.counts == numpy.counts
+        assert flint.candidate_master_count == numpy.candidate_master_count
+
+    def test_flint_backend_counts_every_prime_with_flint(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Both backends give the same counts, so only a spy shows which one counted.
+        counted: list[int] = []
+
+        def spy(parts: pc._Parts, others: int, p: int) -> int:
+            counted.append(p)
+            return pc._count_numpy(parts, others, p)
+
+        monkeypatch.setattr(pc, "_flint_available", lambda: True)
+        monkeypatch.setattr(pc, "_count_flint", spy)
+        count = bubble_count(seed=2, backend="flint")
+        assert counted == [p for p, _ in count.counts]
+
+    def test_flint_backend_needs_python_flint(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(pc, "_flint_available", lambda: False)
+        with pytest.raises(RuntimeError, match="python-flint"):
+            bubble_count(backend="flint")
+
+
+class TestCriticalPointCount:
+    @requires_singular
+    def test_two_mass_bubble_has_three_critical_points(self) -> None:
+        g = bubble_g().subs(MU, 1)
+        for seed in (0, 1):
+            assert critical_point_count(g, U, {S: 1, M1**2: 1, M2**2: 1}, seed=seed) == 3
+
+    @requires_singular
+    def test_agrees_with_the_candidates(self) -> None:
+        massless = count_torus_points(bubble_g(massive=False), U, scale=MU)
+        massive = bubble_count(point={S: 1, M1**2: 2, M2**2: 6})
+        for massive_, count in ((False, massless), (True, massive)):
+            g = bubble_g(massive=massive_).subs(MU, 1)
+            assert critical_point_count(g, U, dict(count.point)) == count.candidate_master_count
+
+    @requires_singular
+    def test_point_must_give_every_symbol(self) -> None:
+        with pytest.raises(ValidationError, match="no value for m_2"):
+            critical_point_count(bubble_g().subs(MU, 1), U, {S: 1, M1**2: 1})
+
+    @requires_singular
+    def test_point_must_leave_rational_coefficients(self) -> None:
+        # s occurs to the first power, so its square 2 would make it sqrt(2).
+        with pytest.raises(ValidationError, match="rational coefficients"):
+            critical_point_count(bubble_g().subs(MU, 1), U, {S**2: 2, M1**2: 1, M2**2: 1})
+
+    def test_needs_singular(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(pc, "_singular_binary", lambda: None)
+        with pytest.raises(RuntimeError, match="Singular"):
+            critical_point_count(bubble_g().subs(MU, 1), U, {S: 1, M1**2: 1, M2**2: 1})

@@ -63,6 +63,9 @@ Let $X = (\mathbb{C}^*)^N \setminus V$, with $\mu = 1$.
   $\mu$ symbolic, then $\mu = 1$. (Analysed at $\mu = 1$, the two-mass
   bubble's 2-face becomes principal, adding the condition that $s$ be a
   square.)
+- The Landau analysis factorises in the masses, so a factor $f$ of a
+  discriminant can be odd in a mass $m$; the tests below replace it by its
+  norm $f(m) f(-m)$, a polynomial in $m^2$.
 - A draw is admissible when every coefficient and face discriminant is
   nonzero.
 - Square test: on faces of dimension at least 1 with principal discriminants,
@@ -77,11 +80,20 @@ Let $X = (\mathbb{C}^*)^N \setminus V$, with $\mu = 1$.
   `allow_singular=True` it is used and the result marked `on_landau_surface`,
   since $C$ may drop there, to 3 for the triangle at $\lambda = 0$.
 - Excluded primes: 2 and divisors of numerators and denominators of
-  coefficients and nonzero discriminant values. The rule is heuristic, missing
-  the integer content of eliminants, skipped faces and components absent from
-  the Landau list, but a missed bad prime causes a rejection, not a wrong
-  result: the two-mass bubble at $s = 1$, $m_e^2 = (2, 6)$ has no points at
-  $p = 3$, where the fit predicts $-1$.
+  coefficients, nonzero discriminant values and their nonzero factors, and
+  the discriminant of $G$ on each edge in its lattice coordinate (see
+  Fitting). The rule is heuristic, missing the integer content of
+  eliminants, skipped faces and components absent from the Landau list, but
+  a missed bad prime causes a rejection, not a wrong result: the two-mass
+  bubble at $s = 1$, $m_e^2 = (2, 6)$ has no points at $p = 3$, where the
+  fit predicts $-1$.
+- If an edge of the Newton polytope at the point has lattice length at least
+  3, or a face has lattice index at least 3, the counts may depend on
+  characters of order above 2, which the check cannot cover: $v + u^6 + 108$
+  counts $p - 1$ at every prime from 5 to 29 and fits $C = 0$, where $C = 6$.
+  Only the fit primes are then counted, and no candidate is given. Graphs
+  have edges of length at most 2 (item 5), and every graph tested has faces
+  of index 1.
 
 ### Counting
 

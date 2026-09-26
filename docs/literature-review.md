@@ -105,7 +105,7 @@ Klausen (2020) discusses a closely related issue: not every Feynman polytope adm
 
 ### 4.3 Master integrals and the rank-volume relation
 
-A particularly suggestive consequence of the polytope perspective concerns the count of master integrals. For *generic* coefficients $z$, the dimension of the solution space equals the lattice volume $\operatorname{vol}_0 \Delta_G$. For the *physical* (non-generic) values of $z$, the dimension reduces to the Euler characteristic $C = (-1)^n \chi((\mathbb{C}^*)^n \setminus \{G = 0\})$, which is the Lee-Pomeransky count of master integrals. In general $C \leq \operatorname{vol}_0 \Delta_G$, with strict inequality signalling that the limit from the generalised to the physical Feynman integral imposes linear relations among the $\Gamma$-series. Klausen (2020) makes the analogy explicit: the linear combination of $\Gamma$-series in (3.4) of his paper plays the role of a decomposition into a basis of master integrals, and different triangulations correspond to different master-integral bases related by transformation identities of hypergeometric functions.
+A particularly suggestive consequence of the polytope perspective concerns the count of master integrals. For *generic* coefficients $z$, the dimension of the solution space equals the lattice volume $\operatorname{vol}_0 \Delta_G$. At the *physical* values of $z$, Bitoun et al. (2019) show that the number of master integrals is the Euler characteristic $C = (-1)^n \chi((\mathbb{C}^*)^n \setminus \{G = 0\})$. In general $C \leq n!\,\operatorname{Vol}(\Delta_G)$, with $\operatorname{Vol}$ the Euclidean volume. This bound equals $\operatorname{vol}_0 \Delta_G$ when the exponent differences span $\mathbb{Z}^n$; in that case strict inequality signals that the limit from the generalised to the physical Feynman integral imposes linear relations among the $\Gamma$-series. Klausen (2020) makes the analogy explicit: the linear combination of $\Gamma$-series in (3.4) of his paper plays the role of a decomposition into a basis of master integrals, and different triangulations correspond to different master-integral bases related by transformation identities of hypergeometric functions.
 
 ### 4.4 The $\epsilon$-expansion
 
@@ -244,6 +244,7 @@ What is already settled is that the GKZ approach has changed the way we think ab
 ## References (within the supplied corpus)
 
 - N. Arkani-Hamed, P. Benincasa, A. Postnikov, *Cosmological Polytopes and the Wavefunction of the Universe*, arXiv:1709.02813 (2017).
+- T. Bitoun, C. Bogner, R. P. Klausen, E. Panzer, *Feynman integral relations from parametric annihilators*, Lett. Math. Phys. 109 (2019) 497, arXiv:1712.09215.
 - A. Bzowski, P. McFadden, K. Skenderis, *Conformal correlators as simplex integrals in momentum space*, JHEP 01 (2021) 192, arXiv:2008.07543.
 - D. Caloro, *Shift operators and momentum-space conformal field theory*, PhD thesis (2024).
 - L. de la Cruz, *Feynman integrals as A-hypergeometric functions*, JHEP 12 (2019) 123, arXiv:1907.00507.

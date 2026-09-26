@@ -625,6 +625,19 @@ def test_tadpole_keeps_its_rank_sentence(tadpole: FeynmanIntegral) -> None:
         assert "linearly dependent" not in flat
 
 
+def test_master_count_is_bounded_by_the_euclidean_volume(tadpole: FeynmanIntegral) -> None:
+    # The bound is N! Vol(P), the normalised volume only when the exponent
+    # differences span Z^N: for 1 + x^2, |chi| = 2 and the normalised volume is 1.
+    text = _flat(tadpole.to_text(["polytope"]))
+    latex = _flat(tadpole.to_latex(["polytope"]))
+    assert "at most N! times the Euclidean volume of P, with equality for generic" in text
+    assert "The bound equals the normalised volume when the exponent differences span Z^N." in text
+    assert "at most $N!$ times the Euclidean volume of $P$, with equality for generic" in latex
+    assert "the exponent differences span $\\mathbb{Z}^N$." in latex
+    for document in (text, latex):
+        assert "at most the normalised volume" not in document
+
+
 def test_vacuum_graphs_have_no_external_momenta(tadpole: FeynmanIntegral) -> None:
     sunrise = Graph(
         internal_vertices=2,

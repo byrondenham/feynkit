@@ -403,7 +403,7 @@ pytest --cov=feynkit --cov-report=html
 
 - Weinzierl, S. (2022). *Feynman Integrals.* Springer. [arXiv:2201.03593](https://arxiv.org/abs/2201.03593)
 - de la Cruz, L. (2019). Feynman integrals as A-hypergeometric functions. *JHEP* **12**, 123.
-- Lee, R.N. and Pomeransky, A.A. (2013). Critical points and master integrals. *JHEP* **11**, 165.
+- Lee, R.N. and Pomeransky, A.A. (2013). Critical points and number of master integrals. *JHEP* **11**, 165.
 - Gelfand, Kapranov, Zelevinsky (1994). *Discriminants, Resultants and Multidimensional Determinants.*
 - Bogner, C. et al. (2017). Loopedia, a database for loop integrals. [arXiv:1709.01266](https://arxiv.org/abs/1709.01266)
 - Liu, Y. and Cai, B. (2025). Unimodular isomorphism of lattice polytopes. [arXiv:2506.23846](https://arxiv.org/abs/2506.23846)

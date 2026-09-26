@@ -168,11 +168,12 @@ such that every vertex reaches an external leg along massive propagators alone;
 the configuration is then normal and so Cohen-Macaulay
 [klausen2023, tellander2023, walther2022]. The number of master integrals is,
 up to sign, the Euler characteristic of the complement of {G = 0} in the torus,
-at most the normalised volume and equal to it for generic coefficients;
-graph-polynomial coefficients are rarely generic [bbkp2017]. feynkit computes
-neither the holonomic rank at the physical point nor the Euler characteristic,
-and produces no series solutions, Pfaffian system or restriction to physical
-kinematics.
+at most N! times the Euclidean volume of P, with equality for generic
+coefficients; graph-polynomial coefficients are rarely generic [bbkp2017]. The
+bound equals the normalised volume when the exponent differences span Z^N.
+feynkit computes neither the holonomic rank at the physical point nor the Euler
+characteristic, and produces no series solutions, Pfaffian system or
+restriction to physical kinematics.
 
 GKZ system
 ----------

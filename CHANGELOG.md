@@ -157,6 +157,16 @@
   computes only the volume. It now prints whether vol_0(BMS_n) = 2^{n-1} and
   says that for generic beta the holonomic rank is vol_0(BMS_n); its other
   statements about the rank now say "for generic beta" too.
+- Section 4.5 of the mathematics reference and section 4.3 of the literature
+  review called |chi|, the number of master integrals, the Lee-Pomeransky
+  count. Lee and Pomeransky count the critical points of G itself; the master
+  count is due to Bitoun et al. (2019), and both documents now attribute it to
+  them. Both, and the Newton polytope section of the analysis report, also
+  bounded it by the normalised volume vol_0. The bound is N! Vol, with Vol the
+  Euclidean volume, and it equals vol_0 only when the exponent differences span
+  Z^N: for 1 + x^2, |chi| = 2 and vol_0 = 1. The README and the guide gave the
+  title of Lee and Pomeransky (2013) as "Critical points and master integrals";
+  it is "Critical points and number of master integrals".
 
 ## 0.3.0 (2026-09-25)
 

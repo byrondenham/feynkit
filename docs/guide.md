@@ -1832,8 +1832,8 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
 2. de la Cruz, L. (2019). Feynman integrals as A-hypergeometric functions. *JHEP* **12**, 123.
    [arXiv:1907.00507](https://arxiv.org/abs/1907.00507)
 
-3. Lee, R.N. and Pomeransky, A.A. (2013). Critical points and master integrals. *JHEP* **11**,
-   165. [arXiv:1308.6676](https://arxiv.org/abs/1308.6676)
+3. Lee, R.N. and Pomeransky, A.A. (2013). Critical points and number of master integrals.
+   *JHEP* **11**, 165. [arXiv:1308.6676](https://arxiv.org/abs/1308.6676)
 
 4. Gelfand, I.M., Kapranov, M.M., Zelevinsky, A.V. (1994). *Discriminants, Resultants and
    Multidimensional Determinants.* Birkhäuser.

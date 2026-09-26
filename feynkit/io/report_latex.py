@@ -487,9 +487,10 @@ def _polytope(polytope: Polytope, doc: _Document) -> str:
         "configuration is then normal and so Cohen-Macaulay"
         f"{doc.cite('klausen2023', 'tellander2023', 'walther2022')}. The number of master "
         "integrals is, up to sign, the Euler characteristic of the complement of "
-        "$\\{G = 0\\}$ in the torus, at most the normalised volume and equal to it for "
-        "generic coefficients; graph-polynomial coefficients are rarely generic"
-        f"{doc.cite('bbkp2017')}. {NOT_COMPUTED}",
+        "$\\{G = 0\\}$ in the torus, at most $N!$ times the Euclidean volume of $P$, with "
+        "equality for generic coefficients; graph-polynomial coefficients are rarely generic"
+        f"{doc.cite('bbkp2017')}. The bound equals the normalised volume when the exponent "
+        f"differences span $\\mathbb{{Z}}^N$. {NOT_COMPUTED}",
     ]
     return "\n".join(parts)
 

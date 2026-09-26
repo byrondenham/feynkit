@@ -282,9 +282,16 @@ a fully massive three-point configuration whose semigroup ring is not Cohen-Maca
 of $\beta$ means that the system is reducible (Schulze and Walther 2012), not that its rank
 changes.
 
-The number of master integrals at physical kinematics, the Lee-Pomeransky count $|\chi|$, is at
-most $\mathrm{vol}_0(\Delta_G)$, with equality for generic coefficients (Bitoun et al. 2019;
-Améndola et al. 2019).
+The number of master integrals at physical kinematics is $|\chi|$, the absolute Euler
+characteristic of the complement of $\{G = 0\}$ in $(\mathbb{C}^*)^n$ (Bitoun et al. 2019,
+Corollary 37). For generic exponents it is also the number of critical points of
+$\sum_e \nu_e \log u_e - (D/2) \log G$ on that complement (Fevola, Mizera and Telen 2024, proof
+of Theorem 3.1, after Huh 2013). It is at most $n!\,\mathrm{Vol}(\Delta_G)$, with equality for
+generic coefficients (Bitoun et al. 2019, Theorem 44, after Kouchnirenko 1976; Améndola et al.
+2019). Here $\mathrm{Vol}$ is the Euclidean volume and $L$ the lattice of section 5.3, so
+$n!\,\mathrm{Vol}(\Delta_G) = [\mathbb{Z}^n : L]\,\mathrm{vol}_0(\Delta_G)$ when $\Delta_G$ is
+full-dimensional. The two agree when the exponent differences span $\mathbb{Z}^n$, which
+`polytope_data` reports as a full-dimensional polytope with `sublattice_index` 1.
 
 *Ref:* GKZ (1994) Thm 3.11; Klausen (2020) Thm 2.2; de la Cruz (2019) section 2.
 
@@ -1102,3 +1109,15 @@ All papers cited in the feynkit source and directly relevant to the implemented 
     S. Hoşten, E.D. Nash, J.I. Rodriguez, D. Smolkin.
     *The maximum likelihood degree of toric varieties.*  J.\ Symbolic Comput.\ (2019).
     arXiv:1703.02251.
+
+30. **Fevola-Mizera-Telen (2024).** C. Fevola, S. Mizera, S. Telen.
+    *Principal Landau determinants.*
+    Comput.\ Phys.\ Commun.\ **303** (2024) 109278.  arXiv:2311.16219.
+
+31. **Huh (2013).** J. Huh.
+    *The maximum likelihood degree of a very affine variety.*
+    Compositio Math.\ **149** (2013) 1245.
+
+32. **Kouchnirenko (1976).** A.G. Kouchnirenko.
+    *Polyèdres de Newton et nombres de Milnor.*
+    Invent.\ Math.\ **32** (1976) 1.

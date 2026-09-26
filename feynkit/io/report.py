@@ -41,6 +41,7 @@ from ..kinematics.mandelstam import KinematicInvariants, standard_invariants
 from ..landau import LandauAnalysis, landau_analysis, one_loop_landau_surfaces_by_type
 from ..normal_forms.polytope_automorphisms import coefficient_preserving_indices
 from ..parametrisations.base import ParametrisationResult
+from ..point_count import TorusCount
 from ..polytope import PolytopeData, polytope_data
 from ..systems.cayley import CayleyGKZSystem
 from ..systems.complete import GKZSystem
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
     from ..integral import FeynmanIntegral
 
 __all__ = [
+    "DEFAULT_SECTIONS",
     "SECTION_NAMES",
     "AnalysisReport",
     "Conventions",
@@ -72,11 +74,16 @@ SECTION_NAMES = (
     "polynomials",
     "representations",
     "polytope",
+    "torus",
     "gkz",
     "symmetries",
     "landau",
     "schwinger",
 )
+
+# The sections built when none are named: all but the point counts, which take seconds for
+# five propagators and hours for seven.
+DEFAULT_SECTIONS = tuple(name for name in SECTION_NAMES if name != "torus")
 
 
 # --- section data types ------------------------------------------------------
@@ -500,8 +507,7 @@ def _symmetries_omitted(data: PolytopeData) -> SymmetriesOmitted | None:
     return None
 
 
-def _landau(fi: FeynmanIntegral, max_face_points: int) -> Landau:
-    analysis = landau_analysis(fi, max_face_points=max_face_points)
+def _landau(fi: FeynmanIntegral, analysis: LandauAnalysis) -> Landau:
     grouped: dict[int, list[sp.Expr]] = {}
     for face in analysis.face_discriminants:
         if face.discriminant == 1:
@@ -577,8 +583,10 @@ class AnalysisReport:
     """Everything feynkit computes for one integral, section by section.
 
     The first three sections are always present; the rest are None when the
-    caller did not ask for them. The symmetries are also None when the Newton
-    polytope has dimension below 2 or is not full-dimensional, and
+    caller did not ask for them. ``torus`` holds the finite-field point counts
+    of :meth:`FeynmanIntegral.torus_count`, whose candidates are not proven.
+    The symmetries are also None when the Newton polytope has dimension below 2
+    or is not full-dimensional, and
     ``symmetries_omitted`` then records that they were asked for and why:
     "dimension below 2" if P has dimension below 2, and "not full-dimensional"
     otherwise. It is None when the symmetries were computed or not asked for.
@@ -594,6 +602,7 @@ class AnalysisReport:
     landau: Landau | None
     schwinger: Schwinger | None
     symmetries_omitted: SymmetriesOmitted | None = None
+    torus: TorusCount | None = None
 
     @classmethod
     def from_integral(
@@ -603,6 +612,8 @@ class AnalysisReport:
         *,
         max_face_points: int = 12,
         figure_max_vertices: int = 12,
+        torus_seed: int = 0,
+        torus_budget: int = 2 * 10**9,
     ) -> AnalysisReport:
         """Build the report for an integral.
 
@@ -611,22 +622,29 @@ class AnalysisReport:
         integral
             The integral to describe.
         sections
-            Names from :data:`SECTION_NAMES` to build; every section by
-            default. ``identity``, ``conventions`` and ``polynomials`` are
-            built whatever is asked for, since the rest of the report reads
-            as a fragment without them.
+            Names from :data:`SECTION_NAMES` to build; :data:`DEFAULT_SECTIONS`,
+            every section but ``torus``, by default. ``identity``,
+            ``conventions`` and ``polynomials`` are built whatever is asked for,
+            since the rest of the report reads as a fragment without them.
         max_face_points
             Faces of the Newton polytope with more monomials than this are
             left out of the Landau analysis and listed as skipped.
         figure_max_vertices
             Polytopes with more vertices than this get no figure.
+        torus_seed, torus_budget
+            The ``seed`` and ``max_evaluations`` of
+            :meth:`FeynmanIntegral.torus_count` for the ``torus`` section, which
+            shares the Landau analysis with the ``landau`` section.
 
         Raises
         ------
         ValidationError
-            If ``sections`` names something that is not a section.
+            If ``sections`` names something that is not a section, or as
+            :meth:`FeynmanIntegral.torus_count` raises for the ``torus`` section,
+            for instance when counting needs more than ``torus_budget``
+            evaluations of G.
         """
-        wanted = set(SECTION_NAMES) if sections is None else set(sections)
+        wanted = set(DEFAULT_SECTIONS) if sections is None else set(sections)
         unknown = sorted(wanted - set(SECTION_NAMES))
         if unknown:
             raise ValidationError(
@@ -648,6 +666,15 @@ class AnalysisReport:
                 symmetries = _symmetries(integral, data)
                 symmetries_omitted = _symmetries_omitted(data)
 
+        analysis: LandauAnalysis | None = None
+        if wanted & {"landau", "torus"}:
+            analysis = landau_analysis(integral, max_face_points=max_face_points)
+        torus: TorusCount | None = None
+        if "torus" in wanted:
+            torus = integral.torus_count(
+                seed=torus_seed, max_evaluations=torus_budget, landau=analysis
+            )
+
         return cls(
             identity=_identity(integral),
             conventions=_conventions(integral),
@@ -656,9 +683,12 @@ class AnalysisReport:
             polytope=polytope,
             gkz=_gkz(integral) if "gkz" in wanted else None,
             symmetries=symmetries,
-            landau=_landau(integral, max_face_points) if "landau" in wanted else None,
+            landau=(
+                _landau(integral, analysis) if analysis is not None and "landau" in wanted else None
+            ),
             schwinger=_schwinger(integral) if "schwinger" in wanted else None,
             symmetries_omitted=symmetries_omitted,
+            torus=torus,
         )
 
     def summary(self) -> tuple[tuple[str, str], ...]:
@@ -675,6 +705,9 @@ class AnalysisReport:
         if self.polytope is not None:
             rows.append(("Polytope vertices", str(len(self.polytope.data.vertex_indices))))
             rows.append(("Normalised volume", str(self.polytope.data.normalized_volume)))
+        if self.torus is not None:
+            master = self.torus.candidate_master_count
+            rows.append(("Candidate master count", "none" if master is None else str(master)))
         if self.symmetries is not None:
             rows.append(("Polytope automorphisms", str(self.symmetries.automorphism_order)))
         if self.gkz is not None:

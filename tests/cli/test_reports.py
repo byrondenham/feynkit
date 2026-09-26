@@ -9,7 +9,7 @@ import pytest
 
 from feynkit import FeynkitDatabase, FeynmanIntegral
 from feynkit.cli import main
-from feynkit.io.report import SECTION_NAMES
+from feynkit.io.report import DEFAULT_SECTIONS
 
 
 def test_latex_and_text_reports_match_the_facade(
@@ -57,13 +57,27 @@ def test_json_summary_of_the_chosen_sections(capsys: pytest.CaptureFixture[str])
     }
 
 
-def test_json_summary_of_every_section(capsys: pytest.CaptureFixture[str]) -> None:
+def test_json_summary_of_the_default_sections(capsys: pytest.CaptureFixture[str]) -> None:
     main(["analyse", "11e|e|:zz", "--json", "--no-db"])
     data = json.loads(capsys.readouterr().out)
-    assert data["sections"] == list(SECTION_NAMES)
+    assert data["sections"] == list(DEFAULT_SECTIONS)
+    assert "candidate_master_count" not in data["summary"]
     assert data["summary"]["normalised_volume"] == 1
     assert data["summary"]["polytope_automorphisms"] == 6
     assert data["summary"]["landau_surfaces"] == 1
+
+
+def test_json_summary_with_the_point_counts(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyse", "11e|e|:nn", "--json", "--sections", "torus", "--no-db"])
+    data = json.loads(capsys.readouterr().out)
+    assert data["sections"] == ["torus"]
+    assert data["summary"]["candidate_master_count"] == 3
+
+
+def test_sections_help_names_the_default(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        main(["analyse", "--help"])
+    assert "all but torus by default" in " ".join(capsys.readouterr().out.split())
 
 
 def test_json_with_a_report_file_keeps_stdout_pure_json(

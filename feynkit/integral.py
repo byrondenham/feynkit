@@ -529,9 +529,10 @@ class FeynmanIntegral:
         ----------
         sections
             Names of the report sections to include, from
-            :data:`feynkit.io.report.SECTION_NAMES`; all of them by default.
-            The graph, the conventions and the Symanzik polynomials are
-            always included.
+            :data:`feynkit.io.report.SECTION_NAMES`; by default
+            :data:`~feynkit.io.report.DEFAULT_SECTIONS`, every section but
+            ``torus``. The graph, the conventions and the Symanzik polynomials
+            are always included.
         title
             Document title; by default "Feynman integral" followed by the
             CNickel string.

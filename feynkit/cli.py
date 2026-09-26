@@ -44,7 +44,7 @@ from feynkit.core.exceptions import FeynkitError
 from feynkit.core.graph import Graph
 from feynkit.database import FeynkitDatabase
 from feynkit.integral import FeynmanIntegral
-from feynkit.io.report import SECTION_NAMES, AnalysisReport
+from feynkit.io.report import DEFAULT_SECTIONS, SECTION_NAMES, AnalysisReport
 from feynkit.io.report_latex import render_latex
 from feynkit.io.report_text import render_text
 from feynkit.polytope import polytope_data
@@ -409,7 +409,7 @@ _PRINTERS: dict[str, Callable[[FeynmanIntegral], None]] = {
 class ReportOptions:
     """Which report sections analyse builds, and where it writes the report."""
 
-    sections: tuple[str, ...] = SECTION_NAMES
+    sections: tuple[str, ...] = DEFAULT_SECTIONS
     latex: Path | None = None
     text: Path | None = None
     as_json: bool = False
@@ -830,7 +830,10 @@ def _build_parser() -> _Parsers:
         "--sections",
         type=_section_list,
         metavar="NAMES",
-        help=f"comma-separated report sections, all by default: {', '.join(SECTION_NAMES)}",
+        help=(
+            "comma-separated report sections, all but torus by default: "
+            f"{', '.join(SECTION_NAMES)}"
+        ),
     )
 
     compare = commands.add_parser(
@@ -890,7 +893,7 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
     if args.sections is not None and not (args.latex or args.text or args.json):
         parser.error("--sections chooses report sections; add --latex, --text or --json")
     return ReportOptions(
-        sections=SECTION_NAMES if args.sections is None else args.sections,
+        sections=DEFAULT_SECTIONS if args.sections is None else args.sections,
         latex=args.latex,
         text=args.text,
         as_json=args.json,

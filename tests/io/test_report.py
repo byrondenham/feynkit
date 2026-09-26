@@ -11,12 +11,16 @@ triangle.
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 import sympy as sp
 
 from feynkit import Edge, FeynmanIntegral, Graph
+from feynkit import landau as landau_module
 from feynkit.core.exceptions import ValidationError
-from feynkit.io.report import SECTION_NAMES, AnalysisReport
+from feynkit.io import report as report_module
+from feynkit.io.report import DEFAULT_SECTIONS, SECTION_NAMES, AnalysisReport
 from feynkit.landau import landau_analysis, one_loop_landau_surfaces_by_type
 from feynkit.polytope import polytope_data
 from feynkit.systems.monomial import extract_monomial_support
@@ -497,9 +501,13 @@ class TestSchwinger:
 
 
 class TestSections:
-    def test_default_builds_every_section(self, triangle_report: AnalysisReport) -> None:
-        for name in SECTION_NAMES:
+    def test_default_builds_every_section_but_the_point_counts(
+        self, triangle_report: AnalysisReport
+    ) -> None:
+        assert tuple(name for name in SECTION_NAMES if name != "torus") == DEFAULT_SECTIONS
+        for name in DEFAULT_SECTIONS:
             assert getattr(triangle_report, name) is not None
+        assert triangle_report.torus is None
 
     def test_one_section_leaves_the_others_empty(self, triangle: FeynmanIntegral) -> None:
         report = AnalysisReport.from_integral(triangle, ["gkz"])
@@ -549,3 +557,52 @@ class TestSummary:
         assert "Polytope automorphisms" not in rows
         assert "Landau surfaces" not in rows
         assert rows["Codimension"] == "2"
+
+
+class TestTorus:
+    def test_built_only_when_named(self, bubble: FeynmanIntegral) -> None:
+        report = AnalysisReport.from_integral(bubble, ["torus"])
+        assert report.torus == bubble.torus_count()
+        assert report.torus is not None and report.torus.candidate_master_count == 3
+        assert report.landau is None
+        assert report.polytope is None
+
+    def test_seed_and_budget_reach_the_count(self, bubble: FeynmanIntegral) -> None:
+        report = AnalysisReport.from_integral(bubble, ["torus"], torus_seed=1)
+        assert report.torus == bubble.torus_count(seed=1)
+        with pytest.raises(ValidationError, match="max_evaluations=10"):
+            AnalysisReport.from_integral(bubble, ["torus"], torus_budget=10)
+
+    def test_one_landau_analysis_serves_both_sections(
+        self, bubble: FeynmanIntegral, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[FeynmanIntegral] = []
+
+        def counting(fi: FeynmanIntegral, **kwargs: int) -> object:
+            calls.append(fi)
+            return landau_analysis(fi, **kwargs)
+
+        monkeypatch.setattr(report_module, "landau_analysis", counting)
+        monkeypatch.setattr(landau_module, "landau_analysis", counting)
+        report = AnalysisReport.from_integral(bubble, ["landau", "torus"])
+        assert len(calls) == 1
+        assert report.landau is not None and report.torus is not None
+
+    def test_summary_has_a_candidate_row_only_with_the_section(
+        self, bubble: FeynmanIntegral, bubble_report: AnalysisReport
+    ) -> None:
+        assert "Candidate master count" not in dict(bubble_report.summary())
+        report = AnalysisReport.from_integral(bubble, ["polytope", "torus"])
+        labels = [label for label, _ in report.summary()]
+        assert labels.index("Candidate master count") == labels.index("Normalised volume") + 1
+        assert dict(report.summary())["Candidate master count"] == "3"
+        assert report.torus is not None
+        none = dataclasses.replace(
+            report.torus,
+            candidate_polynomial=None,
+            candidate_euler_characteristic=None,
+            candidate_master_count=None,
+            reason="the polynomial through the fit counts has non-integer coefficients",
+        )
+        rows = dict(dataclasses.replace(report, torus=none).summary())
+        assert rows["Candidate master count"] == "none"

@@ -89,9 +89,10 @@ def compute_toric_ideal_generators(
       operators are an analogue of IBP relations, not IBP relations
       (Chestnov et al. 2022)
     - the number of master integrals is the Euler characteristic of the
-      complement of {G = 0} in the torus, at most the normalised volume of
-      the Newton polytope (Bitoun, Bogner, Klausen, Panzer 2019); the toric
-      ideal does not count them
+      complement of {G = 0} in the torus, at most n! times the Euclidean
+      volume of the Newton polytope, which is its normalised volume when the
+      exponent differences span Z^n (Bitoun, Bogner, Klausen, Panzer 2019);
+      the toric ideal does not count them
 
     **Backends:**
 

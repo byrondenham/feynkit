@@ -300,8 +300,8 @@ print(f"""
 The normalised lattice volume of the Newton polytope equals the holonomic rank
 of the GKZ D-module for generic parameters beta (Klausen 2020, Theorem 2.2).
 This is the number of independent A-hypergeometric series in any basis;
-for a Feynman integral it is an upper bound for the number of master integrals,
-attained for generic coefficients.
+for a Feynman integral whose exponent differences span Z^n it is an upper bound
+for the number of master integrals, attained for generic coefficients.
 
   Triangle   : vol = {vol_tri}  (4 independent Gamma-series for generic beta)
   Triple-K   : vol = {vol_tpk}  (same, the index-2 sublattice rescales the measure)

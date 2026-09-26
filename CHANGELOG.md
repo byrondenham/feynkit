@@ -161,12 +161,14 @@
   review called |chi|, the number of master integrals, the Lee-Pomeransky
   count. Lee and Pomeransky count the critical points of G itself; the master
   count is due to Bitoun et al. (2019), and both documents now attribute it to
-  them. Both, and the Newton polytope section of the analysis report, also
-  bounded it by the normalised volume vol_0. The bound is N! Vol, with Vol the
-  Euclidean volume, and it equals vol_0 only when the exponent differences span
-  Z^N: for 1 + x^2, |chi| = 2 and vol_0 = 1. The README and the guide gave the
-  title of Lee and Pomeransky (2013) as "Critical points and master integrals";
-  it is "Critical points and number of master integrals".
+  them. Both, the Newton polytope section of the analysis report, the docstring
+  of `compute_toric_ideal_generators`, `docs/automorphism_groups.md` and two
+  example scripts also bounded it by the normalised volume vol_0 without a
+  hypothesis. The bound is N! Vol, with Vol the Euclidean volume, and it equals
+  vol_0 only when the exponent differences span Z^N: for 1 + x^2, |chi| = 2 and
+  vol_0 = 1. The README and the guide gave the title of Lee and Pomeransky
+  (2013) as "Critical points and master integrals"; it is "Critical points and
+  number of master integrals".
 
 ## 0.3.0 (2026-09-25)
 

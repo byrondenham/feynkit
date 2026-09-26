@@ -251,8 +251,9 @@ holonomic rank of the GKZ $D$-module equals the normalised volume
 $\mathrm{vol}(P)$, a unimodular invariant, so two configurations related by a
 unimodular map of all their points have GKZ systems of the same generic rank.
 The number of master integrals, the Euler characteristic, is at most
-$\mathrm{vol}(P)$ and depends on the coefficients, so equal volumes alone do
-not give equal counts.
+$n!\,\mathrm{Vol}(P)$ with $\mathrm{Vol}$ the Euclidean volume, which equals
+$\mathrm{vol}(P)$ when the points of $P$ span $\mathbb{Z}^n$ affinely, and it
+depends on the coefficients, so equal volumes alone do not give equal counts.
 
 Coefficient-preserving automorphisms give exact identities
 $I_A(\beta, z) = I_A(T\beta, z)$ between the integral at two parameter vectors

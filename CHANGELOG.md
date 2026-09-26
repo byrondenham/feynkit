@@ -137,15 +137,16 @@
   where its square-test factors are squares. The massless triangle at
   p_i^2 = (1, 4, 9), where the Källén function vanishes, raises unless
   `allow_singular` is set, and then gives 3. The two-mass bubble, the massless
-  triangle and the three-mass sunrise give no candidate at a point where their
-  counts are not polynomial, and there `critical_point_count` gives their
-  generic master counts, 3, 4 and 7. It also gives the candidate at the seed-0
-  point of each of the first six graphs. The committed entry `A4_zero_generic`
-  of the principal Landau determinant database, and `A4_zero_zero` when
-  `FEYNKIT_PLD_DATA` is set, give the Euler characteristic the database lists
-  for generic kinematics. With the `slow` marker as well, every entry with at
-  most five variables is counted at seed 0, and a candidate must equal that
-  Euler characteristic.
+  triangle and the three-mass sunrise give no candidate at a point where a
+  square-test factor is not a square, and there `critical_point_count` gives
+  their generic master counts, 3, 4 and 7. It also gives the candidate at the
+  seed-0 point of each of the first six graphs. The committed entry
+  `A4_zero_generic` of the principal Landau determinant database, and
+  `A4_zero_zero` when `FEYNKIT_PLD_DATA` is set, give the Euler characteristic
+  the database lists for generic kinematics. With the `slow` marker as well,
+  every entry with at most five variables is counted at seed 0: the eight that
+  give a candidate there must give that Euler characteristic after a check at
+  four primes or more, and any other candidate must equal it.
 
 ### Changed
 

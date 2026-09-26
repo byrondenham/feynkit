@@ -9,8 +9,11 @@ from pathlib import Path
 
 import pytest
 
+import feynkit.io.report as report_module
+import feynkit.landau as landau_module
 from feynkit import FeynmanIntegral
 from feynkit.cli import _print_torus, _with_command, main
+from feynkit.landau import LandauAnalysis
 from feynkit.point_count import TorusCount
 
 HEADING = "  Candidate Euler characteristic from point counts\n"
@@ -226,6 +229,27 @@ def test_the_count_runs_once_for_the_section_and_the_report(
     assert len(calls) == 1
     assert HEADING in capsys.readouterr().out
     assert "Candidate Euler characteristic from point counts\n" in txt.read_text(encoding="utf-8")
+
+
+def test_the_count_takes_the_landau_analysis_of_the_report(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The default report sections hold landau but not torus.
+    calls: list[int] = []
+    landau_analysis = landau_module.landau_analysis
+
+    def counting(*args: object, **kwargs: object) -> LandauAnalysis:
+        calls.append(1)
+        return landau_analysis(*args, **kwargs)  # type: ignore[arg-type]
+
+    # torus_count imports landau_analysis when called; the report module holds its own name.
+    monkeypatch.setattr(landau_module, "landau_analysis", counting)
+    monkeypatch.setattr(report_module, "landau_analysis", counting)
+    tex = tmp_path / "bubble.tex"
+    main(["analyse", "11e|e|:nn", "--torus-count", "--latex", str(tex), "--no-db"])
+    assert len(calls) == 1
+    assert HEADING in capsys.readouterr().out
+    assert "\\section{Landau surfaces}" in tex.read_text(encoding="utf-8")
 
 
 def test_bare_form_skips_the_values_of_seed_and_budget() -> None:

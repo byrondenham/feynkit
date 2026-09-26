@@ -84,9 +84,9 @@ Let $X = (\mathbb{C}^*)^N \setminus V$, with $\mu = 1$.
   the discriminant of $G$ on each edge in its lattice coordinate (see
   Fitting). The rule is heuristic, missing the integer content of
   eliminants, skipped faces and components absent from the Landau list, but
-  a missed bad prime causes a rejection, not a wrong result: the two-mass
-  bubble at $s = 1$, $m_e^2 = (2, 6)$ has no points at $p = 3$, where the
-  fit predicts $-1$.
+  a missed bad prime would, provided some check prime is good, cause a
+  rejection, not a wrong result: the two-mass bubble at $s = 1$,
+  $m_e^2 = (2, 6)$ has no points at $p = 3$, where the fit predicts $-1$.
 - Guard: the check covers only quadratic characters. On an edge of lattice
   length $k$ the count follows the Galois group of $G$'s restriction, of
   degree $k$, even when the edge has index 1 ($u^3 - 3u + 1$ needs a cubic
@@ -133,9 +133,10 @@ Let $X = (\mathbb{C}^*)^N \setminus V$, with $\mu = 1$.
   is when their differences from the first have rank $k$. A count that depends
   on a character constant on the sample fits a polynomial that other primes
   break, so neither the square-test factors nor the characters one at a time
-  are enough. The one-mass triangle's counts depend on
-  $(\lambda(p_1^2, p_2^2, p_3^2)/p)$, a factor of the discriminant of its top
-  face, which is not principal. The count of
+  are enough. For the one-mass triangle the check must cover the character
+  of $\lambda(p_1^2, p_2^2, p_3^2)$, the Källén function of the external
+  masses: it is a factor of the discriminant of the top face, which is not
+  principal, so the square test leaves it out. The count of
   $u^2 + (x + y)u + (x^2 + xy + y^2)/4$ is $1 + (xy/p)$, and at $x = 2$,
   $y = 45$ the characters of $-1$, $2$ and $5$ each take both signs on the
   sampled primes from 7 to 29 while $(90/p) = -1$ on all of them. For the
@@ -244,16 +245,13 @@ At seeds 0 and 1 each case has an integer candidate polynomial and
 | `11e\|e\|:zz` | 1 | $V$ is a graph over $u_1$; Table 2 |
 | `11e\|e\|:nz` | 2 | item 6 with $m_2 = 0$: two axis points, count $p - 3$ |
 | `11e\|e\|:nn` | 3 | item 6; Table 2 |
-| `12e\|2e\|e\|:zzz` | 4 | below; Table 2 |
+| `12e\|2e\|e\|:zzz` | 4 | Table 2 |
 | `12e\|3e\|3e\|e\|:zzzz`, $p_i^2 = 0$ | 3 | Table 1, A4 |
 | `12e\|23\|3\|e\|:zzzzz` | 3 | Bitoun et al., Example 53 |
 
 Tables are those of Fevola et al. The off-shell box at
 $p_i^2 = (-12, -6, 5, -4)$, $s_{12} = 20$, $s_{23} = -41$, where the five
-square-test factors are squares, gives 11 (Table 1, A4). For the triangle,
-$G = A + u_3 B$ with $A$, $B$ free of $u_3$, and Bitoun et al., Lemma 48,
-give $\chi(X) = -\chi((\mathbb{C}^*)^2 \setminus \{AB = 0\})$; the curves
-are lines less two points meeting twice when $\lambda \ne 0$, so $C = 4$.
+square-test factors are squares, gives 11 (Table 1, A4).
 
 No candidate, while `critical_point_count` gives 3, 4 and 7: the bubble at
 $s = m_e^2 = 1$ (counts per item 6), the triangle at $p_i^2 = 1$, the
@@ -264,10 +262,12 @@ raises, or gives 3 with `allow_singular`.
 PLD: the test reads the archive from `FEYNKIT_PLD_DATA`, skipping when unset.
 Chi keys start with the Greek letter (U+03C7), and F has the opposite sign,
 so $G = U - F$. `A4_zero_generic` at $M = (-12, 5, -4, -6)$, $s = 4$,
-$t = 20$ must give 11 and `A4_zero_zero` at $s = 16$, $t = 9$ must give 3;
-other entries with at most five variables run at seed 0, and any candidate
-must match. The archive has no licence file; MathRepo gives MIT for code and
-CC BY 4.0 for content.
+$t = 20$ must give 11 and `A4_zero_zero` at $s = 16$, $t = 9$ must give 3.
+Every entry with at most five variables runs at seed 0: the eight that give
+a candidate there must give the listed $\chi_\mathrm{generic}$ after a
+check at four primes or more, and any other candidate must match. The
+archive has no licence file; MathRepo gives MIT for code and CC BY 4.0 for
+content.
 
 Report and CLI: the section only when named, the sentence cases, LaTeX
 compiling, the option rules.

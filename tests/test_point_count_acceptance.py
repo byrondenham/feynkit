@@ -87,11 +87,10 @@ def test_off_shell_box() -> None:
     assert fi.torus_count(point=point).candidate_master_count == 11
 
 
-def test_triangle_on_its_threshold() -> None:
-    # lambda(1, 4, 9) = 0 puts the point on a Landau surface. With G = A + u_3 B, BBKP
-    # Lemma 48 gives C = 2 + k, k the number of points of {A = B = 0} in the torus: {A = 0}
-    # and {B = 0} are each a line less two points, and meet at the roots of a quadratic of
-    # discriminant lambda. So C = 4 off the threshold and C = 3 on it, where k = 1.
+def test_triangle_where_the_kallen_function_vanishes() -> None:
+    # lambda(1, 4, 9) = 0: the Kallen function of the external masses vanishes, a
+    # second-type singularity, so the point is on a Landau surface. C = 3 there, where
+    # generic kinematics give 4.
     fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
     point = {P[0]: 1, P[1]: 4, P[2]: 9}
     with pytest.raises(ValidationError, match="vanishes at the point"):
@@ -101,11 +100,12 @@ def test_triangle_on_its_threshold() -> None:
     assert count.candidate_master_count == 3
 
 
-# Points where the counts are not polynomial in p, with the number of critical points, the
+# Points where a square-test factor is not a square, with the number of critical points, the
 # generic C: FMT Table 2 for the bubble and the triangle, BBKP Proposition 55 (2^(L+1) - 1
-# for L loops) for the sunrise. The bubble's and the triangle's counts depend on (-3/p),
-# since lambda = -3 at both points.
-NOT_POLYNOMIAL = [
+# for L loops) for the sunrise. The Kallen function is -3, not a square, at the bubble's and
+# the triangle's points, where the bubble has p - 3 - (-3/p) points; s = 7 is not a square
+# at the sunrise's.
+NOT_SQUARE = [
     pytest.param("11e|e|:nn", {S: 1, M[0] ** 2: 1, M[1] ** 2: 1}, 3, id="two-mass-bubble"),
     pytest.param("12e|2e|e|:zzz", {P[0]: 1, P[1]: 1, P[2]: 1}, 4, id="massless-triangle"),
     pytest.param(
@@ -114,8 +114,8 @@ NOT_POLYNOMIAL = [
 ]
 
 
-@pytest.mark.parametrize(("cnickel", "point", "critical"), NOT_POLYNOMIAL)
-def test_no_candidate_where_the_counts_are_not_polynomial(
+@pytest.mark.parametrize(("cnickel", "point", "critical"), NOT_SQUARE)
+def test_no_candidate_where_a_square_test_factor_is_not_a_square(
     cnickel: str, point: dict[sp.Expr, int], critical: int
 ) -> None:
     count = FeynmanIntegral.from_cnickel(cnickel).torus_count(point=point)
@@ -125,8 +125,8 @@ def test_no_candidate_where_the_counts_are_not_polynomial(
 
 
 @requires_singular
-@pytest.mark.parametrize(("cnickel", "point", "critical"), NOT_POLYNOMIAL)
-def test_critical_points_where_the_counts_are_not_polynomial(
+@pytest.mark.parametrize(("cnickel", "point", "critical"), NOT_SQUARE)
+def test_critical_points_where_a_square_test_factor_is_not_a_square(
     cnickel: str, point: dict[sp.Expr, int], critical: int
 ) -> None:
     fi = FeynmanIntegral.from_cnickel(cnickel)
@@ -193,9 +193,29 @@ def _small_entries() -> list[Any]:
     ]
 
 
+# The small entries that give a candidate at seed 0.
+CANDIDATES_AT_SEED_0 = frozenset(
+    {
+        "A4_zero_zero",
+        "B4_zero_equal",
+        "B4_zero_generic",
+        "B4_zero_zero",
+        "acn_zero_zero",
+        "debox_zero_zero",
+        "par_zero_zero",
+        "tdetri_zero_zero",
+    }
+)
+
+
 @pytest.mark.parametrize("path", _small_entries())
 def test_database_candidates_match_chi_generic(path: Path | None) -> None:
     assert path is not None
     g, variables, _, chi = read_polynomial(path)
     count = count_torus_points(g, variables, seed=0)
-    assert count.candidate_master_count in (None, chi)
+    if path.stem not in CANDIDATES_AT_SEED_0:
+        assert count.candidate_master_count in (None, chi)
+        return
+    assert count.candidate_master_count == chi
+    # A candidate is checked at four further primes at least, the default.
+    assert len(count.verification_primes) >= 4

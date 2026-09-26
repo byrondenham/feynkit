@@ -733,8 +733,8 @@ def _torus(torus: TorusCount, doc: _Document) -> str:
             "A fit on finitely many primes is evidence, not a proof: Katz's theorem needs the "
             "count to be polynomial for every finite field of all but finitely many "
             f"characteristics{doc.cite('katz2008')}. The rule that excludes primes is heuristic, "
-            "and a bad prime it misses would make the fit or its check fail rather than give a "
-            "wrong candidate."
+            "and a bad prime it misses would, provided some check prime is good, make the fit or "
+            "its check fail rather than give a wrong candidate."
         )
     )
     return _blocks(*blocks)

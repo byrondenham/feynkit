@@ -1465,8 +1465,8 @@ The primes left out are 2 and, up to `max_prime` (1000), those dividing the nume
 denominator of a non-zero value at the point of a coefficient of $G$, a face discriminant, an
 irreducible factor of one, or the discriminant of $G$ on an edge of its Newton polytope. The rule is
 heuristic: it misses the integer content of eliminants, skipped faces and components the Landau
-analysis does not list. A bad prime it misses is likely to make the fit or its check fail rather
-than give a wrong candidate.
+analysis does not list. A bad prime it misses would, provided some check prime is good, make the
+fit or its check fail rather than give a wrong candidate.
 
 $G$ is solved for the first variable of lowest degree, which is at most 2 for a Feynman graph, so
 each count is a sum, over the other variables, of numbers of roots in $\mathbb{F}_p^*$ of

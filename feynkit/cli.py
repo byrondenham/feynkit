@@ -49,6 +49,7 @@ from feynkit.integral import FeynmanIntegral
 from feynkit.io.report import DEFAULT_SECTIONS, SECTION_NAMES, AnalysisReport
 from feynkit.io.report_latex import render_latex
 from feynkit.io.report_text import render_text
+from feynkit.landau import LandauAnalysis
 from feynkit.point_count import TorusCount
 from feynkit.polytope import polytope_data
 
@@ -558,8 +559,9 @@ def analyse_one(
 
     With --json, only the report's summary is printed, as JSON. Stdout is
     flushed after each stage; verbose prints each stage's time on stderr. The
-    point counts are printed only when ``sections`` holds "torus", and run once
-    when the report holds them too.
+    point counts are printed only when ``sections`` holds "torus". They run once
+    when the report holds them too, and otherwise take the report's Landau
+    analysis when it has one.
     """
     options = report if report is not None else ReportOptions()
     t0 = time.perf_counter()
@@ -598,11 +600,17 @@ def analyse_one(
         if "torus" in sections:
             with _stage("torus", verbose):
                 count = None
+                landau: LandauAnalysis | None = None
                 if options.writes_files and "torus" in options.sections:
                     count = build().torus
+                elif options.writes_files and "landau" in options.sections:
+                    section = build().landau
+                    landau = section.analysis if section is not None else None
                 if count is None:
                     count = fi.torus_count(
-                        seed=options.torus_seed, max_evaluations=options.torus_budget
+                        seed=options.torus_seed,
+                        max_evaluations=options.torus_budget,
+                        landau=landau,
                     )
                 _print_torus(count)
         if options.writes_files:

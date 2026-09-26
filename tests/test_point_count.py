@@ -449,10 +449,10 @@ class TestCountTorusPoints:
                 bubble_count(landau=other)
 
     def test_a_character_of_a_face_that_is_not_principal_is_covered(self) -> None:
-        # The one-mass triangle at m_1^2 = 17, p_i^2 = (-5, -8, 18). Its counts depend on
-        # (801/p), 801 being the Kallen function of the p_i^2, a factor of the discriminant of
-        # the top face, which is not principal. (801/p) = -1 at every prime from 7 to 43 that
-        # is not excluded, and the counts there fit a polynomial; 47 rejects it.
+        # The one-mass triangle at m_1^2 = 17, p_i^2 = (-5, -8, 18). 801, the Kallen function
+        # of the p_i^2, is a factor of the discriminant of the top face, which is not
+        # principal. (801/p) = -1 at every prime from 7 to 43 that is not excluded, so the
+        # check runs on to 47, where (801/47) = 1, and 47 rejects the fit.
         fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nzz")
         g = fi.symanzik.g
         names = {x.name: x for x in g.free_symbols}
@@ -578,10 +578,11 @@ class TestCountTorusPoints:
         assert count.candidate_master_count == 4
 
     def test_an_edge_of_length_three_refuses_the_candidate(self) -> None:
-        # u^3 - 3u + 1 has a cyclic Galois group and discriminant 81, a square, so the number
-        # of its roots mod p, 0 or 3, follows a cubic character that no quadratic character
-        # sees. The counts at 5, 7 and 11 fit q - 1 and C = 0, where C = 3. The edge [0, 3]
-        # holds every point, so its index is 1, but its lattice length is 3.
+        # u^3 - 3u + 1 has a cyclic Galois group and discriminant 81, a square, so for p != 3
+        # the number of its roots mod p, 0 or 3, follows a cubic character that no quadratic
+        # character sees. Mod 3 it is (u + 1)^3, with one root, and 3 is excluded. The counts
+        # at 5, 7 and 11 fit q - 1 and C = 0, where C = 3. The edge [0, 3] holds every point,
+        # so its index is 1, but its lattice length is 3.
         u, v = sp.symbols("u v")
         count = count_torus_points(v + u**3 - 3 * u + 1, [u, v])
         assert count.counts == ((5, 4), (7, 6), (11, 10))

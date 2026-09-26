@@ -544,6 +544,14 @@ class FeynmanIntegral:
         -------
         str
             A complete ``article`` document, compilable with pdflatex.
+
+        Raises
+        ------
+        ValidationError
+            If ``sections`` names something that is not a section, or, when it
+            holds ``torus``, as :meth:`torus_count` raises: for instance when
+            the integral has kinematic constraints, or when counting needs more
+            than the default budget of 2 * 10^9 evaluations of G.
         """
         from .io.report import AnalysisReport
         from .io.report_latex import render_latex
@@ -563,6 +571,14 @@ class FeynmanIntegral:
 
         It states the facts of :meth:`to_latex` in the same order, in ASCII.
         The parameters are those of :meth:`to_latex`.
+
+        Raises
+        ------
+        ValidationError
+            If ``sections`` names something that is not a section, or, when it
+            holds ``torus``, as :meth:`torus_count` raises: for instance when
+            the integral has kinematic constraints, or when counting needs more
+            than the default budget of 2 * 10^9 evaluations of G.
         """
         from .io.report import AnalysisReport
         from .io.report_text import render_text

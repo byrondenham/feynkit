@@ -2,24 +2,10 @@
 
 ## Unreleased
 
+## 0.4.0 (2026-09-27)
+
 ### Breaking changes
 
-- An `AConfiguration` without points raises `ValidationError` from
-  `normalized_volume`, where it returned 1. `AConfiguration.normalized_volume`,
-  `faces` and `polytope_data` raise `ComputationError` if a consistency check of
-  the exact computation fails, which would be a bug; the volume used to be 0
-  whenever Qhull failed.
-- `faces`, `polytope_data`, `lattice_coordinates` and `intrinsic_lattice_model`
-  raise `ValidationError` on a non-integer coordinate, which `faces` used as a
-  float and the others truncated, and on points with different numbers of
-  coordinates, which raised `ValueError` or `TypeError`. Integral floats such as
-  `2.0` are still accepted. `intrinsic_lattice_model` also raises
-  `ValidationError` when there are no points, where it raised `IndexError`.
-- `PolytopeData` gains four fields and `Facet` three (see Added). The new
-  `PolytopeData` fields have no defaults, so code that builds a `PolytopeData`
-  by hand must pass them. The new `Facet` fields have defaults but take part in
-  equality, so a `Facet(normal, offset, point_indices)` built by hand no longer
-  equals the facet `polytope_data` returns.
 - `intrinsic_lattice_model` and `AConfiguration.intrinsic_model` give
   `intrinsic_coords` in the Hermite normal form basis of the lattice L spanned
   by the differences of the points, the basis `lattice_chart` uses, with the
@@ -32,20 +18,104 @@
   computed one whose basis is non-empty. For a single point, or copies of one,
   each coordinate is the empty tuple, where it was the zero vector of length n.
 - `feynkit.io.report.SECTION_NAMES` gains `torus`, the finite-field point
-  counts, which take seconds for five propagators; seven exceed the default
-  budget. Code that passes `SECTION_NAMES` to build every section now counts
-  points too, and raises `ValidationError` where the count cannot run, as for an
-  integral with kinematic constraints or seven propagators. The new
-  `DEFAULT_SECTIONS`, every section but `torus`, is what `from_integral`,
+  counts (see Added), which take seconds for five propagators; seven exceed
+  the default budget. Code that passes `SECTION_NAMES` to build every section
+  now counts points too, and raises `ValidationError` where the count cannot
+  run, as for an integral with kinematic constraints or seven propagators. The
+  new `DEFAULT_SECTIONS`, every section but `torus`, is what `from_integral`,
   `to_latex`, `to_text` and `fk analyse --sections` use by default.
+- `faces`, `polytope_data`, `lattice_coordinates` and `intrinsic_lattice_model`
+  raise `ValidationError` on a non-integer coordinate, which `faces` used as a
+  float and the others truncated, and on points with different numbers of
+  coordinates, which raised `ValueError` or `TypeError`. Integral floats such as
+  `2.0` are still accepted. `intrinsic_lattice_model` also raises
+  `ValidationError` when there are no points, where it raised `IndexError`.
+- An `AConfiguration` without points raises `ValidationError` from
+  `normalized_volume`, where it returned 1. `AConfiguration.normalized_volume`,
+  `faces` and `polytope_data` raise `ComputationError` if a consistency check of
+  the exact computation fails, which would be a bug; the volume used to be 0
+  whenever Qhull failed.
+- `PolytopeData` gains four fields and `Facet` three (see Added). The new
+  `PolytopeData` fields have no defaults, so code that builds a `PolytopeData`
+  by hand must pass them. The new `Facet` fields have defaults but take part in
+  equality, so a `Facet(normal, offset, point_indices)` built by hand no longer
+  equals the facet `polytope_data` returns.
 
 ### Added
 
+- Finite-field point counts of G = 0 in the torus, in the new module
+  `feynkit.point_count`. `count_torus_points` counts the points of V = {G = 0}
+  in (F_p^*)^N for finitely many primes p at one rational kinematic point, drawn
+  with a seed or given, and fits a polynomial P(q) exactly. The draw prefers a
+  point where the square-test factors, the irreducible factors of the principal
+  discriminants of the faces of dimension 1 or more, are rational squares.
+  When the fit passes the tests below, it reports P(q), the candidate Euler
+  characteristic chi(X) = -P(1) of the complement X of V in the torus, and the
+  candidate master count C = (-1)^N chi(X) of Bitoun, Bogner, Klausen and
+  Panzer (Corollary 37). These are candidates, not proofs: Katz's theorem needs
+  every finite field of all but finitely many characteristics. The result is a
+  frozen `TorusCount`; its `max_prime` is the largest prime the count could
+  use, up to which `excluded_primes` lists the primes left out.
+  `backend="flint"` counts with python-flint, which feynkit does not depend on,
+  instead of numpy: a cross-check 75 to 180 times slower.
+- The fit is tested in this order: integer coefficients; no q^N term;
+  0 <= C <= N! Vol(Newt G), with Vol the Euclidean volume of the Newton
+  polytope Newt G of G at the point (Bitoun et al., Theorem 44, after
+  Kouchnirenko), computed as `normalized_volume * sublattice_index`, or 0 when
+  the polytope is not full-dimensional; a guard; and a check at further
+  primes. The guard fails when the Newton polytope has an edge of lattice
+  length 3 or more, or a face of dimension 2 or more whose lattice quotient has
+  exponent (largest Smith invariant) 3 or more, since the counts may then
+  depend on characters of order above 2. The check takes `verification`
+  primes, 4 by default, and more until every non-trivial product of the
+  quadratic characters of -1 and of the non-zero values of the vertex
+  coefficients, the face-discriminant factors, written in the squared masses,
+  and the edge discriminants has taken both signs; the constants of the
+  discriminants of faces of dimension 2 or more, and the discriminants of
+  skipped faces, are not covered. The divisors of the edge discriminants are
+  among the primes left out, and a factor f odd in a mass m enters through its
+  norm f(m) f(-m). A fit that fails a test gives no candidate, and `reason`
+  names the test. Massive graphs and off-shell legs often give no candidate at
+  the drawn point, since many factors must be squares at once: the off-shell
+  massless box `12e|3e|3e|e|:zzzz` gives none at seeds 0 to 149, and 11 at
+  p_i^2 = (-12, -6, 5, -4), s12 = 20, s23 = -41, where its square-test factors
+  are squares.
+- `fk analyse --torus-count` prints the point counts and the candidates, or why
+  the counts give no candidate. Runs without section flags leave it out.
+  `--seed N`, 0 or more, and `--torus-budget N`, 1 or more, set the seed of the
+  kinematic point and the most evaluations of G (2 * 10^9 by default), for
+  `--torus-count` or a report whose `--sections` names `torus`, which is how
+  `--json` gets the counts; the JSON summary then gains
+  `candidate_master_count`, which is null when the counts give no candidate. A
+  count over the budget stops with an error naming `--torus-budget`. Given
+  `--torus-count` and a report, the count runs once if the report has `torus`,
+  and otherwise uses the report's Landau analysis if it has `landau`.
+- The analysis report gains the section `torus`, "Candidate Euler characteristic
+  from point counts", after the Newton polytope, and a "Candidate master count"
+  row in its summary. With it the Newton polytope section points to the
+  candidate, or says that the counts give no candidate, instead of saying that
+  the Euler characteristic is not computed. `AnalysisReport` gains the field
+  `torus`, and `from_integral` the arguments `torus_seed` and `torus_budget`;
+  the `torus` and `landau` sections share one Landau analysis.
+- `FeynmanIntegral.torus_count` substitutes `on_shell` into the momentum
+  products and counts the points of G. The values of `on_shell` are exact
+  expressions without floats and contain none of its keys, and a symbol in them
+  that shares its name with one of the integral's symbols must be that symbol.
+  String values are parsed by SymPy, so "p1^2" means p1**2.
+- `critical_point_count`, also in `feynkit.point_count`, counts the critical
+  points of sum_e nu_e log u_e - (D/2) log G on X with Singular, which number
+  |chi(X)| for generic exponents (Fevola, Mizera and Telen 2024, proof of
+  Theorem 3.1, after Huh 2013). It counts modulo two primes near 2^31. A count
+  modulo a prime can differ from the count over Q, so it is a cross-check, not
+  a certificate, and requiring the two primes to agree guards against an
+  unlucky prime. It raises `ComputationError` after `timeout` seconds, 300 by
+  default. feynkit does not depend on Singular.
 - `feynkit.polytope.normalized_volume(points)`, the exact normalised volume, and
   a keyword `backend` of `faces`, `polytope_data` and `normalized_volume` that
   chooses where facet candidates come from: `"python"` (integer beneath-beyond,
   the reference, which the default `"auto"` uses), `"qhull"` or `"normaliz"`.
-  Every candidate is verified exactly and the list certified complete, so all
+  Every candidate is verified exactly, and when Qhull or Normaliz fails, or its
+  list fails the completeness certificate, beneath-beyond takes over, so all
   backends give the same result. `"normaliz"` needs PyNormaliz, which feynkit
   detects at run time and does not depend on. `faces` and `lattice_coordinates`
   also accept a sequence of points, not only an array.
@@ -65,105 +135,40 @@
   tests against the f-vectors of the principal Landau determinant database of
   Fevola, Mizera and Telen (2024). Three entries are committed under
   `tests/data/pld/` with their attribution and CC BY 4.0 licence; set
-  `FEYNKIT_PLD_DATA` to the unpacked database to check all 114.
-- Finite-field point counts of G = 0 in the torus, in the new module
-  `feynkit.point_count`. `count_torus_points` counts the points of V = {G = 0}
-  in (F_p^*)^N for finitely many primes p at one rational kinematic point, drawn
-  with a seed or given, and fits a polynomial P(q) exactly. When the fit passes
-  the tests below, it reports P(q), the candidate Euler characteristic
-  chi(X) = -P(1) of the complement X of V in the torus, and the candidate master
-  count C = (-1)^N chi(X) of Bitoun, Bogner, Klausen and Panzer (Corollary 37).
-  These are candidates, not proofs: Katz's theorem needs every finite field of
-  all but finitely many characteristics. The result is a frozen `TorusCount`;
-  its `max_prime` is the largest prime the count could use, up to which
-  `excluded_primes` lists the primes left out.
-- The fit is tested in this order: integer coefficients, no q^N term,
-  0 <= C <= N! Vol(Newt G) (Bitoun et al., Theorem 44, after Kouchnirenko),
-  computed as `normalized_volume * sublattice_index`, or 0 when the polytope is
-  not full-dimensional, then a guard and a check at further primes. The guard
-  refuses a fit when the Newton polytope has an edge of lattice length 3 or
-  more, or a face of dimension 2 or more whose lattice quotient has exponent
-  (largest Smith invariant) 3 or more, since the counts may then depend on
-  characters of order above 2. The check continues until every non-trivial
-  product of the quadratic characters of -1 and of the non-zero values of the
-  vertex coefficients, the face-discriminant factors, written in the squared
-  masses, and the edge discriminants has taken both signs; the constants of the
-  discriminants of faces of dimension 2 or more, and the discriminants of
-  skipped faces, are not covered. The divisors of the edge discriminants are
-  among the primes left out, and a factor f odd in a mass m enters through its
-  norm f(m) f(-m). A fit that fails a test gives no candidate, and `reason`
-  names the test. Massive graphs and off-shell legs often give no candidate at
-  the drawn point, since many factors must be squares at once: the off-shell
-  massless box `12e|3e|3e|e|:zzzz` gives none at seeds 0 to 149, and 11 at
-  p_i^2 = (-12, -6, 5, -4), s12 = 20, s23 = -41, where its square-test factors
-  are squares.
-- `FeynmanIntegral.torus_count` substitutes `on_shell` into the momentum
-  products and counts the points of G. The values of `on_shell` are exact
-  expressions without floats and contain none of its keys, and a symbol in them
-  that shares its name with one of the integral's symbols must be that symbol.
-  String values are parsed by SymPy, so "p1^2" means p1**2.
-- `critical_point_count` counts the critical points of
-  sum_e nu_e log u_e - (D/2) log G on X with Singular, which number |chi(X)| for
-  generic exponents (Fevola, Mizera and Telen 2024, proof of Theorem 3.1, after
-  Huh 2013). It counts modulo two primes near 2^31. A count modulo a prime can
-  differ from the count over Q, so it is a cross-check, not a certificate, and
-  requiring the two primes to agree guards against an unlucky prime. It raises
-  `ComputationError` after `timeout` seconds, 300 by default. `backend="flint"`
-  counts with python-flint instead of numpy, 75 to 180 times slower, as another
-  cross-check. Neither Singular nor python-flint is required.
-- The analysis report gains the section `torus`, "Candidate Euler characteristic
-  from point counts", after the Newton polytope, built only when named, and a
-  "Candidate master count" row in its summary. With it the Newton polytope
-  section points to the candidate, or says that the counts give no candidate,
-  instead of saying that the Euler characteristic is not computed.
-  `AnalysisReport` gains the field `torus`, and `from_integral` the arguments
-  `torus_seed` and `torus_budget`; the `torus` and `landau` sections share one
-  Landau analysis.
-- `fk analyse --torus-count` prints the point counts and the candidates, or why
-  there are none. Runs without section flags leave it out. `--seed N`, 0 or
-  more, and `--torus-budget N`, 1 or more, set the seed of the kinematic point
-  and the most evaluations of G (2 * 10^9 by default), for `--torus-count` or a
-  report whose `--sections` names `torus`, which is how `--json` gets the
-  counts; its summary then gains `candidate_master_count`, which is null when
-  the counts give no candidate. A count over the budget stops with an error
-  naming `--torus-budget`. Given `--torus-count` and a report with `torus`, the
-  count runs once.
+  `FEYNKIT_PLD_DATA` to the unpacked database to check all 114, three of them
+  only with the `slow` marker.
 - Acceptance tests of the candidate master counts. At seeds 0 and 1 the
   massless, one-mass and two-mass bubbles, the massless triangle, the massless
   box with p_i^2 = 0 and the massless kite give the master counts of Fevola,
   Mizera and Telen (2024, Tables 1 and 2) and Bitoun et al. (Example 53); the
   one-mass bubble, which neither lists, gives the C = 2 derived in section 4.7
-  of the mathematics reference. The off-shell massless box gives 11 at a point
-  where its square-test factors are squares. The massless triangle at
-  p_i^2 = (1, 4, 9), where the Källén function vanishes, raises unless
-  `allow_singular` is set, and then gives 3. The two-mass bubble, the massless
-  triangle and the three-mass sunrise give no candidate at a point where a
-  square-test factor is not a square, and there `critical_point_count` gives
-  their generic master counts, 3, 4 and 7. It also gives the candidate at the
-  seed-0 point of each of the first six graphs. The committed entry
-  `A4_zero_generic` of the principal Landau determinant database, and
-  `A4_zero_zero` when `FEYNKIT_PLD_DATA` is set, give the Euler characteristic
-  the database lists for generic kinematics. With the `slow` marker as well,
-  every entry with at most five variables is counted at seed 0: the eight that
-  give a candidate there must give that Euler characteristic after a check at
-  four primes or more, and any other candidate must equal it.
+  of the mathematics reference. The off-shell massless box gives 11 at the
+  point above. The massless triangle at p_i^2 = (1, 4, 9), where the Källén
+  function vanishes, raises unless `allow_singular` is set, and then gives 3.
+  The two-mass bubble, the massless triangle and the three-mass sunrise give no
+  candidate at a point where a square-test factor is not a square, and there
+  `critical_point_count` gives their generic master counts, 3, 4 and 7. It
+  also gives the candidate at the seed-0 point of each of the first six graphs.
+  The committed entry `A4_zero_generic` of the database, and `A4_zero_zero`
+  when `FEYNKIT_PLD_DATA` is set, give the Euler characteristic the database
+  lists for generic kinematics. With the `slow` marker as well, every entry
+  with at most five variables is counted at seed 0: the eight that give a
+  candidate there must give that Euler characteristic after a check at four
+  primes or more, and any other candidate must equal it.
 
 ### Changed
 
 - `faces` and `polytope_data` work in integer arithmetic. The facets come from
   an integer beneath-beyond construction, and the list is certified complete,
   from the face lattice it generates, before anything is derived from it. They
-  used to come from Qhull with a tolerance of 1e-7 and were not checked. Qhull,
-  and Normaliz when installed, are optional sources of facet candidates, each
-  verified exactly; when either fails, or its list fails the certificate,
-  beneath-beyond takes over. `polytope_data` is faster on large polytopes:
-  about 0.13 s instead of 1 s for the massless planar double box.
+  used to come from Qhull with a tolerance of 1e-7 and were not checked; Qhull
+  and Normaliz are now optional sources of candidates (see Added).
+  `polytope_data` is faster on large polytopes: about 0.13 s instead of 1 s for
+  the massless planar double box.
 - The normalised volume comes from a pulling triangulation of the certified
   face lattice. `AConfiguration.normalized_volume` delegates to it and is
   cached; on large polytopes it is slower than the floating hull was, about
   0.12 s instead of 0.01 s for the massless planar double box.
-  `AConfiguration.affine_dim` and `AConfiguration.smith_invariants` are computed
-  exactly in pure Python.
 - `faces` lists every point on a face, so every copy of a repeated endpoint of a
   segment is now in its vertex face, where only one was kept, and the two
   vertices of a segment are sorted by index like all other faces. As a result
@@ -199,7 +204,8 @@
   (1, 10^17, 0), (2, 2 * 10^17 + 1, 0), whose affine dimension is 2.
   `AConfiguration.smith_invariants` and `lattice_coordinates` took the
   differences of the points in int64, which overflows silently for coordinates
-  near 2^62, and returned wrong invariants and coordinates there.
+  near 2^62, and returned wrong invariants and coordinates there. All three
+  are now computed exactly in pure Python.
 - `intrinsic_lattice_model`, and so `AConfiguration.intrinsic_model`, took as
   its basis the first linearly independent differences of the points and
   truncated each coordinate towards zero, so its coordinates were wrong whenever
@@ -210,24 +216,43 @@
   `012e|2e|e|:zzzz`, it raised `NonSquareMatrixError`; `fk` 0.3.0 therefore left
   the lattice base point out of its Newton section, and now prints it. Its rank
   came from a floating-point `matrix_rank`, and it took the differences in
-  int64. It is now built on `lattice_chart` in integer arithmetic: the
-  coordinates are integers that reproduce every point, it works in every
-  dimension, and `intrinsic_rank` and `smith_invariants` are exact, the latter
-  equal to `AConfiguration.smith_invariants`.
+  int64. It is now built on `lattice_chart` in integer arithmetic (see Breaking
+  changes): the coordinates are integers that reproduce every point, it works
+  in every dimension, and `intrinsic_rank` and `smith_invariants` are exact,
+  the latter equal to `AConfiguration.smith_invariants`.
+- Section 4.5 of the mathematics reference and section 4.3 of the literature
+  review called |chi|, the number of master integrals, the Lee-Pomeransky
+  count. Lee and Pomeransky count the critical points of G itself; the master
+  count is due to Bitoun et al. (2019), and both documents now attribute it to
+  them. Both, the Newton polytope section of the analysis report, the docstring
+  of `compute_toric_ideal_generators`, `docs/automorphism_groups.md` and two
+  example scripts also bounded it by the normalised volume without a
+  hypothesis. The bound is N! Vol, with Vol the Euclidean volume, which equals
+  the normalised volume only when the exponent differences span Z^N: for
+  1 + x^2, |chi| = 2 and the normalised volume is 1. The README and the guide
+  gave the title of Lee and Pomeransky (2013) as "Critical points and master
+  integrals"; it is "Critical points and number of master integrals".
 - The documents said that the holonomic rank equals the normalised volume
   without limiting this to full-dimensional configurations: section 5.3 of the
   mathematics reference, the `AConfiguration` table of the guide ("= holonomic
   rank"), the `feynkit.polytope` module docstring ("whatever the ambient
-  dimension"), the `AConfiguration.normalized_volume` docstring, two passages
-  of `docs/automorphism_groups.md` and the statement of Klausen's Theorem 2.2
-  in the literature review. Below full dimension the rows of the homogenised A
-  are linearly dependent, and for generic beta the system has no non-zero
-  solutions. They now state the hypothesis, and section 4.5 states it as full
-  row rank of the homogenised A.
-- Section 6.3 of the mathematics reference said that a toric operator relates
-  integrals with shifted propagator exponents. Since A u = A v, d^u I_A and
-  d^v I_A are the same multiple of I_A(beta - A u, z), so a toric operator is a
-  differential equation in z, not a reduction between different integrals.
+  dimension"), the `AConfiguration.normalized_volume` docstring, two passages of
+  `docs/automorphism_groups.md` and the statement of Klausen's Theorem 2.2 and
+  section 4.3 of the literature review. Below full dimension the rows of the
+  homogenised A are linearly dependent, and for generic beta the system has no
+  non-zero solutions. They now state the hypothesis, and section 4.5 states it
+  as full row rank of the homogenised A.
+- `examples/bms_g_polynomial_analysis.py` printed that the holonomic rank of
+  BMS_n was "confirmed" to be 2^{n-1} for n = 2, 3, 4, 5, although feynkit
+  computes only the volume. It now prints whether the normalised volume
+  vol_0(BMS_n) is 2^{n-1} and says that for generic beta the holonomic rank is
+  vol_0(BMS_n); its other statements about the rank now say "for generic beta"
+  too.
+- The intrinsic lattice model example in section 16 of the guide raised
+  `AttributeError`: it printed `model.basis` and `model.intrinsic_points`, and
+  `IntrinsicModel` had neither. It now prints the fields `IntrinsicModel` has,
+  for three points on a line in Z^2, and a test runs it and checks its output
+  against the guide.
 - Section 5.4 of the mathematics reference said that the intrinsic coordinates
   W^-1 (alpha_j - alpha_1) are integers for any r independent rows W of the
   difference matrix. They are integers only when the columns of W form a basis
@@ -235,28 +260,10 @@
   Hermite normal form basis of L that `AConfiguration.intrinsic_model` uses,
   and says that the product of the Smith invariants is the index of L in its
   saturation, which is [Z^n : L] only for a full-dimensional configuration.
-- The intrinsic lattice model example in section 16 of the guide raised
-  `AttributeError`: it printed `model.basis` and `model.intrinsic_points`, and
-  `IntrinsicModel` had neither. It now prints the fields `IntrinsicModel` has,
-  for three points on a line in Z^2, and a test runs it and checks its output
-  against the guide.
-- `examples/bms_g_polynomial_analysis.py` printed that the holonomic rank of
-  BMS_n was "confirmed" to be 2^{n-1} for n = 2, 3, 4, 5, although feynkit
-  computes only the volume. It now prints whether vol_0(BMS_n) = 2^{n-1} and
-  says that for generic beta the holonomic rank is vol_0(BMS_n); its other
-  statements about the rank now say "for generic beta" too.
-- Section 4.5 of the mathematics reference and section 4.3 of the literature
-  review called |chi|, the number of master integrals, the Lee-Pomeransky
-  count. Lee and Pomeransky count the critical points of G itself; the master
-  count is due to Bitoun et al. (2019), and both documents now attribute it to
-  them. Both, the Newton polytope section of the analysis report, the docstring
-  of `compute_toric_ideal_generators`, `docs/automorphism_groups.md` and two
-  example scripts also bounded it by the normalised volume vol_0 without a
-  hypothesis. The bound is N! Vol, with Vol the Euclidean volume, and it equals
-  vol_0 only when the exponent differences span Z^N: for 1 + x^2, |chi| = 2 and
-  vol_0 = 1. The README and the guide gave the title of Lee and Pomeransky
-  (2013) as "Critical points and master integrals"; it is "Critical points and
-  number of master integrals".
+- Section 6.3 of the mathematics reference said that a toric operator relates
+  integrals with shifted propagator exponents. Since A u = A v, d^u I_A and
+  d^v I_A are the same multiple of I_A(beta - A u, z), so a toric operator is a
+  differential equation in z, not a reduction between different integrals.
 
 ## 0.3.0 (2026-09-25)
 

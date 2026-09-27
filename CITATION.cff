@@ -5,13 +5,14 @@ title: feynkit
 abstract: >-
   A Python package for Feynman integrals via GKZ systems: Symanzik
   polynomials, parametric representations, the GKZ system, the Newton
-  polytope, the toric ideal, symmetries, Landau singularities and an
-  analysis report.
+  polytope with exact faces, facets and volumes, the toric ideal,
+  symmetries, Landau singularities, finite-field point counts that give a
+  candidate number of master integrals, and an analysis report.
 authors:
   - family-names: Denham
     given-names: Byron
-version: 0.3.0
-date-released: "2026-09-25"
+version: 0.4.0
+date-released: "2026-09-27"
 repository-code: https://github.com/byrondenham/feynkit
 url: https://github.com/byrondenham/feynkit
 license: MIT
@@ -21,3 +22,5 @@ keywords:
   - A-hypergeometric functions
   - Newton polytopes
   - toric ideals
+  - master integrals
+  - point counting

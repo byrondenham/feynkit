@@ -221,6 +221,52 @@ class TestCNickelTadpole:
             assert Graph.from_cnickel(cn).cnickel() == cn
 
 
+class TestCNickelEntries:
+    """One terminating bar, empty entries and digit mass codes."""
+
+    @pytest.mark.parametrize(
+        ("cnickel", "vertices", "propagators", "legs"),
+        [
+            ("111e||:zzz", 2, 3, 1),  # the sunrise with one leg
+            ("111||:nnn", 2, 3, 0),  # the vacuum sunrise
+            ("112|2||:zzzz", 3, 4, 0),  # a vacuum theta with chains 1, 1, 2
+            ("123|4e|4e|4e||:zzzzzz", 5, 6, 3),  # three chains of two propagators
+            ("11122||e|:zzzzz", 3, 5, 1),  # an empty entry in the middle
+        ],
+    )
+    def test_empty_entries_are_vertices(
+        self, cnickel: str, vertices: int, propagators: int, legs: int
+    ) -> None:
+        g = Graph.from_cnickel(cnickel)
+        assert g.internal_vertices == vertices
+        assert len(g.get_internal_edges()) == propagators
+        assert g.external_legs == legs
+        assert g.cnickel() == cnickel
+
+    @pytest.mark.parametrize("cnickel", ["12e|2e|e||", "12e|2e|e||:zzz", "11e|e|||", "||"])
+    def test_a_superfluous_bar_is_rejected(self, cnickel: str) -> None:
+        with pytest.raises(ValueError, match="no propagator and no leg"):
+            Graph.from_cnickel(cnickel)
+
+    @pytest.mark.parametrize("cnickel", ["|", ""])
+    def test_an_empty_topology_is_rejected(self, cnickel: str) -> None:
+        with pytest.raises(ValueError, match="Empty topology"):
+            Graph.from_cnickel(cnickel)
+
+    def test_legs_alone_keep_a_vertex(self) -> None:
+        # e|e| has no propagators; the parser accepts it and FeynmanIntegral rejects it.
+        g = Graph.from_cnickel("e|e|")
+        assert (g.internal_vertices, g.external_legs) == (2, 2)
+
+    def test_the_terminating_bar_may_be_left_out(self) -> None:
+        assert Graph.from_cnickel("12e|2e|e:nzz").cnickel() == "12e|2e|e|:nzz"
+
+    @pytest.mark.parametrize("code", list("123456789"))
+    def test_digit_mass_codes_are_rejected(self, code: str) -> None:
+        with pytest.raises(ValueError, match="name shared masses with letters"):
+            Graph.from_cnickel(f"12e|2e|e|:n{code}z")
+
+
 class TestGraphStringRepresentation:
     """Test Graph string representations."""
 

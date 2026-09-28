@@ -30,11 +30,12 @@ from .validation import (
 # Codes that map to zero mass.
 _MASSLESS_CODES: frozenset[str] = frozenset(("0", "z"))
 
-# Single-character codes that denote a *shared* symbolic mass m_{code}.
-# Range: digits 1-9 and lowercase letters a-y, excluding the reserved codes
-# 'n' (unique non-zero) and 's' (special shared).
+# Single-character codes that denote a *shared* symbolic mass m_{code}: the
+# lowercase letters a-y, excluding the reserved codes 'n' (unique non-zero) and
+# 's' (special shared). Digits are not labels: m_1 is also the mass that 'n'
+# gives propagator 1.
 _LABELED_CODES: frozenset[str] = frozenset(
-    [str(d) for d in range(1, 10)] + [c for c in "abcdefghijklmnopqrstuvwxy" if c not in ("n", "s")]
+    c for c in "abcdefghijklmnopqrstuvwxy" if c not in ("n", "s")
 )
 
 _ALL_VALID_CODES: frozenset[str] = _MASSLESS_CODES | {"n", "s"} | _LABELED_CODES
@@ -490,9 +491,18 @@ class Graph:
         numbered sequentially in the order they appear reading left-to-right
         through the topology entries.
 
+        The topology has one entry per vertex, each ending in ``'|'``. An entry
+        may be empty, as the last one of ``"111e||"``, the sunrise with one leg,
+        since it lists only the higher neighbours of its vertex. Only the one
+        terminating bar is stripped, so a superfluous bar adds a vertex without
+        propagators or legs, which is rejected.
+
         Massive edges (colour ``'n'``) receive a symbolic mass
         ``m_<idx>`` with assumptions ``{nonnegative: True, real: True}``.
-        Massless edges (colour ``'z'``) receive ``mass = 0``.
+        Massless edges (colour ``'z'`` or ``'0'``) receive ``mass = 0``. A
+        letter other than ``'n'`` and ``'z'`` gives the shared mass
+        ``m_<letter>``. Digits other than ``'0'`` are rejected: ``m_1`` is
+        also the mass ``'n'`` gives propagator 1.
 
         Parameters
         ----------
@@ -507,7 +517,9 @@ class Graph:
         ------
         ValueError
             If the string is malformed, contains out-of-range vertex labels,
-            or the mass-color count does not match the internal edge count.
+            a digit mass code other than ``'0'`` or, with more than one vertex,
+            a vertex without propagators and legs, or the mass-color count does
+            not match the internal edge count.
 
         Examples
         --------
@@ -536,7 +548,8 @@ class Graph:
             topology = cnickel
             mass_str = ""
 
-        topology = topology.rstrip("|")
+        # Every entry ends in one '|'; the entries before it may be empty.
+        topology = topology.removesuffix("|")
         if not topology:
             raise ValueError(f"Empty topology in CNickel string: {cnickel!r}")
 
@@ -560,6 +573,11 @@ class Graph:
                         )
                     if j >= i:
                         mc = mass_str[mass_idx] if mass_idx < len(mass_str) else "z"
+                        if mc in "123456789":
+                            raise ValueError(
+                                f"Digit mass code {mc!r} in {cnickel!r}: m_{mc} is also the "
+                                f"mass 'n' gives propagator {mc}; name shared masses with letters"
+                            )
                         if mc not in _ALL_VALID_CODES:
                             raise ValueError(f"Unknown mass code {mc!r} in {cnickel!r}")
                         mass_idx += 1
@@ -600,6 +618,17 @@ class Graph:
                     )
                     edge_idx += 1
                     ext_v += 1
+
+        # An entry lists only the higher neighbours, so a propagator in any entry
+        # can touch a vertex; legs touch only the vertex of their own entry.
+        touched = {e.v1 for e in internal_edges + external_edges}
+        touched |= {e.v2 for e in internal_edges}
+        bare = [v - 1 for v in range(1, V + 1) if v not in touched]
+        if V > 1 and bare:
+            raise ValueError(
+                f"Vertex {bare[0]} of {cnickel!r} has no propagator and no leg; "
+                "the topology ends in exactly one '|'"
+            )
 
         total_ext = ext_v - (V + 1)
         return cls(

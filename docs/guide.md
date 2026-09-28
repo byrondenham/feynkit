@@ -663,7 +663,9 @@ print("Parameters:", lp.parameters)
 
 The GKZ (Gelfand-Kapranov-Zelevinsky) system associates a system of
 D-module equations to the Newton polytope. The key object is the A-matrix, whose columns are the
-homogenised exponent vectors of the monomials of G.
+homogenised exponent vectors of the monomials of G. A monomial whose coefficient cancels at the
+integral's kinematics, as some do on shell, is not a column, so the columns are the points of
+`fi.newton_polytope`.
 
 ```python
 gkz = fi.gkz

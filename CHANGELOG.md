@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Breaking changes
+
+- `FeynmanIntegral.gkz` now has one column per monomial of G. Earlier versions
+  kept monomials whose coefficients cancel at special kinematics, such as
+  on-shell legs or p_1^2 = m_1^2, so the A-matrix, the toric ideal, the
+  symmetry pairs and the report's z-table, monomial count and codimension
+  described a larger configuration than the Newton polytope: for the massless
+  box with p_i^2 = 0, 10 columns and 10 toric generators instead of 6 and 1.
+  Integrals whose coefficients do not cancel, among them every integral at
+  generic kinematics and so every integral `fk` builds, are unchanged.
+
 ## 0.4.0 (2026-09-27)
 
 ### Breaking changes

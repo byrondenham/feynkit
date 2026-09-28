@@ -160,7 +160,7 @@ class ZEntry:
         The monomial itself, the product of u_e**a_e.
     coefficient
         The physical value of z_j, the coefficient the monomial carries in
-        G; zero when the monomial cancels.
+        G.
     """
 
     index: int

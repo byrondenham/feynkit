@@ -73,6 +73,31 @@ def _separating_2forests(
             yield subset
 
 
+def _spanning_2forests(
+    n_vertices: int, edge_pairs: list[tuple[int, int]]
+) -> Iterator[tuple[tuple[int, ...], list[bool]]]:
+    """
+    Yield every spanning 2-forest with the side of each vertex: True on the
+    tree holding vertex 0, False on the other.
+    """
+    if n_vertices < 2:
+        return
+    for subset in combinations(range(len(edge_pairs)), n_vertices - 2):
+        parent, n_comp = _build_uf(n_vertices, subset, edge_pairs)
+        if parent is None or n_comp != 2:
+            continue
+        root = _find(parent, 0)
+        yield subset, [_find(parent, v) == root for v in range(n_vertices)]
+
+
+def _momentum_product(momentum_products: dict[tuple[int, int], Any], j: int, k: int) -> Any:
+    """p_j . p_k, given under (j, k) or (k, j), or 0 when neither is given."""
+    value = momentum_products.get((j, k))
+    if value is None:
+        value = momentum_products.get((k, j))
+    return 0 if value is None else value
+
+
 def gkz_exponent_vectors(
     n_vertices: int,
     edge_pairs: list[tuple[int, int]],
@@ -81,9 +106,21 @@ def gkz_exponent_vectors(
     internal_edge_masses: list[Any],
 ) -> list[tuple[int, ...]]:
     """
-    Return the distinct exponent vectors of G = U_lp + F_lp without any SymPy
-    polynomial manipulation.  Each entry is an n-tuple of non-negative integers
-    representing one column of the GKZ A-matrix (excluding the homogenising row).
+    Return the distinct exponent vectors of G = U_lp + F_lp without expanding
+    G.  Each entry is an n-tuple of non-negative integers representing one
+    column of the GKZ A-matrix (excluding the homogenising row).
+
+    The monomials are those of G with a non-zero coefficient.  A spanning
+    2-forest with legs A and B on its two trees and edges C joining them gives
+    the complement of the forest, with coefficient
+
+        c = sum_{j in A, l in B} p_j . p_l + sum_{e in C} m_e^2
+
+    in F, up to the factor 1/mu^2.  It is kept when sp.expand(c) != 0, the
+    zero test of extract_monomial_support, since c can vanish while its terms
+    do not: on shell, or where p_1^2 = m_1^2.  Each massive edge e and spanning
+    tree T without e give u_e^2 times the U monomial of T, with coefficient
+    m_e^2.
 
     Parameters
     ----------
@@ -94,8 +131,8 @@ def gkz_exponent_vectors(
     leg_to_vertex : dict[int, int]
         Maps external-leg number (1-based) to 0-indexed internal vertex.
     momentum_products : dict[(int,int), Any]
-        Symbolic momentum dot-products; pairs (j, k) with j < k.
-        A product is skipped when it compares equal to 0.
+        Symbolic momentum dot-products; pairs (j, k) with j < k.  A pair
+        given as (k, j) is read the same way, and a missing pair is 0.
     internal_edge_masses : list
         Mass expression for each internal edge (0 = massless).
     """
@@ -113,27 +150,30 @@ def gkz_exponent_vectors(
         tree_set = set(tree)
         _add(tuple(0 if i in tree_set else 1 for i in range(n)))
 
-    # F_0 monomials: complement of each separating 2-forest, per momentum pair
-    ext_legs = sorted(leg_to_vertex)
-    for ji, j in enumerate(ext_legs):
-        for k in ext_legs[ji + 1 :]:
-            p_jk = momentum_products.get((j, k)) or momentum_products.get((k, j))
-            if p_jk is None or p_jk == 0:
-                continue
-            vj, vk = leg_to_vertex[j], leg_to_vertex[k]
-            if vj == vk:
-                continue
-            for forest in _separating_2forests(n_vertices, edge_pairs, vj, vk):
-                forest_set = set(forest)
-                _add(tuple(0 if i in forest_set else 1 for i in range(n)))
+    # 2-forest monomials: complement of each spanning 2-forest whose coefficient is not 0
+    legs = sorted(leg_to_vertex.items())
+    for forest, side in _spanning_2forests(n_vertices, edge_pairs):
+        coefficient = sp.Integer(0)
+        for j, vj in legs:
+            for k, vk in legs:
+                if side[vj] and not side[vk]:
+                    coefficient += sp.sympify(_momentum_product(momentum_products, j, k))
+        for i, (v1, v2) in enumerate(edge_pairs):
+            if side[v1] != side[v2]:
+                coefficient += sp.sympify(internal_edge_masses[i]) ** 2
+        if sp.expand(coefficient) != 0:
+            forest_set = set(forest)
+            _add(tuple(0 if i in forest_set else 1 for i in range(n)))
 
-    # F_mass monomials: a_k * (U monomial for T), for each tree T and massive edge k
+    # u_k^2 monomials: u_k * (U monomial for T), for each tree T and massive edge k not in T
     mass_edge_indices = [i for i, m in enumerate(internal_edge_masses) if m != 0]
     if mass_edge_indices:
         for tree in _spanning_trees(n_vertices, edge_pairs):
             tree_set = set(tree)
             u_vec = [0 if i in tree_set else 1 for i in range(n)]
             for k in mass_edge_indices:
+                if k in tree_set:
+                    continue
                 vec = list(u_vec)
                 vec[k] += 1
                 _add(tuple(vec))

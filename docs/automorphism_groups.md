@@ -126,8 +126,11 @@ physical information.
 A graph automorphism of $\Gamma$ is a permutation of its internal vertices that
 preserves both the edge topology and the mass assignment (massless edges mapped
 to massless, massive to massive). For a graph with $V$ internal vertices,
-`compute_graph_automorphisms` exhausts all $V!$ vertex permutations and retains
-those for which the relabelled adjacency structure coincides with the original.
+`compute_graph_automorphisms` takes the labellings that attain the least
+breadth-first Nickel string, found by the exact branch and bound of the
+canonical labelling without trying all $V!$ permutations. It keeps each map
+between them that preserves the propagators, with their multiplicities and mass
+colours, and the legs.
 
 Each such vertex permutation $\sigma \in S_V$ induces a permutation matrix
 $P_\sigma \in \mathrm{GL}_n(\mathbb{Z})$ acting on the $n$-dimensional parameter

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -222,3 +223,12 @@ def test_vacuum_and_one_leg_graphs_build_without_mandelstam(cnickel: str) -> Non
     assert fi.cnickel == cnickel
     with pytest.raises(ValueError, match="At least two external legs"):
         FeynmanIntegral.from_cnickel(cnickel)
+
+
+def test_guide_example_prints_what_the_guide_says(capsys: pytest.CaptureFixture[str]) -> None:
+    guide = Path(__file__).resolve().parents[1] / "docs" / "guide.md"
+    section = guide.read_text(encoding="utf-8").split("\n### Generating graphs\n", 1)[1]
+    code = section.split("```python\n", 1)[1].split("```", 1)[0]
+    printed = section.split("prints\n\n```\n", 1)[1].split("```", 1)[0]
+    exec(compile(code, "docs/guide.md", "exec"), {})
+    assert capsys.readouterr().out == printed

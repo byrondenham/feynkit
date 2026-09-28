@@ -417,13 +417,30 @@ this with a per-propagator mass colouring, making it a complete identifier for a
 family.
 
 **Nickel format:** internal vertices are numbered `0, 1, ..., V-1`. For each vertex `i` in
-order, list its higher-numbered internal neighbors (sorted ascending), then one `e` per
-external leg. Entries are separated by `|`. The canonical form is the lexicographically
-smallest string over all `V!` vertex labellings.
+order, list its higher-numbered internal neighbours (sorted ascending), then one `e` per
+external leg, and end the entry with `|`. An entry can be empty: in the sunrise with one leg,
+`111e||`, vertex 1 has no higher neighbours and no legs. The canonical form is the
+lexicographically smallest string over all `V!` vertex labellings; an exact branch and bound
+finds it without trying them all. Labels are single digits, so graphs have at most 10 vertices.
+The search takes longer the larger the automorphism group of the graph, so highly symmetric
+graphs with 10 vertices, such as the star and the complete graph, take from seconds to minutes,
+while the graphs of the example under [Generating graphs](#generating-graphs) take milliseconds.
 
-**CNickel format:** `<nickel>:<colours>`, where `<colours>` is a string of `z` (zero / massless)
-and `n` (nonzero / massive) characters, one per internal edge in the order they appear left-
-to-right in `<nickel>`. The canonical form jointly minimises topology and mass colouring.
+**CNickel format:** `<nickel>:<colours>`, with one mass code per internal edge in the order the
+edges appear left to right in `<nickel>`:
+
+| Code | Mass |
+|------|------|
+| `z`, `0` | zero |
+| `n` | `m_<idx>`, a mass of its own |
+| `a` to `y` except `n` and `s` | `m_<letter>`, shared by every edge with that letter |
+| `s` | `m_s`, shared in the same way |
+
+Digits other than `0` are rejected, since `m_1` is also the mass that `n` gives edge 1. The
+canonical form jointly minimises topology and mass colouring, over the names of the shared
+masses as well: it names them `a`, `b`, `c` in order of first appearance, and writes a mass
+that one edge alone carries as `n`. So `12e|2e|e|:bbn` and `12e|2e|e|:ssn` both become
+`12e|2e|e|:aan`, and `12e|2e|e|:nan` becomes `12e|2e|e|:nnn`.
 
 Common examples:
 
@@ -484,14 +501,73 @@ print(g.cnickel())
 
 ### Round-trip property
 
-For any canonical CNickel string `s`:
+For any canonical CNickel string `s`, including those with empty entries such as
+`"111e||:zzz"`:
 
 ```python
 Graph.from_cnickel(s).cnickel() == s   # True
 ```
 
 For non-canonical input the resulting graph's `cnickel()` returns the canonical form. This
-makes CNickel suitable as a stable, human-readable identifier for integral families.
+makes CNickel suitable as a stable, human-readable identifier for integral families. The parser
+strips only the terminating `|`, so a superfluous one, as in `"12e|2e|e||"`, describes a vertex
+with no edges and no legs and raises `ValueError`.
+
+### Generating graphs
+
+`generate_graphs` yields the one-particle-irreducible graphs with given numbers of loops and
+legs as canonical CNickel strings, each once with every mass colouring up to its automorphisms.
+A graph is kept when it is connected, bridgeless (deleting one propagator leaves the
+propagators connected; legs do not count) and of degree at least 3 at every vertex, counting a
+self-loop twice and each leg once. A vertex of degree 2 without a leg would only raise the
+power of a propagator, or split into two graphs by partial fractions.
+
+```python
+from feynkit import generate_graphs
+from feynkit.generate import mass_colourings
+
+one_loop = list(generate_graphs(1, range(2, 7)))   # the bubble to the hexagon
+two_loop = list(generate_graphs(2, range(2, 5)))   # two loops, 2 to 4 legs
+print(len(one_loop), len(two_loop))
+print(two_loop[:4])
+print(len(mass_colourings("12e|23|3|e|")))       # the kite, from any labelling
+```
+
+prints
+
+```
+34 675
+['111e|e|:nnn', '111e|e|:nnz', '111e|e|:nzz', '111e|e|:zzz']
+14
+```
+
+| Argument | Default | Meaning |
+|----------|---------|---------|
+| `loops`, `legs` | | One number or several. Vacuum graphs (`legs=0`) and one-leg graphs come only when asked for |
+| `edges` | `None` | The numbers of propagators $E$; `None` for every $E$ the rules allow, $L \le E \le n + 3(L - 1)$ from two loops and $2 \le E \le n$ at one loop, or $1 \le E \le n$ with self-loops |
+| `masses` | `"zn"` | `"zn"`: each propagator massless or with a mass of its own; `"z"`: massless only; `"shared"`: equal masses as well, as letters |
+| `self_loops` | `False` | Allow propagators from a vertex to itself; massless ones are scaleless and still kept |
+| `max_legs_per_vertex` | `1` | The most legs at one vertex, `None` for no limit |
+| `one_vertex_irreducible` | `False` | Drop graphs whose propagators split into two sets sharing one vertex, whose integrals factorise |
+
+The strings come in blocks of loops, propagators and legs in increasing order, sorted within a
+block, and the same arguments always give the same strings. With `"zn"` the colourings are
+enough for anything that depends only on the support of $G$, such as the Newton polytope and its
+equivalence class, since equal masses change coefficients but not the support. `"shared"`
+matters for the Landau analysis and the point counts.
+
+Legs carry no labels, so graphs that differ only in which momentum enters where are one string,
+and by default a vertex has at most one leg: at generic kinematics several legs at a vertex give
+the Newton polytope of one. `FeynmanIntegral.from_cnickel(s)` builds an integral from a string;
+with fewer than two legs pass `use_mandelstam=False`. Arguments are checked when
+`generate_graphs` is called: a negative number of legs, a value that is not an integer, an
+unknown alphabet or a block of more than 10 vertices raises `ValidationError` before any string
+is produced. `mass_colourings(topology, masses=...)` lists the colourings of one topology,
+canonical or not.
+
+The counts are checked against an independent enumeration, Burnside's lemma, closed forms at one
+and two loops and OEIS A000029: the one-loop `"zn"` colourings of the $n$-gon are the binary
+bracelets with $n$ beads.
 
 ---
 

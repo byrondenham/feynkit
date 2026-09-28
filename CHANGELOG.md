@@ -32,10 +32,64 @@
   argument as a CNickel string. A first argument such as `0:n`, a CNickel
   string without a `|`, gets a hint to name the command, as in
   `fk analyse "0:n"`.
+- `Graph.cnickel()` minimises over the names of shared masses as well as over
+  the vertex labellings. It names them `a`, `b`, `c` in order of first
+  appearance and writes a mass that one propagator alone carries as `n`,
+  whatever its symbol: `12e|2e|e|:aab` gives `12e|2e|e|:aan`, `:sss` gives
+  `:aaa`, `:bbn` gives `:aan` and `:nan` gives `:nnn`. Strings with only `z`
+  and `n` do not change. The change reaches `FeynmanIntegral.cnickel`, the
+  analysis report and `fk analyse`. A graph with more than 23 classes of equal
+  masses, which the letters cannot name, raises `NotImplementedError`. Database
+  rows keep the string they were stored with, since a store never overwrites
+  the `cnickel` column; lookups go by the fingerprint of the Newton polytope
+  and still find them, but a stored string can differ from what `cnickel()`
+  now returns for the same graph.
+- `Graph.from_cnickel` rejects the mass codes `1` to `9`. The code `1` gave the
+  symbol `m_1`, which `n` also gives propagator 1, so two different masses
+  could become one. `0` still means massless. `cnickel()` never wrote digits.
+- `Graph.from_cnickel` strips only the terminating `|` of the topology. A
+  superfluous one, as in `12e|2e|e||`, describes a vertex without propagators
+  or legs and raises `ValueError`, where it was ignored. So does any vertex
+  without propagators or legs, wherever its entry sits, when there are two or
+  more vertices; the message names the vertex. `e||e|` gave a graph with an
+  isolated vertex.
 
 ### Added
 
 - `fk analyze` is an alias of `fk analyse`.
+- `feynkit.generate`, with `generate_graphs` (also exported from `feynkit`) and
+  `mass_colourings`. `generate_graphs` yields the connected, bridgeless graphs
+  with given loops, legs and propagators in which every vertex has degree at
+  least 3, counting a self-loop twice and a leg once, as canonical CNickel
+  strings: each graph once, with every mass colouring up to its automorphisms.
+  Colourings are massless or with a mass of their own (`"zn"`, the default),
+  massless only (`"z"`) or with equal masses as well (`"shared"`). Options allow
+  self-loops, several legs at a vertex and only one-vertex-irreducible graphs.
+  One loop with 2 to 6 legs gives 34 graphs, two loops with 2 to 4 legs 675.
+  The counts are checked against an independent enumeration, closed forms and
+  OEIS A000029.
+- `generate_graphs` checks its arguments when it is called, not at the first
+  string: loops, legs or propagators that are not integers or are out of
+  range, a `max_legs_per_vertex` other than a positive integer or None, an
+  unknown alphabet or a block of more than 10 vertices raise `ValidationError`.
+- `nickel_index` and `cnickel()` accept graphs with 10 vertices, the most that
+  one-digit labels allow; the limit was 9.
+- Property-based tests over relabellings of the generated graphs, with
+  `hypothesis` as a development dependency. `HYPOTHESIS_PROFILE=feynkit-dev`
+  runs a larger random search than the default, derandomised profile. Running
+  the tests needs the development dependencies (`uv sync`), since
+  `tests/conftest.py` imports `hypothesis`.
+
+### Changed
+
+- `nickel_index`, `cnickel()` and `compute_graph_automorphisms` find the
+  canonical labelling by an exact branch and bound over breadth-first
+  labellings instead of a scan of all V! labellings, and give the same strings
+  and the same automorphisms, in lexicographic order. Graphs with 9 or 10
+  vertices take milliseconds unless their automorphism group is large: the
+  9-gon takes under a millisecond instead of about 6 s. The Notes of
+  `Graph.nickel_index` give the slow cases, such as the complete graph with 10
+  vertices, which takes minutes.
 
 ### Fixed
 
@@ -71,6 +125,16 @@
 - `fk compare` reported `finite_index` as YES, with det = 0, when the search
   found only a singular map, which gives no identity. It now reports `no` with
   the note `only a singular map found, det = 0`, and prints no witness map.
+- `Graph.from_cnickel` parses strings with an empty last entry, which
+  `cnickel()` returns for the sunrise with one leg (`111e||:zzz`), the vacuum
+  sunrise (`111||`) and three chains of two propagators (`123|4e|4e|4e||`), and
+  which raised `ValueError`. `Graph.from_cnickel(s).cnickel() == s` now holds
+  for every canonical string.
+- Section 1.4 of the mathematics reference listed the digits 1 to 9 as shared
+  mass labels, and `docs/automorphism_groups.md` said that
+  `compute_graph_automorphisms` tries all V! vertex permutations; both now
+  describe what the code does. The `nickel_index` docstring gave the box as
+  `13e|2e|3e|e|`, which is not canonical; it is `12e|3e|3e|e|`.
 
 ## 0.4.0 (2026-09-27)
 

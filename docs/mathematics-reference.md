@@ -47,11 +47,19 @@ The **CNickel string** is a compact canonical encoding of a Feynman graph.
 **Format:** `topology_string:mass_colors`
 
 - **Topology string:** vertices are listed in order; for each vertex the higher-numbered neighbours
-  and external legs (coded `e`) are concatenated, separated by `|`.
+  and external legs (coded `e`) are concatenated, and each entry ends in exactly one `|`. An entry
+  can be empty, as the last one of `111e||`, the sunrise with one leg. The parser strips only the
+  terminating `|`, so a superfluous one adds a vertex without edges or legs, which is rejected.
 - **Mass colour string:** one character per internal edge in the order they appear in the topology
   string: `z` or `0` = massless; `n` = individual symbolic mass $m_{e.\mathrm{idx}}$;
-  digits `1`-`9` or letters `a`-`y` (except `n`, `s`) = shared labelled mass $m_c$; `s` = shared
-  special mass $m_s$.
+  letters `a`-`y` (except `n`, `s`) = shared labelled mass $m_c$; `s` = shared special mass $m_s$.
+  The digits `1`-`9` are rejected, since $m_1$ is also the mass that `n` gives edge 1.
+
+The canonical string `Graph.cnickel()` minimises over the vertex labellings and over the names of
+the shared masses. It writes the shared masses as letters named in order of first appearance,
+`a`, `b`, `c`, ..., and a mass that one edge alone carries as `n`, so it never writes `s`:
+`"12e|2e|e|:bbn"` and `"12e|2e|e|:ssn"` both give `"12e|2e|e|:aan"`, and `"12e|2e|e|:nan"` gives
+`"12e|2e|e|:nnn"`.
 
 Examples: `"11e|e|:zz"` (massless bubble), `"12e|2e|e|:zzz"` (massless triangle),
 `"12e|2e|e|:nzz"` (one-mass triangle).

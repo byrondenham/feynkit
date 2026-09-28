@@ -190,6 +190,7 @@ same CNickel string, the canonical form minimises the mass colouring lexicograph
 | Module | What it computes |
 |--------|-----------------|
 | `feynkit.core` | Graph data structures, Nickel/CNickel index, `from_cnickel` constructor |
+| `feynkit.generate` | The 1PI graphs with given loops, legs and propagators and their mass colourings, as CNickel strings (`generate_graphs`) |
 | `feynkit.polynomials` | Symanzik U and F via spanning-tree enumeration |
 | `feynkit.parametrisations` | Schwinger, Feynman, Lee-Pomeransky representations |
 | `feynkit.systems` | GKZ A-matrix, beta parameters, Euler operators; Schwinger-representation Cayley system |
@@ -382,6 +383,7 @@ See [`docs/guide.md`](docs/guide.md) for the full user guide, including:
 - Complete `fk` CLI reference
 - Detailed API reference with parameter tables
 - Nickel/CNickel index format and construction from strings
+- Generating the 1PI graphs of given loops and legs as CNickel strings
 - `AConfiguration` for arbitrary GKZ systems
 - Landau singularity analysis
 - Conformal and BMS artifact factories

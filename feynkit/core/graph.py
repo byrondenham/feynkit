@@ -8,7 +8,7 @@ with methods to compute Laplacians and related polynomials.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from itertools import chain, permutations, product
 
 import sympy as sp
@@ -94,18 +94,50 @@ def _canonical_labellings(
     legs[v] is the number of legs at v. A labelling is a tuple whose entry i is
     the vertex given label i. The canonical string is the least, by code point,
     over all V! labellings.
+
+    The search visits only breadth-first labellings. Vertices are processed in
+    label order, and the unlabelled neighbours of the vertex being processed
+    take the next labels, those joined to it by more propagators first, every
+    order within a tie being tried; when every labelled vertex has been
+    processed, any unlabelled vertex may take the next label. Any other
+    labelling can be changed, from the first vertex where it departs from this
+    rule, into one whose earlier entries are equal and whose entry there is
+    smaller, so every least labelling is breadth-first. A branch is abandoned
+    only when its entries so far exceed the least complete string found, so
+    none is lost. The cost is at least the number of least labellings, the
+    order of the automorphism group of the graph with its legs.
     """
-    best: str | None = None
+    V = len(legs)
+    best: list[str] = []
     found: list[tuple[int, ...]] = []
-    for order in permutations(range(len(legs))):
-        label = {v: i for i, v in enumerate(order)}
-        text = "".join(_nickel_entry(v, label, multiplicity, legs) + "|" for v in order)
-        if best is None or text < best:
-            best, found = text, [order]
-        elif text == best:
+
+    def search(order: tuple[int, ...], text: str, i: int) -> None:
+        if best and text > best[0][: len(text)]:
+            return
+        if i == V:
+            if not best or text < best[0]:
+                best[:] = [text]
+                found.clear()
             found.append(order)
-    assert best is not None
-    return best, found
+            return
+        if i == len(order):
+            for v in range(V):
+                if v not in order:
+                    search(order + (v,), text, i)
+            return
+        v = order[i]
+        new: dict[int, list[int]] = defaultdict(list)
+        for w, m in enumerate(multiplicity[v]):
+            if m and w not in order:
+                new[m].append(w)
+        ties = [new[m] for m in sorted(new, reverse=True)]
+        for choice in product(*(permutations(tie) for tie in ties)):
+            longer = order + tuple(chain.from_iterable(choice))
+            label = {u: k for k, u in enumerate(longer)}
+            search(longer, text + _nickel_entry(v, label, multiplicity, legs) + "|", i + 1)
+
+    search((), "", 0)
+    return best[0], found
 
 
 def _pair_order(
@@ -119,14 +151,35 @@ def _pair_order(
     return pairs
 
 
+def _tie_orders(
+    tie: Sequence[int], profile: Mapping[int, tuple[int, ...]]
+) -> Iterator[tuple[int, ...]]:
+    """The orders of the tied classes, one for each sequence of their profiles."""
+    if len({profile[c] for c in tie}) == len(tie):
+        yield from permutations(tie)
+        return
+    seen: set[tuple[int, ...]] = set()
+    for i, c in enumerate(tie):
+        if profile[c] not in seen:
+            seen.add(profile[c])
+            for rest in _tie_orders([*tie[:i], *tie[i + 1 :]], profile):
+                yield (c, *rest)
+
+
 def _least_naming(groups: Sequence[Sequence[_Colour]]) -> str:
     """The least colour string of the groups of parallel propagators, over the names of the
     classes of shared masses; each group is written sorted.
 
     In the least string a class takes the next free letter where it first
     appears, classes with more propagators in that group first, since any other
-    naming makes that group larger. Every order within a tie is tried.
+    naming makes that group larger. Every order within a tie is tried, up to
+    interchangeable classes: two tied classes with the same number of
+    propagators in every group, their profile, give the same string when their
+    letters are swapped, so only one of their orders is tried.
     """
+    counts = [Counter(group) for group in groups]
+    classes = {c for group in groups for c in group if isinstance(c, int)}
+    profile = {c: tuple(count[c] for count in counts) for c in classes}
     best: list[str] = []
 
     def walk(g: int, names: dict[int, str], text: str) -> None:
@@ -139,7 +192,7 @@ def _least_naming(groups: Sequence[Sequence[_Colour]]) -> str:
         ties = [
             sorted(c for c in new if new[c] == k) for k in sorted(set(new.values()), reverse=True)
         ]
-        for choice in product(*(permutations(tie) for tie in ties)):
+        for choice in product(*(_tie_orders(tie, profile) for tie in ties)):
             named = dict(names)
             for c in chain.from_iterable(choice):
                 named[c] = _SHARED_LETTERS[len(named)]
@@ -380,7 +433,8 @@ class Graph:
     ) -> tuple[list[list[int]], list[int], dict[tuple[int, int], list[_Colour]]]:
         """
         The multiplicity matrix, the legs at each vertex and the colours of the
-        propagators joining each pair of vertices, for the canonical labelling.
+        propagators joining each pair of vertices, in the graph's own numbering
+        of the vertices: the input to the search for the canonical labelling.
 
         Vertices count from 0, and a pair (u, w) has u <= w. A propagator's
         colour is "z" if it is massless, "n" if no other propagator has its
@@ -428,12 +482,14 @@ class Graph:
 
         Notes
         -----
-        Supports up to 9 internal vertices (single-digit vertex labels).
+        Supports up to 10 internal vertices (single-digit vertex labels). The
+        least string is found by an exact branch and bound, not a scan of all
+        V! labellings.
         """
         V = self.internal_vertices
-        if V > 9:
+        if V > 10:
             raise NotImplementedError(
-                f"Nickel index requires V <= 9; this graph has {V} internal vertices"
+                f"Nickel index requires V <= 10; this graph has {V} internal vertices"
             )
         multiplicity, legs, _ = self._nickel_data()
         return _canonical_labellings(multiplicity, legs)[0]
@@ -454,6 +510,13 @@ class Graph:
         first appearance, and a mass is written ``'n'`` whenever one propagator
         alone carries it, whatever its symbol.
 
+        Raises
+        ------
+        NotImplementedError
+            If the graph has more than 10 internal vertices, or more than 23
+            classes of propagators sharing a mass, the number of letters
+            ``'a'`` to ``'y'`` without ``'n'`` and ``'s'``.
+
         Examples
         --------
         Massless triangle:     ``"12e|2e|e|:zzz"``
@@ -463,9 +526,9 @@ class Graph:
         Massless bubble:       ``"11e|e|:zz"``
         """
         V = self.internal_vertices
-        if V > 9:
+        if V > 10:
             raise NotImplementedError(
-                f"CNickel index requires V <= 9; this graph has {V} internal vertices"
+                f"CNickel index requires V <= 10; this graph has {V} internal vertices"
             )
         multiplicity, legs, colours = self._nickel_data()
         classes = {c for group in colours.values() for c in group if isinstance(c, int)}

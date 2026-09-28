@@ -48,7 +48,6 @@ from ..types import PolytopeAutomorphisms
 from . import _invariants
 
 if TYPE_CHECKING:
-    from ..core.edge import Edge
     from ..core.graph import Graph
     from ..integral import FeynmanIntegral
 
@@ -236,46 +235,42 @@ def compute_graph_automorphisms(graph: Graph) -> list[list[int]]:
     Each permutation is a list ``sigma`` of length ``V`` (internal vertices)
     where ``sigma[i-1]`` is the new label for internal vertex ``i``. Only
     permutations of internal vertices are considered (external legs are not
-    permuted).
+    permuted). The colouring compared is massless or massive, and a mass of
+    None counts as massive.
 
     Returns a list of permutations (as 1-indexed vertex lists), always
-    including the identity.
+    including the identity, in lexicographic order.
+
+    The automorphisms of the graph with its legs map one least labelling of
+    the canonical Nickel search onto each of the others; those that also
+    preserve the colouring are kept.
     """
-    from itertools import permutations as _perms
+    from ..core.graph import _canonical_labellings
 
     V = graph.internal_vertices
-    internal = graph.get_internal_edges()
-    external = graph.get_external_edges()
+    multiplicity = [[0] * V for _ in range(V)]
+    colours: dict[tuple[int, int], list[str]] = defaultdict(list)
+    for e in graph.get_internal_edges():
+        u, w = sorted((e.v1 - 1, e.v2 - 1))
+        multiplicity[u][w] += 1
+        if u != w:
+            multiplicity[w][u] += 1
+        colours[u, w].append("z" if (e.mass is not None and e.mass == sp.Integer(0)) else "n")
+    legs = [0] * V
+    for e in graph.get_external_edges():
+        legs[e.v1 - 1] += 1
 
-    def _mass_char(e: Edge) -> str:
-        return "z" if (e.mass is not None and e.mass == sp.Integer(0)) else "n"
-
-    adj: dict[int, list[tuple[int, str]]] = defaultdict(list)
-    for e in internal:
-        mc = _mass_char(e)
-        adj[e.v1].append((e.v2, mc))
-        adj[e.v2].append((e.v1, mc))
-
-    ext_deg: dict[int, int] = defaultdict(int)
-    for e in external:
-        ext_deg[e.v1] += 1
-
-    def _relabelled_sig(perm: tuple[int, ...]) -> list[tuple]:
-        new_label = {old: new for new, old in enumerate(perm, start=1)}
-        result = []
-        for old_v in perm:
-            relabelled = sorted((new_label[nb], mc) for nb, mc in adj.get(old_v, []))
-            result.append((ext_deg.get(old_v, 0), tuple(relabelled)))
-        return result
-
-    identity_sig = _relabelled_sig(tuple(range(1, V + 1)))
-
+    _, labellings = _canonical_labellings(multiplicity, legs)
     found = []
-    for perm in _perms(range(1, V + 1)):
-        if _relabelled_sig(perm) == identity_sig:
-            found.append(list(perm))
-
-    return found
+    for order in labellings:
+        image = dict(zip(labellings[0], order, strict=True))
+        if all(
+            sorted(colours[u, w])
+            == sorted(colours[min(image[u], image[w]), max(image[u], image[w])])
+            for u, w in colours
+        ):
+            found.append([image[v] + 1 for v in range(V)])
+    return sorted(found)
 
 
 # ------------------------------------------------------------------------------

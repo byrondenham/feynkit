@@ -166,8 +166,12 @@ def gkz_exponent_vectors(
             _add(tuple(0 if i in forest_set else 1 for i in range(n)))
 
     # u_k^2 monomials: u_k * (U monomial for T), for each tree T and massive edge k not in T
+    # (m != 0 keeps a mass given as the Python float 0.0 massless: sp.sympify(0.0) is
+    # Float(0.0), which SymPy does not treat as 0)
     mass_edge_indices = [
-        i for i, m in enumerate(internal_edge_masses) if sp.expand(sp.sympify(m) ** 2) != 0
+        i
+        for i, m in enumerate(internal_edge_masses)
+        if m != 0 and sp.expand(sp.sympify(m) ** 2) != 0
     ]
     if mass_edge_indices:
         for tree in _spanning_trees(n_vertices, edge_pairs):

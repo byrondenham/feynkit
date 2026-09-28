@@ -172,6 +172,15 @@ class TestColumnsAreTheNewtonPoints:
         assert fi.gkz.a_matrix == newton_matrix(fi)
         assert fi.gkz.a_matrix.cols == 6
 
+    def test_where_the_masses_are_the_python_float_0(self) -> None:
+        # 0.0 == 0 in Python, but sp.sympify(0.0) is Float(0.0), which SymPy does not treat
+        # as 0. Such masses are massless: no u_e^2 columns, at generic kinematics or on shell.
+        generic = with_masses(FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz"), [0.0] * 4)
+        on_shell_box = with_masses(on_shell("12e|3e|3e|e|:zzzz"), [0.0] * 4)
+        for fi, columns in ((generic, 10), (on_shell_box, 6)):
+            assert fi.gkz.a_matrix == newton_matrix(fi)
+            assert fi.gkz.a_matrix.cols == columns
+
 
 @pytest.fixture(scope="module")  # type: ignore[misc]
 def box() -> FeynmanIntegral:

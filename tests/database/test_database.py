@@ -141,6 +141,15 @@ class TestToricCache:
         second = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz", database=db).toric_ideal.generators
         assert [str(g) for g in first] == [str(g) for g in second]
 
+    def test_a_row_of_the_newton_points_is_read(self, db: FeynkitDatabase) -> None:
+        # Six columns for six points, and a generator in z_1, ..., z_6: the row is read,
+        # not recomputed.
+        fi = on_shell_box(db)
+        assert len(fi.toric_ideal.generators) == 1
+        cached = db._lookup_toric(fi.newton_polytope.points)
+        assert cached is not None
+        assert [str(g) for g in cached] == ["z_1*z_4*z_5 - z_2*z_3*z_6"]
+
 
 class TestFindEquivalent:
     def test_one_mass_triangles_are_unimodularly_equivalent(self, db: FeynkitDatabase) -> None:

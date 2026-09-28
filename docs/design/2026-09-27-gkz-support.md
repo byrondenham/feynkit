@@ -96,9 +96,10 @@ and 0.09 s before, for the massless and massive planar double boxes and the pent
 - The upserts of `store` and `_store_toric` also refresh `a_matrix`, `n_rows` and `n_cols`.
 - `_lookup_toric` treats a row as uncached when its `n_cols` differs from its number of points,
   or when a cached generator names a variable beyond $z_{n_\mathrm{cols}}$. Both cases arise when
-  0.4.0 or earlier writes to a repaired file: a new row with the larger matrix, or, on a repaired
-  row whose generators are NULL, ten generators in $z_1, \ldots, z_{10}$ over its six columns
-  (checked).
+  0.4.0 or earlier writes to a file this release has repaired or written: a new row with the
+  larger matrix, or ten generators in $z_1, \ldots, z_{10}$ over the six columns of a row, which
+  0.4.0 caches when the row's generators are NULL or when its `store` is given an integral
+  without a database (checked).
 - 0.3.0 and 0.4.0 read a repaired row inconsistently: a toric ideal indexed for 6 columns sits
   on their own 10-column A, or they recompute from NULL. Old releases cannot be fixed; the
   changelog says so.

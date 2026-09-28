@@ -957,17 +957,18 @@ of the integral (Klausen 2023, lemma "Landau variety contained in Sing"). feynki
 - an edge contributes the discriminant of $G_\tau$ as a univariate polynomial in the lattice
   coordinate along the edge, $\Delta(P) = \mathrm{Res}(P, P') / \mathrm{lc}(P)^{\deg P - 1}$;
 - any other face contributes the elimination ideal of $\{G_\tau = 0,\ u_i \partial_i G_\tau = 0\}$ in
-  the torus, computed with a Gröbner basis (Singular when installed, SymPy otherwise) at $\mu = 1$
-  when the kinematics are free of $\mu$. On a face the degree in $u$, less $L$, is an affine
-  function of the exponents, 0 on $U$ and 1 on $F$, so rescaling $\mu$ is a torus action on the
-  coefficients, and setting $\mu = 1$ loses only the factor $\mu$ and the component at $\mu = 0$,
-  where only the monomials of $F$ survive and which gave many faces a second generator. When the
-  kinematics contain $\mu$, as at $p_1^2 = \mu^2$, the coefficients are no longer powers of $\mu$
-  times expressions free of it, and $\mu$ stays a variable. When the distinct coefficients of
-  $G_\tau$ that are not constant are linearly independent linear forms in the kinematic symbols,
-  or in the squares of those that occur only squared, each is replaced by a fresh symbol:
-  completed to a basis of the linear forms, they are new coordinates on the polynomial ring, and
-  the others are free variables, which elimination leaves alone, so the
+  the torus, computed with a Gröbner basis (Singular when installed, SymPy otherwise). It is taken
+  at $\mu = 1$ when every coefficient of $G$ is $\mu^{k(\alpha)}$ times a factor free of $\mu$, with
+  $k$ an affine function of the exponent $\alpha$, as when the kinematics are free of $\mu$, where
+  $k$ is $0$ on $U$ and $-2$ on $F$. Rescaling $\mu$ is then a torus action on the coefficients,
+  and setting $\mu = 1$ loses only the factor $\mu$ and the component at $\mu = 0$, which gave
+  many faces a second generator. The condition is sufficient, not necessary; when it fails, $\mu$
+  stays a variable. At $p_1^2 = \mu^2$ in the massless triangle the coefficient of $u_1 u_2$
+  becomes $-1 = \mu^0 \cdot (-1)$ while the other monomials of $F$ carry $\mu^{-2}$, so $k$ is not
+  affine. When the distinct non-constant coefficients of $G_\tau$ are linearly independent linear
+  forms in the kinematic symbols, or in the squares of those that occur only squared, each is
+  replaced by a fresh symbol: completed to a basis of the linear forms, they are new coordinates
+  on the polynomial ring, and the others are free variables, which elimination leaves alone, so the
   generators in the fresh symbols, with the forms substituted back, generate the elimination
   ideal.
 

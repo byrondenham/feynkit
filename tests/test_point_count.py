@@ -626,6 +626,46 @@ class TestCountTorusPoints:
         assert mixed
         assert all(pc._square_test_face(face, {triangle.graph.energy_scale: 1}) for face in mixed)
 
+    def test_the_square_test_takes_every_principal_face_where_mu_stays_a_variable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # At m_1 = mu the sunrise's coefficient of u_1^2 carries no mu, so the Landau analysis
+        # keeps mu a variable, and to the rule of _square_test_face faces of F alone would look
+        # like faces of U and F. The square test takes every principal face, as it did before.
+        fi = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+        mu = fi.graph.energy_scale
+        m1, m2, m3 = (edge.get_mass() for edge in fi.graph.get_internal_edges())
+        (s,) = fi.symanzik.g.free_symbols - set(fi.symanzik.lp_parameters) - {mu, m1, m2, m3}
+        g = sp.expand(fi.symanzik.g.subs(m1, mu))
+        variables = list(fi.symanzik.lp_parameters)
+        seen: list[pc._Kinematics] = []
+        draw = pc._draw
+
+        def spy(kinematics: pc._Kinematics, seed: int) -> tuple[Fraction, ...]:
+            seen.append(kinematics)
+            return draw(kinematics, seed)
+
+        monkeypatch.setattr(pc, "_draw", spy)
+        thresholds = sp.Poly(
+            sp.expand(sp.prod(s - (1 + a * m2 + b * m3) ** 2 for a in (1, -1) for b in (1, -1))),
+            m2,
+            m3,
+            s,
+        )
+        quartic = frozenset(
+            ((i // 2, j // 2, k), Fraction(int(c))) for (i, j, k), c in thresholds.terms()
+        )
+        points = {
+            1: ((m2**2, 18), (m3**2, 4), (s, 1)),
+            2: ((m2**2, 8), (m3**2, 9), (s, 16)),
+        }
+        for seed, point in points.items():
+            assert count_torus_points(g, variables, scale=mu, seed=seed).point == point
+            assert {frozenset(f) for f in seen.pop().square_factors} == {
+                frozenset({((0, 0, 1), Fraction(1))}),
+                quartic,
+            }
+
     @pytest.mark.parametrize(
         ("cnickel", "master"),
         [("12e|23|3|e|:nzzzz", 7), ("12e|22|e|:nzzz", 3), ("12ee|22e|e|:nnnn", None)],

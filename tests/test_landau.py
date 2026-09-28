@@ -592,6 +592,34 @@ class TestElimination:
         # (1, 1), with 0 at (1, 0) and (0, 1).
         assert not exact(u + [((2, 0), M1**2), ((1, 1), S / MU**2)], MU)
 
+    @pytest.mark.parametrize("power", [2, 4])
+    def test_kinematics_scaled_by_a_power_of_mu_are_eliminated_at_mu_one(
+        self, power: int, massive_bubble: FeynmanIntegral, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # With every squared mass and invariant times mu^power the coefficients of F are
+        # mu^(power - 2) times kinematics free of mu: free of mu for power 2, and still a power
+        # of mu, affine in the exponent, for power 4.
+        mu = massive_bubble.graph.energy_scale
+        symanzik = massive_bubble.symanzik
+        variables = list(symanzik.lp_parameters)
+        masses = {edge.get_mass() for edge in massive_bubble.graph.get_internal_edges()}
+        scaling = {m: mu ** (power // 2) * m for m in masses}
+        scaling.update({x: mu**power * x for x in _kin(massive_bubble) - masses})
+        g = sp.expand(symanzik.g.subs(scaling, simultaneous=True))
+        support = landau_module.extract_monomial_support(g, variables)
+        assert landau_module._unit_scale_is_exact(support, mu)
+        scales: list[sp.Symbol | None] = []
+        eliminate = landau_module._elimination_discriminant
+
+        def spy(*args: object, **kwargs: object) -> tuple[list[sp.Expr], bool]:
+            scales.append(kwargs["scale"])  # type: ignore[arg-type]
+            return eliminate(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(landau_module, "_elimination_discriminant", spy)
+        analysis = landau_analysis_from_polynomial(g, variables, scale=mu)
+        assert scales == [mu]
+        assert analysis.landau_surfaces == landau_analysis(massive_bubble).landau_surfaces
+
     @requires_singular
     @pytest.mark.parametrize(("cnickel", "count"), [("12e|2e|e|:zzz", 3), ("12e|2e|e|:nnn", 19)])
     def test_kinematics_with_the_scale_keep_it_a_variable(self, cnickel: str, count: int) -> None:

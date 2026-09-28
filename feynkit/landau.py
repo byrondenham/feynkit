@@ -18,10 +18,11 @@ Faces contribute as follows.
   the lattice coordinate along the edge.
 - Any other face contributes the elimination ideal of {f_tau = 0,
   t_i d f_tau / d t_i = 0} in the torus, computed with a Gröbner basis
-  at mu = 1 when that is exact (see ``landau_analysis_from_polynomial``)
-  and, when the distinct coefficients of the face that are not constant
-  are linearly independent linear forms in the kinematic symbols or in
-  the squares of those that occur only squared, in fresh
+  at mu = 1 when a sufficient condition shows that to be exact (see
+  ``landau_analysis_from_polynomial``) and, when the distinct
+  coefficients of the face that are not constant are linearly
+  independent linear forms in the kinematic symbols or in the squares of
+  those that occur only squared, in fresh
   symbols standing for them, a change of coordinates that keeps the
   Gröbner basis small. Faces with more points than ``max_face_points``
   are skipped and listed in ``LandauAnalysis.skipped_faces``.
@@ -123,9 +124,11 @@ class LandauAnalysis:
         The distinct irreducible factors of the face discriminants that
         carry kinematics, one per candidate singular surface. A factor
         built from the energy scale alone is not a singular surface and is
-        excluded. It arises only from faces eliminated with the scale as a
-        variable (see ``landau_analysis_from_polynomial``'s ``scale``
-        argument), whose discriminants keep it.
+        excluded, though the face discriminants that have it keep it. It
+        can come from a face eliminated with the scale as a variable (see
+        ``landau_analysis_from_polynomial``'s ``scale`` argument), or from a
+        vertex or an edge whose coefficients carry the scale in a
+        numerator.
     skipped_faces
         Exponent sets of faces that were too large to eliminate.
     """
@@ -554,12 +557,13 @@ def landau_analysis_from_polynomial(
         coefficient of ``g_poly`` is a power of mu times an expression free
         of it, with the power an affine function of the exponents, as for
         G = U + F whose kinematics do not contain mu, the faces of
-        dimension two or more are eliminated at mu = 1. That finds the same
-        factors but mu itself and those that came only from mu = 0, where
-        a face could need a second generator, so these discriminants carry
-        no mu. The test is made once, on all of ``g_poly``; when it fails,
-        as when a momentum product is set to mu^2, and without ``scale``,
-        mu is eliminated as a variable. A factor that is mu alone is not a
+        dimension two or more that are not simplices are eliminated at
+        mu = 1. That finds the same factors but mu itself and those that
+        came only from mu = 0, where a face could need a second generator,
+        so these discriminants carry no mu. The test is made once, on all
+        of ``g_poly``, and is sufficient, not necessary; when it fails, as
+        when a momentum product is set to mu^2, and without ``scale``, mu
+        is eliminated as a variable. A factor that is mu alone is not a
         kinematic singularity and is left out of ``landau_surfaces`` and
         ``principal_a_determinant``. Vertex and edge discriminants keep mu
         where it occurs, for instance a vertex coefficient m_1^2 / mu^2 is

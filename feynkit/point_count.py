@@ -49,9 +49,11 @@ from .landau import (
     _check_timeout,
     _factor_list,
     _singular_binary,
+    _unit_scale_is_exact,
     landau_analysis_from_polynomial,
 )
 from .polytope import PolytopeData, polytope_data
+from .systems.monomial import extract_monomial_support
 
 __all__ = ["TorusCount", "count_torus_points", "critical_point_count"]
 
@@ -441,7 +443,12 @@ def _kinematics(
     variables: Sequence[sp.Symbol],
     landau: LandauAnalysis,
     unit: Mapping[sp.Symbol, int],
+    *,
+    at_unit_scale: bool,
 ) -> _Kinematics:
+    # The rule of _square_test_face holds where the analysis eliminated at scale 1; where it
+    # kept the scale a variable, the square test takes every principal face.
+    square_unit = unit if at_unit_scale else {}
     symbols = tuple(sorted(g.free_symbols - set(variables), key=lambda x: x.name))
     even = frozenset(x for x in symbols if all(d % 2 == 0 for d in _degrees(g, x)))
     squares = {x: sp.Dummy(f"{x.name}_squared") for x in even}
@@ -480,7 +487,7 @@ def _kinematics(
         for base in _factor_list(numerator, set(drawn)):
             factor = _terms(base, drawn)
             factors.setdefault(factor, None)
-            if _square_test_face(face, unit):
+            if _square_test_face(face, square_unit):
                 square_factors.setdefault(factor, None)
     return _Kinematics(
         symbols,
@@ -497,15 +504,18 @@ def _square_test_face(face: FaceDiscriminant, unit: Mapping[sp.Symbol, int]) -> 
     """Whether the square test takes the factors of a face.
 
     It takes those of a face of dimension 1 or more with a principal
-    discriminant, except a face whose coefficients carry different powers of
-    the scale and whose points with the largest power of 1/scale, the points
-    of F on a face of G, are not affinely independent. The Landau analysis
-    eliminates at scale 1 where it can, and more faces come out principal
-    than when it kept the scale as a variable. On every face with a
+    discriminant. With ``unit`` = {scale: 1}, which the caller passes when
+    the Landau analysis eliminated at scale 1, it leaves out a face whose
+    coefficients carry different powers of the scale and whose points with
+    the largest power of 1/scale, the points of F on a face of G, are not
+    affinely independent. Eliminated at scale 1, more faces come out
+    principal than with the scale as a variable; on every face with a
     kinematic discriminant of the graphs tried, the faces this rule takes are
     exactly those that were principal then, which the square test took. The
     two-mass bubble's polygon, whose discriminant s need not be a square for
-    the count to be a polynomial, is one it leaves out.
+    the count to be a polynomial, is one it leaves out. Where the analysis
+    kept the scale as a variable, the caller passes {} and every principal
+    face is taken, as before.
     """
     if face.dimension < 1 or not face.principal:
         return False
@@ -814,8 +824,9 @@ def count_torus_points(
         whose square-test factors are all non-zero rational squares is used,
         else the first admissible one. The square-test factors are the
         irreducible factors of the principal discriminants of the faces of
-        dimension at least 1, leaving out a face with monomials of both U and
-        F whose monomials of F are affinely dependent.
+        dimension at least 1. When the Landau analysis eliminates at mu = 1,
+        a face with monomials of both U and F whose monomials of F are
+        affinely dependent is left out.
     point
         The kinematic point instead of a draw, keyed by symbol, or by the
         square x**2 of a symbol x occurring only to even powers.
@@ -894,7 +905,12 @@ def count_torus_points(
             "FeynmanIntegral.torus_count it must analyse the integral with on_shell applied"
         )
     unit = {scale: 1} if scale is not None else {}
-    kinematics = _kinematics(sp.expand(g.subs(unit)), variables, landau, unit)
+    at_unit_scale = scale is not None and _unit_scale_is_exact(
+        extract_monomial_support(g, list(variables)), scale
+    )
+    kinematics = _kinematics(
+        sp.expand(g.subs(unit)), variables, landau, unit, at_unit_scale=at_unit_scale
+    )
 
     values = (
         _draw(kinematics, seed)

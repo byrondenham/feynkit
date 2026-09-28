@@ -68,12 +68,12 @@
 - A failure of Singular in the Landau analysis raises `ComputationError`, where
   it raised `RuntimeError`, so `except RuntimeError` no longer catches it.
 - `FaceDiscriminant.principal` and `FaceDiscriminant.discriminant` change on
-  eliminated faces, since the elimination at mu = 1 (see Changed) drops the
-  factor mu and the component at mu = 0. Many faces with two generators now
-  have one: the massive bubble's polygon is principal with discriminant s,
-  where it gave mu s (s - (m_1 + m_2)^2) (s - (m_1 - m_2)^2). The report's
-  lists by face dimension shrink with them. The Landau surfaces are unchanged
-  on every graph tried.
+  eliminated faces when the elimination runs at mu = 1 (see Changed), which
+  drops the factor mu and the component at mu = 0. Many faces with two
+  generators then have one: the massive bubble's polygon is principal with
+  discriminant s, where it gave mu s (s - (m_1 + m_2)^2) (s - (m_1 - m_2)^2).
+  The report's lists by face dimension shrink with them. The Landau surfaces
+  are unchanged on every graph tried.
 
 ### Added
 
@@ -176,10 +176,12 @@
   `ComputationError`, which `fk` reports in one line.
 - Faces are eliminated at mu = 1, where the energy scale was a variable, and in
   fresh symbols for their distinct coefficients when these are linearly
-  independent linear forms in the kinematic symbols or their squares. When the
-  kinematics contain mu, as after setting a momentum product to mu^2, mu stays
-  a variable, as before. On every graph tried the Landau surfaces do not
-  change. The square test of `count_torus_points` leaves out a principal face
+  independent linear forms in the kinematic symbols or their squares. The
+  analysis sets mu = 1 when every coefficient of G is mu^k times a factor free
+  of mu, with k affine in the exponent, as it is when the kinematics are free
+  of mu. Otherwise, as after setting a momentum product to mu^2, mu stays a
+  variable, as before. On every graph tried the Landau surfaces do not change.
+  At mu = 1 the square test of `count_torus_points` leaves out a principal face
   with monomials of U and of F whose monomials of F are affinely dependent, so
   that on every graph tried it takes the same factors as before.
 

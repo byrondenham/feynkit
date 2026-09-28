@@ -410,8 +410,8 @@ class _Kinematics:
 
     ``discriminants`` holds the numerator and denominator of every face
     discriminant that is not constant, ``factors`` their distinct irreducible
-    factors, and ``square_factors`` the factors from faces of dimension at
-    least 1 with principal discriminants, which the square test asks to be
+    factors, and ``square_factors`` the factors from the faces
+    :func:`_square_test_face` takes, which the square test asks to be
     squares. ``edges`` holds the coefficient of G at every vertex and the
     discriminant of G on every edge, as a polynomial in the edge's lattice
     coordinate, with the constants and contents the Landau analysis drops and
@@ -500,10 +500,12 @@ def _square_test_face(face: FaceDiscriminant, unit: Mapping[sp.Symbol, int]) -> 
     discriminant, except a face whose coefficients carry different powers of
     the scale and whose points with the largest power of 1/scale, the points
     of F on a face of G, are not affinely independent. The Landau analysis
-    eliminates at scale 1; eliminated with the scale kept, such a face gains
-    a component at scale 0 and was not principal, and the square test has
-    always left it out. The two-mass bubble's polytope, whose discriminant s
-    need not be a square for the count to be a polynomial, is one.
+    eliminates at scale 1 where it can, and more faces come out principal
+    than when it kept the scale as a variable. On every face with a
+    kinematic discriminant of the graphs tried, the faces this rule takes are
+    exactly those that were principal then, which the square test took. The
+    two-mass bubble's polygon, whose discriminant s need not be a square for
+    the count to be a polynomial, is one it leaves out.
     """
     if face.dimension < 1 or not face.principal:
         return False
@@ -812,7 +814,8 @@ def count_torus_points(
         whose square-test factors are all non-zero rational squares is used,
         else the first admissible one. The square-test factors are the
         irreducible factors of the principal discriminants of the faces of
-        dimension at least 1.
+        dimension at least 1, leaving out a face with monomials of both U and
+        F whose monomials of F are affinely dependent.
     point
         The kinematic point instead of a draw, keyed by symbol, or by the
         square x**2 of a symbol x occurring only to even powers.
@@ -1084,11 +1087,12 @@ def critical_point_count(
         counts.
     ValidationError
         If ``variables`` are not one or more distinct symbols, ``timeout`` is
-        not a number greater than 0 and at most 2,000,000, G is not a polynomial with rational coefficients in its
-        symbols, or ``point`` misses a symbol of G, has any other key, gives a
-        value that is not rational or a negative value for a square, keys by
-        its square a symbol occurring to odd powers, or G vanishes
-        identically at the point.
+        not a number greater than 0 and at most 2,000,000, G is not a
+        polynomial with rational coefficients in its symbols, or ``point``
+        misses a symbol of G, has any other key, gives a value that is not
+        rational or a negative value for a square, keys by its square a
+        symbol occurring to odd powers, or G vanishes identically at the
+        point.
     ComputationError
         If Singular runs out of time, the counts modulo the two primes differ,
         or the critical points do not form a finite set at the exponents drawn.

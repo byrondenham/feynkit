@@ -559,6 +559,61 @@ class TestElimination:
         assert renamed.face_discriminants == plain.face_discriminants
         assert set(renamed.landau_surfaces) == set(plain.landau_surfaces)
 
+    @pytest.mark.parametrize("backend", backends())
+    def test_a_factor_in_squared_masses_is_factored_again(self, backend: str) -> None:
+        # In the fresh symbols the edge's discriminant c_2^2 - 4 c_1 c_3 is irreducible;
+        # substituted back it is the Källén function, which splits in the masses.
+        coefficients = [M1**2, M1**2 + M2**2 - S, M2**2]
+        exponents = [(0,), (1,), (2,)]
+        renaming, squared = _renaming(coefficients)
+        assert len(renaming) == 3 and squared
+        factors, principal = _elimination_discriminant(
+            coefficients, exponents, {S, M1, M2}, backend
+        )
+        assert principal
+        assert {_monic(f) for f in factors} == {
+            _monic(S - (M1 + M2) ** 2),
+            _monic(S - (M1 - M2) ** 2),
+        }
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(landau_module, "_renaming", lambda coefficients: ({}, False))
+            plain = _elimination_discriminant(coefficients, exponents, {S, M1, M2}, backend)
+        assert plain == (factors, principal)
+
+    def test_mu_is_set_to_one_only_where_that_is_exact(self) -> None:
+        exact = landau_module._unit_scale_is_exact
+        u = [((1, 0), sp.Integer(1)), ((0, 1), sp.Integer(1))]
+        f = [((2, 0), M1**2 / MU**2), ((1, 1), (M1**2 + M2**2 - S) / MU**2)]
+        assert exact(u + f, MU)
+        # mu in a numerator, and a denominator that is not a power of mu.
+        assert not exact(u + [((1, 1), (MU**2 - S) / MU**2)], MU)
+        assert not exact(u + [((1, 1), S / (MU**2 + 1))], MU)
+        # Powers of mu that are not an affine function of the exponents: 0 at (2, 0), -2 at
+        # (1, 1), with 0 at (1, 0) and (0, 1).
+        assert not exact(u + [((2, 0), M1**2), ((1, 1), S / MU**2)], MU)
+
+    @requires_singular
+    @pytest.mark.parametrize(("cnickel", "count"), [("12e|2e|e|:zzz", 3), ("12e|2e|e|:nnn", 19)])
+    def test_kinematics_with_the_scale_keep_it_a_variable(self, cnickel: str, count: int) -> None:
+        # At p_1^2 = mu^2 a coefficient of F is no longer a power of mu times kinematics free
+        # of it, and eliminating at mu = 1 gave lambda(1, p_2^2, p_3^2).
+        fi = FeynmanIntegral.from_cnickel(cnickel)
+        mu = fi.graph.energy_scale
+        p1, p2, p3 = standard_invariants(3).external_masses
+        products = {
+            pair: sp.expand(sp.sympify(value).subs(p1, mu**2))
+            for pair, value in fi.momentum_products.items()
+        }
+        at_mu = fi.with_(momentum_products=products)
+        surfaces = set(landau_analysis(at_mu).landau_surfaces)
+        kallen = mu**4 + p2**2 + p3**2 - 2 * mu**2 * p2 - 2 * mu**2 * p3 - 2 * p2 * p3
+        assert kallen in surfaces
+        assert len(surfaces) == count
+        # With mu as a plain kinematic symbol the analysis gives the same factors, and mu.
+        symanzik = at_mu.symanzik
+        plain = landau_analysis_from_polynomial(symanzik.g, list(symanzik.lp_parameters))
+        assert surfaces == set(plain.landau_surfaces) - {mu}
+
 
 @pytest.mark.slow
 class TestMasslessPolygons:

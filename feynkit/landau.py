@@ -18,9 +18,10 @@ Faces contribute as follows.
   the lattice coordinate along the edge.
 - Any other face contributes the elimination ideal of {f_tau = 0,
   t_i d f_tau / d t_i = 0} in the torus, computed with a Gröbner basis
-  at mu = 1 and, when the distinct coefficients of the face that are not
-  constant are linearly independent linear forms in the kinematic
-  symbols or in the squares of those that occur only squared, in fresh
+  at mu = 1 when that is exact (see ``landau_analysis_from_polynomial``)
+  and, when the distinct coefficients of the face that are not constant
+  are linearly independent linear forms in the kinematic symbols or in
+  the squares of those that occur only squared, in fresh
   symbols standing for them, a change of coordinates that keeps the
   Gröbner basis small. Faces with more points than ``max_face_points``
   are skipped and listed in ``LandauAnalysis.skipped_faces``.
@@ -51,6 +52,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import sympy as sp
 
+from ._exact import affine_rank
 from .core.exceptions import ComputationError, ValidationError
 from .polytope import faces as _faces
 from .polytope import lattice_coordinates as _lattice_coordinates
@@ -120,9 +122,10 @@ class LandauAnalysis:
     landau_surfaces
         The distinct irreducible factors of the face discriminants that
         carry kinematics, one per candidate singular surface. A factor
-        built from the energy scale alone is not a singular surface (see
-        ``landau_analysis_from_polynomial``'s ``scale`` argument) and is
-        excluded, even though the face discriminants themselves keep it.
+        built from the energy scale alone is not a singular surface and is
+        excluded. It arises only from faces eliminated with the scale as a
+        variable (see ``landau_analysis_from_polynomial``'s ``scale``
+        argument), whose discriminants keep it.
     skipped_faces
         Exponent sets of faces that were too large to eliminate.
     """
@@ -380,6 +383,32 @@ def _renaming(coeffs: list[sp.Expr]) -> tuple[dict[sp.Expr, sp.Symbol], bool]:
     return renaming, 2 in powers.values()
 
 
+def _unit_scale_is_exact(support: list[tuple[tuple[int, ...], sp.Expr]], scale: sp.Symbol) -> bool:
+    """Whether the faces can be eliminated at scale = 1.
+
+    They can when every coefficient is a power of the scale times an
+    expression free of it, with the power an affine function of the
+    exponents, as for G = U + F, where it is 0 on U and -2 on F, unless the
+    kinematics contain the scale. Rescaling the scale then multiplies the
+    coefficients by a character of the torus, which maps the singular locus
+    of every face to itself, so that away from scale = 0 the locus is
+    determined by its slice at scale = 1.
+    """
+    lifted: list[tuple[int, ...]] = []
+    for exponents, c in support:
+        power = 0
+        for part, sign in zip(sp.fraction(sp.together(c)), (1, -1), strict=True):
+            dependent = part.as_independent(scale, as_Add=False)[1]
+            if dependent == 1:
+                continue
+            base, k = dependent.as_base_exp()
+            if base != scale or not k.is_Integer:
+                return False
+            power += sign * int(k)
+        lifted.append((*exponents, power))
+    return affine_rank(lifted) == affine_rank([exponents for exponents, _ in support])
+
+
 def _elimination_discriminant(
     coeffs: list[sp.Expr],
     exps: list[tuple[int, ...]],
@@ -396,15 +425,16 @@ def _elimination_discriminant(
     installed and ``backend`` is "auto" or "singular", else SymPy;
     ``timeout`` limits each Singular run, in seconds.
 
-    The coefficients are taken at ``scale`` = 1. Rescaling the scale is a
+    The coefficients are taken at ``scale`` = 1, which the caller passes
+    only when :func:`_unit_scale_is_exact`: rescaling the scale is then a
     torus action on the coefficients, which maps the locus to itself, so
-    this loses only the factor mu itself and a spurious component at
-    mu = 0. When :func:`_renaming` applies, the elimination and the
-    factorisation run in the fresh symbols, and each factor is substituted
-    back. It stays irreducible, being the image of an irreducible
-    polynomial under a change of coordinates, unless an atom is squared: a
-    factor in squared masses can split, as m_1^2 - m_2^2 does, and is
-    factored again.
+    this loses only the factor mu itself and the component at mu = 0, which
+    can need generators of its own. When :func:`_renaming` applies, the
+    elimination and the factorisation run in the fresh symbols, and each
+    factor is substituted back. It stays irreducible, being the image of an
+    irreducible polynomial under a change of coordinates, unless an atom is
+    squared: a factor in squared masses can split, as m_1^2 - m_2^2 does,
+    and is factored again.
     """
     if scale is not None:
         coeffs = [sp.sympify(c).subs(scale, 1) for c in coeffs]
@@ -520,16 +550,20 @@ def landau_analysis_from_polynomial(
         Faces of dimension two or more with more monomials than this are
         not eliminated and are reported in ``skipped_faces``.
     scale
-        The energy scale mu, if ``g_poly`` carries one. Every coefficient
-        of F is homogeneous of the same negative degree in mu, so it can
-        survive factorisation as a standalone factor of a face
-        discriminant; that factor is not a kinematic singularity and is
-        left out of ``landau_surfaces`` and ``principal_a_determinant``.
-        Vertex and edge discriminants keep mu where it occurs, for
-        instance a vertex coefficient m_1^2 / mu^2 is still that
-        coefficient. Larger faces are eliminated at mu = 1, which finds
-        the same factors but mu itself, so their discriminants carry no
-        mu; without ``scale``, mu is eliminated as a kinematic symbol.
+        The energy scale mu, if ``g_poly`` carries one. When every
+        coefficient of ``g_poly`` is a power of mu times an expression free
+        of it, with the power an affine function of the exponents, as for
+        G = U + F whose kinematics do not contain mu, the faces of
+        dimension two or more are eliminated at mu = 1. That finds the same
+        factors but mu itself and those that came only from mu = 0, where
+        a face could need a second generator, so these discriminants carry
+        no mu. The test is made once, on all of ``g_poly``; when it fails,
+        as when a momentum product is set to mu^2, and without ``scale``,
+        mu is eliminated as a variable. A factor that is mu alone is not a
+        kinematic singularity and is left out of ``landau_surfaces`` and
+        ``principal_a_determinant``. Vertex and edge discriminants keep mu
+        where it occurs, for instance a vertex coefficient m_1^2 / mu^2 is
+        still that coefficient.
     timeout
         The most seconds to give Singular for each face it eliminates, at
         most 2,000,000; None, the default, sets no limit. The SymPy
@@ -553,6 +587,7 @@ def landau_analysis_from_polynomial(
         return LandauAnalysis((), sp.Integer(1), ())
     kinematic_syms: set[sp.Symbol] = g_poly.free_symbols - set(lp_parameters)
     surface_syms = kinematic_syms - ({scale} if scale is not None else set())
+    unit_scale = scale if scale is not None and _unit_scale_is_exact(support, scale) else None
     exps = np.array([list(e) for e, _ in support], dtype=int)
 
     faces: list[FaceDiscriminant] = []
@@ -562,7 +597,7 @@ def landau_analysis_from_polynomial(
         face_exps = [tuple(int(x) for x in exps[i]) for i in idx]
         face_coeffs = [support[i][1] for i in idx]
         result = _face_discriminant(
-            face_coeffs, face_exps, dimension, kinematic_syms, max_face_points, scale, timeout
+            face_coeffs, face_exps, dimension, kinematic_syms, max_face_points, unit_scale, timeout
         )
         if result is None:
             skipped.append(tuple(face_exps))

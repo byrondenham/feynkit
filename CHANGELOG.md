@@ -67,6 +67,13 @@
   verdict. Code that reads those fields must allow `None`.
 - A failure of Singular in the Landau analysis raises `ComputationError`, where
   it raised `RuntimeError`, so `except RuntimeError` no longer catches it.
+- `FaceDiscriminant.principal` and `FaceDiscriminant.discriminant` change on
+  eliminated faces, since the elimination at mu = 1 (see Changed) drops the
+  factor mu and the component at mu = 0. Many faces with two generators now
+  have one: the massive bubble's polygon is principal with discriminant s,
+  where it gave mu s (s - (m_1 + m_2)^2) (s - (m_1 - m_2)^2). The report's
+  lists by face dimension shrink with them. The Landau surfaces are unchanged
+  on every graph tried.
 
 ### Added
 
@@ -106,8 +113,8 @@
   Below full dimension the Newton polytope section also says whether it is and
   what follows for the integral.
 - `landau_analysis` and `landau_analysis_from_polynomial` take `timeout`, the
-  most seconds Singular may spend eliminating one face, at most 2,000,000;
-  None, the default, sets no limit.
+  most seconds Singular may spend eliminating one face; None, the default, sets
+  no limit.
 
 ### Changed
 
@@ -169,14 +176,12 @@
   `ComputationError`, which `fk` reports in one line.
 - Faces are eliminated at mu = 1, where the energy scale was a variable, and in
   fresh symbols for their distinct coefficients when these are linearly
-  independent linear forms in the kinematic symbols or their squares. The
-  Landau surfaces do not change. The discriminant of an eliminated face loses
-  the factor mu, and a face with monomials of U and of F whose second generator
-  came from mu = 0 is now principal, with a smaller discriminant: the massive
-  bubble's polygon gives s, where it gave
-  mu s (s - (m_1 + m_2)^2) (s - (m_1 - m_2)^2), and the report's lists by face
-  dimension shrink with it. The square test of `count_torus_points` keeps the
-  faces it took before.
+  independent linear forms in the kinematic symbols or their squares. When the
+  kinematics contain mu, as after setting a momentum product to mu^2, mu stays
+  a variable, as before. On every graph tried the Landau surfaces do not
+  change. The square test of `count_torus_points` leaves out a principal face
+  with monomials of U and of F whose monomials of F are affinely dependent, so
+  that on every graph tried it takes the same factors as before.
 
 ### Fixed
 

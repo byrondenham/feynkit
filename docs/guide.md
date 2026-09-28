@@ -1450,14 +1450,14 @@ print(second)   # s
 ### Backends
 
 Faces of dimension two or more that are not simplices need an elimination ideal, taken at
-$\mu = 1$ and, when the face's coefficients are independent linear forms in the invariants and
-squared masses, in fresh symbols for them; the massless pentagon and hexagon take about 3 s and
-15 s. feynkit uses Singular when the `Singular` binary is on the path and falls back to SymPy
-otherwise, which is
-much slower. Faces with more monomials than `max_face_points` (default 12) are skipped and
-listed in `la.skipped_faces`. `landau_analysis(fi, timeout=60)` gives Singular at most 60 s for
-each face, with no limit by default; a face that runs past it, a failure of Singular and output
-feynkit cannot read raise `ComputationError`.
+$\mu = 1$ unless the kinematics contain $\mu$ and, when the face's coefficients are independent
+linear forms in the invariants and squared masses, in fresh symbols for them; the massless
+pentagon and hexagon take about 3 s and 15 s. feynkit uses Singular when the `Singular` binary is
+on the path and falls back to SymPy otherwise, which is much slower. Faces with more monomials
+than `max_face_points` (default 12) are skipped and listed in `la.skipped_faces`.
+`landau_analysis(fi, timeout=60)` gives Singular at most 60 s for each face, with no limit by
+default; a face that runs past it, a failure of Singular and output feynkit cannot read raise
+`ComputationError`.
 
 ### LandauAnalysis fields
 
@@ -1545,10 +1545,13 @@ their names: each invariant from the non-zero integers of $[-20, 20]$, and the s
 each mass, or of any symbol that occurs in $G$ only to even powers, from 1 to 20. A draw is
 admissible when every coefficient of $G$ and every face discriminant of the Landau analysis is
 non-zero; 10,000 draws without an admissible one raise `ValidationError`. Of the first 200
-admissible draws, the first at which every irreducible factor of the principal discriminants of the
-faces of dimension at least 1 is a non-zero rational square is used, and otherwise the first
-admissible draw. These factors are written in the squared masses: the Landau analysis factorises in
-the masses, and a factor $f$ odd in a mass $m$ is replaced by its norm $f(m) f(-m)$.
+admissible draws, the first at which every square-test factor is a non-zero rational square is
+used, and otherwise the first admissible draw. The square-test factors are the irreducible factors
+of the principal discriminants of the faces of dimension at least 1, leaving out a face with
+monomials of both $U$ and $F$ whose monomials of $F$ are affinely dependent. On every graph tried
+these are the faces the test took when the Landau analysis kept $\mu$ as a variable. The factors
+are written in the squared masses: the Landau analysis factorises in the masses, and a factor $f$
+odd in a mass $m$ is replaced by its norm $f(m) f(-m)$.
 
 A draw where the factors are all squares gives polynomial counts far more often. Massive graphs and
 off-shell legs often give no candidate, since many factors must be squares at once. The off-shell

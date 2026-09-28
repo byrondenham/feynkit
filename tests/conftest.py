@@ -1,11 +1,20 @@
 """Pytest configuration and fixtures for feynkit tests."""
 
+import os
 from collections.abc import Generator
 
 import pytest
 import sympy as sp
+from hypothesis import settings
 
 from feynkit.core import Edge, Graph
+
+# Hypothesis's ci profile is derandomised, keeps no example database and has no
+# deadline, so local runs and CI draw the same examples. HYPOTHESIS_PROFILE=feynkit-dev
+# gives a larger random search.
+settings.register_profile("feynkit", parent=settings.get_profile("ci"), max_examples=25)
+settings.register_profile("feynkit-dev", max_examples=200, deadline=None)
+settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "feynkit"))
 
 
 @pytest.fixture  # type: ignore

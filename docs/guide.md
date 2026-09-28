@@ -222,6 +222,9 @@ fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"    # the mass on two different propag
    prefactors. A `unimodular` or `affine_polytope` map relates only the hull vertices and gives
    no identity.
 
+`fk compare` exits with status 0 when a check finds an equivalence and with 3 when none does,
+including after an ambient dimension mismatch, so a script can test the verdict.
+
 ### Database
 
 Both commands store their results in `feynkit.db` in the working directory. Choose another file
@@ -242,6 +245,7 @@ also prints the time of each stage on stderr. `fk --version` prints the version.
 | 0 | success |
 | 1 | a CNickel string that does not parse, a feynkit error, a database error or a report file that cannot be written; one line on stderr, no traceback |
 | 2 | a usage error, such as a missing argument or an unknown option |
+| 3 | `fk compare` found no equivalence between the two diagrams, including when their ambient dimensions differ |
 | 141 | the reader of the output closed the pipe early, as `head` does; nothing on stderr. 141 is 128 + SIGPIPE, the status the shell gives `cat` or `grep` in the same place |
 
 A string that does not parse is reported with the grammar:

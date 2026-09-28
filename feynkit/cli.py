@@ -60,6 +60,9 @@ DEFAULT_TORUS_SEED = 0
 DEFAULT_TORUS_BUDGET = 2 * 10**9
 # 128 + SIGPIPE: the status of a tool that a closed pipe stops, as the shell reports it.
 EXIT_BROKEN_PIPE = 141
+# The status of fk compare when no check finds an equivalence. diff uses 1 for
+# a difference, but fk uses 1 for errors.
+EXIT_NOT_EQUIVALENT = 3
 # The budget of the point counts as their errors name it, after the keyword of
 # count_torus_points; fk calls it --torus-budget.
 _MAX_EVALUATIONS = re.compile(r"max_evaluations=(\d+)")
@@ -656,15 +659,19 @@ def analyse_one(
 # -----------------------------------------------------------------------------
 
 
-def analyse_pair(cn1: str, cn2: str, db_path: Path | None, *, verbose: bool = False) -> None:
-    """Compare two diagrams: GKZ data, four equivalence checks and the identities that follow."""
+def analyse_pair(cn1: str, cn2: str, db_path: Path | None, *, verbose: bool = False) -> bool:
+    """Compare two diagrams: GKZ data, four equivalence checks and the identities that follow.
+
+    Returns whether any check found an equivalence.
+    """
     t0 = time.perf_counter()
     with _stage("parse", verbose):
         fi1, fi2 = _load(cn1), _load(cn2)
     with ExitStack() as stack:
         db = _open_database(stack, db_path)
-        _compare(cn1, fi1, cn2, fi2, db, verbose=verbose)
+        found = _compare(cn1, fi1, cn2, fi2, db, verbose=verbose)
     _done(t0)
+    return found
 
 
 def _compare(
@@ -675,7 +682,9 @@ def _compare(
     db: FeynkitDatabase | None,
     *,
     verbose: bool,
-) -> None:
+) -> bool:
+    """Print both diagrams, the four checks and each map found; return whether one was."""
+
     # -- per-diagram summaries -------------------------------------------------
     def _brief(given: str, fi: FeynmanIntegral, tag: str) -> tuple[AConfiguration, int]:
         gkz = fi.gkz
@@ -719,7 +728,7 @@ def _compare(
         if cfg1.ambient_dim != cfg2.ambient_dim:
             print(f"  Ambient dimension mismatch ({cfg1.ambient_dim} vs {cfg2.ambient_dim}).")
             print("  No affine equivalence is possible between spaces of different dimension.")
-            return
+            return False
 
         # The two checks of the Newton polytopes rest on convex hulls built for
         # a full-dimensional polytope of dimension 2 and above, as the
@@ -770,7 +779,7 @@ def _compare(
         if not any_found:
             print()
             print("  No equivalence found between A and B.")
-            return
+            return False
 
     with _stage("witness maps", verbose):
         # A map of the hull vertices implies no GKZ identity unless every column
@@ -822,6 +831,7 @@ def _compare(
         if fi_res.found and fi_res.witness_matrix is not None:
             _witness("finite_index", fi_res.witness_matrix, fi_res.translation)
             _identity(fi_res.witness_matrix, fi_res.translation, fi_res.column_permutation)
+    return True
 
 
 # -----------------------------------------------------------------------------
@@ -845,7 +855,8 @@ Quote every CNickel string: an unquoted | is a shell pipe.
 
 Exit status: 0 on success; 1, with one line on stderr, for a CNickel string
 that does not parse or a feynkit, database or file error; 2 for a usage error;
-141, with nothing on stderr, when the reader of the output closes the pipe.
+3 when fk compare finds no equivalence; 141, with nothing on stderr, when the
+reader of the output closes the pipe.
 """
 
 _ANALYSE_EPILOG = """\
@@ -867,7 +878,7 @@ equivalences between their A-configurations: unimodular, affine_polytope,
 point_config and finite_index. It prints each map it finds. A point_config
 or finite_index map sends every column of one A-matrix to a column of the
 other, and for such a map fk compare also prints the identity between the
-two integrals.
+two integrals. It exits with status 3 when no check finds an equivalence.
 """
 
 _COMPARE_EPILOG = """\
@@ -1131,8 +1142,12 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
     )
 
 
-def _run(parsers: _Parsers, args: argparse.Namespace) -> None:
-    """Run the subcommand of args, reporting the errors main describes in one line."""
+def _run(parsers: _Parsers, args: argparse.Namespace) -> int:
+    """Run the subcommand of args, reporting the errors main describes in one line.
+
+    Returns the exit status: EXIT_NOT_EQUIVALENT when fk compare finds no
+    equivalence, otherwise 0.
+    """
     db_path = None if args.no_db else Path(args.db)
     try:
         if args.command == "analyse":
@@ -1140,8 +1155,9 @@ def _run(parsers: _Parsers, args: argparse.Namespace) -> None:
             analyse_one(
                 args.cnickel, db_path, _section_flags(args), report=options, verbose=args.verbose
             )
-        else:
-            analyse_pair(args.first, args.second, db_path, verbose=args.verbose)
+            return 0
+        found = analyse_pair(args.first, args.second, db_path, verbose=args.verbose)
+        return 0 if found else EXIT_NOT_EQUIVALENT
     except CliError as exc:
         _fail(str(exc))
     except FeynkitError as exc:
@@ -1155,20 +1171,24 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     A CNickel string that does not parse, a feynkit error or a database error
     is reported in one line on stderr with exit status 1, and argparse exits
-    with status 2 on a usage error. When the reader of stdout closes the pipe
-    early, as head does, fk stops without a message and exits with status 141,
-    which is 128 + SIGPIPE, the status a shell reports for cat or grep in the
-    same place. Any other exception is a bug and keeps its traceback.
+    with status 2 on a usage error. fk compare exits with status 3 when none of
+    its checks finds an equivalence, as when the ambient dimensions differ, and
+    with 0 when one does. When the reader of stdout closes the pipe early, as
+    head does, fk stops without a message and exits with status 141, which is
+    128 + SIGPIPE, the status a shell reports for cat or grep in the same
+    place. Any other exception is a bug and keeps its traceback.
     """
     parsers = _build_parser()
     args = _parse_args(parsers, sys.argv[1:] if argv is None else argv)
     try:
-        _run(parsers, args)
+        status = _run(parsers, args)
     except BrokenPipeError:
         # The database is closed by now. Point stdout at devnull so that the
         # interpreter's final flush does not fail again.
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
         raise SystemExit(EXIT_BROKEN_PIPE) from None
+    if status:
+        raise SystemExit(status)
 
 
 if __name__ == "__main__":

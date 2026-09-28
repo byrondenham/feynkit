@@ -80,7 +80,9 @@ def test_short_section_flags_cluster(capsys: pytest.CaptureFixture[str], tmp_pat
 def test_compare_runs_the_equivalence_checks(
     capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    main(["compare", "12e|2e|e|:zzz", "11e|e|:zz", "--db", str(tmp_path / "x.db")])
+    with pytest.raises(SystemExit) as excinfo:
+        main(["compare", "12e|2e|e|:zzz", "11e|e|:zz", "--db", str(tmp_path / "x.db")])
+    assert excinfo.value.code == 3
     assert "Ambient dimension mismatch (3 vs 2)." in capsys.readouterr().out
 
 
@@ -92,7 +94,9 @@ def test_bare_single_form_runs_analyse(capsys: pytest.CaptureFixture[str], tmp_p
 
 
 def test_bare_pair_form_runs_compare(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
-    main(["12e|2e|e|:zzz", "11e|e|:zz", "--db", str(tmp_path / "x.db")])
+    with pytest.raises(SystemExit) as excinfo:
+        main(["12e|2e|e|:zzz", "11e|e|:zz", "--db", str(tmp_path / "x.db")])
+    assert excinfo.value.code == 3
     assert "Equivalence analysis" in capsys.readouterr().out
 
 

@@ -79,7 +79,9 @@ def test_stderr_is_quiet_without_verbose(capsys: pytest.CaptureFixture[str]) -> 
 
 
 def test_verbose_times_each_compare_stage(capsys: pytest.CaptureFixture[str]) -> None:
-    main(["compare", "12e|2e|e|:zzz", "11e|e|:zz", "--no-db", "-v"])
+    with pytest.raises(SystemExit) as excinfo:
+        main(["compare", "12e|2e|e|:zzz", "11e|e|:zz", "--no-db", "-v"])
+    assert excinfo.value.code == 3
     assert _stages(capsys.readouterr().err) == [
         "parse",
         "diagram A",
@@ -91,7 +93,10 @@ def test_verbose_times_each_compare_stage(capsys: pytest.CaptureFixture[str]) ->
 def test_compare_shows_each_input_with_its_canonical_form(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    main(["compare", "11e|e|:zz", "11e|e|:zn", "--no-db"])
+    # The massless bubble and the one-mass bubble are not equivalent.
+    with pytest.raises(SystemExit) as excinfo:
+        main(["compare", "11e|e|:zz", "11e|e|:zn", "--no-db"])
+    assert excinfo.value.code == 3
     out = capsys.readouterr().out
     assert "  A  =  11e|e|:zz\n" in out
     assert "  B  =  11e|e|:zn  (canonical form 11e|e|:nz)\n" in out

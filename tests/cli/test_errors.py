@@ -141,7 +141,7 @@ def test_no_db_writes_no_database(capsys: pytest.CaptureFixture[str], tmp_path: 
 def test_compare_with_no_db_writes_no_database(
     capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    main(["compare", "12e|2e|e|:zzz", "11e|e|:zz", "--no-db"])
+    assert _exit_code(["compare", "12e|2e|e|:zzz", "11e|e|:zz", "--no-db"]) == 3
     assert list(tmp_path.iterdir()) == []
 
 
@@ -162,9 +162,32 @@ def test_database_is_closed_when_compare_stops_early(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     closed = _count_closes(monkeypatch)
-    main(["compare", "12e|2e|e|:zzz", "11e|e|:zz", "--db", str(tmp_path / "x.db")])
+    assert (
+        _exit_code(["compare", "12e|2e|e|:zzz", "11e|e|:zz", "--db", str(tmp_path / "x.db")]) == 3
+    )
     assert "Ambient dimension mismatch" in capsys.readouterr().out
     assert len(closed) == 1
+
+
+@pytest.mark.parametrize(
+    ("pair", "verdict"),
+    [
+        (["12e|2e|e|:zzz", "11e|e|:zz"], "No affine equivalence is possible"),
+        (["12e|2e|e|:nzz", "12e|2e|e|:nnn"], "No equivalence found between A and B."),
+    ],
+    ids=["dimension-mismatch", "no-map"],
+)
+def test_compare_exits_3_when_no_check_finds_an_equivalence(
+    pair: list[str], verdict: str, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    db = tmp_path / "x.db"
+    assert _exit_code(["compare", *pair, "--db", str(db)]) == 3
+    captured = capsys.readouterr()
+    assert verdict in captured.out
+    assert "Done in" in captured.out
+    assert captured.err == ""
+    with FeynkitDatabase(db) as stored:
+        assert len(stored.all_integrals()) == 2
 
 
 @pytest.mark.parametrize(
@@ -174,8 +197,10 @@ def test_database_is_closed_when_compare_stops_early(
         (["analyse", "0|:n", "--no-db"], 0),
         (["analyse", "abc", "--no-db"], 1),
         ([], 2),
+        (["compare", "12e|2e|e|:nzz", "12e|2e|e|:znz", "--no-db"], 0),
+        (["compare", "12e|2e|e|:nzz", "12e|2e|e|:nnn", "--no-db"], 3),
     ],
-    ids=["version", "tadpole", "bad-cnickel", "no-command"],
+    ids=["version", "tadpole", "bad-cnickel", "no-command", "equivalent", "not-equivalent"],
 )
 def test_exit_status_seen_by_the_shell(argv: list[str], status: int, tmp_path: Path) -> None:
     result = subprocess.run(

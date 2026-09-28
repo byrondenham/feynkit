@@ -16,6 +16,11 @@
   generators that releases up to 0.4.0 store in them afterwards for the larger
   configuration are recomputed rather than read. Those releases read repaired
   rows inconsistently.
+- `fk compare` exits with status 3 when none of its checks finds an
+  equivalence, including when the ambient dimensions differ; it exited with 0
+  whatever the verdict. Status 1 still means an error. A script that runs
+  `fk compare` under `set -e`, or treats any non-zero status as a failure, must
+  now allow 3.
 
 ### Added
 

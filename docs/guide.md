@@ -151,7 +151,7 @@ fk analyse "12e|2e|e|:zzz" --json --sections polytope,torus --no-db
 
 With these options, `fk analyse` also writes the analysis report of `FeynmanIntegral.to_latex`
 and `to_text` (section 21), or summarises it as JSON. It builds the report once, however many of
-the options are given.
+the options are given, and checks that it can write each file before the analysis starts.
 
 | Option | Effect |
 |--------|--------|

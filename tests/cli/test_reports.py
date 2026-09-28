@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -119,16 +120,52 @@ def test_report_usage_errors_exit_2(
     assert message in capsys.readouterr().err
 
 
-def test_report_that_cannot_be_written_exits_1(
+@pytest.mark.parametrize(
+    ("option", "kind", "where", "reason"),
+    [
+        ("--latex", "LaTeX", "missing/bubble.tex", "No such file or directory"),
+        ("--text", "text", "missing/bubble.txt", "No such file or directory"),
+        ("--latex", "LaTeX", ".", "Is a directory"),
+        ("--text", "text", "notes.txt/bubble.txt", "Not a directory"),
+    ],
+    ids=["missing-directory", "missing-directory-text", "directory", "file-as-directory"],
+)
+def test_report_that_cannot_be_written_exits_1_before_the_analysis(
+    option: str,
+    kind: str,
+    where: str,
+    reason: str,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "notes.txt").write_text("notes\n", encoding="utf-8")
+    target = tmp_path / where
+    with pytest.raises(SystemExit) as excinfo:
+        main(["analyse", "11e|e|:zz", "-s", option, str(target), "--no-db"])
+    assert excinfo.value.code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == f"fk: error: cannot write the {kind} report to {target}: {reason}\n"
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0, reason="needs file permissions to apply"
+)
+def test_report_in_a_read_only_directory_exits_1_before_the_analysis(
     capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    target = tmp_path / "missing" / "bubble.tex"
-    with pytest.raises(SystemExit) as excinfo:
-        main(["analyse", "11e|e|:zz", "-s", "--latex", str(target), "--no-db"])
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0o500)
+    try:
+        with pytest.raises(SystemExit) as excinfo:
+            main(["analyse", "11e|e|:zz", "-s", "--text", str(locked / "b.txt"), "--no-db"])
+    finally:
+        locked.chmod(0o700)
     assert excinfo.value.code == 1
-    err = capsys.readouterr().err
-    assert err.startswith(f"fk: error: cannot write the LaTeX report to {target}: ")
-    assert err.count("\n") == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.endswith(": Permission denied\n")
 
 
 def test_bare_form_with_a_report_file_runs_analyse(

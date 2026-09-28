@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import feynkit.cli as cli
 from feynkit import FeynmanIntegral
 from feynkit.cli import main
 
@@ -148,12 +149,47 @@ class TestSingleDiagram:
         ) in out
         assert "|Aut(P)|" not in out
 
+    @pytest.mark.parametrize(
+        ("cnickel", "symmetries"),
+        [
+            (
+                "1e|e|",
+                "  Not computed for a Newton polytope of dimension below 2; "
+                "this one has dimension 1.\n",
+            ),
+            ("12e|e|e|", f"  {'|Aut(graph)|':<28} 2\n"),
+        ],
+    )
+    def test_tree_graph_prints_every_section_and_writes_its_report(
+        self, cnickel: str, symmetries: str, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        # A tree has U = 1. fk analyse failed on one before 0.3.0.
+        text = tmp_path / "tree.txt"
+        out = _run(capsys, tmp_path, cnickel, "--text", str(text))
+        assert f"  {'Loop count':<28} 0\n" in out
+        assert symmetries in out
+        assert "Stored:" in out
+        assert text.read_text(encoding="utf-8")
+
+    def test_polytope_automorphisms_line_up_with_the_other_keys(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        out = _run(capsys, tmp_path, "12e|2e|e|:zzz", "-S")
+        assert f"  {'|Aut(P)|':<28} 48  (polytope automorphisms)\n" in out
+
     def test_newton_section_of_a_full_dimensional_polytope(
         self, capsys: pytest.CaptureFixture[str], tmp_path: Path
     ) -> None:
         out = _run(capsys, tmp_path, "12e|2e|e|:zzz", "-n")
         assert "Normalised volume            4  (the holonomic rank for generic beta)" in out
         assert "Lattice base point           (1, 1, 0)" in out
+
+
+def test_every_key_fits_its_column() -> None:
+    # _kv pads keys to 28 characters; a longer key pushes its value out of line.
+    keys = re.findall(r'_kv\(\s*"([^"]*)"', Path(cli.__file__).read_text(encoding="utf-8"))
+    assert len(keys) > 30
+    assert [key for key in keys if len(key) > 28] == []
 
 
 class TestPairwise:

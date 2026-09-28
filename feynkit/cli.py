@@ -25,6 +25,7 @@ Quote every CNickel string: an unquoted | is a shell pipe.
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import os
 import re
@@ -379,7 +380,7 @@ def _print_symmetries(fi: FeynmanIntegral) -> None:
         )
         return
     aut = fi.polytope_automorphisms
-    _kv("|Aut(P)|  (polytope automorphisms)", aut.order)
+    _kv("|Aut(P)|", f"{aut.order}  (polytope automorphisms)")
     _kv("|Aut(graph)|", len(fi.graph_automorphisms))
     _kv("Vertex orbits under Aut(P)", aut.vertex_orbits)
     _kv("Symmetry pairs  (|det M|=1)", len(fi.symmetry_pairs))
@@ -506,6 +507,26 @@ def _write(path: Path, content: str, kind: str) -> None:
         path.write_text(content, encoding="utf-8")
     except OSError as exc:
         raise CliError(f"cannot write the {kind} report to {path}: {exc.strerror or exc}") from exc
+
+
+def _check_writable(path: Path, kind: str) -> None:
+    """Raise CliError, as _write would, when the report file plainly cannot be written.
+
+    It runs before the analysis, which can take minutes. _write still reports
+    what it misses, such as a directory removed in the meantime.
+    """
+    parent = path.parent
+    if path.is_dir():
+        code = errno.EISDIR
+    elif not parent.exists():
+        code = errno.ENOENT
+    elif not parent.is_dir():
+        code = errno.ENOTDIR
+    elif not os.access(path if path.exists() else parent, os.W_OK):
+        code = errno.EACCES
+    else:
+        return
+    raise CliError(f"cannot write the {kind} report to {path}: {os.strerror(code)}")
 
 
 def _write_reports(report: AnalysisReport, options: ReportOptions, *, announce: bool) -> None:
@@ -879,6 +900,8 @@ def _build_parser() -> _Parsers:
         epilog=_MAIN_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
+        # _parse_args reports the errors of this parser, to add _cnickel_hint.
+        exit_on_error=False,
     )
     parser.add_argument("--version", action="version", version=f"fk {__version__}")
     commands = parser.add_subparsers(dest="command", metavar="COMMAND", required=True)
@@ -982,12 +1005,13 @@ def _with_command(argv: Sequence[str]) -> list[str]:
     """argv with the subcommand that the bare form fk CNICKEL or fk A B stands for.
 
     argparse cannot give one slot to either a subcommand or a positional, so
-    the bare form is rewritten before parsing. Every CNickel string has a |,
-    so a first positional with one starts the bare form: two positionals mean
-    compare and any other number means analyse, which then reports surplus
-    arguments itself. Otherwise argv is left alone, so that argparse takes a
-    command such as analyze and reports a misspelt one, and argv without
-    positionals, such as --help or --version, is left alone too.
+    the bare form is rewritten before parsing. Every CNickel string fk prints
+    or documents has a |, so a first positional with one starts the bare form:
+    two positionals mean compare and any other number means analyse, which
+    then reports surplus arguments itself. Otherwise argv is left alone, so
+    that argparse takes a command such as analyze and reports a misspelt one,
+    and argv without positionals, such as --help or --version, is left alone
+    too.
     """
     args = list(argv)
     positionals = _positionals(args)
@@ -996,17 +1020,47 @@ def _with_command(argv: Sequence[str]) -> list[str]:
     return ["compare" if len(positionals) == 2 else "analyse", *args]
 
 
+def _cnickel_hint(words: Sequence[str]) -> str:
+    """A line for the error on a first word that looks like a CNickel string without a |.
+
+    The parser reads 0:n as the tadpole 0|:n, but _with_command needs a | to
+    see the bare form, so argparse takes 0:n for a misspelt command.
+    """
+    positionals = _positionals(words)
+    if not positionals or ":" not in positionals[0]:
+        return ""
+    command = "compare" if len(positionals) == 2 else "analyse"
+    quoted = " ".join(f'"{word}"' for word in positionals)
+    return f"\na CNickel string without a | needs the command: fk {command} {quoted}"
+
+
 def _parse_args(parsers: _Parsers, argv: Sequence[str]) -> argparse.Namespace:
     """The arguments of argv, with the bare form rewritten and analyze read as analyse.
 
     An unknown option or a surplus positional is a usage error of the
-    subcommand, so argparse prints that subcommand's usage, not fk's.
+    subcommand, so argparse prints that subcommand's usage, not fk's. An
+    option of the subcommand given before it, as in fk --no-db analyse X, is
+    told to follow the command.
     """
-    args, extra = parsers.main.parse_known_args(_with_command(argv))
-    if args.command == "analyze":
+    words = _with_command(argv)
+    try:
+        args, extra = parsers.main.parse_known_args(words)
+    except argparse.ArgumentError as exc:
+        parsers.main.error(f"{exc}{_cnickel_hint(words)}")
+    command = args.command
+    if command == "analyze":
         args.command = "analyse"
     if extra:
         parser = parsers.analyse if args.command == "analyse" else parsers.compare
+        # An option of the subcommand given after it is left over only after --.
+        before = words[: words.index(command)]
+        misplaced = " ".join(
+            word
+            for word in before
+            if word in extra and word.split("=", 1)[0] in parser._option_string_actions
+        )
+        if misplaced:
+            parser.error(f"{misplaced} must follow the command: fk {args.command} {misplaced} ...")
         parser.error(f"unrecognized arguments: {' '.join(extra)}")
     return args
 
@@ -1018,7 +1072,11 @@ def _section_flags(args: argparse.Namespace) -> set[str]:
 
 
 def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> ReportOptions:
-    """The report options of analyse, after the checks argparse cannot express."""
+    """The report options of analyse, after the checks argparse cannot express.
+
+    A usage error exits through the parser; a report file that cannot be
+    written raises CliError, before any analysis.
+    """
     if args.json and _section_flags(args):
         parser.error("--json prints only the summary; drop the section flags")
     if args.sections is not None and not (args.latex or args.text or args.json):
@@ -1030,6 +1088,9 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
                 f"{option} applies to the point counts; add --torus-count or name torus in "
                 "--sections"
             )
+    for path, kind in ((args.latex, "LaTeX"), (args.text, "text")):
+        if path is not None:
+            _check_writable(path, kind)
     return ReportOptions(
         sections=DEFAULT_SECTIONS if args.sections is None else args.sections,
         latex=args.latex,

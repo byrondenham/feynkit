@@ -157,6 +157,15 @@ class TestCanonicalityCheck:
         canonical = [m for m in orbit if is_canonical(Matrix(2, 3, list(m)))]
         assert canonical == [tuple(maximal_pairing_matrix(PM).PM_max)]
 
+    def test_float_beside_an_equal_integer(self) -> None:
+        # The default_sort_keys of 1.0 and 1 are neither equal nor ordered, so the
+        # ranks the search uses order them by hash, which PYTHONHASHSEED changes.
+        # matrix_lexicographic_compare finds every arrangement equal.
+        PM = Matrix([[1.0, 1]])
+        assert is_canonical(maximal_pairing_matrix(PM).PM_max)
+        assert is_canonical(PM)
+        assert is_canonical(Matrix([[1, 1.0]]))
+
 
 class TestPermutationApplication:
     """Test permutation tracking and application."""
@@ -297,7 +306,9 @@ class TestExactMaximum:
         assert result.row_permutation == result.col_permutation == list(range(10))
 
     @pytest.mark.parametrize(
-        "PM", [TRIANGLE_MAX, Matrix([[4, 3], [2, 1]])], ids=["triangle-max", "2x2"]
+        "PM",
+        [TRIANGLE_MAX, Matrix([[4, 3], [2, 1]]), Matrix([[1, 1, 0], [1, 1, 0], [0, 0, 0]])],
+        ids=["triangle-max", "2x2", "equal-rows"],
     )
     def test_maximal_input_gets_identity_permutations(self, PM: Matrix) -> None:
         # Of the orders that give the maximum, the smallest is returned, so an

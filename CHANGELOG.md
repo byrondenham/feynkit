@@ -44,7 +44,18 @@
   and `12e|2e|e|`, and a misspelt command such as `fk anlyse` gets argparse's
   invalid-choice message. So does `fk abc`, which now exits with status 2, as
   a usage error, where it exited with 1 for a CNickel string that does not
-  parse. `fk --help` shows the bare form `fk A B` beside `fk CNICKEL`.
+  parse. `fk --help` shows the bare form `fk A B` beside `fk CNICKEL`. An
+  option of the subcommand given before it, as in
+  `fk --no-db analyse "12e|2e|e|"`, is reported as one that must follow the
+  command, and a first argument such as `0:n`, a CNickel string without a
+  `|`, gets a hint to name the command.
+- `fk analyse --latex FILE` and `--text FILE` found that the file could not be
+  written only after the analysis, which can take minutes. A file in a missing
+  or read-only directory, or a directory given as the file, now stops `fk`
+  before the analysis, with the same one-line error and exit status 1.
+- `fk analyse -S` printed `|Aut(P)|  (polytope automorphisms)` as a key wider
+  than the column of the others, which pushed its value out of line. The key
+  is now `|Aut(P)|`, and the note follows the order.
 
 ## 0.4.0 (2026-09-27)
 

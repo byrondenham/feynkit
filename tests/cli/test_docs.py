@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from feynkit.cli import _build_parser, _load, _report_options, _with_command
+from feynkit.cli import _build_parser, _load, _parse_args, _report_options
 
 ROOT = Path(__file__).resolve().parents[2]
 GUIDE = ROOT / "docs" / "guide.md"
@@ -48,7 +48,7 @@ def test_documented_command_quotes_its_cnickel_strings(doc: str, command: str) -
 def _parse(command: str) -> argparse.Namespace:
     """The arguments of command as fk parses them, with the checks analyse adds."""
     parsers = _build_parser()
-    args = parsers.main.parse_args(_with_command(shlex.split(command, comments=True)[1:]))
+    args = _parse_args(parsers, shlex.split(command, comments=True)[1:])
     if args.command == "analyse":
         _report_options(parsers.analyse, args)
     return args

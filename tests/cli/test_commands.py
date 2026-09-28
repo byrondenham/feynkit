@@ -131,8 +131,19 @@ def test_usage_errors_exit_2(argv: list[str], capsys: pytest.CaptureFixture[str]
         (["analyze", "12e|2e|e|", "-x", "--no-db"], "analyse", "-x"),
         (["compare", "12e|2e|e|", "11e|e|", "--bogus", "--no-db"], "compare", "--bogus"),
         (["12e|2e|e|", "11e|e|", "-s", "--no-db"], "compare", "-s"),
+        (["--bogus", "analyse", "12e|2e|e|", "--no-db"], "analyse", "--bogus"),
+        (["analyse", "12e|2e|e|", "--", "--no-db"], "analyse", "--no-db"),
     ],
-    ids=["analyse", "bare-analyse", "surplus", "analyze", "compare", "bare-compare"],
+    ids=[
+        "analyse",
+        "bare-analyse",
+        "surplus",
+        "analyze",
+        "compare",
+        "bare-compare",
+        "before-command",
+        "after-double-dash",
+    ],
 )
 def test_unknown_arguments_get_the_usage_of_their_subcommand(
     argv: list[str], command: str, extra: str, capsys: pytest.CaptureFixture[str]
@@ -143,6 +154,29 @@ def test_unknown_arguments_get_the_usage_of_their_subcommand(
     lines = capsys.readouterr().err.splitlines()
     assert lines[0].startswith(f"usage: fk {command} ")
     assert lines[-1] == f"fk {command}: error: unrecognized arguments: {extra}"
+
+
+@pytest.mark.parametrize(
+    ("argv", "command", "options"),
+    [
+        (["--no-db", "analyse", "12e|2e|e|"], "analyse", "--no-db"),
+        (["-v", "compare", "12e|2e|e|", "11e|e|"], "compare", "-v"),
+        (["--db=x.db", "analyze", "12e|2e|e|"], "analyse", "--db=x.db"),
+        (["--no-db", "-v", "analyse", "12e|2e|e|"], "analyse", "--no-db -v"),
+    ],
+    ids=["analyse", "compare", "analyze", "two"],
+)
+def test_option_of_the_command_given_before_it_must_follow_it(
+    argv: list[str], command: str, options: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(argv)
+    assert excinfo.value.code == 2
+    lines = capsys.readouterr().err.splitlines()
+    assert lines[0].startswith(f"usage: fk {command} ")
+    assert lines[-1] == (
+        f"fk {command}: error: {options} must follow the command: fk {command} {options} ..."
+    )
 
 
 def test_analyze_runs_analyse(capsys: pytest.CaptureFixture[str]) -> None:
@@ -163,6 +197,28 @@ def test_first_word_without_a_bar_is_a_command(
     err = capsys.readouterr().err
     assert err.startswith("usage: fk ")
     assert f"invalid choice: '{argv[0]}'" in err
+    assert "CNickel" not in err
+
+
+@pytest.mark.parametrize(
+    ("argv", "suggestion"),
+    [
+        (["0:n", "--no-db"], 'fk analyse "0:n"'),
+        (["0:n", "00:nn", "--no-db"], 'fk compare "0:n" "00:nn"'),
+    ],
+    ids=["analyse", "compare"],
+)
+def test_first_word_like_a_cnickel_string_without_a_bar_gets_a_hint(
+    argv: list[str], suggestion: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The parser reads 0:n as the tadpole 0|:n, but the bare form needs a |.
+    with pytest.raises(SystemExit) as excinfo:
+        main(argv)
+    assert excinfo.value.code == 2
+    lines = capsys.readouterr().err.splitlines()
+    assert lines[0].startswith("usage: fk ")
+    assert "invalid choice: '0:n'" in lines[-2]
+    assert lines[-1] == f"a CNickel string without a | needs the command: {suggestion}"
 
 
 def test_main_help_shows_both_bare_forms(capsys: pytest.CaptureFixture[str]) -> None:

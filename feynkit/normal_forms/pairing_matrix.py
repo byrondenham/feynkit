@@ -313,11 +313,13 @@ def maximal_pairing_matrix(PM: sp.Matrix) -> PairingMatrixResult:
 def is_canonical(PM: sp.Matrix) -> bool:
     """
     Whether PM is the lexicographic maximum of its orbit under independent row
-    and column permutations, that is, whether PM equals
-    maximal_pairing_matrix(PM).PM_max.
+    and column permutations, that is, whether matrix_lexicographic_compare
+    finds PM equal to maximal_pairing_matrix(PM).PM_max.
 
     Matrices in one orbit have the same maximum, so each orbit holds exactly
-    one canonical matrix, and every PM_max is canonical.
+    one canonical matrix, and every PM_max is canonical. Both can fail when
+    entries compare as equal without being equal, as 1.0 and 1 do: every order
+    of [[1.0, 1]] is canonical.
 
     Arguments
     ---------
@@ -330,9 +332,7 @@ def is_canonical(PM: sp.Matrix) -> bool:
         True if PM is its own maximum, False otherwise.
     """
     # The search alone, without the symmetry vector maximal_pairing_matrix also
-    # computes. Two entries have the same rank exactly when their
-    # default_sort_keys are equal, so comparing ranks compares PM with its
-    # maximum as matrix_lexicographic_compare does.
-    ranks = _ranks(PM)
-    rows, cols = _maximal_orders(ranks, PM.cols)
-    return [tuple(ranks[r][c] for c in cols) for r in rows] == ranks
+    # computes. The ranks cannot settle the comparison: the default_sort_keys of
+    # 1.0 and 1 are neither equal nor ordered, so their ranks follow hash order.
+    rows, cols = _maximal_orders(_ranks(PM), PM.cols)
+    return matrix_lexicographic_compare(PM, PM.extract(rows, cols)) == 0

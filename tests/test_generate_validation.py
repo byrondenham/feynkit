@@ -22,6 +22,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterator
 from fractions import Fraction
 from functools import cache
+from pathlib import Path
 from typing import NamedTuple
 
 import networkx as nx
@@ -378,6 +379,30 @@ def test_three_loops_agree_with_the_brute_force(edges: int, legs: int) -> None:
     assert zn == sum(burnside(rep, "zn") for rep in reps)
 
 
+def has_cut_vertex(rep: Representative) -> bool:
+    """Whether deleting one vertex disconnects the others; without self-loops, whether the
+    propagators split into two non-empty sets sharing one vertex."""
+    return any(True for _ in nx.articulation_points(nx.Graph(multigraph(rep))))
+
+
+# With 2 legs: of the 45 topologies with three loops, and of the 193 with four loops and at
+# most eight propagators, those without a cut vertex. At three loops only cores with a
+# self-loop have one, since a loopless core needs two blocks of at least two loops for it;
+# at four loops two thetas sharing a vertex are the first such core.
+@pytest.mark.parametrize(("loops", "most_edges", "count"), [(3, 8, 35), (4, 8, 120)])
+def test_one_vertex_irreducible_agrees_with_the_brute_force(
+    loops: int, most_edges: int, count: int
+) -> None:
+    kept = 0
+    for edges in range(loops, most_edges + 1):
+        reps = brute_topologies(loops, edges, 2, False, 1)
+        irreducible = [i for i, rep in enumerate(reps) if not has_cut_vertex(rep)]
+        topologies = generate_graphs(loops, 2, edges=edges, masses="z", one_vertex_irreducible=True)
+        assert Counter(locate(s, reps)[0] for s in topologies) == Counter(irreducible)
+        kept += len(irreducible)
+    assert kept == count
+
+
 @pytest.mark.slow
 def test_three_loop_totals() -> None:
     graphs = list(generate_graphs(3, range(2, 5)))
@@ -510,12 +535,19 @@ def _digest() -> str:
 
 
 def test_output_does_not_depend_on_the_hash_seed() -> None:
+    # The child imports this module as tests.test_generate_validation, from the repository root.
+    root = Path(__file__).resolve().parents[1]
     code = "from tests.test_generate_validation import _digest; print(_digest())"
     digests = {_digest()}
     for seed in ("0", "1"):
         env = {**os.environ, "PYTHONHASHSEED": seed}
         run = subprocess.run(
-            [sys.executable, "-c", code], capture_output=True, text=True, env=env, check=True
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=root,
+            check=True,
         )
         digests.add(run.stdout.strip())
     assert len(digests) == 1

@@ -80,6 +80,15 @@ def test_iterables_of_any_kind() -> None:
     assert list(generate_graphs(iter([2]), (n for n in [2, 3]))) == list(generate_graphs(2, [3, 2]))
 
 
+def test_numpy_integers_are_integers() -> None:
+    assert list(generate_graphs(np.arange(1, 3), np.int64(2), edges=np.arange(2, 5))) == list(
+        generate_graphs([1, 2], 2, edges=[2, 3, 4])
+    )
+    assert list(generate_graphs(2, 3, max_legs_per_vertex=np.int64(2))) == list(
+        generate_graphs(2, 3, max_legs_per_vertex=2)
+    )
+
+
 def test_every_string_is_its_own_canonical_form() -> None:
     for masses in ("z", "zn", "shared"):
         for s in generate_graphs(2, range(4), masses=masses, self_loops=True, edges=range(1, 6)):
@@ -171,13 +180,13 @@ def test_edges() -> None:
         ({"loops": 2.0, "legs": 2}, "loops must be integers"),
         ({"loops": 1, "legs": None}, "legs must be integers"),
         ({"loops": 1, "legs": 2, "edges": 2.5}, "edges must be integers"),
-        ({"loops": np.int64(1), "legs": 2}, "loops must be integers"),
+        ({"loops": np.bool_(True), "legs": 2}, "loops must be integers"),
         ({"loops": 1, "legs": 2, "max_legs_per_vertex": 0}, "max_legs_per_vertex"),
         ({"loops": 1, "legs": 2, "max_legs_per_vertex": True}, "max_legs_per_vertex"),
         ({"loops": 1, "legs": 2, "max_legs_per_vertex": 1.0}, "max_legs_per_vertex"),
         ({"loops": 1, "legs": 2, "max_legs_per_vertex": [1, 2]}, "max_legs_per_vertex"),
         ({"loops": 1, "legs": 2, "max_legs_per_vertex": "1"}, "max_legs_per_vertex"),
-        ({"loops": 1, "legs": 2, "max_legs_per_vertex": np.int64(1)}, "max_legs_per_vertex"),
+        ({"loops": 1, "legs": 2, "max_legs_per_vertex": np.bool_(True)}, "max_legs_per_vertex"),
         ({"loops": 1, "legs": 11}, "block of 1 loop, 11 propagators and 11 legs has 11 vertices"),
         ({"loops": 6, "legs": 1}, "block of 6 loops, 16 propagators and 1 leg has 11 vertices"),
         ({"loops": 2, "legs": 10, "edges": 12}, "has 11 vertices"),

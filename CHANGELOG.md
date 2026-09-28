@@ -38,12 +38,12 @@
   whatever its symbol: `12e|2e|e|:aab` gives `12e|2e|e|:aan`, `:sss` gives
   `:aaa`, `:bbn` gives `:aan` and `:nan` gives `:nnn`. Strings with only `z`
   and `n` do not change. The change reaches `FeynmanIntegral.cnickel`, the
-  analysis report and `fk analyse`. A graph with more than 23 classes of equal
-  masses, which the letters cannot name, raises `NotImplementedError`. Database
-  rows keep the string they were stored with, since a store never overwrites
-  the `cnickel` column; lookups go by the fingerprint of the Newton polytope
-  and still find them, but a stored string can differ from what `cnickel()`
-  now returns for the same graph.
+  analysis report, `fk analyse` and `fk compare`. A graph with more than 23
+  classes of equal masses, which the letters cannot name, raises
+  `NotImplementedError`. Database rows keep the string they were stored with,
+  since a store never overwrites the `cnickel` column; lookups go by the
+  fingerprint of the Newton polytope and still find them, but a stored string
+  can differ from what `cnickel()` now returns for the same graph.
 - `Graph.from_cnickel` rejects the mass codes `1` to `9`. The code `1` gave the
   symbol `m_1`, which `n` also gives propagator 1, so two different masses
   could become one. `0` still means massless. `cnickel()` never wrote digits.
@@ -87,7 +87,7 @@
   labellings instead of a scan of all V! labellings, and give the same strings
   and the same automorphisms, in lexicographic order. Graphs with 9 or 10
   vertices take milliseconds unless their automorphism group is large: the
-  9-gon takes under a millisecond instead of about 6 s. The Notes of
+  9-gon takes about a millisecond instead of about 6 s. The Notes of
   `Graph.nickel_index` give the slow cases, such as the complete graph with 10
   vertices, which takes minutes.
 
@@ -129,7 +129,8 @@
   `cnickel()` returns for the sunrise with one leg (`111e||:zzz`), the vacuum
   sunrise (`111||`) and three chains of two propagators (`123|4e|4e|4e||`), and
   which raised `ValueError`. `Graph.from_cnickel(s).cnickel() == s` now holds
-  for every canonical string.
+  for the canonical string of every graph in which each vertex has a
+  propagator or a leg.
 - Section 1.4 of the mathematics reference listed the digits 1 to 9 as shared
   mass labels, and `docs/automorphism_groups.md` said that
   `compute_graph_automorphisms` tries all V! vertex permutations; both now

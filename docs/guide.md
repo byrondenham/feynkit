@@ -501,8 +501,8 @@ print(g.cnickel())
 
 ### Round-trip property
 
-For any canonical CNickel string `s`, including those with empty entries such as
-`"111e||:zzz"`:
+For the canonical CNickel string `s` of any graph in which each vertex has a propagator or a
+leg, including strings with empty entries such as `"111e||:zzz"`:
 
 ```python
 Graph.from_cnickel(s).cnickel() == s   # True
@@ -553,8 +553,8 @@ prints
 The strings come in blocks of loops, propagators and legs in increasing order, sorted within a
 block, and the same arguments always give the same strings. With `"zn"` the colourings are
 enough for anything that depends only on the support of $G$, such as the Newton polytope and its
-equivalence class, since equal masses change coefficients but not the support. `"shared"`
-matters for the Landau analysis and the point counts.
+equivalence class, since at generic (symbolic) kinematics equal masses change coefficients but
+not the support. `"shared"` matters for the Landau analysis and the point counts.
 
 Legs carry no labels, so graphs that differ only in which momentum enters where are one string,
 and by default a vertex has at most one leg: at generic kinematics several legs at a vertex give

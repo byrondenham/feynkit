@@ -22,6 +22,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator, Sequence
 from functools import cache
 from itertools import product
+from numbers import Integral
 
 from .core.exceptions import ValidationError
 from .core.graph import Graph, _canonical_colours, _canonical_labellings, _Colour, _pair_order
@@ -265,15 +266,24 @@ def _block(
     )
 
 
+def _integer(value: object) -> int | None:
+    """The value as an int if it is an integer of any kind, such as a numpy integer, but not
+    a bool; otherwise None."""
+    if isinstance(value, Integral) and not isinstance(value, bool):
+        return int(value)
+    return None
+
+
 def _values(value: object, name: str, minimum: int) -> list[int]:
     """The distinct integers given, one or an iterable of them, sorted; ValidationError for
     anything else, such as None, a float or a bool."""
     values = list(value) if isinstance(value, Iterable) else [value]
     checked: list[int] = []
     for v in values:
-        if isinstance(v, bool) or not isinstance(v, int) or v < minimum:
+        k = _integer(v)
+        if k is None or k < minimum:
             raise ValidationError(f"{name} must be integers of at least {minimum}, got {v!r}")
-        checked.append(v)
+        checked.append(k)
     return sorted(set(checked))
 
 
@@ -305,6 +315,7 @@ def generate_graphs(
     ----------
     loops, legs
         The numbers of loops L >= 1 and legs n >= 0, one or several each.
+        Integers of any type, numpy's included, are accepted; bools are not.
         Vacuum (n = 0) and one-leg graphs come only when asked for.
     edges
         The numbers of propagators E, or None for every E the rules allow:
@@ -344,11 +355,8 @@ def generate_graphs(
     leg_values = _values(legs, "legs", 0)
     edge_values = None if edges is None else _values(edges, "edges", 1)
     _check_masses(masses)
-    if max_legs_per_vertex is not None and (
-        isinstance(max_legs_per_vertex, bool)
-        or not isinstance(max_legs_per_vertex, int)
-        or max_legs_per_vertex < 1
-    ):
+    max_legs = None if max_legs_per_vertex is None else _integer(max_legs_per_vertex)
+    if max_legs_per_vertex is not None and (max_legs is None or max_legs < 1):
         raise ValidationError(
             f"max_legs_per_vertex must be a positive integer or None, got {max_legs_per_vertex!r}"
         )
@@ -371,9 +379,7 @@ def generate_graphs(
 
     def run() -> Iterator[str]:
         for L, E, n in sorted(blocks):
-            yield from _block(
-                L, E, n, masses, self_loops, max_legs_per_vertex, one_vertex_irreducible
-            )
+            yield from _block(L, E, n, masses, self_loops, max_legs, one_vertex_irreducible)
 
     return run()
 

@@ -184,7 +184,9 @@ The generator runs the suppression above backwards.
    soon as a vertex can no longer reach degree 3; keep the connected, bridgeless ones and
    deduplicate by canonical Nickel string. Two loops have two cores, the theta `111||` and the
    figure of eight `00|`; three loops have 8 and four loops 43, found in 0.4 s. The one-loop core
-   is one vertex with a self-loop. Cores are computed once per $L$ and cached.
+   is one vertex with a self-loop. Cores are cached per $L$ and $V_c$, and a block with $V$
+   vertices uses only those with $V_c \le V$, so no core is enumerated beyond the largest $V$
+   requested.
 2. Subdivision. For each core and each $k \in \mathbb{Z}_{\ge 1}^{E_c}$ with $\sum_e k_e = E$
    ($k_e \ge 2$ on core self-loops unless `self_loops`), replace core edge $e$ by a chain of $k_e$
    propagators. Each new vertex gets from 1 to `max_legs_per_vertex` legs, each core vertex from
@@ -209,9 +211,13 @@ The search in `nickel_index` and `cnickel` moves into one private function in
 Those labellings are one of them composed with the automorphisms of the uncoloured graph, legs
 included. `nickel_index` returns the string, `cnickel` minimises the colours over the labellings,
 and the generator calls the same function, so its strings are those of `cnickel()` by
-construction. `compute_graph_automorphisms` takes its automorphisms from the same set in place of
-its own scan over $V!$ permutations, keeps those that preserve the colouring, and returns the same
-list as before.
+construction. `compute_graph_automorphisms` takes its candidate maps from the same set, one
+minimising labelling onto each of the others, in place of its own scan over $V!$ permutations. It
+checks each candidate in full, the propagators between every pair of vertices with their
+multiplicities and colours and the legs at every vertex, and returns the same list as before. The
+full check keeps it exact above $V = 10$, where the string is least only among BFS-consistent
+labellings but those attaining it still include every image of one of them under the
+automorphisms.
 
 The function replaces the full scan by an exact branch and bound over BFS-consistent labellings:
 
@@ -243,7 +249,9 @@ This search gives the same string and the same set of minimising labellings as t
 200 random multigraphs with up to seven vertices, some disconnected, and on all 536 topologies of
 the tiers and of three loops with 2 to 4 legs, up to eight vertices. It takes 0.75 ms on the
 9-gon, against 6.4 s. Its cost is at least the number of minimising labellings, the order of the
-automorphism group, which legs keep small. The full scan stays in the tests as an oracle for
+automorphism group, which legs keep small, and grows with wide ties at vertices of high degree,
+where every order of the tied neighbours is tried: the star and the complete graph with ten
+vertices take from seconds to minutes. The full scan stays in the tests as an oracle for
 those graphs, and `cnickel()` must return the string the definition gives for every string in the
 test suite.
 
@@ -568,10 +576,9 @@ and its Newton polytope is not full-dimensional: the 35 graphs of the pool with 
 propagators and a massless self-loop are "not equivalent" even to themselves. Assertion 3 leaves
 them out and draws from the other 237.
 
-The same routines feed the polytope automorphisms and the report's symmetry section. A separate
-branch, `exact-automorphisms`, moves `_invariants` onto the exact core and works in the lattice
-chart below full dimension; assertion 3 depends on it. Until it lands, two tests carry
-`pytest.mark.xfail(strict=True)`: one asserts equivalence for the double box under a failing
+The same routines feed the polytope automorphisms and the report's symmetry section. Assertion 3
+needs `_invariants` on the exact core and equivalences below full dimension. Until then two tests
+carry `pytest.mark.xfail(strict=True)`: one asserts equivalence for the double box under a failing
 relabelling, the other for `012e|3e|3e|e|:znnnn` with itself. The fix, or any change in Qhull's
 output, then shows up as a failure until the marks are removed.
 
@@ -583,8 +590,8 @@ output, then shows up as a failure until the marks are removed.
   degree rule.
 - Graphs with more than ten vertices, which need labels of more than one character.
 - Filtering scaleless graphs.
-- Moving `_invariants` onto the exact core and equivalences below full dimension, a separate
-  branch on which assertion 3 depends.
+- Moving `_invariants` onto the exact core and equivalences below full dimension, on which
+  assertion 3 depends.
 - Orderly generation.
 - A command line entry, `fk generate`.
 
@@ -606,8 +613,8 @@ output, then shows up as a failure until the marks are removed.
 - The parser strips exactly one trailing `|`, allows empty entries anywhere, and rejects a vertex
   with neither legs nor propagators, counting the propagators of every entry.
 - `hypothesis` is a development dependency.
-- Assertion 3 depends on the `exact-automorphisms` branch; until it lands, its known failures carry
-  a strict `xfail`.
+- Assertion 3's known failures carry a strict `xfail` until the normal forms use the exact vertices
+  and work below full dimension.
 - The three-loop validation block with eight vertices is marked `slow`, with a few other checks
   of several seconds each.
 - `delete_edge` and `contract_edge` stay test helpers.

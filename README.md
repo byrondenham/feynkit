@@ -396,11 +396,14 @@ See [`docs/guide.md`](docs/guide.md) for the full user guide, including:
 ## Development
 
 ```bash
-# Run tests
-pytest
+# Install the package with the development dependencies, which the tests need
+uv sync
 
-# Run with coverage
-pytest --cov=feynkit --cov-report=html
+# Run the tests, with a coverage report
+uv run pytest
+
+# Run them without coverage
+uv run pytest --no-cov
 ```
 
 ---

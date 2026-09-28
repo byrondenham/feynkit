@@ -217,7 +217,7 @@ def test_relabelled_integrals_are_unimodularly_equivalent(r: Relabelling) -> Non
 
 @pytest.mark.xfail(
     strict=True,
-    reason="the floating hull finds 53 and 57 vertices, not 52; "
+    reason="the floating hull finds 53 and 55 vertices, not 52; "
     "passes once the normal forms use the exact vertices",
 )
 def test_the_massive_non_planar_double_box_is_equivalent_to_a_relabelling() -> None:

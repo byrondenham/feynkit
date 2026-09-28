@@ -164,6 +164,14 @@ class TestColumnsAreTheNewtonPoints:
         assert fi.gkz.a_matrix == newton_matrix(fi)
         assert fi.gkz.a_matrix.cols == 7
 
+    def test_where_a_mass_is_zero_only_after_expanding(self) -> None:
+        # m_1^2 = x (x + 1) - x^2 - x expands to 0, so G has no u_1^2 monomial, and nor
+        # may gkz.
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nzz")
+        fi = with_masses(fi, [sp.sqrt(X * (X + 1) - X**2 - X), 0, 0])
+        assert fi.gkz.a_matrix == newton_matrix(fi)
+        assert fi.gkz.a_matrix.cols == 6
+
 
 @pytest.fixture(scope="module")  # type: ignore[misc]
 def box() -> FeynmanIntegral:

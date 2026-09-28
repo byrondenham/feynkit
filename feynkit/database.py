@@ -230,17 +230,25 @@ class FeynkitDatabase:
         by :meth:`store` and :meth:`_store_toric`: return ``[]``. A NULL
         ``toric_gens`` with a positive count is an inconsistent row, as
         written by earlier versions that skipped serialising an empty
-        ideal: return None rather than raising.
+        ideal: return None rather than raising. So is a row whose A-matrix
+        does not have one column per point, or whose generators use a
+        variable other than z_1, ..., z_{n_cols}: releases up to 0.4.0 kept
+        monomials of G whose coefficients cancel, and wrote the matrix and
+        generators of that larger configuration.
         """
         fp = self._fingerprint(points)
         row = self._conn.execute(
-            "SELECT toric_gens, n_toric_gens FROM integrals WHERE fingerprint=?", (fp,)
+            "SELECT toric_gens, n_toric_gens, n_cols FROM integrals WHERE fingerprint=?", (fp,)
         ).fetchone()
-        if row is None or row["n_toric_gens"] is None:
+        if row is None or row["n_toric_gens"] is None or row["n_cols"] != len(points):
             return None
         if row["toric_gens"] is None:
             return [] if row["n_toric_gens"] == 0 else None
-        return self._deser_exprs(row["toric_gens"])
+        generators = self._deser_exprs(row["toric_gens"])
+        columns = {f"z_{j}" for j in range(1, row["n_cols"] + 1)}
+        if any(s.name not in columns for g in generators for s in g.free_symbols):
+            return None
+        return generators
 
     @staticmethod
     def _compute_automorphism_data(fi: FeynmanIntegral) -> tuple[int, int, int, str]:
@@ -289,6 +297,9 @@ class FeynkitDatabase:
                 is_binomial, cnickel, label, stored_at)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(fingerprint) DO UPDATE SET
+                   a_matrix    = excluded.a_matrix,
+                   n_rows      = excluded.n_rows,
+                   n_cols      = excluded.n_cols,
                    toric_gens  = excluded.toric_gens,
                    n_toric_gens= excluded.n_toric_gens,
                    is_binomial = excluded.is_binomial,
@@ -325,7 +336,8 @@ class FeynkitDatabase:
         Store a :class:`FeynmanIntegral` and all of its computed properties.
 
         If the fingerprint is already present, the record is updated
-        (label, cnickel, toric generators, and automorphism data are refreshed).
+        (label, cnickel, A-matrix, toric generators, and automorphism data are
+        refreshed).
 
         Parameters
         ----------
@@ -371,6 +383,9 @@ class FeynkitDatabase:
                 stored_at)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(fingerprint) DO UPDATE SET
+                   a_matrix         = excluded.a_matrix,
+                   n_rows           = excluded.n_rows,
+                   n_cols           = excluded.n_cols,
                    toric_gens       = excluded.toric_gens,
                    n_toric_gens     = excluded.n_toric_gens,
                    is_binomial      = excluded.is_binomial,

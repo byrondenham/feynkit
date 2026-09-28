@@ -118,9 +118,9 @@ def gkz_exponent_vectors(
 
     in F, up to the factor 1/mu^2.  It is kept when sp.expand(c) != 0, the
     zero test of extract_monomial_support, since c can vanish while its terms
-    do not: on shell, or where p_1^2 = m_1^2.  Each massive edge e and spanning
-    tree T without e give u_e^2 times the U monomial of T, with coefficient
-    m_e^2.
+    do not: on shell, or where p_1^2 = m_1^2.  Each edge e whose m_e^2 is
+    non-zero by the same test, and spanning tree T without e, give u_e^2 times
+    the U monomial of T, with coefficient m_e^2.
 
     Parameters
     ----------
@@ -166,7 +166,9 @@ def gkz_exponent_vectors(
             _add(tuple(0 if i in forest_set else 1 for i in range(n)))
 
     # u_k^2 monomials: u_k * (U monomial for T), for each tree T and massive edge k not in T
-    mass_edge_indices = [i for i, m in enumerate(internal_edge_masses) if m != 0]
+    mass_edge_indices = [
+        i for i, m in enumerate(internal_edge_masses) if sp.expand(sp.sympify(m) ** 2) != 0
+    ]
     if mass_edge_indices:
         for tree in _spanning_trees(n_vertices, edge_pairs):
             tree_set = set(tree)

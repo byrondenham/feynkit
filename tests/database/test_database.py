@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 from typing import Any
 
 import pytest
+import sympy as sp
 
 from feynkit import FeynkitDatabase, FeynmanIntegral
 
@@ -15,6 +17,83 @@ from feynkit import FeynkitDatabase, FeynmanIntegral
 def db(tmp_path: Path) -> FeynkitDatabase:
     with FeynkitDatabase(tmp_path / "test.db") as database:
         yield database
+
+
+# The on-shell massless box as 0.4.0 stored it: ten columns, four of them monomials whose
+# coefficients cancel, in the column order of FeynmanIntegral.gkz, and the ten toric
+# generators of that matrix.
+STALE_BOX_COLUMNS = (
+    (1, 1, 0, 0),
+    (1, 0, 1, 0),
+    (1, 0, 0, 1),
+    (0, 1, 1, 0),
+    (0, 1, 0, 1),
+    (0, 0, 1, 1),
+    (1, 0, 0, 0),
+    (0, 1, 0, 0),
+    (0, 0, 1, 0),
+    (0, 0, 0, 1),
+)
+STALE_BOX_GENERATORS = (
+    "z_5*z_9 - z_6*z_8",
+    "z_10*z_4 - z_5*z_9",
+    "z_3*z_9 - z_6*z_7",
+    "z_10*z_2 - z_3*z_9",
+    "z_1*z_6 - z_2*z_5",
+    "z_1*z_9 - z_2*z_8",
+    "z_1*z_6 - z_3*z_4",
+    "z_1*z_10 - z_3*z_8",
+    "z_1*z_9 - z_4*z_7",
+    "z_1*z_10 - z_5*z_7",
+)
+
+# The upsert of FeynkitDatabase._store_toric in 0.4.0, which still writes to files that later
+# releases open.
+STORE_TORIC_0_4_0 = """INSERT INTO integrals
+               (fingerprint, a_matrix, newton_points, n_rows, n_cols,
+                loop_count, n_props, n_ext, n_toric_gens, toric_gens,
+                is_binomial, cnickel, label, stored_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(fingerprint) DO UPDATE SET
+                   toric_gens  = excluded.toric_gens,
+                   n_toric_gens= excluded.n_toric_gens,
+                   is_binomial = excluded.is_binomial,
+                   cnickel     = COALESCE(integrals.cnickel, excluded.cnickel)"""
+
+
+def on_shell_box(database: FeynkitDatabase | None = None) -> FeynmanIntegral:
+    """The massless box with p_i^2 = 0: six monomials of G."""
+    box = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz", database=database)
+    on_shell = {sp.Symbol(f"p{i}^2", real=True): 0 for i in range(1, 5)}
+    products = {k: sp.expand(v.subs(on_shell)) for k, v in box.momentum_products.items()}
+    return box.with_(momentum_products=products)
+
+
+def write_as_0_4_0(connection: sqlite3.Connection, fi: FeynmanIntegral) -> None:
+    """Cache the on-shell box's ten generators as 0.4.0 did, with its ten-column matrix."""
+    points = fi.newton_polytope.points
+    matrix = [[1] * len(STALE_BOX_COLUMNS)] + [[c[i] for c in STALE_BOX_COLUMNS] for i in range(4)]
+    generators = [sp.srepr(sp.sympify(g)) for g in STALE_BOX_GENERATORS]
+    connection.execute(
+        STORE_TORIC_0_4_0,
+        (
+            FeynkitDatabase._fingerprint(points),
+            json.dumps(matrix),
+            json.dumps([list(p) for p in points]),
+            5,
+            10,
+            1,
+            4,
+            4,
+            10,
+            json.dumps(generators),
+            1,
+            "12e|3e|3e|e|:zzzz",
+            None,
+            "2026-09-27T00:00:00+00:00",
+        ),
+    )
+    connection.commit()
 
 
 class TestStoreAndLookup:
@@ -133,6 +212,45 @@ class TestEmptyToricIdeal:
         )
         db._conn.commit()
         assert db._lookup_toric([(1, 0), (0, 1), (1, 1)]) is None
+
+
+class TestStaleRows:
+    """Rows that releases up to 0.4.0 write: more columns than Newton points, or generators
+    in variables beyond the columns of the row's matrix."""
+
+    def test_a_row_with_more_columns_than_points_is_not_read(self, db: FeynkitDatabase) -> None:
+        fi = on_shell_box()
+        write_as_0_4_0(db._conn, fi)
+        assert db._lookup_toric(fi.newton_polytope.points) is None
+
+    def test_the_facade_recomputes_and_rewrites_such_a_row(self, db: FeynkitDatabase) -> None:
+        write_as_0_4_0(db._conn, on_shell_box())
+        fi = on_shell_box(db)
+        assert len(fi.toric_ideal.generators) == 1
+        record = db.lookup(fi)
+        assert record is not None
+        assert (record.n_rows, record.n_cols, record.n_toric_gens) == (5, 6, 1)
+        assert record.a_matrix == fi.gkz.a_matrix
+
+    def test_generators_beyond_the_columns_are_not_read(self, db: FeynkitDatabase) -> None:
+        fi = on_shell_box(db)
+        assert len(fi.toric_ideal.generators) == 1
+        # 0.4.0 caches its ten generators on the six-column row it finds.
+        write_as_0_4_0(db._conn, fi)
+        record = db.lookup(fi)
+        assert record is not None
+        assert (record.n_cols, record.n_toric_gens) == (6, 10)
+        assert db._lookup_toric(fi.newton_polytope.points) is None
+        assert len(on_shell_box(db).toric_ideal.generators) == 1
+        record = db.lookup(fi)
+        assert record is not None
+        assert record.n_toric_gens == 1
+
+    def test_store_refreshes_the_matrix(self, db: FeynkitDatabase) -> None:
+        write_as_0_4_0(db._conn, on_shell_box())
+        record = db.store(on_shell_box(), label="on-shell box")
+        assert (record.n_rows, record.n_cols, record.n_toric_gens) == (5, 6, 1)
+        assert record.a_matrix == on_shell_box().gkz.a_matrix
 
 
 class TestOpen:

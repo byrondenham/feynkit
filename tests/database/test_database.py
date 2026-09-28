@@ -262,6 +262,132 @@ class TestStaleRows:
         assert record.a_matrix == on_shell_box().gkz.a_matrix
 
 
+def old_file(path: Path) -> None:
+    """A file as 0.4.0 left it, at user_version 0: the massless triangle's row, the on-shell
+    box's stale row with its automorphism order, and a cached equivalence between them."""
+    triangle = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+    with FeynkitDatabase(path) as database:
+        database.store(triangle, label="triangle")
+    connection = sqlite3.connect(path)
+    box = on_shell_box()
+    write_as_0_4_0(connection, box)
+    box_fp = FeynkitDatabase._fingerprint(box.newton_polytope.points)
+    connection.execute(
+        "UPDATE integrals SET label='on-shell box', poly_aut_order=72 WHERE fingerprint=?",
+        (box_fp,),
+    )
+    connection.execute(
+        """INSERT INTO equivalences
+           (fingerprint_a, fingerprint_b, relation, equivalent, witness_map, checked_at)
+           VALUES (?,?,'unimodular',0,NULL,'2026-09-27T00:00:00+00:00')""",
+        (box_fp, FeynkitDatabase._fingerprint(triangle.newton_polytope.points)),
+    )
+    connection.execute("PRAGMA user_version = 0")
+    connection.commit()
+    connection.close()
+
+
+def rows(path: Path) -> tuple[int, list[tuple[Any, ...]], list[tuple[Any, ...]]]:
+    """The user_version, the integrals by id and the equivalences of a file."""
+    connection = sqlite3.connect(path)
+    version = connection.execute("PRAGMA user_version").fetchone()[0]
+    integrals = connection.execute("SELECT * FROM integrals ORDER BY id").fetchall()
+    equivalences = connection.execute("SELECT * FROM equivalences ORDER BY id").fetchall()
+    connection.close()
+    return version, integrals, equivalences
+
+
+class TestRepair:
+    """_migrate repairs the rows of an old file once, as the step from user_version 0 to 1."""
+
+    def test_a_new_file_starts_at_version_1(self, tmp_path: Path) -> None:
+        FeynkitDatabase(tmp_path / "new.db").close()
+        assert rows(tmp_path / "new.db")[0] == 1
+
+    def test_an_old_file_is_repaired_when_opened(self, tmp_path: Path) -> None:
+        path = tmp_path / "old.db"
+        old_file(path)
+        _, before, equivalences = rows(path)
+        box = on_shell_box()
+        with FeynkitDatabase(path) as db:
+            record = db.lookup(box)
+            assert record is not None
+            assert record.a_matrix == box.gkz.a_matrix
+            assert (record.n_rows, record.n_cols) == (5, 6)
+            assert record.n_toric_gens is None
+            assert record.toric_generators is None
+            assert record.is_binomial is None
+            assert (record.label, record.poly_aut_order) == ("on-shell box", 72)
+            assert record.newton_points == box.newton_polytope.points
+            assert len(on_shell_box(db).toric_ideal.generators) == 1
+        version, after, _ = rows(path)
+        assert version == 1
+        assert after[0] == before[0]  # the triangle's row
+        assert rows(path)[2] == equivalences
+
+    def test_the_repair_runs_once(self, tmp_path: Path) -> None:
+        path = tmp_path / "old.db"
+        with FeynkitDatabase(path) as db:
+            db.store(FeynmanIntegral.from_cnickel("12e|2e|e|:zzz"))
+        # 0.4.0 adds a stale row to the repaired file.
+        connection = sqlite3.connect(path)
+        write_as_0_4_0(connection, on_shell_box())
+        connection.close()
+        with FeynkitDatabase(path) as db:
+            record = db.lookup(on_shell_box())
+            assert record is not None
+            assert record.n_cols == 10
+            assert db._lookup_toric(on_shell_box().newton_polytope.points) is None
+        assert rows(path)[0] == 1
+
+    def test_a_failed_repair_leaves_the_file_as_it_was(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = tmp_path / "old.db"
+        old_file(path)
+        before = rows(path)
+        repair = FeynkitDatabase._repair_gkz_columns
+
+        def repair_then_fail(self: FeynkitDatabase) -> None:
+            repair(self)
+            raise RuntimeError("interrupted")
+
+        monkeypatch.setattr(FeynkitDatabase, "_repair_gkz_columns", repair_then_fail)
+        with pytest.raises(RuntimeError, match="interrupted"):
+            FeynkitDatabase(path)
+        assert rows(path) == before
+
+    def test_a_read_only_file_opens_unrepaired(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = tmp_path / "old.db"
+        old_file(path)
+        before = rows(path)
+        connect = sqlite3.connect
+
+        def read_only(database: str, **kwargs: Any) -> sqlite3.Connection:
+            return connect(f"file:{database}?mode=ro", uri=True, **kwargs)
+
+        monkeypatch.setattr(sqlite3, "connect", read_only)
+        with FeynkitDatabase(path) as db:
+            assert db.lookup(on_shell_box()) is not None
+            assert db._lookup_toric(on_shell_box().newton_polytope.points) is None
+        monkeypatch.undo()
+        assert rows(path) == before
+        FeynkitDatabase(path).close()
+        assert rows(path)[0] == 1
+
+    def test_a_file_from_a_later_release_is_left_as_it_is(self, tmp_path: Path) -> None:
+        path = tmp_path / "old.db"
+        old_file(path)
+        connection = sqlite3.connect(path)
+        connection.execute("PRAGMA user_version = 2")
+        connection.close()
+        before = rows(path)
+        FeynkitDatabase(path).close()
+        assert rows(path) == before
+
+
 class TestOpen:
     def test_a_file_that_is_not_a_database_is_closed_before_the_error(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

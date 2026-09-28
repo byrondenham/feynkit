@@ -133,7 +133,16 @@ class FeynkitDatabase:
     # -- schema migration --------------------------------------------------
 
     def _migrate(self) -> None:
-        """Add columns introduced after the initial schema (idempotent)."""
+        """
+        Add columns introduced after the initial schema (idempotent), then
+        run the repairs the file has not had.
+
+        Repairs are numbered steps: step k takes ``PRAGMA user_version``
+        from k to k + 1 in one transaction with its repair, so a later
+        repair is appended to ``repairs``. A file at a higher version, from
+        a later release, is left as it is. A file that cannot be written,
+        being read-only or locked, keeps its version until the next open.
+        """
         new_cols = [
             ("cnickel", "TEXT"),
             ("poly_aut_order", "INTEGER"),
@@ -147,6 +156,51 @@ class FeynkitDatabase:
                 self._conn.commit()
             except sqlite3.OperationalError:
                 pass  # column already present
+
+        repairs = [self._repair_gkz_columns]
+        version = self._conn.execute("PRAGMA user_version").fetchone()[0]
+        for target, repair in enumerate(repairs[version:], start=version + 1):
+            try:
+                self._conn.execute("BEGIN IMMEDIATE")
+                repair()
+                self._conn.execute(f"PRAGMA user_version = {target}")
+                self._conn.commit()
+            except sqlite3.OperationalError:
+                self._conn.rollback()
+                return
+            except BaseException:
+                self._conn.rollback()
+                raise
+
+    def _repair_gkz_columns(self) -> None:
+        """
+        Repair 0 -> 1: give each A-matrix one column per Newton point.
+
+        Releases up to 0.4.0 kept monomials of G whose coefficients cancel,
+        so a row they wrote can have more columns than points. It gets the
+        matrix of its points, in the column order of FeynmanIntegral.gkz,
+        and NULL toric generators, which are recomputed on next use. The
+        fingerprint, the automorphism data and the equivalences depend on
+        the points alone. The comparison runs in Python, since SQLite may
+        be built without its JSON functions.
+        """
+        from .systems.gkz import construct_gkz_matrix_from_exponents
+
+        rows = self._conn.execute("SELECT id, newton_points, n_cols FROM integrals").fetchall()
+        for row in rows:
+            points = self._deser_points(row["newton_points"])
+            if len(points) == row["n_cols"]:
+                continue
+            # Descending degree, then descending exponents, as _create_gkz_system_direct.
+            ordered = sorted(points, key=lambda v: (-sum(v), tuple(-e for e in v)))
+            matrix = construct_gkz_matrix_from_exponents(ordered, len(ordered[0]))
+            self._conn.execute(
+                """UPDATE integrals
+                   SET a_matrix=?, n_rows=?, n_cols=?,
+                       toric_gens=NULL, n_toric_gens=NULL, is_binomial=NULL
+                   WHERE id=?""",
+                (self._ser_matrix(matrix), matrix.rows, matrix.cols, row["id"]),
+            )
 
     # -- serialisation helpers ---------------------------------------------
 

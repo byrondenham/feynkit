@@ -220,6 +220,53 @@ def test_branch_and_bound_finds_every_least_labelling(k: int) -> None:
     assert (nickel, set(labellings)) == scan_labellings(multiplicity, legs)
 
 
+# The random graphs have small automorphism groups, so the search rarely meets
+# long ties deep down. These graphs with eight vertices have large groups: the
+# six cubic graphs, named by their triangles where that tells them apart (the
+# 4-prism is the cube), and the 8-cycle with alternate propagators doubled. Each
+# comes with the orders of its group without legs and with a leg at vertex 0.
+# The scan takes about 0.6 s on each, so only the three with the largest groups
+# run by default, a tie going to the larger group with the leg.
+EIGHT_VERTICES = {
+    "two-K4": ("01 02 03 12 13 23 45 46 47 56 57 67", 1152, 144),
+    "cube": ("01 02 03 14 15 24 26 35 36 47 57 67", 48, 6),
+    "two-diamonds": ("01 02 03 12 13 24 35 46 47 56 57 67", 16, 4),
+    "mobius-ladder": ("01 04 12 15 23 26 34 37 45 56 67 70", 16, 2),
+    "one-triangle": ("01 02 03 12 14 25 36 37 46 47 56 57", 12, 4),
+    "two-triangles": ("01 02 03 12 14 25 34 36 47 56 57 67", 4, 1),
+    "doubled-8-cycle": ("01 01 12 23 23 34 45 45 56 67 67 70", 8, 1),
+}
+MOST_SYMMETRIC = sorted(EIGHT_VERTICES, key=lambda name: EIGHT_VERTICES[name][1:])[-3:]
+
+
+@pytest.mark.parametrize(
+    ("ends", "legs", "automorphisms"),
+    [
+        pytest.param(
+            ends,
+            [leg, 0, 0, 0, 0, 0, 0, 0],
+            automorphisms,
+            id=f"{name}-{'leg' if leg else 'vacuum'}",
+            marks=[] if name in MOST_SYMMETRIC else [pytest.mark.slow],
+        )
+        for name, (ends, *orders) in EIGHT_VERTICES.items()
+        for leg, automorphisms in enumerate(orders)
+    ],
+)
+def test_branch_and_bound_on_symmetric_graphs_with_eight_vertices(
+    ends: str, legs: list[int], automorphisms: int
+) -> None:
+    multiplicity = [[0] * 8 for _ in range(8)]
+    for u, w in ((int(pair[0]), int(pair[1])) for pair in ends.split()):
+        multiplicity[u][w] += 1
+        if u != w:
+            multiplicity[w][u] += 1
+    assert all(sum(row) == 3 for row in multiplicity)
+    nickel, labellings = _canonical_labellings(multiplicity, legs)
+    assert len(labellings) == len(set(labellings)) == automorphisms
+    assert (nickel, set(labellings)) == scan_labellings(multiplicity, legs)
+
+
 @pytest.mark.parametrize("k", range(0, len(RANDOM_GRAPHS), 4))
 def test_random_graphs_against_the_definition(k: int) -> None:
     graph = RANDOM_GRAPHS[k]

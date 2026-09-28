@@ -1452,7 +1452,9 @@ print(second)   # s
 Faces of dimension two or more that are not simplices need an elimination ideal. feynkit uses
 Singular when the `Singular` binary is on the path and falls back to SymPy otherwise, which is
 much slower. Faces with more monomials than `max_face_points` (default 12) are skipped and
-listed in `la.skipped_faces`.
+listed in `la.skipped_faces`. `landau_analysis(fi, timeout=60)` gives Singular at most 60 s for
+each face, with no limit by default; a face that runs past it, a failure of Singular and output
+feynkit cannot read raise `ComputationError`.
 
 ### LandauAnalysis fields
 

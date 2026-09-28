@@ -103,6 +103,9 @@
   the integral is scaleless (`Scaleless`, and `scaleless` as a JSON boolean).
   Below full dimension the Newton polytope section also says whether it is and
   what follows for the integral.
+- `landau_analysis` and `landau_analysis_from_polynomial` take `timeout`, the
+  most seconds Singular may spend eliminating one face; None, the default, sets
+  no limit.
 
 ### Changed
 
@@ -157,6 +160,12 @@
   and `affine_polytope` checks in every dimension, where it printed n/a below
   dimension 2 and below full dimension, and so exits with 0 for more pairs of
   diagrams; `finite_index` still prints n/a below full dimension.
+- The Landau analysis reads Singular's output term by term. SymPy's parser,
+  which it used, recursed once per term and raised `RecursionError` on a
+  generator of 13 730 terms, with a message of hundreds of kilobytes. A failure
+  of Singular, output the analysis cannot read and a run past `timeout` raise
+  `ComputationError`, which `fk` reports in one line; a failure of Singular
+  raised `RuntimeError`.
 
 ### Fixed
 

@@ -8,12 +8,20 @@ modified Cayley matrix. Face-by-face computation must reproduce it.
 
 from __future__ import annotations
 
+import itertools
+import subprocess
+from pathlib import Path
+
 import pytest
 import sympy as sp
 
 from feynkit import FeynmanIntegral, landau_analysis, landau_analysis_from_polynomial
+from feynkit import landau as landau_module
+from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.kinematics.mandelstam import standard_invariants
 from feynkit.landau import (
+    _eliminate_singular,
+    _read_singular_polynomial,
     _singular_binary,
     one_loop_landau_surfaces,
     one_loop_landau_surfaces_by_type,
@@ -260,3 +268,113 @@ class TestOneLoopSurfaceTypes:
         for p_sq in (p1sq, p2sq, p3sq):
             assert merged.count(p_sq) == 1
         assert tuple(merged) == first + (gram,)
+
+
+def fake_singular(
+    monkeypatch: pytest.MonkeyPatch,
+    stdout: str = "",
+    *,
+    returncode: int = 0,
+    stderr: str = "",
+    error: Exception | None = None,
+) -> dict[str, object]:
+    """Replace Singular by a stub that prints stdout or raises error; returns what it was given."""
+    seen: dict[str, object] = {}
+
+    def run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen.update(kwargs, script=Path(args[-1]).read_text())
+        if error is not None:
+            raise error
+        return subprocess.CompletedProcess(args, returncode, stdout=stdout, stderr=stderr)
+
+    monkeypatch.setattr(landau_module, "_singular_binary", lambda: "Singular")
+    monkeypatch.setattr(landau_module.subprocess, "run", run)
+    return seen
+
+
+W, T, X, Y, Z = sp.symbols("w t x y z")
+
+
+def eliminate(timeout: float | None = None) -> list[sp.Poly]:
+    """A system in w and t over x, y and z, which Singular names v0 to v4."""
+    return _eliminate_singular(
+        [W * T - 1], [W, T], [X, Y, Z], "Singular", points=10, timeout=timeout
+    )
+
+
+def singular_term(k: int, exponents: tuple[int, ...]) -> str:
+    """The k-th term, (-1)^k (k + 1) x^a y^b z^c, as Singular prints it."""
+    factors = [str(k + 1)] + [
+        f"v{2 + i}" + (f"^{e}" if e > 1 else "") for i, e in enumerate(exponents) if e
+    ]
+    return ("-" if k % 2 else "+") + "*".join(factors)
+
+
+class TestSingularOutput:
+    """Singular prints each generator of the elimination ideal expanded on one line."""
+
+    EXPONENTS = list(itertools.product(range(28), repeat=3))[:20000]
+
+    def test_twenty_thousand_terms(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # SymPy's parser recurses once per term and fails on such a line.
+        line = "".join(singular_term(k, e) for k, e in enumerate(self.EXPONENTS)).lstrip("+")
+        expected = {e: (-1) ** k * (k + 1) for k, e in enumerate(self.EXPONENTS)}
+        assert _read_singular_polynomial(line, 2, 3) == expected
+        fake_singular(monkeypatch, line + "\n")
+        (generator,) = eliminate()
+        assert generator.gens == (X, Y, Z)
+        assert generator.as_dict() == expected
+
+    def test_rational_coefficients_and_several_generators(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_singular(monkeypatch, "1/2*v2^2-3*v3*v4+7\n0\nv4\n")
+        assert [g.as_expr() for g in eliminate()] == [X**2 / 2 - 3 * Y * Z + 7, Z]
+
+    def test_an_error_printed_on_stdout_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Singular reports an error in the script on stdout and still exits with 0.
+        fake_singular(monkeypatch, "   ? error occurred in or before elim.sing line 2\n")
+        with pytest.raises(
+            ComputationError, match="face with 10 points from 50 characters"
+        ) as info:
+            eliminate()
+        assert info.value.__cause__ is None and info.value.__suppress_context__
+
+    def test_a_variable_that_was_eliminated_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_singular(monkeypatch, "v0*v2-1\n")
+        with pytest.raises(ComputationError, match="cannot read"):
+            eliminate()
+
+    def test_the_message_stays_short(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_singular(monkeypatch, "v2*" * 100000 + "?\n")
+        with pytest.raises(ComputationError, match="from 300002 characters of output") as info:
+            eliminate()
+        assert len(str(info.value)) < 200
+
+    def test_a_failure_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_singular(monkeypatch, returncode=1, stderr="halt: out of memory\n")
+        message = "Singular failed on a face with 10 points, 0 characters of output: halt: out of"
+        with pytest.raises(ComputationError, match=message):
+            eliminate()
+
+    def test_timeout_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        seen = fake_singular(monkeypatch, error=subprocess.TimeoutExpired(["Singular"], 7))
+        with pytest.raises(
+            ComputationError, match="face with 10 points within timeout=7 s"
+        ) as info:
+            eliminate(timeout=7)
+        assert seen["timeout"] == 7
+        assert info.value.__suppress_context__
+
+    def test_timeout_reaches_singular(
+        self, monkeypatch: pytest.MonkeyPatch, massive_bubble: FeynmanIntegral
+    ) -> None:
+        seen = fake_singular(monkeypatch)
+        landau_analysis(massive_bubble)
+        assert seen["timeout"] is None
+        landau_analysis(massive_bubble, timeout=7)
+        assert seen["timeout"] == 7
+
+    def test_timeout_must_be_positive(self, massive_bubble: FeynmanIntegral) -> None:
+        with pytest.raises(ValidationError, match="timeout must be positive"):
+            landau_analysis(massive_bubble, timeout=0)

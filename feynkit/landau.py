@@ -34,13 +34,19 @@ matrix. It is used as an independent check of the face computation.
 
 from __future__ import annotations
 
+import re
+import subprocess
+import tempfile
 from dataclasses import dataclass
+from fractions import Fraction
 from itertools import combinations
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 import sympy as sp
 
+from .core.exceptions import ComputationError, ValidationError
 from .polytope import faces as _faces
 from .polytope import lattice_coordinates as _lattice_coordinates
 from .systems.monomial import extract_monomial_support
@@ -170,27 +176,75 @@ def _singular_binary() -> str | None:
 
 def _eliminate_sympy(
     system: list[sp.Expr], to_eliminate: list[sp.Symbol], kin: list[sp.Symbol]
-) -> list[sp.Expr]:
+) -> list[sp.Poly]:
     basis = sp.groebner(system, *to_eliminate, *kin, order="lex")
-    return [g for g in basis.exprs if not (g.free_symbols & set(to_eliminate))]
+    return [sp.Poly(g, *kin) for g in basis.exprs if not (g.free_symbols & set(to_eliminate))]
+
+
+# A term of Singular's output, and a factor of a term: a coefficient or a power of a variable.
+_SINGULAR_TERM = re.compile(r"([+-]?)([^+-]+)")
+_SINGULAR_FACTOR = re.compile(r"(\d+)(?:/(\d+))?|v(\d+)(?:\^(\d+))?")
+
+
+def _read_singular_polynomial(
+    line: str, first: int, n_vars: int
+) -> dict[tuple[int, ...], Fraction] | None:
+    """The terms of a polynomial Singular printed in v_first, ..., v_{first + n_vars - 1}.
+
+    Returns None when the line is anything else, such as an error message
+    or a term in another variable.
+    """
+    terms: dict[tuple[int, ...], Fraction] = {}
+    end = 0
+    for match in _SINGULAR_TERM.finditer(line):
+        if match.start() != end:
+            return None
+        end = match.end()
+        sign, body = match.groups()
+        coefficient = Fraction(-1 if sign == "-" else 1)
+        exponents = [0] * n_vars
+        for factor in body.split("*"):
+            parsed = _SINGULAR_FACTOR.fullmatch(factor)
+            if parsed is None:
+                return None
+            numerator, denominator, index, power = parsed.groups()
+            if numerator is not None:
+                coefficient *= Fraction(int(numerator), int(denominator or 1))
+                continue
+            k = int(index) - first
+            if not 0 <= k < n_vars:
+                return None
+            exponents[k] += int(power or 1)
+        key = tuple(exponents)
+        terms[key] = terms.get(key, Fraction(0)) + coefficient
+    if end != len(line):
+        return None
+    return terms
 
 
 def _eliminate_singular(
-    system: list[sp.Expr], to_eliminate: list[sp.Symbol], kin: list[sp.Symbol], binary: str
-) -> list[sp.Expr]:
-    """Elimination ideal via Singular's ``eliminate`` (Decker et al., Singular 4)."""
-    import subprocess
-    import tempfile
-    from pathlib import Path as _Path
+    system: list[sp.Expr],
+    to_eliminate: list[sp.Symbol],
+    kin: list[sp.Symbol],
+    binary: str,
+    *,
+    points: int,
+    timeout: float | None = None,
+) -> list[sp.Poly]:
+    """Elimination ideal via Singular's ``eliminate`` (Decker et al., Singular 4).
 
-    from sympy.parsing.sympy_parser import (
-        convert_xor,
-        parse_expr,
-        standard_transformations,
-    )
+    Singular prints each generator expanded on one line, which can hold tens
+    of thousands of terms; the line is read term by term, since SymPy's
+    parser recurses once per term. ``points`` is the number of points of the
+    face, for the error messages.
 
+    Raises
+    ------
+    ComputationError
+        If Singular fails, runs past ``timeout`` seconds, or prints anything
+        but polynomials in ``kin``.
+    """
     names = {sym: f"v{i}" for i, sym in enumerate(to_eliminate + kin)}
-    back = {v: k for k, v in names.items()}
 
     def render(expr: sp.Expr) -> str:
         return str(sp.expand(expr).subs(names, simultaneous=True)).replace("**", "^")
@@ -206,23 +260,41 @@ def _eliminate_singular(
         "quit;\n"
     )
     with tempfile.TemporaryDirectory() as tmp:
-        path = _Path(tmp) / "elim.sing"
+        path = Path(tmp) / "elim.sing"
         path.write_text(script)
-        result = subprocess.run(
-            [binary, "-q", "--no-warn", str(path)], capture_output=True, text=True, check=False
-        )
+        try:
+            result = subprocess.run(
+                [binary, "-q", "--no-warn", str(path)],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            raise ComputationError(
+                f"Singular did not eliminate a face with {points} points within "
+                f"timeout={timeout} s"
+            ) from None
+    size = f"{len(result.stdout)} characters of output"
     if result.returncode != 0:
-        raise RuntimeError(f"Singular failed: {result.stderr.strip()}")
-    out: list[sp.Expr] = []
-    local = dict(back)
-    for line in result.stdout.splitlines():
-        line = line.strip()
+        reason = result.stderr.strip()[:200] or f"exit status {result.returncode}"
+        raise ComputationError(
+            f"Singular failed on a face with {points} points, {size}: {reason}"
+        ) from None
+    out: list[sp.Poly] = []
+    for text in result.stdout.splitlines():
+        line = text.replace(" ", "")
         if not line or line == "0":
             continue
-        expr = parse_expr(
-            line, local_dict=local, transformations=standard_transformations + (convert_xor,)
-        )
-        out.append(sp.expand(expr))
+        terms = _read_singular_polynomial(line, len(to_eliminate), len(kin))
+        if terms is None:
+            raise ComputationError(
+                f"cannot read Singular's elimination ideal of a face with {points} points "
+                f"from {size}, at {text.strip()[:60]!r}"
+            ) from None
+        polynomial = {key: sp.Rational(c.numerator, c.denominator) for key, c in terms.items() if c}
+        if polynomial:
+            out.append(sp.Poly.from_dict(polynomial, *kin))
     return out
 
 
@@ -231,12 +303,15 @@ def _elimination_discriminant(
     exps: list[tuple[int, ...]],
     kinematic_syms: set[sp.Symbol],
     backend: str = "auto",
+    *,
+    timeout: float | None = None,
 ) -> tuple[sp.Expr, bool]:
     """Kinematic locus where f = sum c_k t^{e_k} has a singular point in the torus.
 
     Returns (product of distinct kinematic factors, principal) where principal
-    is True when the elimination ideal had a single generator. Uses Singular
-    when installed and ``backend`` is "auto" or "singular", else SymPy.
+    is True when the elimination ideal had at most one generator. Uses
+    Singular when installed and ``backend`` is "auto" or "singular", else
+    SymPy; ``timeout`` limits each Singular run, in seconds.
     """
     dim = len(exps[0])
     t = list(sp.symbols(f"_t1:{dim + 1}"))
@@ -254,18 +329,27 @@ def _elimination_discriminant(
     binary = _singular_binary() if backend in ("auto", "singular") else None
     if backend == "singular" and binary is None:
         raise RuntimeError("Singular backend requested but the 'Singular' binary was not found")
+    if not kin:
+        return sp.Integer(1), True
     if binary is not None:
-        eliminated = _eliminate_singular(system, to_eliminate, kin, binary)
+        eliminated = _eliminate_singular(
+            system, to_eliminate, kin, binary, points=len(coeffs), timeout=timeout
+        )
     else:
         eliminated = _eliminate_sympy(system, to_eliminate, kin)
+    if not eliminated:
+        return sp.Integer(1), True
 
+    # sp.factor_list makes each factor primitive with a positive leading coefficient in the
+    # order sp.Poly gives the symbols; factoring in that order normalises these factors as
+    # _factor_list normalises those of the other faces.
+    order = sp.Poly(sp.Add(*kin)).gens
     factors: dict[sp.Expr, None] = {}
     for g in eliminated:
-        for fac in _factor_list(g, kinematic_syms):
-            factors.setdefault(fac, None)
-    if not factors:
-        return sp.Integer(1), len(eliminated) <= 1
-    return sp.prod(list(factors)), len(eliminated) == 1
+        for fac, _exp in g.reorder(*order).factor_list()[1]:
+            if fac.free_symbols & kinematic_syms:
+                factors.setdefault(fac.as_expr(), None)
+    return (sp.Mul(*factors) if factors else sp.Integer(1)), len(eliminated) == 1
 
 
 def _face_discriminant(
@@ -274,6 +358,7 @@ def _face_discriminant(
     dimension: int,
     kinematic_syms: set[sp.Symbol],
     max_face_points: int,
+    timeout: float | None = None,
 ) -> tuple[sp.Expr, bool, bool] | None:
     """Return (discriminant, is_simplex, principal), or None if the face is skipped."""
     n_pts = len(coeffs)
@@ -288,7 +373,7 @@ def _face_discriminant(
     if dimension == 1:
         t_exps = [c[0] for c in lattice]
         return _univariate_discriminant(coeffs, t_exps), False, True
-    disc, principal = _elimination_discriminant(coeffs, lattice, kinematic_syms)
+    disc, principal = _elimination_discriminant(coeffs, lattice, kinematic_syms, timeout=timeout)
     return disc, False, principal
 
 
@@ -312,6 +397,7 @@ def landau_analysis_from_polynomial(
     *,
     max_face_points: int = 12,
     scale: sp.Symbol | None = None,
+    timeout: float | None = None,
 ) -> LandauAnalysis:
     """Reduced principal A-determinant of a polynomial in the given variables.
 
@@ -333,7 +419,20 @@ def landau_analysis_from_polynomial(
         Face discriminants are unaffected and keep mu where it occurs, for
         instance a vertex coefficient m_1^2 / mu^2 is still that
         coefficient.
+    timeout
+        The most seconds to give Singular for each face it eliminates; None,
+        the default, sets no limit. The SymPy fallback is not limited.
+
+    Raises
+    ------
+    ValidationError
+        If ``timeout`` is not None and not positive.
+    ComputationError
+        If Singular fails on a face, runs past ``timeout``, or prints
+        output that is not an elimination ideal.
     """
+    if timeout is not None and not timeout > 0:
+        raise ValidationError(f"timeout must be positive; got {timeout}")
     g_poly = sp.expand(g_poly)
     if g_poly == 0:
         return LandauAnalysis((), sp.Integer(1), ())
@@ -350,7 +449,7 @@ def landau_analysis_from_polynomial(
         face_exps = [tuple(int(x) for x in exps[i]) for i in idx]
         face_coeffs = [support[i][1] for i in idx]
         result = _face_discriminant(
-            face_coeffs, face_exps, dimension, kinematic_syms, max_face_points
+            face_coeffs, face_exps, dimension, kinematic_syms, max_face_points, timeout
         )
         if result is None:
             skipped.append(tuple(face_exps))
@@ -373,11 +472,14 @@ def landau_analysis_from_polynomial(
     return LandauAnalysis(tuple(faces), e_a, surfaces, tuple(skipped))
 
 
-def landau_analysis(integral: FeynmanIntegral, *, max_face_points: int = 12) -> LandauAnalysis:
+def landau_analysis(
+    integral: FeynmanIntegral, *, max_face_points: int = 12, timeout: float | None = None
+) -> LandauAnalysis:
     """Reduced principal A-determinant of G = U + F for a Feynman integral.
 
     See the module docstring for what the faces contribute and for the
-    caveats on interpreting the factors as Landau singularities.
+    caveats on interpreting the factors as Landau singularities, and
+    :func:`landau_analysis_from_polynomial` for the arguments and errors.
     """
     sym = integral.symanzik
     return landau_analysis_from_polynomial(
@@ -385,6 +487,7 @@ def landau_analysis(integral: FeynmanIntegral, *, max_face_points: int = 12) -> 
         list(sym.lp_parameters),
         max_face_points=max_face_points,
         scale=integral.graph.energy_scale,
+        timeout=timeout,
     )
 
 

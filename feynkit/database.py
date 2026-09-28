@@ -207,9 +207,9 @@ class FeynkitDatabase:
         so a row they wrote can have more columns than points. It gets the
         matrix of its points, in the column order of FeynmanIntegral.gkz,
         and NULL toric generators, which are recomputed on next use. The
-        fingerprint, the automorphism data and the equivalences depend on
-        the points alone. The comparison runs in Python, since SQLite may
-        be built without its JSON functions.
+        fingerprint, the automorphism data and the equivalences do not
+        depend on the A-matrix. The comparison runs in Python, since SQLite
+        may be built without its JSON functions.
         """
         from .systems.gkz import construct_gkz_matrix_from_exponents
 

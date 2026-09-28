@@ -67,7 +67,8 @@ normalised volume 3:
   $m_1^2 = s/x - s/(x+1)$ against $p_1^2 = s/(x(x+1))$, but they agree with each other.
 - A mass `Float(0.0)` still gives a mismatch, since `Float(0.0) != 0` in SymPy: the mass loop
   adds $u_e^2$ monomials that the expansion of $G$ drops. Normalising float zeros is left to a
-  separate change.
+  separate change. A Python `0.0` passed as a mass is caught by `m != 0` before it is sympified,
+  and stays massless.
 - Filtering `gkz` by the support of $G$ inside `integral.py` would also work, but it touches a
   core module and makes `gkz` expand $G$.
 
@@ -87,12 +88,17 @@ and 0.09 s before, for the massless and massive planar double boxes and the pent
   differs from its number of Newton points gets `a_matrix` rebuilt from those points in the
   graded order of `_create_gkz_system_direct` (descending degree, then descending exponents),
   under a row of ones, with `n_rows` and `n_cols` to match, and `toric_gens`, `n_toric_gens` and
-  `is_binomial` set to NULL; then `user_version` becomes 1. The whole repair is one transaction.
-  Repairs are numbered steps, step $k$ taking `user_version` from $k$ to $k + 1$, so that a later
-  repair is added as the next step.
-  The fingerprint, the automorphism data and `equivalences` depend on the points alone and need
-  no repair. The comparison runs in Python, since feynkit supports SQLite builds without JSON
-  functions.
+  `is_binomial` set to NULL; then `user_version` becomes 1. The fingerprint, the automorphism
+  data and `equivalences` do not depend on the A-matrix and need no repair. The comparison runs
+  in Python, since feynkit supports SQLite builds without JSON functions.
+- Repairs are numbered steps, step $k$ taking `user_version` from $k$ to $k + 1$, so that a later
+  repair is added as the next step. Each step is one transaction: it takes the write lock with
+  `BEGIN IMMEDIATE`, reads the version again under the lock, since another process may have run
+  the step meanwhile, and writes $k + 1$ before the step runs. A file that cannot be written,
+  being read-only or locked, fails at the lock, the version write or the commit, is rolled back
+  and opens unrepaired; a later open repairs it. An error from the step itself rolls back and
+  propagates. On a read-only file that is still unrepaired, recomputing a stale row's toric ideal
+  fails when the result is written back, as for any integral without a stored row.
 - The upserts of `store` and `_store_toric` also refresh `a_matrix`, `n_rows` and `n_cols`.
 - `_lookup_toric` treats a row as uncached when its `n_cols` differs from its number of points,
   or when a cached generator names a variable beyond $z_{n_\mathrm{cols}}$. Both cases arise when
@@ -110,12 +116,14 @@ The changelog entry, under Breaking changes:
 
 > `FeynmanIntegral.gkz` now has one column per monomial of G. Earlier versions kept monomials
 > whose coefficients cancel at special kinematics, such as on-shell legs or p_1^2 = m_1^2, so the
-> A-matrix, the toric ideal, the symmetry pairs and the report's z-table, monomial count and
-> codimension described a larger configuration than the Newton polytope: for the massless box
-> with p_i^2 = 0, 10 columns and 10 toric generators instead of 6 and 1. Integrals whose
-> coefficients do not cancel, among them every integral at generic kinematics and so every
-> integral `fk` builds, are unchanged. Database files are repaired when first opened; releases up
-> to 0.4.0 read repaired rows inconsistently.
+> A-matrix, the toric ideal, the symmetry pairs and the report's z-table, monomial count,
+> codimension and Schwinger column check described a larger configuration than the Newton
+> polytope: for the massless box with p_i^2 = 0, 10 columns and 10 toric generators instead of 6
+> and 1. Integrals whose coefficients do not cancel, among them every integral at generic
+> kinematics and so every integral `fk` builds, are unchanged. Database files are repaired when
+> first opened for writing, and toric generators that releases up to 0.4.0 store in them
+> afterwards for the larger configuration are recomputed rather than read. Those releases read
+> repaired rows inconsistently.
 
 ## Testing
 

@@ -1,9 +1,18 @@
 """
 Tests for maximal pairing matrix canonicalisation.
+
+Oracle: a brute force over every row and column permutation, compared in the
+row-major order of matrix_lexicographic_compare.
 """
 
-from sympy import Matrix, symbols
+import random
+from itertools import permutations
 
+import pytest
+from sympy import Matrix, eye, symbols
+from sympy.core.sorting import default_sort_key
+
+from feynkit import FeynmanIntegral
 from feynkit.normal_forms.pairing_matrix import (
     _apply_permutation,
     is_canonical,
@@ -131,13 +140,22 @@ class TestCanonicalityCheck:
         assert is_canonical(result.PM_max)
 
     def test_non_canonical_matrix(self) -> None:
-        """Test that non-maximal matrix is recognised."""
+        """A matrix that permutations make larger is not canonical; its maximum is."""
         PM = Matrix([[1, 2], [3, 4]])
+        result = maximal_pairing_matrix(PM)
+        assert not is_canonical(PM)
+        assert result.PM_max == Matrix([[4, 3], [2, 1]])
+        assert is_canonical(result.PM_max)
 
-        # This is likely not canonical (4,3 row would be maximal)
-        if not is_canonical(PM):
-            result = maximal_pairing_matrix(PM)
-            assert is_canonical(result.PM_max)
+    def test_each_orbit_has_exactly_one_canonical_matrix(self) -> None:
+        PM = Matrix([[0, 1, 2], [2, 0, 1]])
+        orbit = {
+            tuple(PM.extract(list(rows), list(cols)))
+            for rows in permutations(range(2))
+            for cols in permutations(range(3))
+        }
+        canonical = [m for m in orbit if is_canonical(Matrix(2, 3, list(m)))]
+        assert canonical == [tuple(maximal_pairing_matrix(PM).PM_max)]
 
 
 class TestPermutationApplication:
@@ -197,3 +215,83 @@ class TestEdgeCases:
         assert result.PM_max.shape == PM.shape
         # Maximal row should come first
         assert result.PM_max[0, 0] == 6  # Largest element in maximal row [4, 5, 6]
+
+
+def brute_force_maximum(PM: Matrix) -> Matrix:
+    """The largest matrix that row and column permutations make from PM, row by row."""
+    m, n = PM.shape
+    keys = [[default_sort_key(x) for x in row] for row in PM.tolist()]
+    _, rows, cols = max(
+        (tuple(keys[r][c] for r in rows for c in cols), rows, cols)
+        for rows in permutations(range(m))
+        for cols in permutations(range(n))
+    )
+    return PM.extract(list(rows), list(cols))
+
+
+def assert_exact(PM: Matrix) -> None:
+    """PM_max is the brute-force maximum, the permutations give it, and it is canonical."""
+    result = maximal_pairing_matrix(PM)
+    expected = brute_force_maximum(PM)
+    assert _matrix_lexicographic_compare(result.PM_max, expected) == 0
+    assert result.PM_max == expected
+    assert _apply_permutation(PM, result.row_permutation, result.col_permutation) == result.PM_max
+    assert sorted(result.row_permutation) == list(range(PM.rows))
+    assert sorted(result.col_permutation) == list(range(PM.cols))
+    assert is_canonical(result.PM_max)
+
+
+# The A-matrix of the massless triangle 12e|2e|e|:zzz, and its maximum.
+TRIANGLE = Matrix([[1, 1, 1, 1, 1, 1], [1, 1, 0, 1, 0, 0], [1, 0, 1, 0, 1, 0], [0, 1, 1, 0, 0, 1]])
+TRIANGLE_MAX = Matrix(
+    [[1, 1, 1, 1, 1, 1], [1, 1, 1, 0, 0, 0], [1, 0, 0, 1, 1, 0], [0, 1, 0, 1, 0, 1]]
+)
+
+
+class TestExactMaximum:
+    """maximal_pairing_matrix returns the true maximum, not a greedy approximation."""
+
+    def test_random_numeric_matrices(self) -> None:
+        rng = random.Random(0)
+        for _ in range(200):
+            m, n = rng.randint(1, 4), rng.randint(1, 5)
+            assert_exact(Matrix(m, n, lambda i, j: rng.randint(0, 2)))
+
+    def test_random_symbolic_matrices(self) -> None:
+        x, y, z = symbols("x y z")
+        rng = random.Random(1)
+        for _ in range(60):
+            m, n = rng.randint(1, 3), rng.randint(1, 4)
+            assert_exact(Matrix(m, n, lambda i, j: rng.choice([x, y, z, x + y, 0, 1])))
+
+    @pytest.mark.parametrize(
+        "PM",
+        [
+            Matrix([[0, 0, 1, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 1, 0, 0]]),
+            Matrix([[0, 1, 1, 0, 1], [1, 0, 1, 1, 0], [0, 1, 1, 0, 1], [1, 0, 1, 1, 0]]),
+            Matrix([[2, 0, 1], [0, 2, 1], [1, 1, 0], [0, 0, 0]]),
+        ],
+        ids=["permutation", "repeated-rows", "zero-row"],
+    )
+    def test_structured_matrices(self, PM: Matrix) -> None:
+        assert_exact(PM)
+
+    def test_triangle_a_matrix(self) -> None:
+        A = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz").gkz.a_matrix
+        assert A == TRIANGLE
+        assert maximal_pairing_matrix(A).PM_max == TRIANGLE_MAX
+        assert_exact(A)
+        assert not is_canonical(A)
+
+    def test_every_matrix_in_an_orbit_has_the_same_maximum(self) -> None:
+        rng = random.Random(2)
+        for _ in range(10):
+            rows, cols = rng.sample(range(4), 4), rng.sample(range(6), 6)
+            assert maximal_pairing_matrix(TRIANGLE.extract(rows, cols)).PM_max == TRIANGLE_MAX
+
+    def test_identity_is_its_own_maximum(self) -> None:
+        # Every row ties at every step. Only the arrangements that leave different
+        # rows are kept apart, 2^10 of them; all 10! orderings would not fit in memory.
+        result = maximal_pairing_matrix(eye(10))
+        assert result.PM_max == eye(10)
+        assert result.row_permutation == result.col_permutation

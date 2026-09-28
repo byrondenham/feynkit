@@ -1,13 +1,16 @@
 """
-Maximal Pairing Matrix Canonicalisation
+Maximal pairing matrix canonicalisation.
 
-This module provides symbolic canonicalisation of pairing matrices under
-independent row and column permutation, returning the lexicographically
-maximal representative.
+maximal_pairing_matrix returns the lexicographically largest matrix that
+independent permutations of the rows and of the columns make from a given
+matrix, with the permutations. Matrices are compared as
+matrix_lexicographic_compare does: row by row, left to right, entry by entry
+in SymPy's default_sort_key order. is_canonical tells whether a matrix is the
+maximum of its own orbit.
 
 References
 ----------
- .. [1] Grinis, A., Kaspryzyk, A. (2013). Normal Forms of Convex Lattice Polytopes."
+ .. [1] Grinis, A., Kasprzyk, A. (2013). Normal Forms of Convex Lattice Polytopes.
         arXiv:1301.6641 [math.AG]
 """
 
@@ -26,13 +29,18 @@ class PairingMatrixResult:
     Attributes
     ----------
     PM_max : sp.Matrix
-        The lexicographically maximal pairing matrix
-    row_permutation : List[int]
-        Permutation applied to rows (as list of indices)
-    col_permutation : List[int]
-        Permutation applied to columns (as list of indices)
-    symmetry_vector : Optional[List[Tuple[int, int]]]
-        The symmetry vector s computed during canonicalisation, default None
+        The lexicographically largest matrix in the orbit of the input under
+        independent row and column permutations.
+    row_permutation : list[int]
+        The input's rows in the order of PM_max: row i of PM_max is row
+        row_permutation[i] of the input.
+    col_permutation : list[int]
+        The input's columns in the order of PM_max, so that
+        PM_max[i, j] == PM[row_permutation[i], col_permutation[j]].
+    symmetry_vector : list[tuple[int, int]] | None
+        The symmetry vector s_i = (r_i, c_i) of the input: the numbers of
+        distinct rows and columns left after i steps that each remove a maximal
+        row and a column. PM_max does not depend on it. Default None.
     """
 
     PM_max: sp.Matrix
@@ -158,68 +166,6 @@ def _compute_symmetry_vector(PM: sp.Matrix) -> list[tuple[int, int]]:
     return s
 
 
-def _find_maximal_row(PM: sp.Matrix) -> int:
-    """
-    Find the index of the lexicographically maximal row.
-
-    Returns
-    -------
-    int
-        Index of the lexicographically maximal row.
-    """
-    m = PM.shape[0]
-    max_idx = 0
-    max_row = PM.row(0)
-
-    for i in range(1, m):
-        row = PM.row(i)
-        if matrix_lexicographic_compare(sp.Matrix([row]), sp.Matrix([max_row])) > 0:
-            max_idx = i
-            max_row = row
-
-    return max_idx
-
-
-def _find_distinct_row_representatives(PM: sp.Matrix, max_row_idx: int) -> list[int]:
-    """
-    Find all rows equivalent to the maximal row (same entries up to permutation).
-
-    Returns
-    -------
-    List[int]
-        Indices of representative rows.
-    """
-    m = PM.shape[0]
-    max_row = set(PM.row(max_row_idx))
-
-    equivalent_indices = []
-    for i in range(m):
-        if set(PM.row(i)) == max_row:
-            equivalent_indices.append(i)
-
-    return equivalent_indices
-
-
-def _find_maximal_element_in_row(PM: sp.Matrix, row_idx: int) -> int:
-    """
-    Find the index of the maximal element in the given row.
-
-    Returns
-    -------
-    int
-        Index of maximal element in given row.
-    """
-    row = PM.row(row_idx)
-    max_idx = 0
-    max_val = row[0]
-    for j in range(1, len(row)):
-        if symbolic_compare(row[j], max_val) > 0:
-            max_idx = j
-            max_val = row[j]
-
-    return max_idx
-
-
 def _apply_permutation(PM: sp.Matrix, row_perm: list[int], col_perm: list[int]) -> sp.Matrix:
     """
     Apply row and column permutations to matrix PM.
@@ -248,183 +194,136 @@ def _apply_permutation(PM: sp.Matrix, row_perm: list[int], col_perm: list[int]) 
     return PM_new
 
 
-def _swap_rows(PM: sp.Matrix, i: int, j: int) -> sp.Matrix:
-    """Swap rows i and j in matrix PM."""
-    if i == j:
-        return PM
-    PM_new = PM.copy()
-    PM_new[i, :], PM_new[j, :] = PM[j, :].copy(), PM[i, :].copy()
-    return PM_new
+# A matrix as the ranks of its entries in the default_sort_key order, row by row.
+_Ranks = list[tuple[int, ...]]
+# The columns of one block agree on every row placed so far, and the blocks are
+# in the order those rows fix.
+_Blocks = tuple[tuple[int, ...], ...]
 
 
-def _swap_cols(PM: sp.Matrix, i: int, j: int) -> sp.Matrix:
-    """Swap colums i and j in matrix PM."""
-    if i == j:
-        return PM
-    PM_new = PM.copy()
-    PM_new[:, i], PM_new[:, j] = PM[:, j].copy(), PM[:, i].copy()
-    return PM_new
-
-
-def _maximal_pairing_recursive(
-    PM: sp.Matrix, current_row_perm: list[int], current_col_perm: list[int], fixed_rows: int
-) -> tuple[sp.Matrix, list[int], list[int]]:
+def _place(row: tuple[int, ...], blocks: _Blocks) -> tuple[tuple[int, ...], _Blocks]:
     """
-    Recursive core of the maximal pairing matrix algorithm.
+    The largest the row can be below the rows already placed, and the blocks it leaves.
 
-    Arguments
-    ---------
-    PM : sp.Matrix
-        Current working matrix
-    current_row_perm : List[int]
-        Row permutation applied so far
-    current_col_perm : List[int]
-        Column permutation applied so far
-    fixed_rows : int
-        Number of rows already fixed from the top
-
-    Returns
-    -------
-    Tuple[sp.Matrix, List[int], List[int]]
-        Tuple of (maximal matrix, final row permutation, final column permutation)
+    The columns of a block can still be permuted freely, so the row is largest
+    with its entries in decreasing order within each block. Each block then
+    splits into the columns that take each of its values, the largest first.
     """
-    m, n = PM.shape
+    key: list[int] = []
+    split: list[tuple[int, ...]] = []
+    for block in blocks:
+        for value in sorted({row[c] for c in block}, reverse=True):
+            columns = tuple(c for c in block if row[c] == value)
+            key.extend([value] * len(columns))
+            split.append(columns)
+    return tuple(key), tuple(split)
 
-    # Base case: all rows fixed OR we've exceeded column count
-    if fixed_rows >= m or fixed_rows >= n:
-        return PM, current_row_perm[:], current_col_perm[:]
 
-    # Find maximal row among unfixed rows
-    unfixed_start = fixed_rows
-    max_idx = unfixed_start
-    max_row = PM.row(unfixed_start)
+def _future(ranks: _Ranks, order: tuple[int, ...], blocks: _Blocks) -> object:
+    """
+    What the rest of the search depends on: the rows not yet placed, and each
+    block as the multiset of its columns restricted to those rows.
+    """
+    left = [r for r in range(len(ranks)) if r not in order]
+    return (
+        tuple(left),
+        tuple(tuple(sorted(tuple(ranks[r][c] for r in left) for c in block)) for block in blocks),
+    )
 
-    for i in range(unfixed_start + 1, m):
-        row = PM.row(i)
-        if matrix_lexicographic_compare(sp.Matrix([row]), sp.Matrix([max_row])) > 0:
-            max_idx = i
-            max_row = row
 
-    # Swap maximal row to position fixed_rows
-    PM_working = PM
-    row_perm_working = current_row_perm[:]
+def _maximal_orders(ranks: _Ranks, n_cols: int) -> tuple[list[int], list[int]]:
+    """
+    Row and column orders that give the lexicographic maximum of a matrix.
 
-    if max_idx != fixed_rows:
-        PM_working = _swap_rows(PM_working, fixed_rows, max_idx)
-        row_perm_working[fixed_rows], row_perm_working[max_idx] = (
-            row_perm_working[max_idx],
-            row_perm_working[fixed_rows],
-        )
-
-    # Find maximal element in the fixed row (only consider unfixed columns)
-    max_col_val = None
-    max_col_idx = None
-
-    for j in range(fixed_rows, n):
-        val = PM_working[fixed_rows, j]
-        if max_col_val is None or symbolic_compare(val, max_col_val) > 0:
-            max_col_val = val
-            max_col_idx = j
-
-    if max_col_idx is None:
-        # No columns to process (shouldn't happen in valid input)
-        return PM_working, row_perm_working, current_col_perm[:]
-
-    # Find all unfixed columns with the same maximal value
-    equivalent_cols = []
-    for j in range(fixed_rows, n):
-        if symbolic_compare(PM_working[fixed_rows, j], max_col_val) == 0:
-            equivalent_cols.append(j)
-
-    # Try all equivalent column placements
-    best_matrix = None
-    best_row_perm = None
-    best_col_perm = None
-
-    for col_idx in equivalent_cols:
-        # Create trial configuration with this column choice
-        trial_PM = PM_working
-        trial_col_perm = current_col_perm[:]
-
-        if col_idx != fixed_rows:
-            trial_PM = _swap_cols(trial_PM, fixed_rows, col_idx)
-            trial_col_perm[fixed_rows], trial_col_perm[col_idx] = (
-                trial_col_perm[col_idx],
-                trial_col_perm[fixed_rows],
-            )
-
-        # Recurse with one more row fixed
-        result_matrix, result_row_perm, result_col_perm = _maximal_pairing_recursive(
-            trial_PM, current_row_perm[:], trial_col_perm[:], fixed_rows + 1
-        )
-
-    # Keep lexicographically maximal result
-    if best_matrix is None or matrix_lexicographic_compare(result_matrix, best_matrix) > 0:
-        best_matrix = result_matrix
-        best_row_perm = result_row_perm[:]
-        best_col_perm = result_col_perm[:]
-
-    return best_matrix, best_row_perm, best_col_perm
+    The first k rows of the maximum are the largest k rows that any
+    arrangement starts with, so the rows are placed one at a time, keeping
+    every arrangement that ties. An arrangement is the rows placed, in order,
+    and the column blocks they leave. Arrangements with the same _future end
+    alike, so only one of them is kept, and of equal rows only the first is
+    tried. After the last row the columns of each block are equal, so any
+    order within a block gives the maximum.
+    """
+    states: dict[object, tuple[tuple[int, ...], _Blocks]] = {None: ((), (tuple(range(n_cols)),))}
+    for _ in ranks:
+        best: tuple[int, ...] | None = None
+        following: dict[object, tuple[tuple[int, ...], _Blocks]] = {}
+        for order, blocks in states.values():
+            tried: set[tuple[int, ...]] = set()
+            for r, row in enumerate(ranks):
+                if r in order or row in tried:
+                    continue
+                tried.add(row)
+                key, split = _place(row, blocks)
+                if best is None or key > best:
+                    best, following = key, {}
+                if key == best:
+                    state = ((*order, r), split)
+                    future = _future(ranks, *state)
+                    if future not in following or state < following[future]:
+                        following[future] = state
+        states = following
+    order, blocks = min(states.values())
+    return list(order), [c for block in blocks for c in block]
 
 
 def maximal_pairing_matrix(PM: sp.Matrix) -> PairingMatrixResult:
     """
-    Compute the lexicographically maximal representative of a pairing matrix
-    under independent row and column permutations.
+    The lexicographic maximum of PM under independent row and column permutations.
+
+    Matrices are compared as matrix_lexicographic_compare does, row by row.
+    The search is exact: it keeps every arrangement that ties at each row, so
+    its cost grows with the symmetries of PM.
 
     Arguments
     ---------
     PM : sp.Matrix
-        A matrix with symbolic entries.
+        A matrix with numeric or symbolic entries.
 
     Returns
     -------
     PairingMatrixResult
-        - PM_max
-        - row_permutation
-        - col_permutation
-        - symmetry_vector
+        PM_max, the permutations with
+        PM_max[i, j] == PM[row_permutation[i], col_permutation[j]], and the
+        symmetry vector of PM.
 
     Example
     -------
-    >>> from sympy import Matrix, symbols
-    >>> a, b = symbols('a b')
-    >>> PM = Matrix([[a, b], [b, a]])
-    >>> result = maximal_pairing_matrix(PM)
-    >>> result.PM_max
+    >>> from sympy import Matrix
+    >>> maximal_pairing_matrix(Matrix([[0, 1], [1, 0]])).PM_max
+    Matrix([
+    [1, 0],
+    [0, 1]])
     """
     m, n = PM.shape
-
-    # Step 1: Compute symmetry vector
-    s = _compute_symmetry_vector(PM)
-
-    # Step 2: Initialise permutations
-    initial_row_perm = list(range(m))
-    initial_col_perm = list(range(n))
-
-    # Step 3: Run recursive maximisation
-    PM_max, row_perm, col_perm = _maximal_pairing_recursive(
-        PM, initial_row_perm, initial_col_perm, fixed_rows=0
-    )
-
+    keys = [[default_sort_key(PM[i, j]) for j in range(n)] for i in range(m)]
+    rank = {key: k for k, key in enumerate(sorted({key for row in keys for key in row}))}
+    ranks = [tuple(rank[key] for key in row) for row in keys]
+    row_permutation, col_permutation = _maximal_orders(ranks, n)
     return PairingMatrixResult(
-        PM_max=PM_max, row_permutation=row_perm, col_permutation=col_perm, symmetry_vector=s
+        PM_max=_apply_permutation(PM, row_permutation, col_permutation),
+        row_permutation=row_permutation,
+        col_permutation=col_permutation,
+        symmetry_vector=_compute_symmetry_vector(PM),
     )
 
 
 def is_canonical(PM: sp.Matrix) -> bool:
     """
-    Check if a pairing matrix is already in canonical (maximal) form.
+    Whether PM is the lexicographic maximum of its orbit under independent row
+    and column permutations, that is, whether PM equals
+    maximal_pairing_matrix(PM).PM_max.
+
+    Matrices in one orbit have the same maximum, so each orbit holds exactly
+    one canonical matrix, and every PM_max is canonical.
 
     Arguments
     ---------
     PM : sp.Matrix
-        A matrix with symbolic entries.
+        A matrix with numeric or symbolic entries.
 
     Returns
     -------
     bool
-        True if PM is already maximal, False otherwise
+        True if PM is its own maximum, False otherwise.
     """
-    result = maximal_pairing_matrix(PM)
-    return matrix_lexicographic_compare(PM, result.PM_max) == 0
+    return matrix_lexicographic_compare(PM, maximal_pairing_matrix(PM).PM_max) == 0

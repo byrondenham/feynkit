@@ -888,8 +888,9 @@ hdr(13, "Grinis-Kasprzyk pairing matrix and normal form")
 note(
     "maximal_pairing_matrix follows the canonicalisation step of Grinis and "
     "Kasprzyk (2013), who apply it to the vertex-facet pairing matrix of a "
-    "lattice polytope; it permutes rows and columns towards a lexicographically "
-    "large representative.  Here it is applied to the A-matrix itself."
+    "lattice polytope: it returns the lexicographically largest matrix, read row "
+    "by row, that permutations of the rows and of the columns make.  Here it is "
+    "applied to the A-matrix itself."
 )
 
 A_tri_mat = gkz.a_matrix
@@ -902,10 +903,16 @@ sp.pprint(pm.PM_max)
 print(f"  Row permutation    : {pm.row_permutation}")
 print(f"  Column permutation : {pm.col_permutation}")
 print(f"  Symmetry vector    : {pm.symmetry_vector}")
-print(f"  Canonical?         : {is_canonical(pm.PM_max)}")
+print(f"  A canonical?       : {is_canonical(A_tri_mat)}")
+print(f"  PM_max canonical?  : {is_canonical(pm.PM_max)}")
+print(
+    "  A permuted to PM_max: "
+    f"{A_tri_mat.extract(pm.row_permutation, pm.col_permutation) == pm.PM_max}"
+)
 note(
     "The symmetry vector s_i = (r_i, c_i) counts the distinct rows and columns "
-    "at each step of the maximisation.",
+    "of A left after i steps, each of which removes a largest row and a column; "
+    "PM_max does not depend on it.",
     4,
 )
 
@@ -1286,6 +1293,11 @@ all_ok &= ok
 sec("Group 7: Pairing matrix is canonical")
 pm_check = maximal_pairing_matrix(gkz_tri.a_matrix)
 ok = check("PM_max of triangle is canonical", is_canonical(pm_check.PM_max))
+all_ok &= ok
+ok = check(
+    "Row and column permutations give PM_max",
+    gkz_tri.a_matrix.extract(pm_check.row_permutation, pm_check.col_permutation) == pm_check.PM_max,
+)
 all_ok &= ok
 
 sec("Group 8: Orbit structure")

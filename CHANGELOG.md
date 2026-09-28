@@ -17,6 +17,23 @@
   configuration are recomputed rather than read. Those releases read repaired
   rows inconsistently.
 
+### Fixed
+
+- `maximal_pairing_matrix` did not return the lexicographic maximum under row
+  and column permutations: it placed one column per row, never branched on
+  rows that tie, and kept only the last of the columns that tie. It returned a
+  smaller matrix for most small random matrices, and for the A-matrix of the
+  massless triangle a matrix that `is_canonical` rejected. It now searches
+  row by row and keeps every arrangement that ties, so `PM_max` is the maximum
+  and changes for most inputs. `row_permutation` and `col_permutation` now give
+  `PM_max`, with `PM_max[i, j] == PM[row_permutation[i], col_permutation[j]]`;
+  the row permutation used to drop a swap. `is_canonical(PM)` holds exactly
+  when PM is the maximum of its orbit, and so for every `PM_max`. The search
+  costs more the more arrangements tie, as for an identity matrix.
+  `examples/dissertation_overview.py` and
+  `examples/dissertation_overview_enhanced.py` print the new maximum of the
+  triangle, which is canonical, where the second reported a failed check.
+
 ## 0.4.0 (2026-09-27)
 
 ### Breaking changes

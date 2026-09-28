@@ -473,10 +473,15 @@ print(f"  Row permutation    : {pm.row_permutation}")
 print(f"  Column permutation : {pm.col_permutation}")
 print(f"  Symmetry vector    : {pm.symmetry_vector}")
 
-sec("Checking whether the canonical form is maximal")
+sec("Checking the canonical form")
 from feynkit.normal_forms import is_canonical
 
+print(f"  is_canonical(A)      = {is_canonical(A_tri)}")
 print(f"  is_canonical(PM_max) = {is_canonical(pm.PM_max)}")
+print(
+    "  A with its rows and columns permuted as above equals PM_max: "
+    f"{A_tri.extract(pm.row_permutation, pm.col_permutation) == pm.PM_max}"
+)
 
 
 # -----------------------------------------------------------------------------

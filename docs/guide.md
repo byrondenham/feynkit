@@ -1449,8 +1449,11 @@ print(second)   # s
 
 ### Backends
 
-Faces of dimension two or more that are not simplices need an elimination ideal. feynkit uses
-Singular when the `Singular` binary is on the path and falls back to SymPy otherwise, which is
+Faces of dimension two or more that are not simplices need an elimination ideal, taken at
+$\mu = 1$ and, when the face's coefficients are independent linear forms in the invariants and
+squared masses, in fresh symbols for them; the massless pentagon and hexagon take about 3 s and
+15 s. feynkit uses Singular when the `Singular` binary is on the path and falls back to SymPy
+otherwise, which is
 much slower. Faces with more monomials than `max_face_points` (default 12) are skipped and
 listed in `la.skipped_faces`. `landau_analysis(fi, timeout=60)` gives Singular at most 60 s for
 each face, with no limit by default; a face that runs past it, a failure of Singular and output

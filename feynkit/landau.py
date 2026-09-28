@@ -17,9 +17,13 @@ Faces contribute as follows.
 - An edge contributes the discriminant of the univariate polynomial in
   the lattice coordinate along the edge.
 - Any other face contributes the elimination ideal of {f_tau = 0,
-  t_i d f_tau / d t_i = 0} in the torus, computed with a Gröbner basis.
-  Faces with more points than ``max_face_points`` are skipped and listed
-  in ``LandauAnalysis.skipped_faces``.
+  t_i d f_tau / d t_i = 0} in the torus, computed with a Gröbner basis
+  at mu = 1 and, when the distinct coefficients of the face that are not
+  constant are linearly independent linear forms in the kinematic
+  symbols or in the squares of those that occur only squared, in fresh
+  symbols standing for them, a change of coordinates that keeps the
+  Gröbner basis small. Faces with more points than ``max_face_points``
+  are skipped and listed in ``LandauAnalysis.skipped_faces``.
 
 The factors are candidate codimension-one singular loci on all sheets of the
 integral. Membership is necessary for a singularity, not sufficient, and
@@ -34,6 +38,7 @@ matrix. It is used as an independent check of the face computation.
 
 from __future__ import annotations
 
+import numbers
 import re
 import subprocess
 import tempfile
@@ -164,6 +169,17 @@ def _factor_list(expr: sp.Expr, kinematic_syms: set[sp.Symbol]) -> list[sp.Expr]
     return result
 
 
+def _normalised(irreducible: sp.Expr) -> sp.Expr:
+    """An irreducible polynomial as :func:`_factor_list` writes it, without factoring it.
+
+    sp.factor_list makes a factor primitive over the integers, with a positive
+    leading coefficient in the order sp.Poly gives the symbols.
+    """
+    _, poly = sp.Poly(irreducible).clear_denoms(convert=True)
+    _, poly = poly.primitive()
+    return (-poly if poly.LC() < 0 else poly).as_expr()
+
+
 # --- public API --------------------------------------------------------------
 
 
@@ -172,6 +188,29 @@ def _singular_binary() -> str | None:
     import shutil
 
     return shutil.which("Singular")
+
+
+# subprocess.run waits through a C int of milliseconds, which holds about 2.1e6 s.
+_MAX_TIMEOUT = 2_000_000
+
+
+def _check_timeout(timeout: object, *, optional: bool = True) -> None:
+    """Raise ValidationError unless ``timeout`` is a number of seconds greater
+    than 0 and at most 2,000,000, or None when ``optional``."""
+    if timeout is None and optional:
+        return
+    if (
+        isinstance(timeout, numbers.Real)
+        and not isinstance(timeout, bool)
+        and not timeout <= 0
+        and timeout <= _MAX_TIMEOUT  # false for NaN
+    ):
+        return
+    what = "None or a number" if optional else "a number"
+    raise ValidationError(
+        f"timeout must be {what} of seconds greater than 0 and at most {_MAX_TIMEOUT:,}; "
+        f"got {timeout!r:.60}"
+    )
 
 
 def _eliminate_sympy(
@@ -183,7 +222,7 @@ def _eliminate_sympy(
 
 # A term of Singular's output, and a factor of a term: a coefficient or a power of a variable.
 _SINGULAR_TERM = re.compile(r"([+-]?)([^+-]+)")
-_SINGULAR_FACTOR = re.compile(r"(\d+)(?:/(\d+))?|v(\d+)(?:\^(\d+))?")
+_SINGULAR_FACTOR = re.compile(r"([0-9]+)(?:/([0-9]+))?|v([0-9]+)(?:\^([0-9]+))?")
 
 
 def _read_singular_polynomial(
@@ -191,8 +230,8 @@ def _read_singular_polynomial(
 ) -> dict[tuple[int, ...], Fraction] | None:
     """The terms of a polynomial Singular printed in v_first, ..., v_{first + n_vars - 1}.
 
-    Returns None when the line is anything else, such as an error message
-    or a term in another variable.
+    Returns None when the line is anything else, such as an error message,
+    a term in another variable or a coefficient with denominator 0.
     """
     terms: dict[tuple[int, ...], Fraction] = {}
     end = 0
@@ -209,6 +248,8 @@ def _read_singular_polynomial(
                 return None
             numerator, denominator, index, power = parsed.groups()
             if numerator is not None:
+                if denominator is not None and not int(denominator):
+                    return None
                 coefficient *= Fraction(int(numerator), int(denominator or 1))
                 continue
             k = int(index) - first
@@ -267,6 +308,7 @@ def _eliminate_singular(
                 [binary, "-q", "--no-warn", str(path)],
                 capture_output=True,
                 text=True,
+                errors="replace",
                 check=False,
                 timeout=timeout,
             )
@@ -277,7 +319,7 @@ def _eliminate_singular(
             ) from None
     size = f"{len(result.stdout)} characters of output"
     if result.returncode != 0:
-        reason = result.stderr.strip()[:200] or f"exit status {result.returncode}"
+        reason = " ".join(result.stderr.split())[:100] or f"exit status {result.returncode}"
         raise ComputationError(
             f"Singular failed on a face with {points} points, {size}: {reason}"
         ) from None
@@ -290,12 +332,52 @@ def _eliminate_singular(
         if terms is None:
             raise ComputationError(
                 f"cannot read Singular's elimination ideal of a face with {points} points "
-                f"from {size}, at {text.strip()[:60]!r}"
+                f"from {size}, at {repr(text.strip())[:60]}"
             ) from None
         polynomial = {key: sp.Rational(c.numerator, c.denominator) for key, c in terms.items() if c}
         if polynomial:
             out.append(sp.Poly.from_dict(polynomial, *kin))
     return out
+
+
+def _renaming(coeffs: list[sp.Expr]) -> tuple[dict[sp.Expr, sp.Symbol], bool]:
+    """A fresh symbol for each distinct coefficient that is not constant, and whether an
+    atom is squared; or ({}, False).
+
+    The renaming is returned only when those coefficients are linearly
+    independent linear forms, with rational coefficients, in atoms: symbols
+    that occur only to the first power, or only squared, as masses do.
+    Completed to a basis of the linear forms in the atoms, they are then new
+    coordinates on the polynomial ring of the atoms, and the other basis
+    elements are variables the face does not involve.
+    """
+    distinct = list(dict.fromkeys(c for c in coeffs if c.free_symbols))
+    if not distinct:
+        return {}, False
+    symbols = sorted(set().union(*(c.free_symbols for c in distinct)), key=str)
+    powers: dict[int, int] = {}
+    rows: list[list[sp.Expr]] = []
+    for c in distinct:
+        try:
+            poly = sp.Poly(c, *symbols)
+        except sp.PolynomialError:
+            return {}, False
+        if poly.domain not in (sp.ZZ, sp.QQ):
+            return {}, False
+        row: list[sp.Expr] = [sp.Integer(0)] * len(symbols)
+        for monomial, value in poly.terms():
+            used = [(k, e) for k, e in enumerate(monomial) if e]
+            if len(used) != 1:
+                return {}, False
+            ((k, e),) = used
+            if e > 2 or powers.setdefault(k, e) != e:
+                return {}, False
+            row[k] = value
+        rows.append(row)
+    if sp.Matrix(rows).rank() < len(distinct):
+        return {}, False
+    renaming = {c: sp.Dummy(f"c{i}") for i, c in enumerate(distinct, start=1)}
+    return renaming, 2 in powers.values()
 
 
 def _elimination_discriminant(
@@ -304,20 +386,35 @@ def _elimination_discriminant(
     kinematic_syms: set[sp.Symbol],
     backend: str = "auto",
     *,
+    scale: sp.Symbol | None = None,
     timeout: float | None = None,
-) -> tuple[sp.Expr, bool]:
+) -> tuple[list[sp.Expr], bool]:
     """Kinematic locus where f = sum c_k t^{e_k} has a singular point in the torus.
 
-    Returns (product of distinct kinematic factors, principal) where principal
-    is True when the elimination ideal had at most one generator. Uses
-    Singular when installed and ``backend`` is "auto" or "singular", else
-    SymPy; ``timeout`` limits each Singular run, in seconds.
+    Returns (distinct kinematic factors, principal) where principal is True
+    when the elimination ideal had at most one generator. Uses Singular when
+    installed and ``backend`` is "auto" or "singular", else SymPy;
+    ``timeout`` limits each Singular run, in seconds.
+
+    The coefficients are taken at ``scale`` = 1. Rescaling the scale is a
+    torus action on the coefficients, which maps the locus to itself, so
+    this loses only the factor mu itself and a spurious component at
+    mu = 0. When :func:`_renaming` applies, the elimination and the
+    factorisation run in the fresh symbols, and each factor is substituted
+    back. It stays irreducible, being the image of an irreducible
+    polynomial under a change of coordinates, unless an atom is squared: a
+    factor in squared masses can split, as m_1^2 - m_2^2 does, and is
+    factored again.
     """
+    if scale is not None:
+        coeffs = [sp.sympify(c).subs(scale, 1) for c in coeffs]
+    renaming, squared = _renaming(coeffs)
+    back = {fresh: c for c, fresh in renaming.items()}
     dim = len(exps[0])
     t = list(sp.symbols(f"_t1:{dim + 1}"))
     w = sp.Symbol("_w")
     f = sum(
-        c * sp.prod(ti**e for ti, e in zip(t, ek, strict=True))
+        renaming.get(c, c) * sp.prod(ti**e for ti, e in zip(t, ek, strict=True))
         for c, ek in zip(coeffs, exps, strict=True)
     )
     num, _den = sp.fraction(sp.together(f))
@@ -330,7 +427,7 @@ def _elimination_discriminant(
     if backend == "singular" and binary is None:
         raise RuntimeError("Singular backend requested but the 'Singular' binary was not found")
     if not kin:
-        return sp.Integer(1), True
+        return [], True
     if binary is not None:
         eliminated = _eliminate_singular(
             system, to_eliminate, kin, binary, points=len(coeffs), timeout=timeout
@@ -338,7 +435,7 @@ def _elimination_discriminant(
     else:
         eliminated = _eliminate_sympy(system, to_eliminate, kin)
     if not eliminated:
-        return sp.Integer(1), True
+        return [], True
 
     # sp.factor_list makes each factor primitive with a positive leading coefficient in the
     # order sp.Poly gives the symbols; factoring in that order normalises these factors as
@@ -347,9 +444,14 @@ def _elimination_discriminant(
     factors: dict[sp.Expr, None] = {}
     for g in eliminated:
         for fac, _exp in g.reorder(*order).factor_list()[1]:
-            if fac.free_symbols & kinematic_syms:
+            if back:
+                image = sp.expand(fac.as_expr().xreplace(back))
+                pieces = _factor_list(image, kinematic_syms) if squared else [_normalised(image)]
+                for piece in pieces:
+                    factors.setdefault(piece, None)
+            elif fac.free_symbols & kinematic_syms:
                 factors.setdefault(fac.as_expr(), None)
-    return (sp.Mul(*factors) if factors else sp.Integer(1)), len(eliminated) == 1
+    return list(factors), len(eliminated) == 1
 
 
 def _face_discriminant(
@@ -358,32 +460,39 @@ def _face_discriminant(
     dimension: int,
     kinematic_syms: set[sp.Symbol],
     max_face_points: int,
+    scale: sp.Symbol | None = None,
     timeout: float | None = None,
-) -> tuple[sp.Expr, bool, bool] | None:
-    """Return (discriminant, is_simplex, principal), or None if the face is skipped."""
+) -> tuple[sp.Expr, list[sp.Expr], bool, bool] | None:
+    """Return (discriminant, its kinematic factors, is_simplex, principal), or None if the
+    face is skipped."""
     n_pts = len(coeffs)
     is_simplex = n_pts == dimension + 1
     if dimension == 0:
-        return sp.together(coeffs[0]), True, True
+        disc = sp.together(coeffs[0])
+        return disc, _factor_list(disc, kinematic_syms), True, True
     if is_simplex:
-        return sp.Integer(1), True, True
+        return sp.Integer(1), [], True, True
     if n_pts > max_face_points:
         return None
     lattice = _lattice_coordinates(np.array(exps_ambient, dtype=int))
     if dimension == 1:
-        t_exps = [c[0] for c in lattice]
-        return _univariate_discriminant(coeffs, t_exps), False, True
-    disc, principal = _elimination_discriminant(coeffs, lattice, kinematic_syms, timeout=timeout)
-    return disc, False, principal
+        disc = _univariate_discriminant(coeffs, [c[0] for c in lattice])
+        return disc, _factor_list(disc, kinematic_syms), False, True
+    factors, principal = _elimination_discriminant(
+        coeffs, lattice, kinematic_syms, scale=scale, timeout=timeout
+    )
+    return sp.Mul(*factors), factors, False, principal
 
 
 def _reduced(
-    factors_by_face: list[sp.Expr], kinematic_syms: set[sp.Symbol]
+    factors_by_face: list[list[sp.Expr]], surface_syms: set[sp.Symbol]
 ) -> tuple[sp.Expr, tuple[sp.Expr, ...]]:
+    """The distinct factors, over all faces, that involve surface_syms, and their product."""
     seen: dict[sp.Expr, None] = {}
-    for disc in factors_by_face:
-        for fac in _factor_list(disc, kinematic_syms):
-            seen.setdefault(fac, None)
+    for factors in factors_by_face:
+        for fac in factors:
+            if fac.free_symbols & surface_syms:
+                seen.setdefault(fac, None)
     surfaces = tuple(seen)
     return (sp.Mul(*surfaces) if surfaces else sp.Integer(1)), surfaces
 
@@ -416,23 +525,26 @@ def landau_analysis_from_polynomial(
         survive factorisation as a standalone factor of a face
         discriminant; that factor is not a kinematic singularity and is
         left out of ``landau_surfaces`` and ``principal_a_determinant``.
-        Face discriminants are unaffected and keep mu where it occurs, for
+        Vertex and edge discriminants keep mu where it occurs, for
         instance a vertex coefficient m_1^2 / mu^2 is still that
-        coefficient.
+        coefficient. Larger faces are eliminated at mu = 1, which finds
+        the same factors but mu itself, so their discriminants carry no
+        mu; without ``scale``, mu is eliminated as a kinematic symbol.
     timeout
-        The most seconds to give Singular for each face it eliminates; None,
-        the default, sets no limit. The SymPy fallback is not limited.
+        The most seconds to give Singular for each face it eliminates, at
+        most 2,000,000; None, the default, sets no limit. The SymPy
+        fallback is not limited.
 
     Raises
     ------
     ValidationError
-        If ``timeout`` is not None and not positive.
+        If ``timeout`` is neither None nor a number greater than 0 and at
+        most 2,000,000.
     ComputationError
         If Singular fails on a face, runs past ``timeout``, or prints
         output that is not an elimination ideal.
     """
-    if timeout is not None and not timeout > 0:
-        raise ValidationError(f"timeout must be positive; got {timeout}")
+    _check_timeout(timeout)
     g_poly = sp.expand(g_poly)
     if g_poly == 0:
         return LandauAnalysis((), sp.Integer(1), ())
@@ -444,19 +556,21 @@ def landau_analysis_from_polynomial(
     exps = np.array([list(e) for e, _ in support], dtype=int)
 
     faces: list[FaceDiscriminant] = []
+    factors_by_face: list[list[sp.Expr]] = []
     skipped: list[tuple[tuple[int, ...], ...]] = []
     for dimension, idx in _faces(exps):
         face_exps = [tuple(int(x) for x in exps[i]) for i in idx]
         face_coeffs = [support[i][1] for i in idx]
         result = _face_discriminant(
-            face_coeffs, face_exps, dimension, kinematic_syms, max_face_points, timeout
+            face_coeffs, face_exps, dimension, kinematic_syms, max_face_points, scale, timeout
         )
         if result is None:
             skipped.append(tuple(face_exps))
             continue
-        disc, is_simplex, principal = result
+        disc, factors, is_simplex, principal = result
         if not (disc.free_symbols & kinematic_syms):
             disc = sp.Integer(1)
+        factors_by_face.append(factors)
         faces.append(
             FaceDiscriminant(
                 dimension=dimension,
@@ -468,7 +582,7 @@ def landau_analysis_from_polynomial(
             )
         )
 
-    e_a, surfaces = _reduced([f.discriminant for f in faces], surface_syms)
+    e_a, surfaces = _reduced(factors_by_face, surface_syms)
     return LandauAnalysis(tuple(faces), e_a, surfaces, tuple(skipped))
 
 

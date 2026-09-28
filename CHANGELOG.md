@@ -65,6 +65,8 @@
   of every stored integral until it is stored again with
   `compute_automorphisms=True`, and `find_equivalent` recomputes every
   verdict. Code that reads those fields must allow `None`.
+- A failure of Singular in the Landau analysis raises `ComputationError`, where
+  it raised `RuntimeError`, so `except RuntimeError` no longer catches it.
 
 ### Added
 
@@ -104,8 +106,8 @@
   Below full dimension the Newton polytope section also says whether it is and
   what follows for the integral.
 - `landau_analysis` and `landau_analysis_from_polynomial` take `timeout`, the
-  most seconds Singular may spend eliminating one face; None, the default, sets
-  no limit.
+  most seconds Singular may spend eliminating one face, at most 2,000,000;
+  None, the default, sets no limit.
 
 ### Changed
 
@@ -162,10 +164,19 @@
   diagrams; `finite_index` still prints n/a below full dimension.
 - The Landau analysis reads Singular's output term by term. SymPy's parser,
   which it used, recursed once per term and raised `RecursionError` on a
-  generator of 13 730 terms, with a message of hundreds of kilobytes. A failure
+  generator of 13,730 terms, with a message of hundreds of kilobytes. A failure
   of Singular, output the analysis cannot read and a run past `timeout` raise
-  `ComputationError`, which `fk` reports in one line; a failure of Singular
-  raised `RuntimeError`.
+  `ComputationError`, which `fk` reports in one line.
+- Faces are eliminated at mu = 1, where the energy scale was a variable, and in
+  fresh symbols for their distinct coefficients when these are linearly
+  independent linear forms in the kinematic symbols or their squares. The
+  Landau surfaces do not change. The discriminant of an eliminated face loses
+  the factor mu, and a face with monomials of U and of F whose second generator
+  came from mu = 0 is now principal, with a smaller discriminant: the massive
+  bubble's polygon gives s, where it gave
+  mu s (s - (m_1 + m_2)^2) (s - (m_1 - m_2)^2), and the report's lists by face
+  dimension shrink with it. The square test of `count_torus_points` keeps the
+  faces it took before.
 
 ### Fixed
 
@@ -279,6 +290,14 @@
   automorphism columns are set to NULL until the next store with
   `compute_automorphisms=True`. Those releases, writing to a repaired file,
   cache their own verdicts again.
+- `critical_point_count` raises `ValidationError` unless `timeout` is a number
+  of seconds greater than 0 and at most 2,000,000. True was taken as 1 s, and
+  None, a string, inf and values past about 2.1 million raised `TypeError` or
+  `OverflowError`.
+- The Landau analysis of the massless pentagon `12e|3e|4e|4e|e|:zzzzz` had not
+  finished after forty minutes, and that of the massless hexagon
+  `12e|3e|4e|5e|5e|e|:zzzzzz` failed after about six. They take about 3 s and
+  15 s.
 
 ## 0.4.0 (2026-09-27)
 

@@ -41,10 +41,12 @@ from pathlib import Path
 import numpy as np
 import sympy as sp
 
-from ._exact import smith_invariants
+from ._exact import affine_rank, smith_invariants
 from .core.exceptions import ComputationError, ValidationError
 from .landau import (
+    FaceDiscriminant,
     LandauAnalysis,
+    _check_timeout,
     _factor_list,
     _singular_binary,
     landau_analysis_from_polynomial,
@@ -478,7 +480,7 @@ def _kinematics(
         for base in _factor_list(numerator, set(drawn)):
             factor = _terms(base, drawn)
             factors.setdefault(factor, None)
-            if face.dimension >= 1 and face.principal:
+            if _square_test_face(face, unit):
                 square_factors.setdefault(factor, None)
     return _Kinematics(
         symbols,
@@ -489,6 +491,30 @@ def _kinematics(
         tuple(square_factors),
         tuple(edges),
     )
+
+
+def _square_test_face(face: FaceDiscriminant, unit: Mapping[sp.Symbol, int]) -> bool:
+    """Whether the square test takes the factors of a face.
+
+    It takes those of a face of dimension 1 or more with a principal
+    discriminant, except a face whose coefficients carry different powers of
+    the scale and whose points with the largest power of 1/scale, the points
+    of F on a face of G, are not affinely independent. The Landau analysis
+    eliminates at scale 1; eliminated with the scale kept, such a face gains
+    a component at scale 0 and was not principal, and the square test has
+    always left it out. The two-mass bubble's polytope, whose discriminant s
+    need not be a square for the count to be a polynomial, is one.
+    """
+    if face.dimension < 1 or not face.principal:
+        return False
+    if not unit:
+        return True
+    (scale,) = unit
+    powers = [sp.degree(sp.fraction(sp.together(c))[1], scale) for c in face.coefficients]
+    if min(powers) == max(powers):
+        return True
+    leading = [e for e, k in zip(face.exponents, powers, strict=True) if k == max(powers)]
+    return affine_rank(leading) + 1 == len(leading)
 
 
 def _edge_discriminant(terms: Sequence[tuple[tuple[int, ...], sp.Expr]]) -> sp.Expr:
@@ -1049,7 +1075,7 @@ def critical_point_count(
     seed
         Seed of the random exponents.
     timeout
-        The most seconds to give Singular.
+        The most seconds to give Singular, at most 2,000,000.
 
     Raises
     ------
@@ -1058,7 +1084,7 @@ def critical_point_count(
         counts.
     ValidationError
         If ``variables`` are not one or more distinct symbols, ``timeout`` is
-        not positive, G is not a polynomial with rational coefficients in its
+        not a number greater than 0 and at most 2,000,000, G is not a polynomial with rational coefficients in its
         symbols, or ``point`` misses a symbol of G, has any other key, gives a
         value that is not rational or a negative value for a square, keys by
         its square a symbol occurring to odd powers, or G vanishes
@@ -1070,8 +1096,7 @@ def critical_point_count(
     variables = tuple(variables)
     if not variables or len(set(variables)) != len(variables):
         raise ValidationError("variables must be one or more distinct symbols")
-    if not timeout > 0:
-        raise ValidationError(f"timeout must be positive; got {timeout}")
+    _check_timeout(timeout, optional=False)
     g = sp.expand(sp.sympify(polynomial))
     symbols = tuple(sorted(g.free_symbols - set(variables), key=lambda x: x.name))
     try:

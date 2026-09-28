@@ -12,6 +12,7 @@ import itertools
 import subprocess
 from pathlib import Path
 
+import numpy as np
 import pytest
 import sympy as sp
 
@@ -21,12 +22,15 @@ from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.kinematics.mandelstam import standard_invariants
 from feynkit.landau import (
     _eliminate_singular,
+    _elimination_discriminant,
     _read_singular_polynomial,
+    _renaming,
     _singular_binary,
     one_loop_landau_surfaces,
     one_loop_landau_surfaces_by_type,
     one_loop_principal_a_determinant,
 )
+from feynkit.polytope import lattice_coordinates
 
 requires_singular = pytest.mark.skipif(_singular_binary() is None, reason="Singular not installed")
 
@@ -350,12 +354,43 @@ class TestSingularOutput:
         with pytest.raises(ComputationError, match="from 300002 characters of output") as info:
             eliminate()
         assert len(str(info.value)) < 200
+        # repr writes a control character as four, so the line is cut after repr.
+        fake_singular(monkeypatch, "\x01" * 1000 + "\n")
+        with pytest.raises(ComputationError, match=r"at '\\x01\\x01") as info:
+            eliminate()
+        assert len(str(info.value)) < 200
 
     def test_a_failure_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         fake_singular(monkeypatch, returncode=1, stderr="halt: out of memory\n")
         message = "Singular failed on a face with 10 points, 0 characters of output: halt: out of"
         with pytest.raises(ComputationError, match=message):
             eliminate()
+        fake_singular(monkeypatch, returncode=1, stderr="halt:\n  out of memory\t" * 1000)
+        with pytest.raises(ComputationError, match="output: halt: out of memory halt: out") as info:
+            eliminate()
+        assert len(str(info.value)) < 200
+
+    def test_only_ascii_digits_are_read(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Arabic-Indic three and two, which int() reads as 3 and 2.
+        assert _read_singular_polynomial("v\u0663", 2, 3) is None
+        assert _read_singular_polynomial("\u0662*v2", 2, 3) is None
+        fake_singular(monkeypatch, "v\u0663\n")
+        with pytest.raises(ComputationError, match="cannot read"):
+            eliminate()
+
+    def test_a_zero_denominator_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        assert _read_singular_polynomial("1/0*v2", 2, 3) is None
+        fake_singular(monkeypatch, "1/0*v2\n")
+        with pytest.raises(ComputationError, match="cannot read"):
+            eliminate()
+
+    def test_output_that_is_not_text_raises(self, tmp_path: Path) -> None:
+        # A stand-in for Singular that prints the byte 0xff, which is not UTF-8.
+        binary = tmp_path / "Singular"
+        binary.write_text("#!/bin/sh\nprintf '\\377\\n'\n")
+        binary.chmod(0o755)
+        with pytest.raises(ComputationError, match="cannot read"):
+            _eliminate_singular([W * T - 1], [W, T], [X, Y, Z], str(binary), points=10)
 
     def test_timeout_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         seen = fake_singular(monkeypatch, error=subprocess.TimeoutExpired(["Singular"], 7))
@@ -374,7 +409,169 @@ class TestSingularOutput:
         assert seen["timeout"] is None
         landau_analysis(massive_bubble, timeout=7)
         assert seen["timeout"] == 7
+        landau_analysis(massive_bubble, timeout=0.5)
+        assert seen["timeout"] == 0.5
+        landau_analysis(massive_bubble, timeout=2_000_000)
+        assert seen["timeout"] == 2_000_000
 
-    def test_timeout_must_be_positive(self, massive_bubble: FeynmanIntegral) -> None:
-        with pytest.raises(ValidationError, match="timeout must be positive"):
-            landau_analysis(massive_bubble, timeout=0)
+    @pytest.mark.parametrize("timeout", [0, -1, True, float("inf"), float("nan"), "5", 3e6])
+    def test_timeout_must_be_a_number_of_seconds(
+        self, timeout: object, massive_bubble: FeynmanIntegral
+    ) -> None:
+        # subprocess.run cannot wait past about 2.1e6 s.
+        with pytest.raises(ValidationError, match="timeout must be None or a number of seconds"):
+            landau_analysis(massive_bubble, timeout=timeout)  # type: ignore[arg-type]
+
+
+S, T_ = (sp.Symbol(name, real=True) for name in ("s", "t"))
+M1, M2 = (sp.Symbol(f"m_{i}", positive=True) for i in (1, 2))
+
+
+class TestRenaming:
+    """The distinct coefficients that are not constant get fresh symbols only when they are
+    linearly independent linear forms in symbols, or in squares of symbols."""
+
+    def test_independent_forms(self) -> None:
+        renaming, squared = _renaming([sp.Integer(1), -S, M1**2 + M2**2 - S, -S, M1**2])
+        assert list(renaming) == [-S, M1**2 + M2**2 - S, M1**2]
+        assert len(set(renaming.values())) == 3
+        assert squared
+
+    def test_forms_in_symbols_alone(self) -> None:
+        renaming, squared = _renaming([-S, S - T_])
+        assert len(renaming) == 2
+        assert not squared
+
+    @pytest.mark.parametrize(
+        "coefficients",
+        [
+            [S, T_, S + T_],  # dependent
+            [-S, S],  # dependent
+            [M1, M1**2],  # a symbol both alone and squared
+            [S * T_],  # not linear
+            [S + 1],  # a constant term
+            [S / T_],  # not a polynomial
+            [S**3],  # neither a symbol nor its square
+            [sp.Float(0.5) * S],  # not rational
+        ],
+    )
+    def test_anything_else_is_not_renamed(self, coefficients: list[sp.Expr]) -> None:
+        assert _renaming(coefficients) == ({}, False)
+
+
+# A face of the polytope of the massless hexagon 12e|3e|4e|5e|5e|e|: u_1, u_2, u_3 and u_6 and
+# their products in pairs, the massless box that u_4 = u_5 = 0 leaves. Its coefficients are
+# 1 on u_i and Y_ij / mu^2 on u_i u_j, where Y_ij is minus the square of the momentum between
+# propagators i and j, dense in the hexagon's invariants.
+HEXAGON_FACE = (
+    (1, 0, 0, 0, 0, 0),
+    (0, 1, 0, 0, 0, 0),
+    (0, 0, 1, 0, 0, 0),
+    (0, 0, 0, 0, 0, 1),
+    (1, 0, 0, 0, 0, 1),
+    (0, 0, 1, 0, 0, 1),
+    (0, 1, 0, 0, 0, 1),
+    (1, 1, 0, 0, 0, 0),
+    (1, 0, 1, 0, 0, 0),
+    (0, 1, 1, 0, 0, 0),
+)
+MU = sp.Symbol("mu", positive=True)
+P1, P2, P3, P4, P5, P6 = (sp.Symbol(f"p{i}^2", real=True) for i in range(1, 7))
+S12, S23, S34, S45, S123, S234, S345, S1234, S2345 = (
+    sp.Symbol(f"s{i}", real=True)
+    for i in ("12", "23", "34", "45", "123", "234", "345", "1234", "2345")
+)
+HEXAGON_Y = {
+    (1, 6): (
+        -P1 - P2 - P3 - P4 - P5 - P6 + S12 - S123 + S1234 + S23 - S234 + S2345 + S34 - S345 + S45
+    ),
+    (3, 6): -P4 - P5 - P6 - S123 + S1234 + S45,
+    (2, 6): -P3 - P4 - P5 + S34 - S345 + S45,
+    (1, 2): -P1,
+    (1, 3): -P2,
+    (2, 3): -S12,
+}
+
+
+def backends() -> list[object]:
+    """Singular when it is installed, and the SymPy fallback."""
+    return [pytest.param("singular", marks=requires_singular), "sympy"]
+
+
+class TestElimination:
+    @requires_singular
+    def test_a_hexagon_face_is_the_gram_determinant_of_its_box(self) -> None:
+        # Eliminated with mu and the fifteen invariants as variables, this face took Singular
+        # over four minutes and gave a generator of 13730 terms. Renamed, it takes a fraction
+        # of a second.
+        coefficients = [sp.Integer(1)] * 4 + [y / MU**2 for y in HEXAGON_Y.values()]
+        kinematic = set().union(*(y.free_symbols for y in HEXAGON_Y.values())) | {MU}
+        renaming, squared = _renaming(list(HEXAGON_Y.values()))
+        assert len(renaming) == 6 and not squared
+        factors, principal = _elimination_discriminant(
+            coefficients, lattice_coordinates(np.array(HEXAGON_FACE)), kinematic, scale=MU
+        )
+        # The modified Cayley matrix of the box: Y bordered by a row and a column of ones.
+        edges = (1, 2, 3, 6)
+        cayley = sp.zeros(5, 5)
+        for a, i in enumerate(edges, start=1):
+            cayley[0, a] = cayley[a, 0] = 1
+            for b, j in enumerate(edges, start=1):
+                if i != j:
+                    cayley[a, b] = HEXAGON_Y[min(i, j), max(i, j)]
+        assert principal
+        assert len(factors) == 1
+        assert len(sp.Add.make_args(factors[0])) == 145
+        assert sp.expand(cayley.det() - 2 * factors[0]) == 0
+
+    @pytest.mark.parametrize("backend", backends())
+    def test_faces_are_eliminated_at_mu_one(
+        self, backend: str, massive_bubble: FeynmanIntegral, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # With mu as a variable the polygon's elimination ideal also had a component at
+        # mu = 0, so it had two generators, whose factors added mu and the two thresholds.
+        if backend == "sympy":
+            monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
+        mu = massive_bubble.graph.energy_scale
+        faces = landau_analysis(massive_bubble).face_discriminants
+        (polygon,) = [face for face in faces if face.dimension == 2]
+        assert polygon.principal
+        assert polygon.discriminant == S
+        assert any(mu in face.discriminant.free_symbols for face in faces if face.dimension == 0)
+
+    def test_without_the_scale_mu_is_a_variable(self, massive_bubble: FeynmanIntegral) -> None:
+        symanzik = massive_bubble.symanzik
+        analysis = landau_analysis_from_polynomial(symanzik.g, list(symanzik.lp_parameters))
+        (polygon,) = [face for face in analysis.face_discriminants if face.dimension == 2]
+        assert not polygon.principal
+
+    @requires_singular
+    @pytest.mark.parametrize(
+        "cnickel", ["11e|e|:nn", "12e|2e|e|:nnn", "12e|2e|e|:nzz", "12e|3e|3e|e|:zzzz"]
+    )
+    def test_the_renaming_leaves_the_analysis_unchanged(
+        self, cnickel: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fi = FeynmanIntegral.from_cnickel(cnickel)
+        renamed = landau_analysis(fi)
+        monkeypatch.setattr(landau_module, "_renaming", lambda coefficients: ({}, False))
+        plain = landau_analysis(fi)
+        assert renamed.face_discriminants == plain.face_discriminants
+        assert set(renamed.landau_surfaces) == set(plain.landau_surfaces)
+
+
+@pytest.mark.slow
+class TestMasslessPolygons:
+    """The pentagon did not finish in forty minutes, and the hexagon raised RecursionError."""
+
+    @requires_singular
+    def test_pentagon(self) -> None:
+        analysis = landau_analysis(FeynmanIntegral.from_cnickel("12e|3e|4e|4e|e|:zzzzz"))
+        assert len(analysis.landau_surfaces) == 31
+        assert [len(face) for face in analysis.skipped_faces] == [15]
+
+    @requires_singular
+    def test_hexagon(self) -> None:
+        analysis = landau_analysis(FeynmanIntegral.from_cnickel("12e|3e|4e|5e|5e|e|:zzzzzz"))
+        assert len(analysis.landau_surfaces) == 71
+        assert len(analysis.skipped_faces) == 8

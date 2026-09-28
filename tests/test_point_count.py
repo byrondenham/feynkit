@@ -603,6 +603,29 @@ class TestCountTorusPoints:
         assert count_torus_points(g, U, scale=MU).eliminated == u2
         assert count_torus_points(bubble_g(massive=False), U, scale=MU).eliminated == u1
 
+    def test_the_square_test_takes_the_faces_it_always_took(self) -> None:
+        # Eliminated at mu = 1, the massive bubble's polygon is principal, with discriminant
+        # s; its monomials of F, on an edge, are not affinely independent, so it stays out, as
+        # it did when a component at mu = 0 made it non-principal. The count is
+        # p - 3 - (lambda/p) and does not depend on (s/p).
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        unit = {fi.graph.energy_scale: 1}
+        faces = landau_analysis(fi).face_discriminants
+        (polygon,) = [face for face in faces if face.dimension == 2]
+        edges = [face for face in faces if face.dimension == 1 and face.discriminant != 1]
+        assert polygon.principal
+        assert not pc._square_test_face(polygon, unit)
+        assert edges and all(pc._square_test_face(edge, unit) for edge in edges)
+        # A face of the one-mass triangle with two monomials of U and two of F is taken.
+        triangle = FeynmanIntegral.from_cnickel("12e|2e|e|:nzz")
+        mixed = [
+            face
+            for face in landau_analysis(triangle).face_discriminants
+            if face.dimension == 2 and len(face.exponents) == 4 and face.discriminant != 1
+        ]
+        assert mixed
+        assert all(pc._square_test_face(face, {triangle.graph.energy_scale: 1}) for face in mixed)
+
     @pytest.mark.parametrize(
         ("cnickel", "master"),
         [("12e|23|3|e|:nzzzz", 7), ("12e|22|e|:nzzz", 3), ("12ee|22e|e|:nnnn", None)],
@@ -741,6 +764,13 @@ class TestCriticalPointCount:
         with pytest.raises(ValidationError, match="timeout"):
             critical_point_count(g, U, point, timeout=0)
 
+    @pytest.mark.parametrize("timeout", [None, True, float("inf"), float("nan"), "5", 3e6])
+    def test_timeout_must_be_a_number_of_seconds(self, timeout: object) -> None:
+        # subprocess.run cannot wait past about 2.1e6 s.
+        g, point = bubble_g().subs(MU, 1), {S: 1, M1**2: 1, M2**2: 1}
+        with pytest.raises(ValidationError, match="timeout must be a number of seconds"):
+            critical_point_count(g, U, point, timeout=timeout)  # type: ignore[arg-type]
+
     def test_polynomial_vanishing_at_the_point_raises(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -820,6 +850,13 @@ class TestCriticalPointsModuloPrimes:
         fake_singular(monkeypatch, error=subprocess.TimeoutExpired(["Singular"], 7))
         with pytest.raises(ComputationError, match="timeout=7"):
             critical_point_count(self.G, U, self.POINT, timeout=7)
+
+    def test_a_timeout_of_half_a_second_reaches_singular(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen = fake_singular(monkeypatch, "3\n3\n")
+        assert critical_point_count(self.G, U, self.POINT, timeout=0.5) == 3
+        assert seen["timeout"] == 0.5
 
 
 class TestFeynmanIntegralTorusCount:

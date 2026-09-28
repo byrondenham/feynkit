@@ -957,7 +957,15 @@ of the integral (Klausen 2023, lemma "Landau variety contained in Sing"). feynki
 - an edge contributes the discriminant of $G_\tau$ as a univariate polynomial in the lattice
   coordinate along the edge, $\Delta(P) = \mathrm{Res}(P, P') / \mathrm{lc}(P)^{\deg P - 1}$;
 - any other face contributes the elimination ideal of $\{G_\tau = 0,\ u_i \partial_i G_\tau = 0\}$ in
-  the torus, computed with a Gröbner basis (Singular when installed, SymPy otherwise).
+  the torus, computed with a Gröbner basis (Singular when installed, SymPy otherwise) at $\mu = 1$.
+  On a face the degree in $u$, less $L$, is an affine function of the exponents, so rescaling $\mu$
+  is a torus action on the coefficients and loses nothing but the factor $\mu$. When the distinct
+  coefficients of $G_\tau$ that are not constant are linearly independent linear forms in the
+  kinematic symbols, or in the squares of those that occur only squared, each is replaced by a
+  fresh symbol: completed to a basis of the linear forms, they are new coordinates on the
+  polynomial ring, and the others are free variables, which elimination leaves alone, so the
+  generators in the fresh symbols, with the forms substituted back, generate the elimination
+  ideal.
 
 In lattice coordinates the exponent of a point $\alpha_0 + k v$ on an edge with primitive direction
 $v$ is $k = \langle \alpha - \alpha_0, v \rangle / \langle v, v \rangle$, not $\langle \alpha, v \rangle$.

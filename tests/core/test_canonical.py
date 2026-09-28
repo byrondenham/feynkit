@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import itertools
 import random
-import sys
 import time
 import tracemalloc
 from collections import Counter, defaultdict
@@ -326,7 +325,7 @@ def test_tie_orders_come_one_at_a_time() -> None:
     finally:
         tracemalloc.stop()
     assert first == tuple(range(10))
-    assert peak < 2**20
+    assert peak < 2**18
 
 
 @pytest.mark.parametrize(
@@ -352,24 +351,24 @@ def test_graph_automorphisms_check_every_candidate(
     assert compute_graph_automorphisms(graph) == scan_graph_automorphisms(graph)
 
 
-@pytest.mark.slow
-def test_the_wheel_with_eleven_spokes() -> None:
-    # The eleven neighbours of the hub tie, and building their 11! orders at
-    # once took about 6 GB.
-    resource = pytest.importorskip("resource")
-    rim = 11
+def test_the_hub_of_a_wheel_does_not_build_its_tie_orders_at_once() -> None:
+    # The seven neighbours of the hub tie. Building their 7! orders at once
+    # took 0.7 MiB here and about 6 GB for the wheel with eleven spokes.
+    rim = 7
     ends = [(1, k + 2) for k in range(rim)] + [(k + 2, (k + 1) % rim + 2) for k in range(rim)]
     edges = [Edge(idx=j + 1, v1=u, v2=w, is_internal=True) for j, (u, w) in enumerate(ends)]
     graph = Graph(internal_vertices=rim + 1, external_legs=0, edges=edges)
-    unit = 1 if sys.platform == "darwin" else 1024  # ru_maxrss is in bytes or KiB
-    before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * unit
-    automorphisms = compute_graph_automorphisms(graph)
-    grown = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * unit - before
+    tracemalloc.start()
+    try:
+        automorphisms = compute_graph_automorphisms(graph)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
     dihedral = [
         [1, *((r + s * p) % rim + 2 for p in range(rim))] for r in range(rim) for s in (1, -1)
     ]
     assert automorphisms == sorted(dihedral)
-    assert grown < 2**30
+    assert peak < 2**18
 
 
 def exhaustive_naming(groups: list[list[str | int]]) -> str:

@@ -1478,7 +1478,7 @@ output feynkit cannot read raise `ComputationError`.
 | `face.coefficients` | `tuple[sp.Expr, ...]` | Kinematic coefficients |
 | `face.discriminant` | `sp.Expr` | Discriminant of the restriction, 1 if trivial |
 | `face.is_simplex` | `bool` | Lattice points affinely independent |
-| `face.principal` | `bool` | Elimination ideal had a single generator |
+| `face.principal` | `bool` | Elimination ideal had a single generator; with several, the discriminant holds the factors of their greatest common divisor |
 
 ---
 

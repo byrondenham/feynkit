@@ -667,21 +667,27 @@ class TestCountTorusPoints:
             }
 
     @pytest.mark.parametrize(
-        ("cnickel", "master"),
-        [("12e|23|3|e|:nzzzz", 7), ("12e|22|e|:nzzz", 3), ("12ee|22e|e|:nnnn", None)],
+        ("cnickel", "master", "odd"),
+        [
+            ("12e|23|3|e|:nzzzz", 7, True),
+            ("12e|22|e|:nzzz", 3, False),
+            ("12ee|22e|e|:nnnn", None, False),
+        ],
     )
-    def test_face_discriminants_odd_in_a_mass(self, cnickel: str, master: int | None) -> None:
+    def test_face_discriminants_odd_in_a_mass(
+        self, cnickel: str, master: int | None, odd: bool
+    ) -> None:
         # The Landau analysis factorises in the masses, so a factor m_1^2 of a discriminant
         # becomes m_1; the count multiplies such a discriminant by its image under
-        # m_1 -> -m_1, a polynomial in m_1^2. Faces of more than 5 points are skipped to save
-        # time; enough odd discriminants remain. The candidates 7 and 3 agree with counts at
-        # further primes; the last graph's result is not pinned.
+        # m_1 -> -m_1, a polynomial in m_1^2. Faces of more than 6 points are skipped to save
+        # time; the kite keeps a face whose discriminant is m_1. The candidates 7 and 3 agree
+        # with counts at further primes; the last graph's result is not pinned.
         fi = FeynmanIntegral.from_cnickel(cnickel)
         g, mu = fi.symanzik.g, fi.graph.energy_scale
         variables = list(fi.symanzik.lp_parameters)
-        analysis = landau_analysis_from_polynomial(g, variables, scale=mu, max_face_points=5)
+        analysis = landau_analysis_from_polynomial(g, variables, scale=mu, max_face_points=6)
         masses = [x for x in g.free_symbols if x.name.startswith("m_")]
-        assert any(
+        assert odd == any(
             sp.expand(face.discriminant.subs(m, -m) - face.discriminant) != 0
             for face in analysis.face_discriminants
             for m in masses

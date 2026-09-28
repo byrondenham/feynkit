@@ -74,6 +74,16 @@
   discriminant s, where it gave mu s (s - (m_1 + m_2)^2) (s - (m_1 - m_2)^2).
   The report's lists by face dimension shrink with them. The Landau surfaces
   are unchanged on every graph tried.
+- When the elimination ideal of a face has several generators, the Landau
+  analysis takes the factors of their greatest common divisor, the
+  codimension-one part of their common zeros, where it took every factor of
+  every generator, some of which are not components. The Landau surfaces lose
+  such factors: m_1 - m_2, m_1 + m_2 and a quartic for `11e|2|e|:nnz`. On the
+  massive kite of the principal Landau determinant database of Fevola, Mizera
+  and Telen the face computation now gives exactly the ten components the
+  database computed from faces, where it gave fourteen factors. The
+  discriminants of such faces shrink, and the report's lists by face dimension
+  with them.
 
 ### Added
 

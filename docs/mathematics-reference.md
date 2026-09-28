@@ -970,7 +970,9 @@ of the integral (Klausen 2023, lemma "Landau variety contained in Sing"). feynki
   replaced by a fresh symbol: completed to a basis of the linear forms, they are new coordinates
   on the polynomial ring, and the others are free variables, which elimination leaves alone, so the
   generators in the fresh symbols, with the forms substituted back, generate the elimination
-  ideal.
+  ideal. The face contributes the irreducible factors of its generator or, when it has several,
+  of their greatest common divisor: an irreducible $h$ defines a codimension-one component of
+  $V(g_1, \ldots, g_k)$ exactly when it divides every $g_i$.
 
 In lattice coordinates the exponent of a point $\alpha_0 + k v$ on an edge with primitive direction
 $v$ is $k = \langle \alpha - \alpha_0, v \rangle / \langle v, v \rangle$, not $\langle \alpha, v \rangle$.

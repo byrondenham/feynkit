@@ -9,6 +9,7 @@ modified Cayley matrix. Face-by-face computation must reproduce it.
 from __future__ import annotations
 
 import itertools
+import re
 import subprocess
 from pathlib import Path
 
@@ -31,6 +32,8 @@ from feynkit.landau import (
     one_loop_principal_a_determinant,
 )
 from feynkit.polytope import lattice_coordinates
+from feynkit.systems.monomial import extract_monomial_support
+from tests.test_pld import _NAME, FIXTURES, _python
 
 requires_singular = pytest.mark.skipif(_singular_binary() is None, reason="Singular not installed")
 
@@ -621,7 +624,7 @@ class TestElimination:
         assert analysis.landau_surfaces == landau_analysis(massive_bubble).landau_surfaces
 
     @requires_singular
-    @pytest.mark.parametrize(("cnickel", "count"), [("12e|2e|e|:zzz", 3), ("12e|2e|e|:nnn", 19)])
+    @pytest.mark.parametrize(("cnickel", "count"), [("12e|2e|e|:zzz", 3), ("12e|2e|e|:nnn", 15)])
     def test_kinematics_with_the_scale_keep_it_a_variable(self, cnickel: str, count: int) -> None:
         # At p_1^2 = mu^2 a coefficient of F is no longer a power of mu times kinematics free
         # of it, and eliminating at mu = 1 gave lambda(1, p_2^2, p_3^2).
@@ -658,3 +661,93 @@ class TestMasslessPolygons:
         analysis = landau_analysis(FeynmanIntegral.from_cnickel("12e|3e|4e|5e|5e|e|:zzzzzz"))
         assert len(analysis.landau_surfaces) == 71
         assert len(analysis.skipped_faces) == 8
+
+
+def pld_entry(name: str) -> tuple[sp.Expr, list[sp.Symbol], set[sp.Expr]]:
+    """U + F of a committed database entry, its variables, and the irreducible factors of the
+    components the database computed from faces, with PLD_sym or PLD_num."""
+    text = (FIXTURES / f"{name}.txt").read_text(encoding="utf-8")
+    fields = dict(re.findall(r"^(\w+) = (.+?)\s*$", text.split("# Component 1")[0], re.M))
+    names = [_python(n) for n in _NAME.findall(fields["variables"] + fields["parameters"])]
+    symbols = {n: sp.Symbol(n) for n in names}
+    variables = [symbols[_python(n)] for n in _NAME.findall(fields["variables"])]
+    g = sp.sympify(_python(fields["U"]), locals=symbols) + sp.sympify(
+        _python(fields["F"]), locals=symbols
+    )
+    methods = dict(re.findall(r"^computed_with\[(\d+)\] = (.+?)\s*$", text, re.M))
+    components: set[sp.Expr] = set()
+    for k, component in re.findall(r"^D\[(\d+)\] = (.+?)\s*$", text, re.M):
+        if "PLD_sym" in methods[k] or "PLD_num" in methods[k]:
+            polynomial = sp.sympify(_python(component), locals=symbols)
+            components.update(base for base, _ in sp.factor_list(polynomial)[1])
+    return g, variables, components
+
+
+# The face of the database's massive kite on which x_3 = 0: fourteen monomials of F.
+KITE_FACE = (
+    (2, 1, 0, 0, 0),
+    (2, 0, 0, 0, 1),
+    (1, 2, 0, 0, 0),
+    (0, 2, 0, 1, 0),
+    (0, 2, 0, 0, 1),
+    (0, 1, 0, 2, 0),
+    (0, 0, 0, 2, 1),
+    (1, 0, 0, 0, 2),
+    (0, 1, 0, 0, 2),
+    (0, 0, 0, 1, 2),
+    (1, 1, 0, 1, 0),
+    (1, 0, 0, 1, 1),
+    (0, 1, 0, 1, 1),
+    (1, 1, 0, 0, 1),
+)
+
+
+class TestSeveralGenerators:
+    """With several generators, a face contributes the factors of their greatest common
+    divisor, the codimension-one part of their common zeros."""
+
+    @requires_singular
+    def test_a_kite_face(self) -> None:
+        # Every factor of every generator gave lambda(m_1, m_2, m_5), a threshold of a
+        # sub-bubble, and two factors that are not components; only s divides them all.
+        g, variables, _ = pld_entry("kite_generic_generic")
+        support = dict(extract_monomial_support(sp.expand(g), variables))
+        factors, principal = _elimination_discriminant(
+            [support[point] for point in KITE_FACE],
+            lattice_coordinates(np.array(KITE_FACE)),
+            g.free_symbols - set(variables),
+        )
+        assert (factors, principal) == ([sp.Symbol("s")], False)
+
+    @pytest.mark.parametrize("backend", backends())
+    def test_generators_without_a_common_factor(
+        self, backend: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A massive bubble with a massless bridge: on this face the three generators are s^2,
+        # s (m_1^2 - m_2^2) and a quartic, which share no factor.
+        if backend == "sympy":
+            monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
+        fi = FeynmanIntegral.from_cnickel("11e|2|e|:nnz")
+        points = {(2, 0, 0), (0, 2, 0), (1, 1, 0), (1, 0, 1), (0, 1, 1)}
+        analysis = landau_analysis(fi)
+        (face,) = [f for f in analysis.face_discriminants if set(f.exponents) == points]
+        assert face.discriminant == 1
+        assert not face.principal
+        m1, m2, _ = (edge.get_mass() for edge in fi.graph.get_internal_edges())
+        assert not {m1 - m2, m1 + m2} & set(analysis.landau_surfaces)
+
+    @requires_singular
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "par_zero_generic",
+            "A4_zero_generic",
+            pytest.param("kite_generic_generic", marks=pytest.mark.slow),
+        ],
+    )
+    def test_the_database_components_from_faces(self, name: str) -> None:
+        # The kite's polytope itself, 34 points, is skipped here as in the database, whose
+        # three other components come from HyperInt alone.
+        g, variables, components = pld_entry(name)
+        analysis = landau_analysis_from_polynomial(g, variables, max_face_points=30)
+        assert set(analysis.landau_surfaces) == components

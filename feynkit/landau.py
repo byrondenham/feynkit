@@ -24,8 +24,11 @@ Faces contribute as follows.
   independent linear forms in the kinematic symbols or in the squares of
   those that occur only squared, in fresh
   symbols standing for them, a change of coordinates that keeps the
-  Gröbner basis small. Faces with more points than ``max_face_points``
-  are skipped and listed in ``LandauAnalysis.skipped_faces``.
+  Gröbner basis small. It contributes the factors of the generator or,
+  when there are several, of their greatest common divisor, the
+  codimension-one part of their zero set. Faces with more points than
+  ``max_face_points`` are skipped and listed in
+  ``LandauAnalysis.skipped_faces``.
 
 The factors are candidate codimension-one singular loci on all sheets of the
 integral. Membership is necessary for a singularity, not sufficient, and
@@ -97,8 +100,10 @@ class FaceDiscriminant:
     principal
         True when the discriminant was obtained as a single generator. For
         faces of dimension two or more it is False when the elimination
-        ideal needed more than one generator; the product of their
-        kinematic factors is then reported.
+        ideal needed more than one generator; the discriminant is then the
+        product of the kinematic factors of their greatest common divisor,
+        since an irreducible polynomial defines a codimension-one component
+        of their common zero set exactly when it divides every generator.
     """
 
     dimension: int
@@ -424,9 +429,13 @@ def _elimination_discriminant(
     """Kinematic locus where f = sum c_k t^{e_k} has a singular point in the torus.
 
     Returns (distinct kinematic factors, principal) where principal is True
-    when the elimination ideal had at most one generator. Uses Singular when
-    installed and ``backend`` is "auto" or "singular", else SymPy;
-    ``timeout`` limits each Singular run, in seconds.
+    when the elimination ideal had at most one generator. The factors are
+    those of the generator or, when there are several, of their greatest
+    common divisor: an irreducible polynomial defines a codimension-one
+    component of their common zeros exactly when it divides every one of
+    them. Uses Singular when installed and ``backend`` is "auto" or
+    "singular", else SymPy; ``timeout`` limits each Singular run, in
+    seconds.
 
     The coefficients are taken at ``scale`` = 1, which the caller passes
     only when :func:`_unit_scale_is_exact`: rescaling the scale is then a
@@ -474,16 +483,18 @@ def _elimination_discriminant(
     # order sp.Poly gives the symbols; factoring in that order normalises these factors as
     # _factor_list normalises those of the other faces.
     order = sp.Poly(sp.Add(*kin)).gens
+    common = eliminated[0]
+    for g in eliminated[1:]:
+        common = common.gcd(g)
     factors: dict[sp.Expr, None] = {}
-    for g in eliminated:
-        for fac, _exp in g.reorder(*order).factor_list()[1]:
-            if back:
-                image = sp.expand(fac.as_expr().xreplace(back))
-                pieces = _factor_list(image, kinematic_syms) if squared else [_normalised(image)]
-                for piece in pieces:
-                    factors.setdefault(piece, None)
-            elif fac.free_symbols & kinematic_syms:
-                factors.setdefault(fac.as_expr(), None)
+    for fac, _exp in common.reorder(*order).factor_list()[1]:
+        if back:
+            image = sp.expand(fac.as_expr().xreplace(back))
+            pieces = _factor_list(image, kinematic_syms) if squared else [_normalised(image)]
+            for piece in pieces:
+                factors.setdefault(piece, None)
+        elif fac.free_symbols & kinematic_syms:
+            factors.setdefault(fac.as_expr(), None)
     return list(factors), len(eliminated) == 1
 
 

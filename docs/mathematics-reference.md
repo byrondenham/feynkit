@@ -994,6 +994,13 @@ only the normal and pseudo-normal thresholds; for massless internal lines every 
 and the edge part is trivial (Fevola, Mizera, Telen 2023, lemma 4.10). `one_loop_landau_surfaces`
 implements the closed form and the test-suite checks the face computation against it.
 
+A graph with bridges, internal edges on no cycle, factorises. Each bridge $b$ carries the momentum
+$q_b$ of the legs on its side away from the cycle, so the integral is that of the cycle, with the
+legs of each tree moved to the vertex where the tree meets the cycle, times the propagator
+$1/(m_b^2 - q_b^2)^{\nu_b}$, and $G = U_C \bigl(1 + \sum_b (m_b^2 - q_b^2) u_b / \mu^2\bigr) + F$ with
+$U_C$ and $F$ those of the cycle. The closed form is then that of the cycle times the poles
+$m_b^2 - q_b^2$, which `one_loop_bridge_poles` returns and `one_loop_landau_surfaces` includes.
+
 ### 10.3 Caveats
 
 The factors are candidate codimension-one loci on all sheets of the integral. A point on one of

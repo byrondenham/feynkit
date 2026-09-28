@@ -948,6 +948,17 @@ def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
                     "in both lists."
                 )
             )
+        if factors.bridge_poles:
+            blocks += [
+                _paragraph(
+                    "The graph has bridges, propagators on no loop. The closed form is that of "
+                    "its cycle, with the legs of each tree attached to the cycle moved to the "
+                    "vertex where the tree meets it, and each bridge b adds the pole "
+                    "m_b^2 = q_b^2 of its propagator, q_b being the momentum through it. The "
+                    "bridge poles, which the faces give as well, are"
+                ),
+                _expressions(factors.bridge_poles),
+            ]
     blocks.append(
         _paragraph(
             "The factors are candidate codimension-one singular loci on all sheets of the "

@@ -839,6 +839,14 @@ def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
                 f"{count_noun(shared, 'factor')} {'appears' if shared == 1 else 'appear'} in both "
                 "lists."
             )
+        if factors.bridge_poles:
+            text += (
+                "\nThe graph has bridges, propagators on no loop. The closed form is that of its "
+                "cycle, with the legs of each tree attached to the cycle moved to the vertex "
+                "where the tree meets it, and each bridge $b$ adds the pole $m_b^2 = q_b^2$ of "
+                "its propagator, $q_b$ being the momentum through it. The bridge poles, which "
+                "the faces give as well, are\n" + _factor_lines(factors.bridge_poles)
+            )
         parts.append(text)
     parts.append(
         "The factors are candidate codimension-one singular loci on all sheets of the "

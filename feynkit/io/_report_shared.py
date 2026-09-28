@@ -374,11 +374,13 @@ class LandauFactors(NamedTuple):
         ascending, for the dimensions that have any.
     closed_form
         Whether the one-loop closed form gave first-type or second-type
-        factors, so that the section compares against it.
+        factors or bridge poles, so that the section compares against it.
     first_type, second_type
         The distinct Cayley and Gram factors.
     in_both
         How many factors appear in both lists.
+    bridge_poles
+        The distinct factors of the poles of the bridges.
     """
 
     by_dimension: list[tuple[int, list[sp.Expr]]]
@@ -386,6 +388,7 @@ class LandauFactors(NamedTuple):
     first_type: list[sp.Expr]
     second_type: list[sp.Expr]
     in_both: int
+    bridge_poles: list[sp.Expr]
 
 
 def landau_factors(landau: Landau, scale: sp.Symbol) -> LandauFactors:
@@ -401,10 +404,11 @@ def landau_factors(landau: Landau, scale: sp.Symbol) -> LandauFactors:
     second = factors(landau.second_type)
     return LandauFactors(
         by_dimension=[(dimension, listed) for dimension, listed in by_dimension if listed],
-        closed_form=bool(landau.first_type or landau.second_type),
+        closed_form=bool(landau.first_type or landau.second_type or landau.bridge_poles),
         first_type=first,
         second_type=second,
         in_both=len(set(first) & set(second)),
+        bridge_poles=factors(landau.bridge_poles),
     )
 
 

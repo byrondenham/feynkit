@@ -125,6 +125,10 @@
 - `landau_analysis` and `landau_analysis_from_polynomial` take `timeout`, the
   most seconds Singular may spend eliminating one face; None, the default, sets
   no limit.
+- `one_loop_bridge_poles(integral)` returns the factors of the poles
+  m_b^2 = q_b^2 of the bridges of a one-loop graph, the internal edges on no
+  cycle, q_b being the momentum through bridge b. The report's Landau section
+  lists them after the closed form's first-type and second-type factors.
 
 ### Changed
 
@@ -194,6 +198,11 @@
   At mu = 1 the square test of `count_torus_points` leaves out a principal face
   with monomials of U and of F whose monomials of F are affinely dependent, so
   that on every graph tried it takes the same factors as before.
+- `one_loop_landau_surfaces` and `one_loop_principal_a_determinant` include
+  the bridge poles, so that they agree with the face computation on graphs
+  with bridges. `one_loop_landau_surfaces_by_type` describes the cycle, with
+  the legs of each tree attached to it moved to the vertex where the tree
+  meets it.
 
 ### Fixed
 
@@ -315,6 +324,12 @@
   finished after forty minutes, and that of the massless hexagon
   `12e|3e|4e|5e|5e|e|:zzzzzz` failed after about six. They take about 3 s and
   15 s.
+- The one-loop closed form, and with it `fk analyse` and the report, raised
+  `KeyError` for a graph with a bridge and a leg beyond it, such as
+  `01e|e|:zn`, and gave wrong factors when the first internal edge was a
+  bridge, as for `1e|22|e|:nnn`, whose cycle it took to have four edges. A
+  disconnected graph that feynkit counts as one loop, such as `11e|e|33e|e|`,
+  raises `ValueError`.
 
 ## 0.4.0 (2026-09-27)
 

@@ -17,16 +17,18 @@ import numpy as np
 import pytest
 import sympy as sp
 
-from feynkit import FeynmanIntegral, landau_analysis, landau_analysis_from_polynomial
+from feynkit import Edge, FeynmanIntegral, Graph, landau_analysis, landau_analysis_from_polynomial
 from feynkit import landau as landau_module
 from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.kinematics.mandelstam import standard_invariants
 from feynkit.landau import (
     _eliminate_singular,
     _elimination_discriminant,
+    _one_loop_cycle,
     _read_singular_polynomial,
     _renaming,
     _singular_binary,
+    one_loop_bridge_poles,
     one_loop_landau_surfaces,
     one_loop_landau_surfaces_by_type,
     one_loop_principal_a_determinant,
@@ -751,3 +753,86 @@ class TestSeveralGenerators:
         g, variables, components = pld_entry(name)
         analysis = landau_analysis_from_polynomial(g, variables, max_face_points=30)
         assert set(analysis.landau_surfaces) == components
+
+
+class TestBridges:
+    """A bridge is an internal edge on no cycle. The closed form covers the cycle, with the legs
+    of each tree moved to the vertex where it meets the cycle, and each bridge adds its pole."""
+
+    def test_a_self_loop_with_a_bridge(self) -> None:
+        # A massless self-loop at vertex 1 and a massive bridge to vertex 2: the old walk
+        # stopped after the self-loop, and the leg at vertex 2 raised KeyError.
+        fi = FeynmanIntegral.from_cnickel("01e|e|:zn")
+        edges, legs, bridges = _one_loop_cycle(fi)
+        assert [e.idx for e in edges] == [1]
+        assert legs == [[1, 2]]
+        assert [(e.idx, far) for e, far in bridges] == [(2, [2])]
+        m2 = fi.graph.get_internal_edges()[1].get_mass()
+        assert one_loop_bridge_poles(fi) == (S - m2**2,)
+        assert one_loop_landau_surfaces_by_type(fi) == ((), ())
+        assert one_loop_landau_surfaces(fi) == (S - m2**2,)
+
+    def test_a_bridge_as_the_first_edge(self) -> None:
+        # A bridge from vertex 1 to a massive bubble on vertices 2 and 3. The old walk started
+        # along the bridge and returned it twice among four edges.
+        fi = FeynmanIntegral.from_cnickel("1e|22|e|:nnn")
+        edges, legs, bridges = _one_loop_cycle(fi)
+        assert [e.idx for e in edges] == [2, 3]
+        assert legs == [[1], [2]]
+        assert [(e.idx, far) for e, far in bridges] == [(1, [1])]
+
+    def test_a_path_of_bridges(self) -> None:
+        # A triangle with two bridges in a row, 3-4 and 4-5, leg 3 at the far end.
+        fi = FeynmanIntegral.from_cnickel("12e|2e|3|4|e|:nnnnn")
+        edges, legs, bridges = _one_loop_cycle(fi)
+        assert sorted(e.idx for e in edges) == [1, 2, 3]
+        assert sorted(legs) == [[1], [2], [3]]
+        assert [(e.idx, far) for e, far in bridges] == [(4, [3]), (5, [3])]
+        assert len(one_loop_bridge_poles(fi)) == 2
+
+    @requires_singular
+    def test_a_bridge_to_a_vertex_without_legs(self) -> None:
+        # CNickel cannot write it: a massive bridge from vertex 3 of a triangle to a bare
+        # vertex 4 carries no momentum, so its pole is m_4^2.
+        m4 = sp.Symbol("m_4", positive=True)
+        edges = [
+            Edge(idx=1, v1=1, v2=2, is_internal=True),
+            Edge(idx=2, v1=2, v2=3, is_internal=True),
+            Edge(idx=3, v1=1, v2=3, is_internal=True),
+            Edge(idx=4, v1=3, v2=4, is_internal=True, mass=m4),
+            *(Edge(idx=4 + v, v1=v, v2=4 + v, is_internal=False) for v in (1, 2, 3)),
+        ]
+        fi = FeynmanIntegral(Graph(internal_vertices=4, external_legs=3, edges=edges))
+        assert _one_loop_cycle(fi)[2] == [(edges[3], [])]
+        assert one_loop_bridge_poles(fi) == (m4,)
+        assert _same_surfaces(fi)
+
+    def test_no_bridges(self, massive_bubble: FeynmanIntegral) -> None:
+        assert _one_loop_cycle(massive_bubble)[2] == []
+        assert one_loop_bridge_poles(massive_bubble) == ()
+
+    def test_bridge_poles_reject_two_loops(self) -> None:
+        with pytest.raises(ValueError, match="one-loop"):
+            one_loop_bridge_poles(FeynmanIntegral.from_cnickel("11e|2|33|e|:nnnnn"))
+
+    def test_a_disconnected_graph_is_rejected(self) -> None:
+        # Two bubbles with no edge between them count as one loop by E - V + 1.
+        with pytest.raises(ValueError, match="connected"):
+            one_loop_landau_surfaces(FeynmanIntegral.from_cnickel("11e|e|33e|e|"))
+
+    @requires_singular
+    @pytest.mark.parametrize(
+        "cnickel",
+        [
+            "01e|e|:zn",
+            "11e|2|e|:nnn",
+            "11e|2|e|:nnz",
+            "1e|22|e|:nnn",
+            "12e|2e|3|e|:nnnz",
+            "12e|2e|3|4|e|:zzznn",
+        ],
+    )
+    def test_faces_give_the_closed_form_and_the_bridge_poles(self, cnickel: str) -> None:
+        # With a massless bridge, 11e|2|e|:nnz and 12e|2e|3|e|:nnnz need the rule for several
+        # generators: every factor of every generator added m_1 - m_2, m_1 + m_2 and a quartic.
+        assert _same_surfaces(FeynmanIntegral.from_cnickel(cnickel))

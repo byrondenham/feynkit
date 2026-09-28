@@ -38,7 +38,12 @@ from .. import _exact
 from ..a_configuration import SymmetryPair
 from ..core.exceptions import ValidationError
 from ..kinematics.mandelstam import KinematicInvariants, standard_invariants
-from ..landau import LandauAnalysis, landau_analysis, one_loop_landau_surfaces_by_type
+from ..landau import (
+    LandauAnalysis,
+    landau_analysis,
+    one_loop_bridge_poles,
+    one_loop_landau_surfaces_by_type,
+)
 from ..normal_forms.polytope_automorphisms import coefficient_preserving_indices
 from ..parametrisations.base import ParametrisationResult
 from ..point_count import TorusCount
@@ -325,11 +330,16 @@ class Landau:
         ascending, each group free of repeats.
     first_type, second_type
         The Cayley and Gram factors of the one-loop closed form; both empty
-        for more than one loop, where no closed form is available.
+        for more than one loop, where no closed form is available. For a
+        graph with bridges they are those of its cycle.
     skipped
         One (dimension, number of points, whether it is P itself) triple per
         face left out as too large to eliminate, in the order of
         ``analysis.skipped_faces``.
+    bridge_poles
+        The factors of the poles m_b^2 = q_b^2 of the bridges of a one-loop
+        graph, from :func:`~feynkit.landau.one_loop_bridge_poles`; empty
+        without bridges or for more than one loop.
     """
 
     analysis: LandauAnalysis
@@ -337,6 +347,7 @@ class Landau:
     first_type: tuple[sp.Expr, ...]
     second_type: tuple[sp.Expr, ...]
     skipped: tuple[tuple[int, int, bool], ...] = ()
+    bridge_poles: tuple[sp.Expr, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -503,8 +514,10 @@ def _landau(fi: FeynmanIntegral, analysis: LandauAnalysis) -> Landau:
             distinct.append(face.discriminant)
     first: tuple[sp.Expr, ...] = ()
     second: tuple[sp.Expr, ...] = ()
+    poles: tuple[sp.Expr, ...] = ()
     if fi.loop_count == 1:
         first, second = one_loop_landau_surfaces_by_type(fi)
+        poles = one_loop_bridge_poles(fi)
     dimensions = [_affine_dimension(face) for face in analysis.skipped_faces]
     # Only P itself has the top dimension among the faces.
     top = max([face.dimension for face in analysis.face_discriminants] + dimensions, default=0)
@@ -517,6 +530,7 @@ def _landau(fi: FeynmanIntegral, analysis: LandauAnalysis) -> Landau:
             (d, len(face), d == top)
             for d, face in zip(dimensions, analysis.skipped_faces, strict=True)
         ),
+        bridge_poles=poles,
     )
 
 

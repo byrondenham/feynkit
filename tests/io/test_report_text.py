@@ -669,6 +669,18 @@ def test_vacuum_graphs_have_no_external_momenta(tadpole: FeynmanIntegral) -> Non
             assert "kinematics is written" not in flat
 
 
+def test_bridge_poles_are_listed() -> None:
+    # A massless self-loop with a massive bridge: the whole report used to raise KeyError.
+    fi = FeynmanIntegral.from_cnickel("01e|e|:zn")
+    text, latex = fi.to_text(), fi.to_latex(["landau"])
+    lead = "The bridge poles, which the faces give as well, are"
+    assert f"{lead} -m_2^2 + s The factors are candidate" in _flat(text)
+    assert f"{lead}\n\\begin{{align*}}\n&- m_{{2}}^{{2}} + s\n\\end{{align*}}" in latex
+    for document in (text, latex):
+        assert "and there are no second-type (Gram) factors." in _flat(document)
+    assert "bridge" not in FeynmanIntegral.from_cnickel("11e|e|:nn").to_text(["landau"])
+
+
 def test_an_empty_factor_list_ends_its_sentence(tadpole: FeynmanIntegral) -> None:
     # A tadpole has a Cayley factor but no Gram factor.
     for document in (tadpole.to_latex(["landau"]), tadpole.to_text(["landau"])):

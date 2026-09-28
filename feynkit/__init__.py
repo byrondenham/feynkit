@@ -93,6 +93,7 @@ from feynkit.landau import (
     LandauAnalysis,
     landau_analysis,
     landau_analysis_from_polynomial,
+    one_loop_bridge_poles,
     one_loop_landau_surfaces,
     one_loop_landau_surfaces_by_type,
     one_loop_principal_a_determinant,

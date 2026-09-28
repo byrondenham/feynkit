@@ -38,7 +38,9 @@ the list is neither complete for physical sheets nor guaranteed exhaustive
 For one-loop graphs, :func:`one_loop_principal_a_determinant` gives the
 closed form of Dlapa, Helmer, Papathanasiou and Tellander (2023, eq.
 1LoopEA): the product of the principal minors of the modified Cayley
-matrix. It is used as an independent check of the face computation.
+matrix of the cycle and, for a graph with bridges, the poles of the
+bridges' propagators. It is used as an independent check of the face
+computation.
 """
 
 from __future__ import annotations
@@ -47,6 +49,7 @@ import numbers
 import re
 import subprocess
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from fractions import Fraction
 from itertools import combinations
@@ -71,6 +74,7 @@ __all__ = [
     "LandauAnalysis",
     "landau_analysis",
     "landau_analysis_from_polynomial",
+    "one_loop_bridge_poles",
     "one_loop_landau_surfaces",
     "one_loop_landau_surfaces_by_type",
     "one_loop_principal_a_determinant",
@@ -658,35 +662,96 @@ def landau_analysis(
 # --- one-loop closed form ----------------------------------------------------
 
 
-def _one_loop_cycle(integral: FeynmanIntegral) -> tuple[list[Edge], list[list[int]]]:
-    """Internal edges in cycle order and, for each cycle vertex, the legs attached to it."""
+def _one_loop_cycle(
+    integral: FeynmanIntegral,
+) -> tuple[list[Edge], list[list[int]], list[tuple[Edge, list[int]]]]:
+    """The cycle of a one-loop graph and the trees attached to it.
+
+    Returns the internal edges of the cycle in cycle order; for each vertex
+    of the cycle, the legs at it or on the tree attached to it there; and
+    each bridge, an internal edge on no cycle, with the legs on its side away
+    from the cycle, in internal-edge order. Removing a vertex on a single
+    internal edge, a leaf, and carrying its legs to its neighbour until no
+    leaf is left leaves the cycle; the edges removed are the bridges. A
+    self-loop counts twice at its vertex, which is therefore never a leaf.
+
+    Raises
+    ------
+    ValueError
+        If the edges left are not one cycle, as for a disconnected graph.
+    """
     graph = integral.graph
     internal = graph.get_internal_edges()
     n_int = graph.internal_vertices
-    adjacency: dict[int, list[tuple[int, Edge]]] = {v: [] for v in range(1, n_int + 1)}
-    for e in internal:
-        adjacency[e.v1].append((e.v2, e))
-        adjacency[e.v2].append((e.v1, e))
-    if len(internal) == 1:  # tadpole: a single self-loop
-        return internal, [[ext.v2 - n_int for ext in graph.get_external_edges()]]
-    start = internal[0].v1
-    order_edges: list[Edge] = []
-    order_vertices: list[int] = [start]
-    prev_edge: Edge | None = None
-    v = start
+    legs: dict[int, list[int]] = {v: [] for v in range(1, n_int + 1)}
+    for ext in graph.get_external_edges():
+        legs[ext.v1].append(ext.v2 - n_int)
+    incident: dict[int, list[int]] = {v: [] for v in legs}
+    for k, e in enumerate(internal):
+        incident[e.v1].append(k)
+        incident[e.v2].append(k)
+
+    def other_end(k: int, v: int) -> int:
+        return internal[k].v2 if internal[k].v1 == v else internal[k].v1
+
+    bridges: list[tuple[int, list[int]]] = []
+    leaves = [v for v, ks in incident.items() if len(ks) == 1]
+    while leaves:
+        v = leaves.pop()
+        (k,) = incident.pop(v)
+        w = other_end(k, v)
+        bridges.append((k, list(legs[v])))
+        legs[w].extend(legs.pop(v))
+        incident[w].remove(k)
+        if len(incident[w]) == 1:
+            leaves.append(w)
+    cycle = [k for k, e in enumerate(internal) if e.v1 in incident and e.v2 in incident]
+    start = internal[cycle[0]].v1
+    order_edges: list[int] = []
+    order_vertices = [start]
+    v, previous = start, -1
     while True:
-        nxt = next((w, e) for (w, e) in adjacency[v] if e is not prev_edge)
-        w, e = nxt
-        order_edges.append(e)
-        prev_edge = e
-        v = w
+        k = next(k for k in incident[v] if k != previous)
+        order_edges.append(k)
+        previous = k
+        v = other_end(k, v)
         if v == start:
             break
         order_vertices.append(v)
-    legs_at: dict[int, list[int]] = {v: [] for v in order_vertices}
-    for ext in graph.get_external_edges():
-        legs_at[ext.v1].append(ext.v2 - n_int)
-    return order_edges, [legs_at[v] for v in order_vertices]
+    if len(order_edges) != len(cycle):
+        raise ValueError("The closed form applies to connected one-loop graphs only")
+    return (
+        [internal[k] for k in order_edges],
+        [legs[v] for v in order_vertices],
+        [(internal[k], far) for k, far in sorted(bridges)],
+    )
+
+
+def _momentum_squared(integral: FeynmanIntegral) -> Callable[[list[int]], sp.Expr]:
+    """The square of the total momentum of a set of legs, from the momentum products."""
+    products = integral.momentum_products
+    n_legs = integral.graph.external_legs
+    inv = None
+    if n_legs >= 2:
+        from .kinematics.mandelstam import standard_invariants
+
+        inv = standard_invariants(n_legs)
+
+    def dot(a: int, b: int) -> sp.Expr:
+        if a == b:
+            if inv is not None and integral.use_mandelstam:
+                return inv.external_masses[a - 1]
+            return -sum(
+                products.get((min(a, c), max(a, c)), sp.Integer(0))
+                for c in range(1, n_legs + 1)
+                if c != a
+            )
+        return products.get((min(a, b), max(a, b)), sp.Integer(0))
+
+    def q_squared(legs: list[int]) -> sp.Expr:
+        return sp.expand(sum(dot(a, b) for a in legs for b in legs))
+
+    return q_squared
 
 
 def one_loop_principal_a_determinant(integral: FeynmanIntegral) -> sp.Expr:
@@ -713,6 +778,10 @@ def one_loop_landau_surfaces_by_type(
     (second-type singularities); minors not containing index 0 are Cayley
     determinants (first type).
 
+    For a graph with bridges the matrix is that of the cycle, with the legs
+    of each tree attached to the cycle at the vertex where the tree meets
+    it; the poles of the bridges are :func:`one_loop_bridge_poles`.
+
     Returns
     -------
     tuple[tuple[sp.Expr, ...], tuple[sp.Expr, ...]]
@@ -729,29 +798,10 @@ def one_loop_landau_surfaces_by_type(
     """
     if integral.loop_count != 1:
         raise ValueError("The closed form applies to one-loop integrals only")
-    edges, legs_at = _one_loop_cycle(integral)
+    edges, legs_at, _bridges = _one_loop_cycle(integral)
     n = len(edges)
     products = integral.momentum_products
-    n_legs = integral.graph.external_legs
-    inv = None
-    if n_legs >= 2:
-        from .kinematics.mandelstam import standard_invariants
-
-        inv = standard_invariants(n_legs)
-
-    def dot(a: int, b: int) -> sp.Expr:
-        if a == b:
-            if inv is not None and integral.use_mandelstam:
-                return inv.external_masses[a - 1]
-            return -sum(
-                products.get((min(a, c), max(a, c)), sp.Integer(0))
-                for c in range(1, n_legs + 1)
-                if c != a
-            )
-        return products.get((min(a, b), max(a, b)), sp.Integer(0))
-
-    def q_squared(legs: list[int]) -> sp.Expr:
-        return sp.expand(sum(dot(a, b) for a in legs for b in legs))
+    q_squared = _momentum_squared(integral)
 
     masses = [e.get_mass() ** 2 for e in edges]
     y = sp.zeros(n + 1, n + 1)
@@ -780,12 +830,45 @@ def one_loop_landau_surfaces_by_type(
     return tuple(first), tuple(second)
 
 
+def one_loop_bridge_poles(integral: FeynmanIntegral) -> tuple[sp.Expr, ...]:
+    """Irreducible factors of the poles of the bridges of a one-loop graph.
+
+    A bridge b, an internal edge on no cycle, carries the momentum q_b of the
+    legs on its side away from the cycle, so the integral is that of the
+    cycle, with the legs of each tree attached to the cycle moved to the
+    vertex where the tree meets it, times the propagator
+    1/(m_b^2 - q_b^2)^nu_b of each bridge. Returns the distinct factors of the
+    m_b^2 - q_b^2, bridges in internal-edge order, which the faces of the
+    Newton polytope give as well; () for a graph without bridges.
+
+    Raises
+    ------
+    ValueError
+        If the integral has more than one loop.
+    """
+    if integral.loop_count != 1:
+        raise ValueError("The closed form applies to one-loop integrals only")
+    _edges, _legs_at, bridges = _one_loop_cycle(integral)
+    q_squared = _momentum_squared(integral)
+    masses = [sp.sympify(e.get_mass()) for e in integral.graph.get_internal_edges()]
+    kinematic_syms = set().union(*(m.free_symbols for m in masses)) | set().union(
+        *(sp.sympify(v).free_symbols for v in integral.momentum_products.values())
+    )
+    poles: dict[sp.Expr, None] = {}
+    for edge, legs in bridges:
+        pole = sp.expand(edge.get_mass() ** 2 - q_squared(legs))
+        for fac in _factor_list(pole, kinematic_syms):
+            poles.setdefault(fac, None)
+    return tuple(poles)
+
+
 def one_loop_landau_surfaces(integral: FeynmanIntegral) -> tuple[sp.Expr, ...]:
     """Irreducible factors of the one-loop principal A-determinant in closed form.
 
     The union of the first and second-type factors of
     :func:`one_loop_landau_surfaces_by_type`, first type first and with
-    second-type factors already listed under first type dropped.
+    second-type factors already listed under first type dropped, followed by
+    the bridge poles of :func:`one_loop_bridge_poles` not already listed.
 
     Raises
     ------
@@ -793,4 +876,5 @@ def one_loop_landau_surfaces(integral: FeynmanIntegral) -> tuple[sp.Expr, ...]:
         If the integral has more than one loop.
     """
     first, second = one_loop_landau_surfaces_by_type(integral)
-    return first + tuple(s for s in second if s not in first)
+    surfaces = first + tuple(s for s in second if s not in first)
+    return surfaces + tuple(p for p in one_loop_bridge_poles(integral) if p not in surfaces)

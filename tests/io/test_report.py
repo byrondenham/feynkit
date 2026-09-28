@@ -25,6 +25,7 @@ from feynkit.io.report import DEFAULT_SECTIONS, SECTION_NAMES, AnalysisReport
 from feynkit.landau import (
     landau_analysis,
     landau_analysis_from_polynomial,
+    one_loop_bridge_poles,
     one_loop_landau_surfaces_by_type,
 )
 from feynkit.polytope import polytope_data
@@ -465,6 +466,18 @@ class TestLandau:
         assert sunrise_report.landau is not None
         assert sunrise_report.landau.first_type == ()
         assert sunrise_report.landau.second_type == ()
+        assert sunrise_report.landau.bridge_poles == ()
+
+    def test_bridge_poles(self, bubble_report: AnalysisReport) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|2|e|:nnn")
+        landau = AnalysisReport.from_integral(fi, ["landau"]).landau
+        assert landau is not None
+        assert landau.bridge_poles == one_loop_bridge_poles(fi) != ()
+        assert set(landau.bridge_poles) <= set(landau.analysis.landau_surfaces)
+        closed = {_monic(f) for f in landau.first_type + landau.second_type + landau.bridge_poles}
+        assert closed == {_monic(f) for f in landau.analysis.landau_surfaces}
+        assert bubble_report.landau is not None
+        assert bubble_report.landau.bridge_poles == ()
 
     def test_skipped_faces_carry_dimension_and_size(self, bubble: FeynmanIntegral) -> None:
         landau = AnalysisReport.from_integral(bubble, ["landau"], max_face_points=2).landau

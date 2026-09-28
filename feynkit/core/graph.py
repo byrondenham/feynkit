@@ -8,7 +8,7 @@ with methods to compute Laplacians and related polynomials.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from itertools import chain, permutations, product
 
 import sympy as sp
@@ -106,6 +106,10 @@ def _canonical_labellings(
     only when its entries so far exceed the least complete string found, so
     none is lost. The cost is at least the number of least labellings, the
     order of the automorphism group of the graph with its legs.
+
+    The argument for minimality needs single-digit labels, so it holds for
+    V <= 10. Above that, compute_graph_automorphisms relies only on the set of
+    least labellings being one coset of the automorphism group.
     """
     V = len(legs)
     best: list[str] = []
@@ -204,7 +208,7 @@ def _least_naming(groups: Sequence[Sequence[_Colour]]) -> str:
 
 
 def _canonical_colours(
-    pair_orders: Sequence[Sequence[tuple[int, int]]],
+    pair_orders: Iterable[Sequence[tuple[int, int]]],
     colours: Mapping[tuple[int, int], Sequence[_Colour]],
 ) -> str:
     """The least colour string over the labellings, given by their pair orders, and the names
@@ -467,10 +471,10 @@ class Graph:
 
         The Nickel index encodes the graph topology as a string that is
         invariant under vertex relabelling (canonical = lex minimum over
-        all n! relabellings of internal vertices).
+        all V! relabellings of internal vertices).
 
         For each vertex i (0-indexed), the entry lists higher-numbered
-        internal neighbors in ascending order followed by 'e' for each
+        internal neighbours in ascending order followed by 'e' for each
         external leg; entries are separated by '|'.
 
         Examples
@@ -484,7 +488,12 @@ class Graph:
         -----
         Supports up to 10 internal vertices (single-digit vertex labels). The
         least string is found by an exact branch and bound, not a scan of all
-        V! labellings.
+        V! labellings. Its time grows with the size of the automorphism group,
+        and with wide ties at vertices of high degree. At V = 10 the star takes
+        14.4 s, a hub with nine double-edge petals 14.7 s (32.9 s in
+        :meth:`cnickel`) and the complete graph 208 s (874 s in
+        :meth:`cnickel`), while the graphs that :func:`feynkit.generate_graphs`
+        emits at its tiers take milliseconds.
         """
         V = self.internal_vertices
         if V > 10:
@@ -498,7 +507,7 @@ class Graph:
         """
         Canonical Colored Nickel (CNickel) index: topology + mass colouring.
 
-        Extends :meth:`nickel_index` with a mass-color suffix separated by
+        Extends :meth:`nickel_index` with a mass-colour suffix separated by
         ``':'``, one code per propagator in the order the propagators appear
         left-to-right in the topology string: ``'z'`` for a massless
         propagator, ``'n'`` for a mass no other propagator has, and a letter
@@ -516,6 +525,11 @@ class Graph:
             If the graph has more than 10 internal vertices, or more than 23
             classes of propagators sharing a mass, the number of letters
             ``'a'`` to ``'y'`` without ``'n'`` and ``'s'``.
+
+        Notes
+        -----
+        The time is that of :meth:`nickel_index`, whose Notes give examples,
+        and one colour string for each least labelling.
 
         Examples
         --------
@@ -538,7 +552,7 @@ class Graph:
                 f"this graph has {len(classes)} classes"
             )
         nickel, labellings = _canonical_labellings(multiplicity, legs)
-        pair_orders = [_pair_order(order, multiplicity) for order in labellings]
+        pair_orders = (_pair_order(order, multiplicity) for order in labellings)
         return f"{nickel}:{_canonical_colours(pair_orders, colours)}"
 
     @classmethod
@@ -581,7 +595,7 @@ class Graph:
         ValueError
             If the string is malformed, contains out-of-range vertex labels,
             a digit mass code other than ``'0'`` or, with more than one vertex,
-            a vertex without propagators and legs, or the mass-color count does
+            a vertex without propagators and legs, or the mass-colour count does
             not match the internal edge count.
 
         Examples

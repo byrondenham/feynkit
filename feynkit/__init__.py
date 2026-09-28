@@ -85,6 +85,7 @@ from feynkit.core import (
     __version__,
 )
 from feynkit.database import FeynkitDatabase
+from feynkit.generate import generate_graphs
 from feynkit.integral import FeynmanIntegral
 from feynkit.io.report import AnalysisReport
 from feynkit.landau import (
@@ -118,6 +119,8 @@ __all__ = [
     "Graph",
     # Unified facade
     "FeynmanIntegral",
+    # Graph generation
+    "generate_graphs",
     # Analysis report
     "AnalysisReport",
     # Conformal artifacts

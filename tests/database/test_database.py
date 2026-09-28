@@ -357,6 +357,30 @@ class TestRepair:
             FeynkitDatabase(path)
         assert rows(path) == before
 
+    def test_an_sql_error_in_a_step_propagates(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Not a file that cannot be written, but a bug: the version written before the step
+        # is rolled back with it.
+        path = tmp_path / "old.db"
+        old_file(path)
+        before = rows(path)
+        new = FeynkitDatabase(tmp_path / "new.db")
+        new._conn.execute("PRAGMA user_version = 0")
+
+        def bad_sql(self: FeynkitDatabase) -> None:
+            self._conn.execute("UPDATE no_such_table SET n = 1")
+
+        monkeypatch.setattr(FeynkitDatabase, "_repair_gkz_columns", bad_sql)
+        with pytest.raises(sqlite3.OperationalError, match="no such table"):
+            FeynkitDatabase(path)
+        assert rows(path) == before
+        with new:
+            with pytest.raises(sqlite3.OperationalError, match="no such table"):
+                new._migrate()
+            assert not new._conn.in_transaction
+        assert rows(tmp_path / "new.db")[0] == 0
+
     def test_a_read_only_file_opens_unrepaired(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -370,6 +394,7 @@ class TestRepair:
 
         monkeypatch.setattr(sqlite3, "connect", read_only)
         with FeynkitDatabase(path) as db:
+            assert not db._conn.in_transaction
             assert db.lookup(on_shell_box()) is not None
             assert db._lookup_toric(on_shell_box().newton_polytope.points) is None
         monkeypatch.undo()
@@ -381,7 +406,17 @@ class TestRepair:
         path = tmp_path / "old.db"
         old_file(path)
         connection = sqlite3.connect(path)
-        connection.execute("PRAGMA user_version = 2")
+        connection.execute("PRAGMA user_version = 99")
+        connection.close()
+        before = rows(path)
+        FeynkitDatabase(path).close()
+        assert rows(path) == before
+
+    def test_a_negative_version_runs_nothing(self, tmp_path: Path) -> None:
+        path = tmp_path / "old.db"
+        old_file(path)
+        connection = sqlite3.connect(path)
+        connection.execute("PRAGMA user_version = -1")
         connection.close()
         before = rows(path)
         FeynkitDatabase(path).close()

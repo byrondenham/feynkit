@@ -138,10 +138,24 @@ class FeynkitDatabase:
         run the repairs the file has not had.
 
         Repairs are numbered steps: step k takes ``PRAGMA user_version``
-        from k to k + 1 in one transaction with its repair, so a later
-        repair is appended to ``repairs``. A file at a higher version, from
-        a later release, is left as it is. A file that cannot be written,
-        being read-only or locked, keeps its version until the next open.
+        from k to k + 1. It runs in one transaction, which takes the write
+        lock with ``BEGIN IMMEDIATE``, reads the version again under it,
+        since another process may have run the step meanwhile, and writes
+        k + 1 before the step runs. A version that is negative or at least
+        ``len(repairs)``, from a later release or set by hand, runs nothing.
+
+        A step is a method with no arguments that runs inside that
+        transaction, so it neither commits nor rolls back. It also runs on
+        every new file, on the empty tables of the current ``_SCHEMA``, and
+        must be harmless there. To add one, write the method and append it
+        to ``repairs``.
+
+        The file cannot be written when taking the lock, writing the
+        version or committing raises ``sqlite3.OperationalError``, as on a
+        read-only or locked file: the transaction is rolled back and the
+        file opens unrepaired, to be repaired at a later open. Any error
+        from the step itself, an ``OperationalError`` from its own SQL
+        included, rolls back and propagates.
         """
         new_cols = [
             ("cnickel", "TEXT"),
@@ -158,16 +172,29 @@ class FeynkitDatabase:
                 pass  # column already present
 
         repairs = [self._repair_gkz_columns]
-        version = self._conn.execute("PRAGMA user_version").fetchone()[0]
-        for target, repair in enumerate(repairs[version:], start=version + 1):
+        while 0 <= self._conn.execute("PRAGMA user_version").fetchone()[0] < len(repairs):
             try:
-                self._conn.execute("BEGIN IMMEDIATE")
-                repair()
-                self._conn.execute(f"PRAGMA user_version = {target}")
-                self._conn.commit()
-            except sqlite3.OperationalError:
-                self._conn.rollback()
-                return
+                try:
+                    self._conn.execute("BEGIN IMMEDIATE")
+                except sqlite3.OperationalError:
+                    self._conn.rollback()
+                    return  # locked: repaired at a later open
+                # Read again under the lock: another process may have run the step.
+                version = self._conn.execute("PRAGMA user_version").fetchone()[0]
+                if not 0 <= version < len(repairs):
+                    self._conn.rollback()
+                    return
+                try:
+                    self._conn.execute(f"PRAGMA user_version = {version + 1}")
+                except sqlite3.OperationalError:
+                    self._conn.rollback()
+                    return  # read-only: fails here, before the step reads a row
+                repairs[version]()
+                try:
+                    self._conn.commit()
+                except sqlite3.OperationalError:
+                    self._conn.rollback()
+                    return  # locked by a reader: repaired at a later open
             except BaseException:
                 self._conn.rollback()
                 raise

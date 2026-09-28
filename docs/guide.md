@@ -1707,8 +1707,9 @@ may have been inserted by an earlier partial run). `n_toric_gens == 0` is a vali
 toric ideal). Automorphism fields are `None` unless `store(..., compute_automorphisms=True)` was
 called.
 
-A file written by feynkit 0.4.0 or earlier is repaired when it is first opened. Those releases
-kept monomials of G whose coefficients cancel, so a row can have more A-matrix columns than Newton
+A file written by feynkit 0.4.0 or earlier is repaired when it is first opened for writing; a
+read-only or locked file opens as it is and is repaired at a later open. Those releases kept
+monomials of G whose coefficients cancel, so a row can have more A-matrix columns than Newton
 points; it gets the matrix of its points, and `n_toric_gens` is `None` until the toric ideal is
 next computed.
 

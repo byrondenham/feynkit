@@ -12,9 +12,10 @@
   box with p_i^2 = 0, 10 columns and 10 toric generators instead of 6 and 1.
   Integrals whose coefficients do not cancel, among them every integral at
   generic kinematics and so every integral `fk` builds, are unchanged.
-  Database files are repaired when first opened, and rows that releases up to
-  0.4.0 write to them afterwards are recomputed rather than read; those
-  releases read repaired rows inconsistently.
+  Database files are repaired when first opened for writing, and toric
+  generators that releases up to 0.4.0 store in them afterwards for the larger
+  configuration are recomputed rather than read. Those releases read repaired
+  rows inconsistently.
 
 ## 0.4.0 (2026-09-27)
 

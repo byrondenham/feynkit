@@ -1,5 +1,7 @@
 """Tests for the Graph class."""
 
+import re
+
 import pytest
 import sympy as sp
 
@@ -204,11 +206,11 @@ class TestCNickelTadpole:
         assert masses.count("m_a") == 2
         assert masses.count("m_b") == 1
 
-    def test_letter_label_cnickel_roundtrip(self) -> None:
-        assert Graph.from_cnickel("12e|2e|e|:aab").cnickel() == "12e|2e|e|:aab"
+    def test_letter_label_on_one_propagator_is_written_n(self) -> None:
+        assert Graph.from_cnickel("12e|2e|e|:aab").cnickel() == "12e|2e|e|:aan"
 
-    def test_special_mass_cnickel_roundtrip(self) -> None:
-        assert Graph.from_cnickel("12e|2e|e|:sss").cnickel() == "12e|2e|e|:sss"
+    def test_special_mass_is_written_as_the_first_letter(self) -> None:
+        assert Graph.from_cnickel("12e|2e|e|:sss").cnickel() == "12e|2e|e|:aaa"
 
     def test_structured_color_string_with_external_legs(self) -> None:
         # 'e11|e|:zzz|z|', colours mirror topology structure including 'e' positions
@@ -247,6 +249,14 @@ class TestCNickelEntries:
     def test_a_superfluous_bar_is_rejected(self, cnickel: str) -> None:
         with pytest.raises(ValueError, match="no propagator and no leg"):
             Graph.from_cnickel(cnickel)
+
+    def test_an_interior_vertex_without_propagators_or_legs_is_rejected(self) -> None:
+        message = (
+            "Vertex 1 of 'e||e|' has no propagator and no leg; "
+            "check for a superfluous '|' or an entry nothing refers to"
+        )
+        with pytest.raises(ValueError, match=re.escape(message)):
+            Graph.from_cnickel("e||e|")
 
     @pytest.mark.parametrize("cnickel", ["|", ""])
     def test_an_empty_topology_is_rejected(self, cnickel: str) -> None:

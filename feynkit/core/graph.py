@@ -7,6 +7,10 @@ with methods to compute Laplacians and related polynomials.
 
 from __future__ import annotations
 
+from collections import Counter, defaultdict
+from collections.abc import Mapping, Sequence
+from itertools import chain, permutations, product
+
 import sympy as sp
 
 from .constants import (
@@ -53,27 +57,106 @@ def _mass_from_code(mc: str, edge_idx: int, mass_assumptions: dict) -> sp.Expr:
     return sp.Symbol(f"m_{mc}", **mass_assumptions)
 
 
-def _mass_code_from_expr(mass: sp.Expr) -> str:
-    """Reverse-map a SymPy mass expression to a single mass-code character.
+# -----------------------------------------------------------------------------
+# Canonical labelling
+# -----------------------------------------------------------------------------
 
-    Digit-labeled symbols (m_1 ... m_9) are ambiguous with unique-mass symbols
-    created by the 'n' code (which also uses m_{edge_idx}), so they are always
-    returned as 'n'.  Letter-labeled symbols (m_a ... m_y, m_s) round-trip
-    exactly.
+# Letters for the classes of propagators that share a mass, in increasing order:
+# a to y without the reserved codes n and s.
+_SHARED_LETTERS = "abcdefghijklmopqrtuvwxy"
+
+# The colour of a propagator before the shared masses are named: "z" if it is
+# massless, "n" if no other propagator has its mass, otherwise the number of its
+# class of equal masses.
+_Colour = str | int
+
+
+def _nickel_entry(
+    v: int, label: Mapping[int, int], multiplicity: Sequence[Sequence[int]], legs: Sequence[int]
+) -> str:
+    """The Nickel entry of vertex v: the labels of its neighbours with labels at least its own,
+    ascending and repeated for parallel propagators, then one 'e' per leg. Only v and its
+    neighbours need labels."""
+    i = label[v]
+    digits = sorted(
+        label[w] for w, m in enumerate(multiplicity[v]) if m and label[w] >= i for _ in range(m)
+    )
+    return "".join(map(str, digits)) + "e" * legs[v]
+
+
+def _canonical_labellings(
+    multiplicity: Sequence[Sequence[int]], legs: Sequence[int]
+) -> tuple[str, list[tuple[int, ...]]]:
+    """The canonical Nickel string and every labelling that attains it.
+
+    Vertices count from 0. multiplicity[u][w] is the number of propagators
+    joining u and w, and multiplicity[v][v] the number of self-loops at v;
+    legs[v] is the number of legs at v. A labelling is a tuple whose entry i is
+    the vertex given label i. The canonical string is the least, by code point,
+    over all V! labellings.
     """
-    if mass == sp.Integer(0):
-        return "z"
-    if isinstance(mass, sp.Symbol):
-        name = mass.name
-        # Symbols created by _mass_from_code have the form "m_X" (len 3).
-        if name.startswith("m_") and len(name) == 3:
-            c = name[2]
-            if c == "s":
-                return "s"
-            # Letter labels 'a'-'y' (excl. 'n','s') round-trip unambiguously.
-            if c.isalpha() and c.islower() and c not in ("n", "s"):
-                return str(c)
-    return "n"
+    best: str | None = None
+    found: list[tuple[int, ...]] = []
+    for order in permutations(range(len(legs))):
+        label = {v: i for i, v in enumerate(order)}
+        text = "".join(_nickel_entry(v, label, multiplicity, legs) + "|" for v in order)
+        if best is None or text < best:
+            best, found = text, [order]
+        elif text == best:
+            found.append(order)
+    assert best is not None
+    return best, found
+
+
+def _pair_order(
+    order: Sequence[int], multiplicity: Sequence[Sequence[int]]
+) -> list[tuple[int, int]]:
+    """The vertex pairs (u, w), u <= w, joined by propagators, in the order in which the Nickel
+    string of the labelling lists them."""
+    pairs: list[tuple[int, int]] = []
+    for i, v in enumerate(order):
+        pairs.extend((min(v, w), max(v, w)) for w in order[i:] if multiplicity[v][w])
+    return pairs
+
+
+def _least_naming(groups: Sequence[Sequence[_Colour]]) -> str:
+    """The least colour string of the groups of parallel propagators, over the names of the
+    classes of shared masses; each group is written sorted.
+
+    In the least string a class takes the next free letter where it first
+    appears, classes with more propagators in that group first, since any other
+    naming makes that group larger. Every order within a tie is tried.
+    """
+    best: list[str] = []
+
+    def walk(g: int, names: dict[int, str], text: str) -> None:
+        if best and text > best[0][: len(text)]:
+            return
+        if g == len(groups):
+            best[:] = [text]
+            return
+        new = Counter(c for c in groups[g] if isinstance(c, int) and c not in names)
+        ties = [
+            sorted(c for c in new if new[c] == k) for k in sorted(set(new.values()), reverse=True)
+        ]
+        for choice in product(*(permutations(tie) for tie in ties)):
+            named = dict(names)
+            for c in chain.from_iterable(choice):
+                named[c] = _SHARED_LETTERS[len(named)]
+            codes = sorted(named[c] if isinstance(c, int) else c for c in groups[g])
+            walk(g + 1, named, text + "".join(codes))
+
+    walk(0, {}, "")
+    return best[0]
+
+
+def _canonical_colours(
+    pair_orders: Sequence[Sequence[tuple[int, int]]],
+    colours: Mapping[tuple[int, int], Sequence[_Colour]],
+) -> str:
+    """The least colour string over the labellings, given by their pair orders, and the names
+    of the shared masses."""
+    return min(_least_naming([colours[pair] for pair in pairs]) for pairs in pair_orders)
 
 
 class Graph:
@@ -292,97 +375,37 @@ class Graph:
 
     # -- Nickel / CNickel index ------------------------------------------------
 
-    def _nickel_adjacency(
+    def _nickel_data(
         self,
-    ) -> tuple[dict[int, list[tuple[int, str]]], dict[int, int]]:
+    ) -> tuple[list[list[int]], list[int], dict[tuple[int, int], list[_Colour]]]:
         """
-        Build adjacency structures for Nickel index computation.
+        The multiplicity matrix, the legs at each vertex and the colours of the
+        propagators joining each pair of vertices, for the canonical labelling.
 
-        Returns (adj, ext_deg) where:
-        - adj[v] = list of (neighbor_v, mass_char) for internal edges
-        - ext_deg[v] = number of external legs at internal vertex v
+        Vertices count from 0, and a pair (u, w) has u <= w. A propagator's
+        colour is "z" if it is massless, "n" if no other propagator has its
+        mass, and otherwise the number of its class of equal masses. A mass of
+        None counts as zero.
         """
-        from collections import Counter, defaultdict
-
-        # Build a mass-code map that correctly labels shared masses.
-        # _mass_code_from_expr alone cannot distinguish a unique 'n' mass
-        # (m_{edge_idx}) from a shared digit-labeled mass (both named m_1, etc.).
-        # Here we count occurrences: symbols appearing on >1 edge are shared and
-        # receive a stable letter label; symbols appearing on exactly 1 edge get 'n'.
         zero = sp.Integer(0)
-        mass_count: Counter = Counter(
-            e.mass for e in self._internal_edges if e.mass is not None and e.mass != zero
-        )
+        masses = [zero if e.mass is None else e.mass for e in self._internal_edges]
+        count = Counter(m for m in masses if m != zero)
+        shared = {m: k for k, m in enumerate(m for m in count if count[m] > 1)}
 
-        # First pass: masses that already have a good reverse label (letter/special).
-        mass_code_map: dict[sp.Expr, str] = {}
-        used_letters: set[str] = set()
-        for mass in mass_count:
-            code = _mass_code_from_expr(mass)
-            if code != "n":
-                mass_code_map[mass] = code
-                if code.isalpha() and code not in ("n", "s", "z"):
-                    used_letters.add(code)
+        V = self.internal_vertices
+        multiplicity = [[0] * V for _ in range(V)]
+        colours: dict[tuple[int, int], list[_Colour]] = defaultdict(list)
+        for e, m in zip(self._internal_edges, masses, strict=True):
+            u, w = sorted((e.v1 - 1, e.v2 - 1))
+            multiplicity[u][w] += 1
+            if u != w:
+                multiplicity[w][u] += 1
+            colours[(u, w)].append("z" if m == zero else shared.get(m, "n"))
 
-        # Second pass: unlabeled shared masses get fresh letters (sorted for stability).
-        _LETTER_POOL = list("abcdefghijklmopqrtuvwxy")  # a-y, excl. n,s
-        available = [c for c in _LETTER_POOL if c not in used_letters]
-        unlabeled_shared = sorted(
-            (m for m, cnt in mass_count.items() if cnt > 1 and m not in mass_code_map),
-            key=str,
-        )
-        # `available` is the full letter pool; only as many as there are masses are used.
-        for mass, letter in zip(unlabeled_shared, available, strict=False):
-            mass_code_map[mass] = letter
-
-        def _mc(e: Edge) -> str:
-            m = e.mass if e.mass is not None else zero
-            if m == zero:
-                return "z"
-            return mass_code_map.get(m, "n")
-
-        adj: dict[int, list[tuple[int, str]]] = defaultdict(list)
-        for e in self._internal_edges:
-            mc = _mc(e)
-            adj[e.v1].append((e.v2, mc))
-            if e.v2 != e.v1:
-                adj[e.v2].append((e.v1, mc))
-
-        ext_deg: dict[int, int] = defaultdict(int)
+        legs = [0] * V
         for e in self._external_edges:
-            ext_deg[e.v1] += 1
-
-        return dict(adj), dict(ext_deg)
-
-    def _nickel_entry_and_colors(
-        self,
-        i: int,
-        orig_v: int,
-        new_label: dict[int, int],
-        adj: dict[int, list[tuple[int, str]]],
-        ext_deg: dict[int, int],
-    ) -> tuple[str, list[str]]:
-        """
-        Build the Nickel entry string and mass colour list for vertex with
-        new label i (corresponding to original vertex orig_v).
-        """
-        from collections import defaultdict
-
-        groups: dict[int, list[str]] = defaultdict(list)
-        for nb, mc in adj.get(orig_v, []):
-            j = new_label[nb]
-            if j >= i:
-                groups[j].append(mc)
-
-        entry = ""
-        mass_chars: list[str] = []
-        for j in sorted(groups):
-            mcs = sorted(groups[j])
-            entry += str(j) * len(mcs)
-            mass_chars.extend(mcs)
-
-        entry += "e" * ext_deg.get(orig_v, 0)
-        return entry, mass_chars
+            legs[e.v1 - 1] += 1
+        return multiplicity, legs, dict(colours)
 
     def nickel_index(self) -> str:
         """
@@ -400,83 +423,60 @@ class Graph:
         --------
         Massless bubble:   ``"11e|e|"``
         Massless triangle: ``"12e|2e|e|"``
-        Massless box:      ``"13e|2e|3e|e|"``
+        Massless box:      ``"12e|3e|3e|e|"``
         3-prop banana:     ``"111e|e|"``
 
         Notes
         -----
         Supports up to 9 internal vertices (single-digit vertex labels).
         """
-        from itertools import permutations
-
         V = self.internal_vertices
         if V > 9:
             raise NotImplementedError(
                 f"Nickel index requires V <= 9; this graph has {V} internal vertices"
             )
-
-        adj, ext_deg = self._nickel_adjacency()
-
-        best: str | None = None
-        for perm in permutations(range(1, V + 1)):
-            new_label = {v: i for i, v in enumerate(perm)}
-            parts = []
-            for i in range(V):
-                entry, _ = self._nickel_entry_and_colors(i, perm[i], new_label, adj, ext_deg)
-                parts.append(entry)
-            s = "|".join(parts) + "|"
-            if best is None or s < best:
-                best = s
-
-        return best or ""
+        multiplicity, legs, _ = self._nickel_data()
+        return _canonical_labellings(multiplicity, legs)[0]
 
     def cnickel(self) -> str:
         """
         Canonical Colored Nickel (CNickel) index: topology + mass colouring.
 
         Extends :meth:`nickel_index` with a mass-color suffix separated by
-        ``':'``.  Mass codes: ``'z'`` = zero mass (massless propagator),
-        ``'n'`` = nonzero mass (massive propagator).  The colours are listed
-        in the order the corresponding internal edges appear left-to-right
-        in the topology string.
+        ``':'``, one code per propagator in the order the propagators appear
+        left-to-right in the topology string: ``'z'`` for a massless
+        propagator, ``'n'`` for a mass no other propagator has, and a letter
+        ``'a'``, ``'b'``, ... for each class of propagators sharing a mass.
 
-        The canonical form minimises the full ``(topology, colouring)`` pair
-        lexicographically, correctly handling graphs with automorphisms.
+        The canonical form is the least ``(topology, colouring)`` pair over the
+        vertex labellings and the names of the shared masses, so it absorbs
+        the automorphisms of the graph. Shared masses are named in order of
+        first appearance, and a mass is written ``'n'`` whenever one propagator
+        alone carries it, whatever its symbol.
 
         Examples
         --------
         Massless triangle:     ``"12e|2e|e|:zzz"``
-        One-massive triangle:  ``"12e|2e|e|:zzn"``
+        One-massive triangle:  ``"12e|2e|e|:nzz"``
         All-massive triangle:  ``"12e|2e|e|:nnn"``
+        Two equal masses:      ``"12e|2e|e|:aan"``
         Massless bubble:       ``"11e|e|:zz"``
         """
-        from itertools import permutations
-
         V = self.internal_vertices
         if V > 9:
             raise NotImplementedError(
                 f"CNickel index requires V <= 9; this graph has {V} internal vertices"
             )
-
-        adj, ext_deg = self._nickel_adjacency()
-
-        best: tuple[str, str] | None = None
-        for perm in permutations(range(1, V + 1)):
-            new_label = {v: i for i, v in enumerate(perm)}
-            parts = []
-            all_colors: list[str] = []
-            for i in range(V):
-                entry, colors = self._nickel_entry_and_colors(i, perm[i], new_label, adj, ext_deg)
-                parts.append(entry)
-                all_colors.extend(colors)
-            nickel = "|".join(parts) + "|"
-            mass_str = "".join(all_colors)
-            pair = (nickel, mass_str)
-            if best is None or pair < best:
-                best = pair
-
-        assert best is not None
-        return f"{best[0]}:{best[1]}"
+        multiplicity, legs, colours = self._nickel_data()
+        classes = {c for group in colours.values() for c in group if isinstance(c, int)}
+        if len(classes) > len(_SHARED_LETTERS):
+            raise NotImplementedError(
+                f"CNickel has {len(_SHARED_LETTERS)} letters for shared masses; "
+                f"this graph has {len(classes)} classes"
+            )
+        nickel, labellings = _canonical_labellings(multiplicity, legs)
+        pair_orders = [_pair_order(order, multiplicity) for order in labellings]
+        return f"{nickel}:{_canonical_colours(pair_orders, colours)}"
 
     @classmethod
     def from_cnickel(cls, cnickel: str) -> Graph:
@@ -627,7 +627,7 @@ class Graph:
         if V > 1 and bare:
             raise ValueError(
                 f"Vertex {bare[0]} of {cnickel!r} has no propagator and no leg; "
-                "the topology ends in exactly one '|'"
+                "check for a superfluous '|' or an entry nothing refers to"
             )
 
         total_ext = ext_v - (V + 1)

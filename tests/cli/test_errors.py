@@ -7,10 +7,13 @@ import sys
 from pathlib import Path
 
 import pytest
+import sympy as sp
 
 import feynkit.cli as cli
 from feynkit import FeynkitDatabase, FeynmanIntegral, ValidationError
+from feynkit.a_configuration import AConfiguration, FiniteIndexResult
 from feynkit.cli import main
+from feynkit.types import PolytopeEquivalence
 
 EXAMPLE = 'fk analyse "12e|2e|e|:nzz"'
 
@@ -193,10 +196,14 @@ def test_compare_exits_3_when_no_check_finds_an_equivalence(
 @pytest.mark.parametrize(
     ("pair", "finite_index"),
     [
-        (["12e|2e|e|:zzz", "e111|e|:nzz"], "no  (only a singular map found, det = 0)"),
-        (["e111|e|:nzz", "12e|2e|e|:zzz"], "no"),
+        pytest.param(
+            ["12e|2e|e|:zzz", "e111|e|:nzz"],
+            "no  (only a singular map found, det = 0)",
+            id="singular-map",
+            marks=pytest.mark.slow,
+        ),
+        pytest.param(["e111|e|:nzz", "12e|2e|e|:zzz"], "no", id="reversed", marks=pytest.mark.slow),
     ],
-    ids=["singular-map", "reversed"],
 )
 def test_singular_finite_index_map_is_no_equivalence(
     pair: list[str], finite_index: str, capsys: pytest.CaptureFixture[str]
@@ -208,6 +215,34 @@ def test_singular_finite_index_map_is_no_equivalence(
     out = capsys.readouterr().out
     assert f"  finite_index           {finite_index}\n" in out
     assert "YES" not in out
+    assert "Witness map" not in out
+    assert "No equivalence found between A and B." in out
+
+
+def test_a_singular_map_alone_gives_status_3(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The pair above takes half a minute; here every other check is made to
+    # say no and the finite_index search to return a singular map.
+    def no_map(self: AConfiguration, other: AConfiguration) -> PolytopeEquivalence:
+        return PolytopeEquivalence(equivalent=False, relation="unimodular")
+
+    for method in (
+        "is_unimodular_equivalent_to",
+        "is_affinely_equivalent_to",
+        "is_point_config_equivalent_to",
+    ):
+        monkeypatch.setattr(AConfiguration, method, no_map)
+    singular = FiniteIndexResult(
+        found=True,
+        witness_matrix=sp.ImmutableMatrix([[1, 0], [0, 0]]),
+        translation=sp.ImmutableMatrix([0, 0]),
+        determinant=0,
+    )
+    monkeypatch.setattr(cli, "finite_index_map", lambda a, b: singular)
+    assert _exit_code(["compare", "12e|2e|e|:znn", "12e|2e|e|:nzn", "--no-db"]) == 3
+    out = capsys.readouterr().out
+    assert "  finite_index           no  (only a singular map found, det = 0)\n" in out
     assert "Witness map" not in out
     assert "No equivalence found between A and B." in out
 

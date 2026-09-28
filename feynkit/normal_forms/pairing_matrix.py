@@ -30,7 +30,8 @@ class PairingMatrixResult:
     ----------
     PM_max : sp.Matrix
         The lexicographically largest matrix in the orbit of the input under
-        independent row and column permutations.
+        independent row and column permutations. It is unique up to entries
+        that compare as equal, such as 1.0 and 1.
     row_permutation : list[int]
         The input's rows in the order of PM_max: row i of PM_max is row
         row_permutation[i] of the input.
@@ -202,9 +203,20 @@ _Blocks = tuple[tuple[int, ...], ...]
 
 
 def _ranks(PM: sp.Matrix) -> _Ranks:
-    """PM with each entry replaced by the rank of its default_sort_key among those of PM."""
+    """
+    PM with each entry replaced by the rank of its default_sort_key among those of PM.
+
+    Keys that are neither equal nor ordered, such as those of 1.0 and 1, tie
+    and share a rank, so the ranks order entries as symbolic_compare does.
+    """
     keys = [[default_sort_key(PM[i, j]) for j in range(PM.cols)] for i in range(PM.rows)]
-    rank = {key: k for k, key in enumerate(sorted({key for row in keys for key in row}))}
+    rank: dict[Any, int] = {}
+    k, previous = -1, None
+    for key in sorted({key for row in keys for key in row}):
+        if previous is None or previous < key:
+            k += 1
+        rank[key] = k
+        previous = key
     return [tuple(rank[key] for key in row) for row in keys]
 
 
@@ -277,9 +289,10 @@ def maximal_pairing_matrix(PM: sp.Matrix) -> PairingMatrixResult:
     """
     The lexicographic maximum of PM under independent row and column permutations.
 
-    Matrices are compared as matrix_lexicographic_compare does, row by row.
-    The search is exact: it keeps every arrangement that ties at each row, so
-    its cost grows with the symmetries of PM.
+    Matrices are compared as matrix_lexicographic_compare does, row by row,
+    and entries that compare as equal, such as 1.0 and 1, tie. The search is
+    exact: it keeps every arrangement that ties at each row, so its cost grows
+    with the symmetries of PM.
 
     Arguments
     ---------
@@ -316,10 +329,9 @@ def is_canonical(PM: sp.Matrix) -> bool:
     and column permutations, that is, whether matrix_lexicographic_compare
     finds PM equal to maximal_pairing_matrix(PM).PM_max.
 
-    Matrices in one orbit have the same maximum, so each orbit holds exactly
-    one canonical matrix, and every PM_max is canonical. Both can fail when
-    entries compare as equal without being equal, as 1.0 and 1 do: every order
-    of [[1.0, 1]] is canonical.
+    Matrices in one orbit have the same maximum, so each orbit holds one
+    canonical matrix, up to entries that compare as equal: [[1.0, 1]] and
+    [[1, 1.0]] are both canonical. Every PM_max is canonical.
 
     Arguments
     ---------
@@ -332,7 +344,6 @@ def is_canonical(PM: sp.Matrix) -> bool:
         True if PM is its own maximum, False otherwise.
     """
     # The search alone, without the symmetry vector maximal_pairing_matrix also
-    # computes. The ranks cannot settle the comparison: the default_sort_keys of
-    # 1.0 and 1 are neither equal nor ordered, so their ranks follow hash order.
+    # computes.
     rows, cols = _maximal_orders(_ranks(PM), PM.cols)
     return matrix_lexicographic_compare(PM, PM.extract(rows, cols)) == 0

@@ -163,8 +163,10 @@ def test_unknown_arguments_get_the_usage_of_their_subcommand(
         (["-v", "compare", "12e|2e|e|", "11e|e|"], "compare", "-v"),
         (["--db=x.db", "analyze", "12e|2e|e|"], "analyse", "--db=x.db"),
         (["--no-db", "-v", "analyse", "12e|2e|e|"], "analyse", "--no-db -v"),
+        (["--db", "x.db", "analyse", "12e|2e|e|"], "analyse", "--db x.db"),
+        (["--latex", "r.tex", "-v", "analyze", "12e|2e|e|"], "analyse", "--latex r.tex -v"),
     ],
-    ids=["analyse", "compare", "analyze", "two"],
+    ids=["analyse", "compare", "analyze", "two", "with-value", "value-and-flag"],
 )
 def test_option_of_the_command_given_before_it_must_follow_it(
     argv: list[str], command: str, options: str, capsys: pytest.CaptureFixture[str]
@@ -177,6 +179,19 @@ def test_option_of_the_command_given_before_it_must_follow_it(
     assert lines[-1] == (
         f"fk {command}: error: {options} must follow the command: fk {command} {options} ..."
     )
+
+
+def test_option_of_the_other_command_before_it_is_not_moved(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # compare has no --text, so fk's parser takes r.txt for the command.
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--text", "r.txt", "compare", "12e|2e|e|", "11e|e|"])
+    assert excinfo.value.code == 2
+    err = capsys.readouterr().err
+    assert err.startswith("usage: fk [-h]")
+    assert "invalid choice: 'r.txt'" in err
+    assert "must follow" not in err
 
 
 def test_analyze_runs_analyse(capsys: pytest.CaptureFixture[str]) -> None:
@@ -219,6 +234,15 @@ def test_first_word_like_a_cnickel_string_without_a_bar_gets_a_hint(
     assert lines[0].startswith("usage: fk ")
     assert "invalid choice: '0:n'" in lines[-2]
     assert lines[-1] == f"a CNickel string without a | needs the command: {suggestion}"
+
+
+def test_cnickel_hint_follows_only_an_invalid_command(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--version=1", "0:n"])
+    assert excinfo.value.code == 2
+    err = capsys.readouterr().err
+    assert err.endswith("fk: error: argument --version: ignored explicit argument '1'\n")
+    assert "CNickel" not in err
 
 
 def test_main_help_shows_both_bare_forms(capsys: pytest.CaptureFixture[str]) -> None:

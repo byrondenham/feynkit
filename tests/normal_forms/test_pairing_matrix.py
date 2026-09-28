@@ -9,12 +9,13 @@ import random
 from itertools import permutations
 
 import pytest
-from sympy import Matrix, eye, symbols
+from sympy import Float, Integer, Matrix, Rational, eye, symbols
 from sympy.core.sorting import default_sort_key
 
 from feynkit import FeynmanIntegral
 from feynkit.normal_forms.pairing_matrix import (
     _apply_permutation,
+    _ranks,
     is_canonical,
     maximal_pairing_matrix,
 )
@@ -158,9 +159,8 @@ class TestCanonicalityCheck:
         assert canonical == [tuple(maximal_pairing_matrix(PM).PM_max)]
 
     def test_float_beside_an_equal_integer(self) -> None:
-        # The default_sort_keys of 1.0 and 1 are neither equal nor ordered, so the
-        # ranks the search uses order them by hash, which PYTHONHASHSEED changes.
-        # matrix_lexicographic_compare finds every arrangement equal.
+        # The default_sort_keys of 1.0 and 1 are neither equal nor ordered, so
+        # matrix_lexicographic_compare finds both orders equal, and both maximal.
         PM = Matrix([[1.0, 1]])
         assert is_canonical(maximal_pairing_matrix(PM).PM_max)
         assert is_canonical(PM)
@@ -238,6 +238,18 @@ def brute_force_maximum(PM: Matrix) -> Matrix:
     return PM.extract(list(rows), list(cols))
 
 
+def compare_maximum(PM: Matrix) -> Matrix:
+    """The largest matrix that row and column permutations make from PM, by
+    matrix_lexicographic_compare, for entries such as 1.0 and 1 that tie."""
+    best = PM
+    for rows in permutations(range(PM.rows)):
+        for cols in permutations(range(PM.cols)):
+            candidate = PM.extract(list(rows), list(cols))
+            if _matrix_lexicographic_compare(candidate, best) > 0:
+                best = candidate
+    return best
+
+
 def assert_exact(PM: Matrix) -> None:
     """PM_max is the brute-force maximum, the permutations give it, and it is canonical."""
     result = maximal_pairing_matrix(PM)
@@ -272,6 +284,25 @@ class TestExactMaximum:
         for _ in range(60):
             m, n = rng.randint(1, 3), rng.randint(1, 4)
             assert_exact(Matrix(m, n, lambda i, j: rng.choice([x, y, z, x + y, 0, 1])))
+
+    def test_float_ties_with_an_equal_integer(self) -> None:
+        # Tied entries share a rank. Were 1 ranked above 1.0, the first row would
+        # be [1, 1.0], which leaves [0, 1] below it where the maximum has [1, 0].
+        assert _ranks(Matrix([[1.0, 1], [1, 0]])) == [(1, 1), (1, 0)]
+        result = maximal_pairing_matrix(Matrix([[0, 1], [1, 1.0]]))
+        assert _matrix_lexicographic_compare(result.PM_max, Matrix([[1.0, 1], [1, 0]])) == 0
+        assert is_canonical(result.PM_max)
+
+    def test_random_matrices_with_floats_and_rationals(self) -> None:
+        pool = [Integer(0), Integer(1), Float(1.0), Integer(2), Float(2.0), Rational(1, 2)]
+        rng = random.Random(3)
+        for _ in range(100):
+            m, n = rng.randint(1, 3), rng.randint(1, 4)
+            PM = Matrix(m, n, lambda i, j: rng.choice(pool))
+            result = maximal_pairing_matrix(PM)
+            assert _matrix_lexicographic_compare(result.PM_max, compare_maximum(PM)) == 0
+            assert PM.extract(result.row_permutation, result.col_permutation) == result.PM_max
+            assert is_canonical(result.PM_max)
 
     @pytest.mark.parametrize(
         "PM",

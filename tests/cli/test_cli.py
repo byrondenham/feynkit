@@ -187,8 +187,12 @@ class TestSingleDiagram:
 
 def test_every_key_fits_its_column() -> None:
     # _kv pads keys to 28 characters; a longer key pushes its value out of line.
-    keys = re.findall(r'_kv\(\s*"([^"]*)"', Path(cli.__file__).read_text(encoding="utf-8"))
-    assert len(keys) > 30
+    # Every call must pass a literal key, so that each one is checked here.
+    source = Path(cli.__file__).read_text(encoding="utf-8")
+    keys = re.findall(r'_kv\(\s*"([^"]*)"', source)
+    calls = source.count("_kv(") - source.count("def _kv(")
+    assert calls > 30
+    assert len(keys) == calls
     assert [key for key in keys if len(key) > 28] == []
 
 

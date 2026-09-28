@@ -148,24 +148,60 @@ def test_report_that_cannot_be_written_exits_1_before_the_analysis(
     assert captured.err == f"fk: error: cannot write the {kind} report to {target}: {reason}\n"
 
 
-@pytest.mark.skipif(
+needs_permissions = pytest.mark.skipif(
     not hasattr(os, "geteuid") or os.geteuid() == 0, reason="needs file permissions to apply"
 )
-def test_report_in_a_read_only_directory_exits_1_before_the_analysis(
-    capsys: pytest.CaptureFixture[str], tmp_path: Path
+
+
+@needs_permissions
+@pytest.mark.parametrize(
+    ("mode", "where"),
+    [
+        (0o500, "locked/b.txt"),
+        (0o000, "locked/b.txt"),
+        (0o600, "locked/b.txt"),
+        (0o000, "locked/sub/b.txt"),
+    ],
+    ids=["read-only", "no-access", "no-search", "below-no-access"],
+)
+def test_report_in_a_locked_directory_exits_1_before_the_analysis(
+    mode: int, where: str, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
+    # Before Python 3.14, Path.exists and Path.is_dir raise PermissionError
+    # where the directory cannot be searched.
     locked = tmp_path / "locked"
-    locked.mkdir()
-    locked.chmod(0o500)
+    (locked / "sub").mkdir(parents=True)
+    target = tmp_path / where
+    locked.chmod(mode)
     try:
         with pytest.raises(SystemExit) as excinfo:
-            main(["analyse", "11e|e|:zz", "-s", "--text", str(locked / "b.txt"), "--no-db"])
+            main(["analyse", "11e|e|:zz", "-s", "--text", str(target), "--no-db"])
     finally:
         locked.chmod(0o700)
     assert excinfo.value.code == 1
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert captured.err.endswith(": Permission denied\n")
+    assert (
+        captured.err == f"fk: error: cannot write the text report to {target}: Permission denied\n"
+    )
+
+
+@needs_permissions
+def test_read_only_report_file_exits_1_before_the_analysis(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    target = tmp_path / "b.txt"
+    target.write_text("keep\n", encoding="utf-8")
+    target.chmod(0o444)
+    with pytest.raises(SystemExit) as excinfo:
+        main(["analyse", "11e|e|:zz", "-s", "--text", str(target), "--no-db"])
+    assert excinfo.value.code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert (
+        captured.err == f"fk: error: cannot write the text report to {target}: Permission denied\n"
+    )
+    assert target.read_text(encoding="utf-8") == "keep\n"
 
 
 def test_bare_form_with_a_report_file_runs_analyse(

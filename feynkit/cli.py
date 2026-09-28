@@ -515,14 +515,22 @@ def _check_writable(path: Path, kind: str) -> None:
     It runs before the analysis, which can take minutes. _write still reports
     what it misses, such as a directory removed in the meantime.
     """
+    # os.path answers False where stat is denied; Path raises before Python 3.14.
     parent = path.parent
-    if path.is_dir():
+    if os.path.isdir(path):
         code = errno.EISDIR
-    elif not parent.exists():
-        code = errno.ENOENT
-    elif not parent.is_dir():
-        code = errno.ENOTDIR
-    elif not os.access(path if path.exists() else parent, os.W_OK):
+    elif not os.path.isdir(parent):
+        # stat fails as opening the file would: the parent is missing, lies
+        # under a file or sits in a directory that cannot be searched.
+        try:
+            os.stat(parent)
+        except OSError as exc:
+            code = exc.errno or errno.ENOENT
+        else:
+            code = errno.ENOTDIR
+    elif not (
+        os.access(path, os.W_OK) if os.path.exists(path) else os.access(parent, os.W_OK | os.X_OK)
+    ):
         code = errno.EACCES
     else:
         return
@@ -900,7 +908,7 @@ def _build_parser() -> _Parsers:
         epilog=_MAIN_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
-        # _parse_args reports the errors of this parser, to add _cnickel_hint.
+        # _parse_args reports the errors of this parser, to explain a bad command.
         exit_on_error=False,
     )
     parser.add_argument("--version", action="version", version=f"fk {__version__}")
@@ -1020,18 +1028,39 @@ def _with_command(argv: Sequence[str]) -> list[str]:
     return ["compare" if len(positionals) == 2 else "analyse", *args]
 
 
-def _cnickel_hint(words: Sequence[str]) -> str:
+def _cnickel_hint(positionals: Sequence[str]) -> str:
     """A line for the error on a first word that looks like a CNickel string without a |.
 
     The parser reads 0:n as the tadpole 0|:n, but _with_command needs a | to
     see the bare form, so argparse takes 0:n for a misspelt command.
     """
-    positionals = _positionals(words)
     if not positionals or ":" not in positionals[0]:
         return ""
     command = "compare" if len(positionals) == 2 else "analyse"
     quoted = " ".join(f'"{word}"' for word in positionals)
     return f"\na CNickel string without a | needs the command: fk {command} {quoted}"
+
+
+def _reject_options_before(
+    parser: argparse.ArgumentParser, words: Sequence[str], command: str
+) -> None:
+    """Exit through parser when options of its command come before the command in words.
+
+    fk's own parser does not know them: it leaves a flag such as --no-db over,
+    and takes the value of an option such as --db PATH for the command. The
+    error shows each option, with its value, after the command.
+    """
+    misplaced: list[str] = []
+    before = iter(words[: words.index(command)])
+    for word in before:
+        if word.split("=", 1)[0] in parser._option_string_actions:
+            misplaced.append(word)
+            value = next(before, None) if word in _VALUE_OPTIONS else None
+            if value is not None:
+                misplaced.append(value)
+    if misplaced:
+        options = " ".join(misplaced)
+        parser.error(f"{options} must follow the command: {parser.prog} {options} ...")
 
 
 def _parse_args(parsers: _Parsers, argv: Sequence[str]) -> argparse.Namespace:
@@ -1046,21 +1075,22 @@ def _parse_args(parsers: _Parsers, argv: Sequence[str]) -> argparse.Namespace:
     try:
         args, extra = parsers.main.parse_known_args(words)
     except argparse.ArgumentError as exc:
-        parsers.main.error(f"{exc}{_cnickel_hint(words)}")
+        hint = ""
+        if exc.argument_name == "COMMAND":
+            # A word that is no command: the value of an option given before
+            # the command, or a CNickel string without a |.
+            positionals = _positionals(words)
+            if positionals and positionals[0] in ("analyse", "analyze", "compare"):
+                parser = parsers.compare if positionals[0] == "compare" else parsers.analyse
+                _reject_options_before(parser, words, positionals[0])
+            hint = _cnickel_hint(positionals)
+        parsers.main.error(f"{exc}{hint}")
     command = args.command
     if command == "analyze":
         args.command = "analyse"
     if extra:
         parser = parsers.analyse if args.command == "analyse" else parsers.compare
-        # An option of the subcommand given after it is left over only after --.
-        before = words[: words.index(command)]
-        misplaced = " ".join(
-            word
-            for word in before
-            if word in extra and word.split("=", 1)[0] in parser._option_string_actions
-        )
-        if misplaced:
-            parser.error(f"{misplaced} must follow the command: fk {args.command} {misplaced} ...")
+        _reject_options_before(parser, words, command)
         parser.error(f"unrecognized arguments: {' '.join(extra)}")
     return args
 

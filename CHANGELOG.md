@@ -55,7 +55,7 @@
   before the analysis, with the same one-line error and exit status 1.
 - `fk analyse -S` printed `|Aut(P)|  (polytope automorphisms)` as a key wider
   than the column of the others, which pushed its value out of line. The key
-  is now `|Aut(P)|`, and the note follows the order.
+  is now `|Aut(P)|`, and the note follows the number.
 
 ## 0.4.0 (2026-09-27)
 

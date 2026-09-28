@@ -191,6 +191,53 @@ def test_compare_exits_3_when_no_check_finds_an_equivalence(
 
 
 @pytest.mark.parametrize(
+    ("pair", "finite_index"),
+    [
+        (["12e|2e|e|:zzz", "e111|e|:nzz"], "no  (only a singular map found, det = 0)"),
+        (["e111|e|:nzz", "12e|2e|e|:zzz"], "no"),
+    ],
+    ids=["singular-map", "reversed"],
+)
+def test_singular_finite_index_map_is_no_equivalence(
+    pair: list[str], finite_index: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The only map the finite_index search finds from the massless triangle to
+    # the one-mass sunrise is singular, and it finds none the other way. No
+    # other check finds a map in either order.
+    assert _exit_code(["compare", *pair, "--no-db"]) == 3
+    out = capsys.readouterr().out
+    assert f"  finite_index           {finite_index}\n" in out
+    assert "YES" not in out
+    assert "Witness map" not in out
+    assert "No equivalence found between A and B." in out
+
+
+def test_singular_finite_index_map_leaves_the_other_maps(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # The finite_index search stops at a singular map, but point_config finds
+    # a map, so main returns with status 0 and prints its identity.
+    main(["compare", "12e|2e|e|:znn", "12e|2e|e|:nzn", "--no-db"])
+    out = capsys.readouterr().out
+    assert "  finite_index           no  (only a singular map found, det = 0)\n" in out
+    assert "  point_config           YES  (det = -1)\n" in out
+    assert "Witness map  [finite_index]" not in out
+    assert "GKZ identity I_A(beta, z_P) = |det M| I_B(T beta, z)" in out
+
+
+def test_nonsingular_finite_index_map_gives_status_0_and_its_identity(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # main returns, so the status is 0.
+    main(["compare", "12e|2e|e|:nzz", "12e|2e|e|:znz", "--no-db"])
+    out = capsys.readouterr().out
+    assert "  finite_index           YES  (det = 1)\n" in out
+    witness = out.split("Witness map  [finite_index]")[1]
+    assert "GKZ identity I_A(beta, z_P) = |det M| I_B(T beta, z)" in witness
+    assert "M is singular" not in witness
+
+
+@pytest.mark.parametrize(
     ("argv", "status"),
     [
         (["--version"], 0),

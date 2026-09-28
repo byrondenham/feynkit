@@ -316,7 +316,9 @@ def maximal_pairing_matrix(PM: sp.Matrix) -> PairingMatrixResult:
     """
     row_permutation, col_permutation = _maximal_orders(_ranks(PM), PM.cols)
     return PairingMatrixResult(
-        PM_max=_apply_permutation(PM, row_permutation, col_permutation),
+        # extract keeps every entry as it is; filling sp.zeros would turn a
+        # Float 0.0 into the Integer 0.
+        PM_max=PM.extract(row_permutation, col_permutation),
         row_permutation=row_permutation,
         col_permutation=col_permutation,
         symmetry_vector=_compute_symmetry_vector(PM),

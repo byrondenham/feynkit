@@ -18,9 +18,20 @@
   rows inconsistently.
 - `fk compare` exits with status 3 when none of its checks finds an
   equivalence, including when the ambient dimensions differ; it exited with 0
-  whatever the verdict. Status 1 still means an error. A script that runs
-  `fk compare` under `set -e`, or treats any non-zero status as a failure, must
-  now allow 3.
+  whatever the verdict. Status 0 means that some check found a map, not that a
+  GKZ identity follows: a `unimodular` or `affine_polytope` map alone gives 0.
+  Status 1 still means an error. A script that runs `fk compare` under
+  `set -e`, or treats any non-zero status as a failure, must now allow 3, and
+  a Python caller of `feynkit.cli.main` now gets `SystemExit(3)`.
+- The bare form needs a `|` in its first argument, which every CNickel string
+  that fk prints or documents has; a first argument without one is read as a
+  command.
+  `fk 0:n` and `fk -- 0:n`, which analysed the massive tadpole in 0.4.0, and
+  `fk 0:n 00:nn`, which compared two diagrams, now exit with status 2 as usage
+  errors. So do `fk e` and `fk abc`, which exited with 1 after reading their
+  argument as a CNickel string. A first argument such as `0:n`, a CNickel
+  string without a `|`, gets a hint to name the command, as in
+  `fk analyse "0:n"`.
 
 ### Added
 
@@ -43,17 +54,13 @@
   `examples/dissertation_overview_enhanced.py` print the new maximum of the
   triangle, which is canonical, where the second reported a failed check.
 - `fk` reported an unknown option or a surplus argument with its top-level
-  usage; it now shows the usage of `fk analyse` or `fk compare`. A first
-  argument without a `|` is no longer taken for a CNickel string of the bare
-  form, so `fk analyze "12e|2e|e|"` no longer runs `fk compare` on `analyze`
-  and `12e|2e|e|`, and a misspelt command such as `fk anlyse` gets argparse's
-  invalid-choice message. So does `fk abc`, which now exits with status 2, as
-  a usage error, where it exited with 1 for a CNickel string that does not
-  parse. `fk --help` shows the bare form `fk A B` beside `fk CNICKEL`. An
-  option of the subcommand given before it, as in
-  `fk --no-db analyse "12e|2e|e|"`, is reported as one that must follow the
-  command, and a first argument such as `0:n`, a CNickel string without a
-  `|`, gets a hint to name the command.
+  usage; it now shows the usage of `fk analyse` or `fk compare`. As a first
+  argument without a `|` is read as a command, `fk analyze "12e|2e|e|"` no
+  longer runs `fk compare` on `analyze` and `12e|2e|e|`, and a misspelt
+  command such as `fk anlyse` gets argparse's invalid-choice message.
+  `fk --help` shows the bare form `fk A B` beside `fk CNICKEL`. An option of
+  the subcommand given before it, as in `fk --no-db analyse "12e|2e|e|"`, is
+  reported as one that must follow the command.
 - `fk analyse --latex FILE` and `--text FILE` found that the file could not be
   written only after the analysis, which can take minutes. A file in a missing
   or read-only directory, or a directory given as the file, now stops `fk`
@@ -61,6 +68,9 @@
 - `fk analyse -S` printed `|Aut(P)|  (polytope automorphisms)` as a key wider
   than the column of the others, which pushed its value out of line. The key
   is now `|Aut(P)|`, and the note follows the number.
+- `fk compare` reported `finite_index` as YES, with det = 0, when the search
+  found only a singular map, which gives no identity. It now reports `no` with
+  the note `only a singular map found, det = 0`, and prints no witness map.
 
 ## 0.4.0 (2026-09-27)
 

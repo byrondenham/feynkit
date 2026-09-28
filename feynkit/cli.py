@@ -770,9 +770,16 @@ def _compare(
                     f"  {'finite_index':<22} n/a  (the Newton polytope of A is not full-dimensional)"
                 )
             else:
-                status = "YES" if fi_res.found else "no"
-                det_str = f"  (det = {fi_res.determinant})" if fi_res.found else ""
-                print(f"  {'finite_index':<22} {status}{det_str}")
+                if fi_res.found and fi_res.determinant == 0:
+                    # finite_index_map returns the first map it finds, even a
+                    # singular one, which gives no identity. It does not search
+                    # on for a map that is not singular, so the check says no.
+                    print(f"  {'finite_index':<22} no  (only a singular map found, det = 0)")
+                    fi_res = FiniteIndexResult(found=False)
+                else:
+                    status = "YES" if fi_res.found else "no"
+                    det_str = f"  (det = {fi_res.determinant})" if fi_res.found else ""
+                    print(f"  {'finite_index':<22} {status}{det_str}")
 
         # -- witness maps and the identities they give --------------------------
         any_found = any(r.equivalent for _, r in results) or fi_res.found

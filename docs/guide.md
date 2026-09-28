@@ -92,7 +92,8 @@ fk --version
 Quote every CNickel string: an unquoted `|` is a shell pipe. The bare forms `fk CNICKEL` and
 `fk A B` of earlier versions still work and run `fk analyse` and `fk compare`; a first argument
 without a `|` is read as a command, never as a CNickel string. `fk analyze` is the same as
-`fk analyse`.
+`fk analyse`. The options of `fk analyse` and `fk compare` follow the command, as in
+`fk analyse "12e|2e|e|" --no-db`.
 
 ### Analysing one diagram
 
@@ -220,10 +221,13 @@ fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"    # the mass on two different propag
    $P$, the substitution $u_i = \prod_k v_k^{M_{ki}}$ and the identity
    $I_A(\beta, z_P) = |\det M|\, I_B(T\beta, z)$ between the two integrals without Gamma
    prefactors. A `unimodular` or `affine_polytope` map relates only the hull vertices and gives
-   no identity.
+   no identity. The `finite_index` search stops at the first map it finds, and when that map is
+   singular, with $\det M = 0$, the check reports `no`, although a map with $\det M \neq 0$ may
+   exist.
 
-`fk compare` exits with status 0 when a check finds an equivalence and with 3 when none does,
-including after an ambient dimension mismatch, so a script can test the verdict.
+`fk compare` exits with status 0 when a check finds a map and with 3 when none does, including
+after an ambient dimension mismatch, so a script can test the verdict. Status 0 does not mean that
+a GKZ identity follows: a `unimodular` or `affine_polytope` map alone gives 0.
 
 ### Database
 

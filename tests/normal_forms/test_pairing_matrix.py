@@ -294,14 +294,25 @@ class TestExactMaximum:
         assert is_canonical(result.PM_max)
 
     def test_random_matrices_with_floats_and_rationals(self) -> None:
-        pool = [Integer(0), Integer(1), Float(1.0), Integer(2), Float(2.0), Rational(1, 2)]
+        pool = [
+            Integer(0),
+            Float(0.0),
+            Integer(1),
+            Float(1.0),
+            Integer(2),
+            Float(2.0),
+            Rational(1, 2),
+        ]
         rng = random.Random(3)
         for _ in range(100):
             m, n = rng.randint(1, 3), rng.randint(1, 4)
             PM = Matrix(m, n, lambda i, j: rng.choice(pool))
             result = maximal_pairing_matrix(PM)
             assert _matrix_lexicographic_compare(result.PM_max, compare_maximum(PM)) == 0
-            assert PM.extract(result.row_permutation, result.col_permutation) == result.PM_max
+            # Entry by entry, so that a Float 0.0 turned into the Integer 0 fails.
+            for i, r in enumerate(result.row_permutation):
+                for j, c in enumerate(result.col_permutation):
+                    assert result.PM_max[i, j] is PM[r, c]
             assert is_canonical(result.PM_max)
 
     @pytest.mark.parametrize(

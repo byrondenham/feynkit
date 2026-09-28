@@ -906,7 +906,7 @@ print(f"  Symmetry vector    : {pm.symmetry_vector}")
 print(f"  A canonical?       : {is_canonical(A_tri_mat)}")
 print(f"  PM_max canonical?  : {is_canonical(pm.PM_max)}")
 print(
-    "  A permuted to PM_max: "
+    "  A permuted = PM_max: "
     f"{A_tri_mat.extract(pm.row_permutation, pm.col_permutation) == pm.PM_max}"
 )
 note(

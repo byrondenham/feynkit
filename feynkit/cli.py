@@ -53,7 +53,6 @@ from feynkit.landau import LandauAnalysis
 from feynkit.point_count import TorusCount
 from feynkit.polytope import polytope_data
 
-COMMANDS = ("analyse", "compare")
 SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "symmetries")
 # The seed and budget of the point counts when --seed and --torus-budget are not given.
 DEFAULT_TORUS_SEED = 0
@@ -810,6 +809,7 @@ examples:
   fk analyse "12e|2e|e|:zzz" -g -n             GKZ system and Newton polytope only
   fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"   the mass on two different propagators
   fk "12e|2e|e|:zzz"                           the bare form of fk analyse
+  fk "12e|2e|e|:nzz" "12e|2e|e|:znz"           the bare form of fk compare
 
 Run fk analyse --help or fk compare --help for their options.
 Quote every CNickel string: an unquoted | is a shell pipe.
@@ -885,6 +885,7 @@ def _build_parser() -> _Parsers:
 
     analyse = commands.add_parser(
         "analyse",
+        aliases=["analyze"],
         parents=[common],
         help="analyse one diagram",
         description="Analyse one diagram: every section, or those the section flags choose.",
@@ -981,16 +982,33 @@ def _with_command(argv: Sequence[str]) -> list[str]:
     """argv with the subcommand that the bare form fk CNICKEL or fk A B stands for.
 
     argparse cannot give one slot to either a subcommand or a positional, so
-    the bare form is rewritten before parsing. When the first positional is not
-    a command name, two positionals mean compare and any other number means
-    analyse, which then reports surplus arguments itself. argv without
-    positionals, such as --help or --version, is left alone.
+    the bare form is rewritten before parsing. Every CNickel string has a |,
+    so a first positional with one starts the bare form: two positionals mean
+    compare and any other number means analyse, which then reports surplus
+    arguments itself. Otherwise argv is left alone, so that argparse takes a
+    command such as analyze and reports a misspelt one, and argv without
+    positionals, such as --help or --version, is left alone too.
     """
     args = list(argv)
     positionals = _positionals(args)
-    if not positionals or positionals[0] in COMMANDS:
+    if not positionals or "|" not in positionals[0]:
         return args
     return ["compare" if len(positionals) == 2 else "analyse", *args]
+
+
+def _parse_args(parsers: _Parsers, argv: Sequence[str]) -> argparse.Namespace:
+    """The arguments of argv, with the bare form rewritten and analyze read as analyse.
+
+    An unknown option or a surplus positional is a usage error of the
+    subcommand, so argparse prints that subcommand's usage, not fk's.
+    """
+    args, extra = parsers.main.parse_known_args(_with_command(argv))
+    if args.command == "analyze":
+        args.command = "analyse"
+    if extra:
+        parser = parsers.analyse if args.command == "analyse" else parsers.compare
+        parser.error(f"unrecognized arguments: {' '.join(extra)}")
+    return args
 
 
 def _section_flags(args: argparse.Namespace) -> set[str]:
@@ -1052,7 +1070,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     same place. Any other exception is a bug and keeps its traceback.
     """
     parsers = _build_parser()
-    args = parsers.main.parse_args(_with_command(sys.argv[1:] if argv is None else argv))
+    args = _parse_args(parsers, sys.argv[1:] if argv is None else argv)
     try:
         _run(parsers, args)
     except BrokenPipeError:

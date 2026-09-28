@@ -34,8 +34,11 @@ def _unquoted_cnickel_lines(text: str) -> list[str]:
             ["compare", "11e|e|:zz", "--db=x.db", "12e|2e|e|:zzz"],
         ),
         (["--", "11e|e|:zz"], ["analyse", "--", "11e|e|:zz"]),
-        (["a", "b", "c"], ["analyse", "a", "b", "c"]),
+        (["11e|e|:zz", "b", "c"], ["analyse", "11e|e|:zz", "b", "c"]),
+        (["a", "b", "c"], ["a", "b", "c"]),
         (["analyse", "11e|e|:zz"], ["analyse", "11e|e|:zz"]),
+        (["analyze", "12e|2e|e|", "--no-db"], ["analyze", "12e|2e|e|", "--no-db"]),
+        (["anlyse", "11e|e|:zz"], ["anlyse", "11e|e|:zz"]),
         (["compare", "a", "b"], ["compare", "a", "b"]),
         ([], []),
         (["--help"], ["--help"]),
@@ -117,6 +120,57 @@ def test_usage_errors_exit_2(argv: list[str], capsys: pytest.CaptureFixture[str]
         main(argv)
     assert excinfo.value.code == 2
     assert "usage: fk" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("argv", "command", "extra"),
+    [
+        (["analyse", "12e|2e|e|", "--bogus", "--no-db"], "analyse", "--bogus"),
+        (["12e|2e|e|", "--bogus", "--no-db"], "analyse", "--bogus"),
+        (["analyse", "12e|2e|e|", "11e|e|", "--no-db"], "analyse", "11e|e|"),
+        (["analyze", "12e|2e|e|", "-x", "--no-db"], "analyse", "-x"),
+        (["compare", "12e|2e|e|", "11e|e|", "--bogus", "--no-db"], "compare", "--bogus"),
+        (["12e|2e|e|", "11e|e|", "-s", "--no-db"], "compare", "-s"),
+    ],
+    ids=["analyse", "bare-analyse", "surplus", "analyze", "compare", "bare-compare"],
+)
+def test_unknown_arguments_get_the_usage_of_their_subcommand(
+    argv: list[str], command: str, extra: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(argv)
+    assert excinfo.value.code == 2
+    lines = capsys.readouterr().err.splitlines()
+    assert lines[0].startswith(f"usage: fk {command} ")
+    assert lines[-1] == f"fk {command}: error: unrecognized arguments: {extra}"
+
+
+def test_analyze_runs_analyse(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyze", "12e|2e|e|", "-g", "-n", "--no-db"])
+    out = capsys.readouterr().out
+    assert "Euler equations" in out
+    assert "Newton polytope" in out
+    assert "Equivalence analysis" not in out
+
+
+@pytest.mark.parametrize("argv", [["anlyse", "11e|e|:zz", "--no-db"], ["abc", "--no-db"]])
+def test_first_word_without_a_bar_is_a_command(
+    argv: list[str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(argv)
+    assert excinfo.value.code == 2
+    err = capsys.readouterr().err
+    assert err.startswith("usage: fk ")
+    assert f"invalid choice: '{argv[0]}'" in err
+
+
+def test_main_help_shows_both_bare_forms(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    out = capsys.readouterr().out
+    assert 'fk "12e|2e|e|:zzz"                           the bare form of fk analyse' in out
+    assert 'fk "12e|2e|e|:nzz" "12e|2e|e|:znz"           the bare form of fk compare' in out
 
 
 def test_version_prints_fk_and_the_version(capsys: pytest.CaptureFixture[str]) -> None:

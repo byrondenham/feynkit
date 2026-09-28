@@ -17,6 +17,10 @@
   configuration are recomputed rather than read. Those releases read repaired
   rows inconsistently.
 
+### Added
+
+- `fk analyze` is an alias of `fk analyse`.
+
 ### Fixed
 
 - `maximal_pairing_matrix` did not return the lexicographic maximum under row
@@ -33,6 +37,14 @@
   `examples/dissertation_overview.py` and
   `examples/dissertation_overview_enhanced.py` print the new maximum of the
   triangle, which is canonical, where the second reported a failed check.
+- `fk` reported an unknown option or a surplus argument with its top-level
+  usage; it now shows the usage of `fk analyse` or `fk compare`. A first
+  argument without a `|` is no longer taken for a CNickel string of the bare
+  form, so `fk analyze "12e|2e|e|"` no longer runs `fk compare` on `analyze`
+  and `12e|2e|e|`, and a misspelt command such as `fk anlyse` gets argparse's
+  invalid-choice message. So does `fk abc`, which now exits with status 2, as
+  a usage error, where it exited with 1 for a CNickel string that does not
+  parse. `fk --help` shows the bare form `fk A B` beside `fk CNICKEL`.
 
 ## 0.4.0 (2026-09-27)
 

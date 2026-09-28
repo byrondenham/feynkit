@@ -90,7 +90,9 @@ fk --version
 ```
 
 Quote every CNickel string: an unquoted `|` is a shell pipe. The bare forms `fk CNICKEL` and
-`fk A B` of earlier versions still work and run `fk analyse` and `fk compare`.
+`fk A B` of earlier versions still work and run `fk analyse` and `fk compare`; a first argument
+without a `|` is read as a command, never as a CNickel string. `fk analyze` is the same as
+`fk analyse`.
 
 ### Analysing one diagram
 

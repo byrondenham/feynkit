@@ -294,4 +294,16 @@ class TestExactMaximum:
         # rows are kept apart, 2^10 of them; all 10! orderings would not fit in memory.
         result = maximal_pairing_matrix(eye(10))
         assert result.PM_max == eye(10)
-        assert result.row_permutation == result.col_permutation
+        assert result.row_permutation == result.col_permutation == list(range(10))
+
+    @pytest.mark.parametrize(
+        "PM", [TRIANGLE_MAX, Matrix([[4, 3], [2, 1]])], ids=["triangle-max", "2x2"]
+    )
+    def test_maximal_input_gets_identity_permutations(self, PM: Matrix) -> None:
+        # Of the orders that give the maximum, the smallest is returned, so an
+        # input that is already maximal keeps its rows and columns in place.
+        result = maximal_pairing_matrix(PM)
+        assert result.PM_max == PM
+        assert result.row_permutation == list(range(PM.rows))
+        assert result.col_permutation == list(range(PM.cols))
+        assert is_canonical(PM)

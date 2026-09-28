@@ -10,7 +10,7 @@ maximum of its own orbit.
 
 References
 ----------
- .. [1] Grinis, A., Kasprzyk, A. (2013). Normal Forms of Convex Lattice Polytopes.
+ .. [1] Grinis, R., Kasprzyk, A. M. (2013). Normal Forms of Convex Lattice Polytopes.
         arXiv:1301.6641 [math.AG]
 """
 
@@ -201,6 +201,13 @@ _Ranks = list[tuple[int, ...]]
 _Blocks = tuple[tuple[int, ...], ...]
 
 
+def _ranks(PM: sp.Matrix) -> _Ranks:
+    """PM with each entry replaced by the rank of its default_sort_key among those of PM."""
+    keys = [[default_sort_key(PM[i, j]) for j in range(PM.cols)] for i in range(PM.rows)]
+    rank = {key: k for k, key in enumerate(sorted({key for row in keys for key in row}))}
+    return [tuple(rank[key] for key in row) for row in keys]
+
+
 def _place(row: tuple[int, ...], blocks: _Blocks) -> tuple[tuple[int, ...], _Blocks]:
     """
     The largest the row can be below the rows already placed, and the blocks it leaves.
@@ -294,11 +301,7 @@ def maximal_pairing_matrix(PM: sp.Matrix) -> PairingMatrixResult:
     [1, 0],
     [0, 1]])
     """
-    m, n = PM.shape
-    keys = [[default_sort_key(PM[i, j]) for j in range(n)] for i in range(m)]
-    rank = {key: k for k, key in enumerate(sorted({key for row in keys for key in row}))}
-    ranks = [tuple(rank[key] for key in row) for row in keys]
-    row_permutation, col_permutation = _maximal_orders(ranks, n)
+    row_permutation, col_permutation = _maximal_orders(_ranks(PM), PM.cols)
     return PairingMatrixResult(
         PM_max=_apply_permutation(PM, row_permutation, col_permutation),
         row_permutation=row_permutation,
@@ -326,4 +329,10 @@ def is_canonical(PM: sp.Matrix) -> bool:
     bool
         True if PM is its own maximum, False otherwise.
     """
-    return matrix_lexicographic_compare(PM, maximal_pairing_matrix(PM).PM_max) == 0
+    # The search alone, without the symmetry vector maximal_pairing_matrix also
+    # computes. Two entries have the same rank exactly when their
+    # default_sort_keys are equal, so comparing ranks compares PM with its
+    # maximum as matrix_lexicographic_compare does.
+    ranks = _ranks(PM)
+    rows, cols = _maximal_orders(ranks, PM.cols)
+    return [tuple(ranks[r][c] for c in cols) for r in rows] == ranks

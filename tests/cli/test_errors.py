@@ -76,8 +76,8 @@ def test_compare_names_the_string_that_does_not_parse(capsys: pytest.CaptureFixt
 
 
 def test_bare_form_that_does_not_parse_exits_1(capsys: pytest.CaptureFixture[str]) -> None:
-    assert _exit_code(["abc", "--no-db"]) == 1
-    assert capsys.readouterr().err.startswith("fk: error: cannot parse CNickel 'abc': ")
+    assert _exit_code(["9e|e|", "--no-db"]) == 1
+    assert capsys.readouterr().err.startswith("fk: error: cannot parse CNickel '9e|e|': ")
 
 
 def test_library_error_exits_1_without_a_traceback(capsys: pytest.CaptureFixture[str]) -> None:

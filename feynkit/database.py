@@ -416,9 +416,10 @@ class FeynkitDatabase:
         """
         Store a :class:`FeynmanIntegral` and all of its computed properties.
 
-        If the fingerprint is already present, the record is updated
-        (label, cnickel, A-matrix, toric generators, and automorphism data are
-        refreshed).
+        If the fingerprint is already present, the record is updated: the
+        A-matrix and toric generators are replaced, automorphism data are
+        replaced when computed, and the label and CNickel string are kept,
+        being filled in only where they are missing.
 
         Parameters
         ----------

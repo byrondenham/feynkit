@@ -242,8 +242,9 @@ def compute_graph_automorphisms(graph: Graph) -> list[list[int]]:
     including the identity, in lexicographic order.
 
     The automorphisms of the graph with its legs map one least labelling of
-    the canonical Nickel search onto each of the others; those that also
-    preserve the colouring are kept.
+    the canonical Nickel search onto each of the others. Each such map is
+    checked in full, the legs at every vertex and the colours between every
+    pair of vertices, and kept if it preserves them.
     """
     from ..core.graph import _canonical_labellings
 
@@ -260,14 +261,17 @@ def compute_graph_automorphisms(graph: Graph) -> list[list[int]]:
     for e in graph.get_external_edges():
         legs[e.v1 - 1] += 1
 
+    # A map is a bijection on pairs of vertices, so one that sends every pair
+    # with propagators to a pair with the same colours sends the pairs without
+    # propagators to pairs without them.
+    expected = {pair: sorted(cs) for pair, cs in colours.items()}
     _, labellings = _canonical_labellings(multiplicity, legs)
     found = []
     for order in labellings:
         image = dict(zip(labellings[0], order, strict=True))
-        if all(
-            sorted(colours[u, w])
-            == sorted(colours[min(image[u], image[w]), max(image[u], image[w])])
-            for u, w in colours
+        if all(legs[v] == legs[image[v]] for v in range(V)) and all(
+            expected.get((min(image[u], image[w]), max(image[u], image[w]))) == cs
+            for (u, w), cs in expected.items()
         ):
             found.append([image[v] + 1 for v in range(V)])
     return sorted(found)

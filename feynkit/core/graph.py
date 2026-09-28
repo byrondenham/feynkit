@@ -8,8 +8,8 @@ with methods to compute Laplacians and related polynomials.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Iterator, Mapping, Sequence
-from itertools import chain, permutations, product
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from itertools import permutations
 
 import sympy as sp
 
@@ -84,6 +84,20 @@ def _nickel_entry(
     return "".join(map(str, digits)) + "e" * legs[v]
 
 
+def _tie_choices(
+    ties: Sequence[Sequence[int]], orders: Callable[[Sequence[int]], Iterable[tuple[int, ...]]]
+) -> Iterator[tuple[int, ...]]:
+    """One order of each tie, concatenated, for every choice of orders, in the order product()
+    would give. They are generated one at a time: product() would first build every order of
+    every tie, k! of them for a tie of k."""
+    if not ties:
+        yield ()
+        return
+    for first in orders(ties[0]):
+        for rest in _tie_choices(ties[1:], orders):
+            yield first + rest
+
+
 def _canonical_labellings(
     multiplicity: Sequence[Sequence[int]], legs: Sequence[int]
 ) -> tuple[str, list[tuple[int, ...]]]:
@@ -108,8 +122,11 @@ def _canonical_labellings(
     order of the automorphism group of the graph with its legs.
 
     The argument for minimality needs single-digit labels, so it holds for
-    V <= 10. Above that, compute_graph_automorphisms relies only on the set of
-    least labellings being one coset of the automorphism group.
+    V <= 10. Above that the string is least only among breadth-first
+    labellings, but those attaining it still include every image of one of
+    them under the automorphisms of the graph with its legs, which is all that
+    compute_graph_automorphisms needs, since it checks each candidate map in
+    full.
     """
     V = len(legs)
     best: list[str] = []
@@ -135,8 +152,8 @@ def _canonical_labellings(
             if m and w not in order:
                 new[m].append(w)
         ties = [new[m] for m in sorted(new, reverse=True)]
-        for choice in product(*(permutations(tie) for tie in ties)):
-            longer = order + tuple(chain.from_iterable(choice))
+        for choice in _tie_choices(ties, permutations):
+            longer = order + choice
             label = {u: k for k, u in enumerate(longer)}
             search(longer, text + _nickel_entry(v, label, multiplicity, legs) + "|", i + 1)
 
@@ -196,9 +213,9 @@ def _least_naming(groups: Sequence[Sequence[_Colour]]) -> str:
         ties = [
             sorted(c for c in new if new[c] == k) for k in sorted(set(new.values()), reverse=True)
         ]
-        for choice in product(*(_tie_orders(tie, profile) for tie in ties)):
+        for choice in _tie_choices(ties, lambda tie: _tie_orders(tie, profile)):
             named = dict(names)
-            for c in chain.from_iterable(choice):
+            for c in choice:
                 named[c] = _SHARED_LETTERS[len(named)]
             codes = sorted(named[c] if isinstance(c, int) else c for c in groups[g])
             walk(g + 1, named, text + "".join(codes))
@@ -529,7 +546,7 @@ class Graph:
         Notes
         -----
         The time is that of :meth:`nickel_index`, whose Notes give examples,
-        and one colour string for each least labelling.
+        plus one colour string for each least labelling.
 
         Examples
         --------

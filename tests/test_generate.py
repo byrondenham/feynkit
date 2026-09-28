@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 
+import numpy as np
 import pytest
 
 import feynkit
@@ -61,7 +62,8 @@ def test_tier_two_by_block() -> None:
 
 
 def test_blocks_come_in_order_and_sorted() -> None:
-    graphs = list(generate_graphs([2, 1], [4, 2, 2]))
+    # With 2 and 3 legs the ranges of E overlap, so an order by (L, n, E) would fail.
+    graphs = list(generate_graphs([2, 1], [3, 2, 3]))
     keys = []
     for s in graphs:
         g = Graph.from_cnickel(s)
@@ -70,7 +72,7 @@ def test_blocks_come_in_order_and_sorted() -> None:
     for key in set(keys):
         block = [s for s, k in zip(graphs, keys, strict=True) if k == key]
         assert block == sorted(block)
-    assert len(graphs) == len(set(graphs)) == 3 + 6 + 4 + 18 + 32 + 50 + 183 + 228
+    assert len(graphs) == len(set(graphs)) == 3 + 4 + 4 + 18 + 15 + 32 + 62 + 83
 
 
 def test_iterables_of_any_kind() -> None:
@@ -136,6 +138,15 @@ def test_one_vertex_irreducible() -> None:
     assert "1122|e|e|" in {topology(s) for s in generate_graphs(2, 2)}
 
 
+def test_one_vertex_irreducible_at_four_loops() -> None:
+    # Two triple propagators sharing a vertex: a core with a cut vertex and no
+    # self-loop, which first appears at four loops.
+    assert "111222|||:zzzzzz" in generate_graphs(4, 0, edges=6, masses="z")
+    kept = list(generate_graphs(4, range(3), masses="z", one_vertex_irreducible=True))
+    assert len(kept) == 514
+    assert "111222|||:zzzzzz" not in kept
+
+
 def test_edges() -> None:
     assert {topology(s) for s in generate_graphs(2, 4, edges=7)} == {
         "123|45|4e|5e|e|e|",
@@ -156,8 +167,18 @@ def test_edges() -> None:
         ({"loops": 1, "legs": [2, "3"]}, "legs must be integers"),
         ({"loops": True, "legs": 2}, "loops must be integers"),
         ({"loops": 1, "legs": 2, "masses": "nz"}, "masses must be one of"),
+        ({"loops": 2.0, "legs": 2}, "loops must be integers"),
+        ({"loops": 1, "legs": None}, "legs must be integers"),
+        ({"loops": 1, "legs": 2, "edges": 2.5}, "edges must be integers"),
+        ({"loops": np.int64(1), "legs": 2}, "loops must be integers"),
         ({"loops": 1, "legs": 2, "max_legs_per_vertex": 0}, "max_legs_per_vertex"),
-        ({"loops": 1, "legs": 11}, "11 propagators and 11 legs has 11 vertices"),
+        ({"loops": 1, "legs": 2, "max_legs_per_vertex": True}, "max_legs_per_vertex"),
+        ({"loops": 1, "legs": 2, "max_legs_per_vertex": 1.0}, "max_legs_per_vertex"),
+        ({"loops": 1, "legs": 2, "max_legs_per_vertex": [1, 2]}, "max_legs_per_vertex"),
+        ({"loops": 1, "legs": 2, "max_legs_per_vertex": "1"}, "max_legs_per_vertex"),
+        ({"loops": 1, "legs": 2, "max_legs_per_vertex": np.int64(1)}, "max_legs_per_vertex"),
+        ({"loops": 1, "legs": 11}, "block of 1 loop, 11 propagators and 11 legs has 11 vertices"),
+        ({"loops": 6, "legs": 1}, "block of 6 loops, 16 propagators and 1 leg has 11 vertices"),
         ({"loops": 2, "legs": 10, "edges": 12}, "has 11 vertices"),
     ],
 )

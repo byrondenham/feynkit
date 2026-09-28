@@ -114,18 +114,17 @@ def _multisets(pairs: Sequence[_Pair], count: int, vertices: int) -> Iterator[tu
 
 
 @cache
-def _cores(loops: int) -> tuple[tuple[int, tuple[_Pair, ...]], ...]:
-    """The cores of a number of loops of at least 2, one per Nickel string, as (vertices,
-    propagators): connected, bridgeless, self-loops allowed, every degree at least 3."""
-    found: dict[str, tuple[int, tuple[_Pair, ...]]] = {}
-    for vertices in range(1, 2 * loops - 1):
-        pairs = [(u, w) for u in range(vertices) for w in range(u, vertices)]
-        for core in _multisets(pairs, vertices + loops - 1, vertices):
-            if _bridgeless(vertices, core):
-                multiplicity = _multiplicity(vertices, core)
-                nickel = _canonical_labellings(multiplicity, [0] * vertices)[0]
-                found.setdefault(nickel, (vertices, core))
-    return tuple(found[nickel] for nickel in sorted(found))
+def _cores(loops: int, vertices: int) -> tuple[tuple[str, tuple[_Pair, ...]], ...]:
+    """The cores of a number of loops of at least 2 on a number of vertices, one per Nickel
+    string, as (string, propagators): connected, bridgeless, self-loops allowed, every degree
+    at least 3."""
+    found: dict[str, tuple[_Pair, ...]] = {}
+    pairs = [(u, w) for u in range(vertices) for w in range(u, vertices)]
+    for core in _multisets(pairs, vertices + loops - 1, vertices):
+        if _bridgeless(vertices, core):
+            nickel = _canonical_labellings(_multiplicity(vertices, core), [0] * vertices)[0]
+            found.setdefault(nickel, core)
+    return tuple(found.items())
 
 
 def _compositions(total: int, parts: int) -> Iterator[tuple[int, ...]]:
@@ -160,7 +159,19 @@ def _candidates(
 ) -> Iterator[tuple[int, list[_Pair], list[int]]]:
     """Every graph of the block, with repeats, as (vertices, propagators, legs at each vertex):
     each core propagator becomes a chain, whose inner vertices carry at least one leg."""
-    cores = ((1, ((0, 0),)),) if loops == 1 else _cores(loops)
+    if loops == 1:
+        cores: Sequence[tuple[int, tuple[_Pair, ...]]] = [(1, ((0, 0),))]
+    else:
+        # A core on V_c vertices has V_c + L - 1 propagators, so a block with E
+        # propagators uses only the cores with V_c <= E - L + 1, the vertices of
+        # the block; there are none above 2(L - 1).
+        most = min(2 * loops - 2, edges - loops + 1)
+        found = sorted(
+            (nickel, vertices, core)
+            for vertices in range(1, most + 1)
+            for nickel, core in _cores(loops, vertices)
+        )
+        cores = [(vertices, core) for _, vertices, core in found]
     high = legs if max_legs is None else max_legs
     for core_vertices, core in cores:
         if (
@@ -254,13 +265,16 @@ def _block(
     )
 
 
-def _values(value: int | Iterable[int], name: str, minimum: int) -> list[int]:
-    """The distinct integers given, sorted; ValidationError for anything else."""
-    values = [value] if isinstance(value, int) else list(value)
+def _values(value: object, name: str, minimum: int) -> list[int]:
+    """The distinct integers given, one or an iterable of them, sorted; ValidationError for
+    anything else, such as None, a float or a bool."""
+    values = list(value) if isinstance(value, Iterable) else [value]
+    checked: list[int] = []
     for v in values:
         if isinstance(v, bool) or not isinstance(v, int) or v < minimum:
             raise ValidationError(f"{name} must be integers of at least {minimum}, got {v!r}")
-    return sorted(set(values))
+        checked.append(v)
+    return sorted(set(checked))
 
 
 def _check_masses(masses: str) -> None:
@@ -321,15 +335,23 @@ def generate_graphs(
     ------
     ValidationError
         When called, not at the first string: loops below 1, legs below 0,
-        max_legs_per_vertex below 1, an unknown alphabet, or a block with more
-        than MAX_VERTICES vertices, which CNickel cannot label.
+        edges below 1, loops, legs or edges that are not integers,
+        max_legs_per_vertex other than a positive integer or None, an unknown
+        alphabet, or a block with more than MAX_VERTICES vertices, which
+        CNickel cannot label.
     """
     loop_values = _values(loops, "loops", 1)
     leg_values = _values(legs, "legs", 0)
     edge_values = None if edges is None else _values(edges, "edges", 1)
     _check_masses(masses)
-    if max_legs_per_vertex is not None:
-        _values(max_legs_per_vertex, "max_legs_per_vertex", 1)
+    if max_legs_per_vertex is not None and (
+        isinstance(max_legs_per_vertex, bool)
+        or not isinstance(max_legs_per_vertex, int)
+        or max_legs_per_vertex < 1
+    ):
+        raise ValidationError(
+            f"max_legs_per_vertex must be a positive integer or None, got {max_legs_per_vertex!r}"
+        )
 
     blocks = []
     for L in loop_values:
@@ -340,8 +362,10 @@ def generate_graphs(
                     blocks.append((L, E, n))
     for L, E, n in blocks:
         if E - L + 1 > MAX_VERTICES:
+            loop_count = "1 loop" if L == 1 else f"{L} loops"
+            leg_count = "1 leg" if n == 1 else f"{n} legs"
             raise ValidationError(
-                f"the block of {L} loops, {E} propagators and {n} legs has {E - L + 1} "
+                f"the block of {loop_count}, {E} propagators and {leg_count} has {E - L + 1} "
                 f"vertices; CNickel labels at most {MAX_VERTICES}"
             )
 
@@ -361,6 +385,14 @@ def mass_colourings(topology: str, *, masses: str = "zn") -> list[str]:
     ``topology`` is a Nickel string without colours, canonical or not. The
     colourings are counted up to the automorphisms of the graph, and ``masses``
     is as for :func:`generate_graphs`.
+
+    Raises
+    ------
+    ValidationError
+        If ``masses`` is not one of MASS_ALPHABETS, ``topology`` has colours, or
+        it has more than MAX_VERTICES vertices.
+    ValueError
+        If ``topology`` is malformed, as :meth:`Graph.from_cnickel` raises it.
     """
     _check_masses(masses)
     if ":" in topology:

@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import itertools
 import random
+import sys
 import time
+import tracemalloc
 from collections import Counter, defaultdict
 
 import pytest
@@ -21,7 +23,7 @@ import sympy as sp
 
 from feynkit.core import Edge, Graph
 from feynkit.core.constants import MASS_ASSUMPTIONS
-from feynkit.core.graph import _canonical_labellings, _least_naming
+from feynkit.core.graph import _canonical_labellings, _least_naming, _tie_choices
 from feynkit.normal_forms import compute_graph_automorphisms
 
 LETTERS = "abcdefghijklmopqrtuvwxy"
@@ -308,6 +310,66 @@ def test_ten_vertices_are_labelled_and_eleven_are_not() -> None:
     with pytest.raises(NotImplementedError, match="V <= 10"):
         graph.cnickel()
     assert len(compute_graph_automorphisms(graph)) == 22
+
+
+def test_tie_orders_come_one_at_a_time() -> None:
+    ties = [[4, 0, 2], [1, 3], [5]]
+    assert list(_tie_choices(ties, itertools.permutations)) == [
+        tuple(itertools.chain.from_iterable(choice))
+        for choice in itertools.product(*(itertools.permutations(tie) for tie in ties))
+    ]
+    # product() would build all 10! orders of a tie of 10 before the first.
+    tracemalloc.start()
+    try:
+        first = next(_tie_choices([list(range(10))], itertools.permutations))
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert first == tuple(range(10))
+    assert peak < 2**20
+
+
+@pytest.mark.parametrize(
+    "graph",
+    [
+        Graph.from_cnickel("12e|3|3e|e|:zzzz"),  # only the legs break the symmetry of the box
+        Graph.from_cnickel("12e|3e|3e|e|:nnzz"),  # only the masses break it
+        Graph.from_cnickel("112|2|34|4e|e|:nzzznzz"),
+        *RANDOM_GRAPHS[::20],
+    ],
+)
+def test_graph_automorphisms_check_every_candidate(
+    graph: Graph, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Offered every labelling, not only the least ones, the function still keeps
+    # exactly the automorphisms.
+    def every_labelling(
+        multiplicity: list[list[int]], legs: list[int]
+    ) -> tuple[str, list[tuple[int, ...]]]:
+        return "", list(itertools.permutations(range(len(legs))))
+
+    monkeypatch.setattr("feynkit.core.graph._canonical_labellings", every_labelling)
+    assert compute_graph_automorphisms(graph) == scan_graph_automorphisms(graph)
+
+
+@pytest.mark.slow
+def test_the_wheel_with_eleven_spokes() -> None:
+    # The eleven neighbours of the hub tie, and building their 11! orders at
+    # once took about 6 GB.
+    resource = pytest.importorskip("resource")
+    rim = 11
+    ends = [(1, k + 2) for k in range(rim)] + [(k + 2, (k + 1) % rim + 2) for k in range(rim)]
+    edges = [Edge(idx=j + 1, v1=u, v2=w, is_internal=True) for j, (u, w) in enumerate(ends)]
+    graph = Graph(internal_vertices=rim + 1, external_legs=0, edges=edges)
+    unit = 1 if sys.platform == "darwin" else 1024  # ru_maxrss is in bytes or KiB
+    before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * unit
+    automorphisms = compute_graph_automorphisms(graph)
+    grown = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * unit - before
+    dihedral = [
+        [1, *((r + s * p) % rim + 2 for p in range(rim))] for r in range(rim) for s in (1, -1)
+    ]
+    assert automorphisms == sorted(dihedral)
+    assert grown < 2**30
 
 
 def exhaustive_naming(groups: list[list[str | int]]) -> str:

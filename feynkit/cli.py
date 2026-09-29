@@ -350,6 +350,7 @@ def _print_newton(fi: FeynmanIntegral) -> None:
     _kv("Hull vertices", vertices)
     _kv("Ambient dimension", cfg.ambient_dim)
     _kv("Affine dimension", cfg.affine_dim)
+    _kv("Scaleless", "yes" if fi.is_scaleless else "no")
     # Below full dimension the rows of A are dependent, so for generic beta the
     # Euler equations contradict each other and the rank is 0, not the volume.
     full = cfg.affine_dim == cfg.ambient_dim
@@ -361,26 +362,15 @@ def _print_newton(fi: FeynmanIntegral) -> None:
 def _print_symmetries(fi: FeynmanIntegral) -> None:
     _sec("Symmetries")
     cfg = AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
-    dimension = cfg.affine_dim
-    # As in the report: the automorphism computation is built for a
-    # full-dimensional polytope of dimension 2 and above.
-    if dimension < 2:
-        print(
-            "  Not computed for a Newton polytope of dimension below 2; "
-            f"this one has dimension {dimension}."
-        )
-        return
-    if dimension < cfg.ambient_dim:
-        print(
-            "  Not computed for a Newton polytope that is not full-dimensional; "
-            f"this one has dimension {dimension} in R^{cfg.ambient_dim}."
-        )
-        return
+    full = cfg.affine_dim == cfg.ambient_dim
     aut = fi.polytope_automorphisms
-    _kv("|Aut(P)|", f"{aut.order}  (polytope automorphisms)")
+    kind = "polytope automorphisms" if full else "automorphisms of P in its affine hull"
+    _kv("|Aut(P)|", f"{aut.order}  ({kind})")
     _kv("|Aut(graph)|", len(fi.graph_automorphisms))
     _kv("Vertex orbits under Aut(P)", aut.vertex_orbits)
     _kv("Symmetry pairs  (|det M|=1)", len(fi.symmetry_pairs))
+    if not full:
+        print("  P is not full-dimensional: the identities of the pairs hold only trivially.")
 
 
 def _print_database(fi: FeynmanIntegral, db: FeynkitDatabase) -> None:
@@ -546,10 +536,13 @@ def _write_reports(report: AnalysisReport, options: ReportOptions, *, announce: 
             print(f"  Wrote the text report to {options.text}")
 
 
-def _json_value(value: str) -> int | str | None:
-    """A summary value as an integer when it is one, None for "none", otherwise as given."""
+def _json_value(value: str) -> bool | int | str | None:
+    """A summary value as an integer when it is one, a boolean for "yes" and "no", None for
+    "none", otherwise as given."""
     if value == "none":
         return None
+    if value in ("yes", "no"):
+        return value == "yes"
     try:
         return int(value)
     except ValueError:
@@ -724,25 +717,12 @@ def _compare(
             print("  No affine equivalence is possible between spaces of different dimension.")
             return False
 
-        # The two checks of the Newton polytopes rest on convex hulls built for
-        # a full-dimensional polytope of dimension 2 and above, as the
-        # automorphisms of the symmetry section do. Below full dimension the
-        # unimodular check fails even for a diagram and itself.
-        lowest = min(cfg1.affine_dim, cfg2.affine_dim)
-        hull_skipped: str | None = None
-        if lowest < 2:
-            hull_skipped = "a Newton polytope of dimension below 2"
-        elif lowest < cfg1.ambient_dim:
-            hull_skipped = "a Newton polytope that is not full-dimensional"
         results = []
         for relation, method in [
             ("unimodular", cfg1.is_unimodular_equivalent_to),
             ("affine_polytope", cfg1.is_affinely_equivalent_to),
             ("point_config", cfg1.is_point_config_equivalent_to),
         ]:
-            if hull_skipped is not None and relation != "point_config":
-                print(f"  {relation:<22} n/a  ({hull_skipped})")
-                continue
             res = method(cfg2)
             status = "YES" if res.equivalent else "no"
             det_str = f"  (det = {res.determinant})" if res.determinant is not None else ""
@@ -790,6 +770,9 @@ def _compare(
         beta1 = list(fi1.gkz.beta_parameters)
         z2 = list(fi2.gkz.z_variables)
         all_vertices = vertices1 == cfg1.n_points and vertices2 == cfg2.n_points
+        # Below full dimension a map's identity holds only trivially: for generic beta
+        # the GKZ system has no non-zero solutions.
+        trivial = cfg1.affine_dim < cfg1.ambient_dim
 
         def _witness(relation: str, M: sp.Matrix, t: sp.Matrix | None) -> None:
             _sec(f"Witness map  [{relation}]")
@@ -822,6 +805,9 @@ def _compare(
             _witness(relation, res.witness_map, res.translation)
             if relation == "point_config":
                 _identity(res.witness_map, res.translation)
+                if trivial:
+                    print("  The Newton polytopes are not full-dimensional: the identity holds")
+                    print("  only trivially.")
             elif all_vertices:
                 print("  Relates the Newton polytopes only; every column is a vertex, so")
                 print("  point_config gives the identity.")

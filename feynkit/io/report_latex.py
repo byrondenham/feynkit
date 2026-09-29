@@ -43,7 +43,6 @@ from ._report_shared import (
     signed_terms,
     skipped_faces,
     split_g,
-    symmetries_omitted,
     torus_skipped_faces,
 )
 from .latex import to_latex, to_latex_lines, to_latex_split
@@ -505,6 +504,8 @@ def _polytope(report: AnalysisReport, polytope: Polytope, doc: _Document) -> str
             "Since $P$ is not full-dimensional, the rows of $A$ are linearly dependent. For "
             "generic $\\beta$ the Euler equations are then inconsistent, and the GKZ system has "
             "no non-zero solutions: its holonomic rank is 0, not the normalised volume.",
+            "",
+            _scaleless(report, doc),
         ]
         return "\n".join(parts)
     parts += [
@@ -694,9 +695,27 @@ def _gkz(gkz: GKZ, doc: _Document) -> str:
     return "\n".join(parts)
 
 
-def _symmetries(report: AnalysisReport, symmetries: Symmetries | None, doc: _Document) -> str:
-    if symmetries is None:
-        return symmetries_omitted(report)
+def _scaleless(report: AnalysisReport, doc: _Document) -> str:
+    """Whether the integral is scaleless by Lee's criterion, for a $P$ that is not full-dimensional."""
+    cite = doc.cite("lee2013")
+    if report.polynomials.scaleless:
+        return (
+            "The origin does not lie in the affine hull of $P$, so the integral is scaleless"
+            f"{cite}: for an equation $h_0 + h \\cdot x = 0$ of the affine hull with "
+            "$h_0 \\neq 0$, substituting $\\lambda^{h_e} u_e$ for $u_e$ multiplies the "
+            "Lee-Pomeransky integral by $\\lambda^{h_0 D/2 + \\sum_e h_e \\nu_e}$, and "
+            "dimensional regularisation sets it to zero."
+        )
+    return (
+        "The origin lies in the affine hull of $P$, so the integral is not scaleless"
+        f"{cite}: for every equation $h \\cdot x = 0$ of the affine hull, substituting "
+        "$\\lambda^{h_e} u_e$ for $u_e$ multiplies the Lee-Pomeransky integral by "
+        "$\\lambda^{\\sum_e h_e \\nu_e}$, which does not involve $D$, and dimensional "
+        "regularisation does not regulate it."
+    )
+
+
+def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) -> str:
     orbits = symmetries.vertex_orbits
     if report.polytope is not None:
         listed = join_words(
@@ -724,8 +743,14 @@ def _symmetries(report: AnalysisReport, symmetries: Symmetries | None, doc: _Doc
         integral = ""
     preserving = symmetries.coefficient_preserving
     pairs = symmetries.symmetry_pairs
+    group = (
+        "unimodular affine maps taking $P$ to itself"
+        if symmetries.full_dimensional
+        else "affine maps of the affine hull of $P$ that preserve its integer points and take "
+        "$P$ to itself"
+    )
     parts = [
-        "The group $\\mathrm{Aut}(P)$ of unimodular affine maps taking $P$ to itself has "
+        f"The group $\\mathrm{{Aut}}(P)$ of {group} has "
         f"order {symmetries.automorphism_order} and {action}. The graph has "
         f"{count_noun(len(symmetries.graph_automorphisms), 'automorphism')}. Of the polytope "
         f"automorphisms, {preserving} {'preserves' if preserving == 1 else 'preserve'} the "
@@ -733,6 +758,18 @@ def _symmetries(report: AnalysisReport, symmetries: Symmetries | None, doc: _Doc
     ]
     if not pairs:
         parts.append("The configuration has no symmetry pairs.")
+        return "\n".join(parts)
+    if not symmetries.full_dimensional:
+        parts.append(
+            f"{definition}The configuration has {count_noun(len(pairs), 'symmetry pair')} "
+            "$(T, \\sigma)$: integer matrices $T$ and permutations $\\sigma$ of the columns of "
+            "$A$ such that $T$ takes column $j$ of $A$ to column $\\sigma(j)$. Since $P$ is not "
+            "full-dimensional, the identities $I_A(\\beta, z_\\sigma) = I_A(T\\beta, z)$"
+            f"{integral} that they give hold only trivially: the integral converges absolutely "
+            "for no $D$ and $\\nu_e$, $T\\beta$ depends on how $T$ is extended off the affine "
+            "hull of $P$, and for generic $D$ and $\\nu_e$ the GKZ system has no non-zero "
+            "solutions."
+        )
         return "\n".join(parts)
     shown = pairs[:MAX_PAIRS_SHOWN]
     n_columns = report.polynomials.monomials_g

@@ -542,10 +542,7 @@ def test_prose_matches_the_latex_word_for_word(cnickel: str) -> None:
 
 
 def test_tadpole_prose_matches_the_latex_word_for_word(tadpole: FeynmanIntegral) -> None:
-    # The cross-references to other sections sit in the symmetry section,
-    # which the tadpole leaves out.
-    intended = tuple(pair for pair in _INTENDED if not pair[0].startswith("Section"))
-    latex, diff = _prose_diff(AnalysisReport.from_integral(tadpole), intended)
+    latex, diff = _prose_diff(AnalysisReport.from_integral(tadpole))
     assert not diff
     assert len(latex) > 600
 
@@ -554,10 +551,8 @@ def test_tadpole_prose_matches_the_latex_word_for_word(tadpole: FeynmanIntegral)
 # massive triangle with a massless self-loop, whose P has dimension 3 in R^4.
 @pytest.mark.parametrize("cnickel", ["00|:nz", "012e|2e|e|:znnn"])  # type: ignore[misc]
 def test_dependent_rows_prose_matches_the_latex_word_for_word(cnickel: str) -> None:
-    # Both reports leave out the symmetries, and with them the cross-references.
     fi = FeynmanIntegral.from_cnickel(cnickel, use_mandelstam=False)
-    intended = tuple(pair for pair in _INTENDED if not pair[0].startswith("Section"))
-    assert _prose_diff(AnalysisReport.from_integral(fi), intended)[1] == []
+    assert _prose_diff(AnalysisReport.from_integral(fi))[1] == []
 
 
 def test_skipped_face_prose_matches_the_latex_word_for_word() -> None:
@@ -570,31 +565,45 @@ def test_skipped_face_prose_matches_the_latex_word_for_word() -> None:
 
 
 def test_tadpole_renders_in_both_formats(tadpole: FeynmanIntegral) -> None:
-    # Its Newton polytope is a segment, below the dimension Aut(P) is computed for.
+    # Its Newton polytope is a segment, whose reflection is its only other symmetry.
     latex = tadpole.to_latex()
     text = tadpole.to_text()
-    omitted = (
-        "The symmetries are not computed for Newton polytopes of dimension below 2, such as "
-        "this one."
+    assert (
+        "The group $\\mathrm{Aut}(P)$ of unimodular affine maps taking $P$ to itself has order 2"
+    ) in " ".join(latex.split("\\section{Symmetries}")[1].split())
+    assert _flat(_section(text, "Symmetries")).startswith(
+        "The group Aut(P) of unimodular affine maps taking P to itself has order 2 and acts on "
+        "the vertices listed in the Newton polytope section with the orbit {v_1, v_2}."
     )
-    assert omitted in " ".join(latex.split("\\section{Symmetries}")[1].split())
-    assert _flat(_section(text, "Symmetries")) == omitted
     assert "It has L = 1 loop, N = 1 propagator and 0 external legs." in _flat(text)
     for line in text.splitlines():
         assert len(line) <= 79, line
 
 
-def test_symmetries_are_omitted_below_full_dimension_in_both_formats() -> None:
-    # P has dimension 3 in R^4, and Aut(P) would miss its symmetries.
+def test_symmetries_below_full_dimension_in_both_formats() -> None:
+    # P has dimension 3 in R^4: Aut(P) is its group in its affine hull, and the pairs are
+    # counted but not listed, since their identities hold only trivially.
     fi = FeynmanIntegral.from_cnickel("012e|2e|e|:znnn")
-    latex = fi.to_latex(["symmetries"])
-    text = fi.to_text(["symmetries"])
-    omitted = (
-        "The symmetries are not computed for Newton polytopes that are not full-dimensional, "
-        "such as this one."
+    latex = " ".join(fi.to_latex(["symmetries"]).split("\\section{Symmetries}")[1].split())
+    text = _flat(_section(fi.to_text(["symmetries"]), "Symmetries"))
+    assert text.startswith(
+        "The group Aut(P) of affine maps of the affine hull of P that preserve its integer "
+        "points and take P to itself has order 6 and acts on the vertices of P with 2 orbits "
+        "of sizes 3 and 3."
     )
-    assert omitted in " ".join(latex.split("\\section{Symmetries}")[1].split())
-    assert _flat(_section(text, "Symmetries")) == omitted
+    assert "The configuration has 6 symmetry pairs (T, sigma)" in text
+    assert text.endswith(
+        "hold only trivially: the integral converges absolutely for no D and nu_e, T beta "
+        "depends on how T is extended off the affine hull of P, and for generic D and nu_e the "
+        "GKZ system has no non-zero solutions."
+    )
+    assert "T_1" not in text
+    assert (
+        "The group $\\mathrm{Aut}(P)$ of affine maps of the affine hull of $P$ that preserve "
+        "its integer points and take $P$ to itself has order 6"
+    ) in latex
+    assert "that they give hold only trivially" in latex
+    assert "T_{1}" not in latex
 
 
 @pytest.mark.parametrize("cnickel", ["00|:nz", "0|:z"])  # type: ignore[misc]
@@ -612,7 +621,12 @@ def test_no_rank_is_claimed_when_the_rows_of_a_are_dependent(cnickel: str) -> No
         "Since $P$ is not full-dimensional, the rows of $A$ are linearly dependent. For "
         "generic $\\beta$ the Euler equations are then inconsistent"
     ) in latex
-    assert text.endswith("its holonomic rank is 0, not the normalised volume.")
+    assert text.endswith(
+        "The origin does not lie in the affine hull of P, so the integral is scaleless "
+        "[lee2013]: for an equation h_0 + h . x = 0 of the affine hull with h_0 != 0, "
+        "substituting lambda^(h_e) u_e for u_e multiplies the Lee-Pomeransky integral by "
+        "lambda^(h_0 D/2 + sum_e h_e nu_e), and dimensional regularisation sets it to zero."
+    )
     for document in (text, latex):
         assert "equals the normalised volume" not in document
         # For generic beta the rank and the Euler characteristic are both 0, so
@@ -974,3 +988,21 @@ def test_every_form_of_the_point_count_section(torus_report: AnalysisReport, var
     assert _prose_diff(report, _TORUS_INTENDED)[1] == []
     for line in text.splitlines():
         assert len(line) <= 79, line
+
+
+def test_an_integral_below_full_dimension_that_is_not_scaleless() -> None:
+    # In 1ee|1|:zn the massless line carries no momentum, so u_1 does not occur in G: P
+    # lies in the plane x_1 = 0, which passes through the origin.
+    fi = FeynmanIntegral.from_cnickel("1ee|1|:zn")
+    document = fi.to_text(["polytope"])
+    text = _flat(_section(document, "Newton polytope"))
+    latex = " ".join(fi.to_latex(["polytope"]).split("\\section{Newton polytope}")[1].split())
+    assert "its holonomic rank is 0, not the normalised volume." in text
+    assert text.endswith(
+        "The origin lies in the affine hull of P, so the integral is not scaleless [lee2013]: "
+        "for every equation h . x = 0 of the affine hull, substituting lambda^(h_e) u_e for "
+        "u_e multiplies the Lee-Pomeransky integral by lambda^(sum_e h_e nu_e), which does not "
+        "involve D, and dimensional regularisation does not regulate it."
+    )
+    assert "so the integral is not scaleless~\\cite{lee2013}" in latex
+    assert "arXiv:1310.1145." in document

@@ -115,7 +115,7 @@ fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive 
 | `-p` | `--params` | Schwinger, Feynman and Lee-Pomeransky parametrisations |
 | `-g` | `--gkz` | GKZ A-matrix and Euler equations |
 | `-t` | `--toric` | Toric ideal of the A-matrix |
-| `-n` | `--newton` | Newton polytope: vertices, normalised volume (the holonomic rank for generic $\beta$), Smith invariants |
+| `-n` | `--newton` | Newton polytope: vertices, whether the integral is scaleless, normalised volume (the holonomic rank for generic $\beta$), Smith invariants |
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
 | | `--torus-count` | Candidate Euler characteristic from finite-field point counts; left out when no flag is given |
 
@@ -173,7 +173,7 @@ fk analyse "12e|2e|e|:nzz" --json --no-db
 
 The JSON object holds the string as typed (`input`), its canonical form (`cnickel`), the report
 sections asked for (`sections`) and the numbers of `AnalysisReport.summary()` for the sections
-built (`summary`), keyed in snake case:
+built (`summary`), keyed in snake case, with `scaleless` as a JSON boolean:
 
 ```
 $ fk analyse "12e|2e|e|:nzz" --json --sections gkz --no-db
@@ -191,6 +191,7 @@ $ fk analyse "12e|2e|e|:nzz" --json --sections gkz --no-db
     "monomials_of_g": 7,
     "independent_invariants": 4,
     "codimension": 3,
+    "scaleless": false,
     "toric_generators": 5
   }
 }
@@ -212,10 +213,10 @@ fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"    # the mass on two different propag
    invariants;
 2. tests four equivalences between the two A-configurations: `unimodular`, `affine_polytope`,
    `point_config` and `finite_index`. When the ambient dimensions differ, as for the triangle and
-   the bubble, it reports the mismatch and stops. The `unimodular` and `affine_polytope` checks
-   need full-dimensional Newton polytopes of dimension 2 or more, so it skips them for a point or
-   a segment, such as the polytope of the massive tadpole `0|:n`, and for a polytope that is not
-   full-dimensional, such as that of `011e|e|:znn`, for which it also skips `finite_index`;
+   the bubble, it reports the mismatch and stops. Below full dimension, as for `011e|e|:znn`, the
+   checks work in the lattice charts of the points, `finite_index` is skipped, and the identity of
+   a `point_config` map holds only trivially, since for generic $\beta$ the GKZ systems have no
+   non-zero solutions;
 3. prints each map it finds. A `point_config` or `finite_index` map sends every column of one
    A-matrix to a column of the other, and for such a map it also prints the column permutation
    $P$, the substitution $u_i = \prod_k v_k^{M_{ki}}$ and the identity
@@ -296,6 +297,7 @@ $ fk analyse "12e|2e|e|:zzz" -g -n --no-db
   Hull vertices                6
   Ambient dimension            3
   Affine dimension             3
+  Scaleless                    no
   Normalised volume            4  (the holonomic rank for generic beta)
   Smith invariants             [1, 1, 1]
   Lattice base point           (1, 1, 0)
@@ -1972,9 +1974,9 @@ The document has up to thirteen parts:
 
 1. The title; no author, date or abstract.
 2. A summary table: loops, propagators, external legs, the monomial counts of $F$ and $G$,
-   independent invariants, codimension, polytope vertices, normalised volume, the candidate master
-   count (with `torus`; "none" when the counts give no candidate), $|\mathrm{Aut}(P)|$, toric
-   generators and Landau surfaces.
+   independent invariants, codimension, whether the integral is scaleless, polytope vertices,
+   normalised volume, the candidate master count (with `torus`; "none" when the counts give no
+   candidate), $|\mathrm{Aut}(P)|$, toric generators and Landau surfaces.
 3. The graph: a TikZ figure and a table of the propagators with their endpoints, exponents and
    masses.
 4. Conventions: the momentum-space integral and its normalisation, $D = D_0 - 2\epsilon$, the
@@ -1987,7 +1989,8 @@ The document has up to thirteen parts:
    convergence region of the last as one inequality per facet (section 11).
 7. The Newton polytope: vertices, dimension, normalised volume, face counts, a figure, and the
    conditions under which the holonomic rank equals the volume or, when the polytope is not
-   full-dimensional, why the rank is 0 for generic $\beta$.
+   full-dimensional, why the rank is 0 for generic $\beta$ and whether the integral is scaleless
+   by Lee's criterion (R. N. Lee, arXiv:1310.1145, section 3).
 8. The candidate Euler characteristic from point counts, only when `torus` is named: the master
    count and Katz's theorem, the kinematic point, the excluded primes, the characters the check
    covers, a table of the counts, and the candidate polynomial, Euler characteristic and master
@@ -1996,8 +1999,9 @@ The document has up to thirteen parts:
    and the toric generators.
 10. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
     coefficient-preserving subgroup, and the symmetry pairs with the identity each gives. For a
-    Newton polytope of dimension below 2, such as the segment of the massive tadpole, or one that
-    is not full-dimensional, the section says only that the symmetries are not computed, and why.
+    Newton polytope that is not full-dimensional, $\mathrm{Aut}(P)$ is its group in its affine
+    hull, and the section counts the symmetry pairs and says why their identities hold only
+    trivially.
 11. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
     into first and second type for one-loop graphs, with the skipped faces, each named by its
     dimension and number of points, and the caveats.

@@ -11,6 +11,7 @@ Summary
     Monomials of G          9
     Independent invariants  6
     Codimension             5
+    Scaleless               no
     Polytope vertices       6
     Normalised volume       7
     Polytope automorphisms  6

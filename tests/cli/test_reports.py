@@ -53,9 +53,16 @@ def test_json_summary_of_the_chosen_sections(capsys: pytest.CaptureFixture[str])
             "monomials_of_g": 3,
             "independent_invariants": 1,
             "codimension": 0,
+            "scaleless": False,
             "toric_generators": 0,
         },
     }
+
+
+def test_json_summary_of_a_scaleless_integral(capsys: pytest.CaptureFixture[str]) -> None:
+    # A massless self-loop on a massive line: G is u_1 times a polynomial in u_2.
+    main(["analyse", "01e|e|:zn", "--json", "--sections", "polytope", "--no-db"])
+    assert json.loads(capsys.readouterr().out)["summary"]["scaleless"] is True
 
 
 def test_json_summary_of_the_default_sections(capsys: pytest.CaptureFixture[str]) -> None:

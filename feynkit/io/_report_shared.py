@@ -48,7 +48,6 @@ __all__ = [
     "skipped_faces",
     "sorted_factors",
     "split_g",
-    "symmetries_omitted",
     "torus_skipped_faces",
 ]
 
@@ -61,6 +60,10 @@ CITATIONS: dict[str, str] = {
     "leepomeransky2013": (
         "R.N. Lee and A.A. Pomeransky, \\emph{Critical points and number of master integrals}, "
         "JHEP 11 (2013) 165, arXiv:1308.6676."
+    ),
+    "lee2013": (
+        "R.N. Lee, \\emph{LiteRed 1.4: a powerful tool for the reduction of the multiloop "
+        "integrals}, arXiv:1310.1145."
     ),
     "klausen2020": (
         "R.P. Klausen, \\emph{Hypergeometric series representations of Feynman integrals by "
@@ -181,7 +184,7 @@ def render_sections(
     polytope: Callable[[Polytope], str],
     torus: Callable[[TorusCount], str],
     gkz: Callable[[GKZ], str],
-    symmetries: Callable[[Symmetries | None], str],
+    symmetries: Callable[[Symmetries], str],
     landau: Callable[[Landau], str],
     schwinger: Callable[[Schwinger], str],
 ) -> list[tuple[str, str]]:
@@ -189,10 +192,8 @@ def render_sections(
 
     Each keyword renders the body of one section. The first four sections are
     always present; each of the others is rendered from its data, and only
-    when the report carries it. The symmetry section is rendered from None
-    when the report left the symmetries out. The sections are rendered in
-    document order, so citations made while rendering are recorded in order
-    of first use.
+    when the report carries it. The sections are rendered in document order,
+    so citations made while rendering are recorded in order of first use.
     """
     sections = [
         ("Summary", summary()),
@@ -208,7 +209,7 @@ def render_sections(
         sections.append((TORUS_HEADING, torus(report.torus)))
     if report.gkz is not None:
         sections.append(("GKZ system", gkz(report.gkz)))
-    if report.symmetries is not None or report.symmetries_omitted is not None:
+    if report.symmetries is not None:
         sections.append(("Symmetries", symmetries(report.symmetries)))
     if report.landau is not None:
         sections.append(("Landau surfaces", landau(report.landau)))
@@ -288,22 +289,6 @@ def torus_skipped_faces(torus: TorusCount) -> str | None:
     return (
         f"The Landau analysis skipped {count_noun(torus.skipped_faces, 'face')}, {whose} "
         f"left out of {join_words(steps)}."
-    )
-
-
-def symmetries_omitted(report: AnalysisReport) -> str:
-    """What the symmetry section says when the report left the symmetries out.
-
-    The sentence names the reason ``report.symmetries_omitted`` records.
-    """
-    if report.symmetries_omitted == "not full-dimensional":
-        return (
-            "The symmetries are not computed for Newton polytopes that are not "
-            "full-dimensional, such as this one."
-        )
-    return (
-        "The symmetries are not computed for Newton polytopes of dimension below 2, such as "
-        "this one."
     )
 
 

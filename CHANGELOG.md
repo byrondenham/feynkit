@@ -53,6 +53,12 @@
   without propagators or legs, wherever its entry sits, when there are two or
   more vertices; the message names the vertex. `e||e|` gave a graph with an
   isolated vertex.
+- The analysis report computes the symmetries of every Newton polytope, and
+  `AnalysisReport.symmetries_omitted` and the type `SymmetriesOmitted` of
+  `feynkit.io.report` are gone: a report built with the `symmetries` section
+  always carries them. `Polynomials` gains `scaleless` and `Symmetries` gains
+  `full_dimensional`, both without defaults, so code that builds either by
+  hand must pass them.
 
 ### Added
 
@@ -85,6 +91,10 @@
   regularisation sets such an integral to zero. A scaleless integral's Newton
   polytope is not full-dimensional, but not every such integral is scaleless:
   `1ee|1|:zn`, whose massless line carries no momentum, is not.
+- The report's summary, `fk analyse -n` and `fk analyse --json` say whether
+  the integral is scaleless (`Scaleless`, and `scaleless` as a JSON boolean).
+  Below full dimension the Newton polytope section also says whether it is and
+  what follows for the integral.
 
 ### Changed
 
@@ -104,6 +114,14 @@
   unimodular maps of Z^n that take the polytope to itself form an infinite
   group there. The witnesses of the equivalence tests are such extensions. In
   full dimension nothing changes.
+- The report's symmetry section and `fk analyse -S` show the symmetries of a
+  Newton polytope of dimension below 2 or below full dimension, which they
+  left out. Below full dimension the order is that of the group in the affine
+  hull, and the symmetry pairs are counted but not listed, since the
+  identities they give hold only trivially. `fk compare` runs its `unimodular`
+  and `affine_polytope` checks in every dimension, where it printed n/a below
+  dimension 2 and below full dimension, and so exits with 0 for more pairs of
+  diagrams; `finite_index` still prints n/a below full dimension.
 
 ### Fixed
 

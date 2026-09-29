@@ -38,6 +38,7 @@ SUMMARY_LABELS = (
     "Monomials of G",
     "Independent invariants",
     "Codimension",
+    "Scaleless",
     "Polytope vertices",
     "Normalised volume",
     "Polytope automorphisms",
@@ -390,33 +391,37 @@ class TestSymmetries:
         assert symmetries.coefficient_preserving == 1
         assert symmetries.automorphism_order > 1
 
-    def test_omitted_below_dimension_two(self) -> None:
-        """The massive tadpole's Newton polytope is a segment, too small for Aut(P)."""
+    def test_segment(self) -> None:
+        # The massive tadpole's Newton polytope is a segment: the identity and its reflection.
         tadpole = FeynmanIntegral.from_cnickel("0|:n", use_mandelstam=False)
         report = AnalysisReport.from_integral(tadpole)
         assert report.polytope is not None
         assert report.polytope.data.dimension == 1
-        assert report.symmetries is None
-        assert report.symmetries_omitted == "dimension below 2"
-        assert "Polytope automorphisms" not in dict(report.summary())
+        symmetries = report.symmetries
+        assert symmetries is not None
+        assert symmetries.full_dimensional
+        assert (symmetries.automorphism_order, symmetries.vertex_orbits) == (2, ((0, 1),))
+        assert len(symmetries.symmetry_pairs) == 2
+        assert dict(report.summary())["Polytope automorphisms"] == "2"
 
-    def test_omitted_below_full_dimension(self) -> None:
-        """The automorphism computation would find only the identity for this P in R^4."""
-        # G is u_1 times the G of the massive triangle, so P has dimension 3,
-        # and every permutation of u_2, u_3 and u_4 preserves its monomials.
+    def test_below_full_dimension(self) -> None:
+        # G is u_1 times the G of the massive triangle, so P has dimension 3 in R^4, and the
+        # permutations of u_2, u_3 and u_4 are its automorphisms.
         fi = FeynmanIntegral.from_cnickel("012e|2e|e|:znnn")
         report = AnalysisReport.from_integral(fi, ["polytope", "symmetries"])
         assert report.polytope is not None
         assert (report.polytope.data.dimension, report.polytope.data.ambient_dimension) == (3, 4)
-        assert report.symmetries is None
-        assert report.symmetries_omitted == "not full-dimensional"
-        assert "Polytope automorphisms" not in dict(report.summary())
+        symmetries = report.symmetries
+        assert symmetries is not None
+        assert not symmetries.full_dimensional
+        assert symmetries.automorphism_order == 6
+        assert symmetries.vertex_orbits == ((0, 1, 2), (3, 4, 5))
+        assert len(symmetries.graph_automorphisms) == 2
+        assert len(symmetries.symmetry_pairs) == 6
+        assert dict(report.summary())["Polytope automorphisms"] == "6"
 
-    def test_not_omitted_when_computed_or_not_asked_for(
-        self, triangle_report: AnalysisReport, triangle: FeynmanIntegral
-    ) -> None:
-        assert triangle_report.symmetries_omitted is None
-        assert AnalysisReport.from_integral(triangle, ["gkz"]).symmetries_omitted is None
+    def test_not_built_when_not_asked_for(self, triangle: FeynmanIntegral) -> None:
+        assert AnalysisReport.from_integral(triangle, ["gkz"]).symmetries is None
 
 
 class TestLandau:
@@ -639,3 +644,17 @@ class TestTorus:
         )
         rows = dict(dataclasses.replace(report, torus=none).summary())
         assert rows["Candidate master count"] == "none"
+
+
+class TestScaleless:
+    @pytest.mark.parametrize(
+        ("cnickel", "scaleless"),
+        [("12e|2e|e|:nnn", "no"), ("012e|2e|e|:znnn", "yes"), ("1ee|1|:zn", "no")],
+    )
+    def test_summary_row(self, cnickel: str, scaleless: str) -> None:
+        # The row follows the codimension whatever sections are built.
+        report = AnalysisReport.from_integral(FeynmanIntegral.from_cnickel(cnickel), ["gkz"])
+        labels = [label for label, _ in report.summary()]
+        assert labels[labels.index("Codimension") + 1] == "Scaleless"
+        assert dict(report.summary())["Scaleless"] == scaleless
+        assert report.polynomials.scaleless is (scaleless == "yes")

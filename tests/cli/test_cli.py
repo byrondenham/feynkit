@@ -105,7 +105,7 @@ class TestSingleDiagram:
         assert "F  =  a_1**2*m_1**2/mu**2" in out
         assert "Hull vertices                2" in out
         assert "Normalised volume            1  (the holonomic rank" in out
-        assert "Not computed for a Newton polytope of dimension below 2" in out
+        assert f"  {'|Aut(P)|':<28} 2  (polytope automorphisms)\n" in out
         assert "Stored:" in out
 
     @pytest.mark.parametrize(
@@ -134,29 +134,26 @@ class TestSingleDiagram:
         lines = _run(capsys, tmp_path, cnickel).splitlines()
         assert f"  Ambient dimension            {ambient}" in lines
         assert f"  Affine dimension             {affine}" in lines
+        assert f"  {'Scaleless':<28} yes" in lines
         assert f"  Normalised volume            {volume}" in lines
         assert any(line.startswith("  Lattice base point") for line in lines)
 
-    def test_symmetries_are_omitted_below_full_dimension(
+    def test_symmetries_below_full_dimension(
         self, capsys: pytest.CaptureFixture[str], tmp_path: Path
     ) -> None:
-        # The automorphism computation finds only the identity here, although
-        # every permutation of u_2, u_3 and u_4 preserves the monomials of G.
+        # The permutations of u_2, u_3 and u_4 preserve the monomials of G.
         out = _run(capsys, tmp_path, "012e|2e|e|:znnn", "-S")
+        assert f"  {'|Aut(P)|':<28} 6  (automorphisms of P in its affine hull)\n" in out
+        assert f"  {'Vertex orbits under Aut(P)':<28} [[0, 1, 2], [3, 4, 5]]\n" in out
+        assert f"  {'Symmetry pairs  (|det M|=1)':<28} 6\n" in out
         assert (
-            "  Not computed for a Newton polytope that is not full-dimensional; "
-            "this one has dimension 3 in R^4.\n"
+            "  P is not full-dimensional: the identities of the pairs hold only trivially.\n"
         ) in out
-        assert "|Aut(P)|" not in out
 
     @pytest.mark.parametrize(
         ("cnickel", "symmetries"),
         [
-            (
-                "1e|e|",
-                "  Not computed for a Newton polytope of dimension below 2; "
-                "this one has dimension 1.\n",
-            ),
+            ("1e|e|", f"  {'|Aut(P)|':<28} 2  (polytope automorphisms)\n"),
             ("12e|e|e|", f"  {'|Aut(graph)|':<28} 2\n"),
         ],
     )
@@ -182,6 +179,7 @@ class TestSingleDiagram:
     ) -> None:
         out = _run(capsys, tmp_path, "12e|2e|e|:zzz", "-n")
         assert "Normalised volume            4  (the holonomic rank for generic beta)" in out
+        assert f"  {'Scaleless':<28} no\n" in out
         assert "Lattice base point           (1, 1, 0)" in out
 
 
@@ -224,24 +222,26 @@ class TestPairwise:
     def test_tadpoles_are_compared_by_their_columns(
         self, capsys: pytest.CaptureFixture[str], tmp_path: Path
     ) -> None:
-        # The segments of two tadpoles are too small for the checks of the polytopes.
+        # A segment in R^1 is compared as a polytope too.
         out = _run(capsys, tmp_path, "0|:n", "0|:n")
-        assert "unimodular             n/a  (a Newton polytope of dimension below 2)" in out
-        assert "affine_polytope        n/a  (a Newton polytope of dimension below 2)" in out
+        assert "unimodular             YES\n" in out
+        assert "affine_polytope        YES  (det = 1)" in out
         assert "point_config           YES  (det = 1)" in out
         assert "T beta  =  [-D/2, -nu_1]" in out
 
     @pytest.mark.parametrize("cnickel", ["011e|e|:zzz", "012e|2e|e|:znnn"])
-    def test_hull_checks_are_skipped_below_full_dimension(
+    def test_hull_checks_below_full_dimension(
         self, cnickel: str, capsys: pytest.CaptureFixture[str], tmp_path: Path
     ) -> None:
-        # Below full dimension the unimodular check failed even for a diagram and itself.
+        # Below full dimension the unimodular check found a diagram not equivalent to itself.
         out = _run(capsys, tmp_path, cnickel, cnickel)
-        skipped = "n/a  (a Newton polytope that is not full-dimensional)"
-        assert f"unimodular             {skipped}" in out
-        assert f"affine_polytope        {skipped}" in out
-        assert "unimodular             no" not in out
+        assert "unimodular             YES\n" in out
+        assert "affine_polytope        YES  (det = 1)" in out
         assert "point_config           YES  (det = 1)" in out
+        assert (
+            "  The Newton polytopes are not full-dimensional: the identity holds\n"
+            "  only trivially.\n"
+        ) in out
 
     def test_finite_index_is_skipped_when_a_is_not_full_dimensional(
         self, capsys: pytest.CaptureFixture[str], tmp_path: Path

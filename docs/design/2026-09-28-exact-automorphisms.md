@@ -379,6 +379,13 @@ gives 24, 24 and 72 for the three graphs of Current state.
 `vertex_permutations` and `vertex_orbits` then index `data.vertex_indices`, the list from which
 the report numbers its vertices $v_k$.
 
+The label of a vertex pairs its Liu-Cai label over its neighbours with the same determinant over
+all the other vertices, $\det \sum_{w \ne v} (w - v)(w - v)^T$, which is a unimodular invariant
+for the same reason. The pair separates vertices that the neighbours alone leave together: the 45
+vertices of `112|3|4e|5e|5e|e|:nnnnzzz` fall into 6 classes of the first and into 9 of the pair,
+the orbits of its group. Both determinants are non-negative, and Cantor's pairing function stores
+the pair as one integer, so the labels stay integers.
+
 ### Automorphisms below full dimension
 
 `compute_polytope_automorphisms(points)`:
@@ -417,7 +424,8 @@ def lift_linear(
 ```
 
 It uses `_exact.hermite_normal_form_with_transform`, as `polytope._lift_data` does, and SymPy for
-the inverse of $W$. No change to `_exact.py` or `polytope.py` is needed.
+the inverse of $W$. `polytope.py` does not change; in `_exact.py` only `_as_int` does (see Exact
+arithmetic in the searches).
 
 ### Symmetry pairs and equivalence tests
 
@@ -438,6 +446,45 @@ the inverse of $W$. No change to `_exact.py` or `polytope.py` is needed.
   generator, so that a candidate that fails the $\Lambda$ test does not end the search. The
   witness is the lift and the determinant is $|\det M_S|$.
 
+### Exact arithmetic in the searches
+
+Every decision in the automorphism, symmetry-pair and equivalence searches is exact: floating
+point is not used, not even to pre-filter. `finite_index_map` keeps its floating code until the
+later change.
+
+- Ranks. The greedy choices of a basis, `_select_basis_indices_by_label` and
+  `_select_basis_indices` in `polytope_automorphisms.py` and `_basis_indices` in
+  `a_configuration.py`, test each candidate row with `_exact.rank`, and `symmetry_pairs` chooses
+  the chart path by the exact rank of the differences of the points. With a floating rank the
+  triangle with a point on an edge, $(0,0), (1,0), (2,0), (k,1)$, got the identity alone from
+  `polytope_automorphisms` for $k \ge 8 \cdot 10^7$, and `symmetry_pairs` recursed without end,
+  since the floating rank sent the points to a chart that was the points themselves.
+- Candidate maps. `_basis_search`, `_direct_basis_search` and the full-dimensional path of
+  `symmetry_pairs` find each candidate $U = W_b W_a^{-1}$ as $W_b \operatorname{adj}(W_a) /
+  \det W_a$ in integer arithmetic, and keep it only when every entry divides exactly;
+  `_invariants.integer_inverse` and `_invariants.integral_candidate` hold this arithmetic. A
+  combination of vertices is tried only when $|\det W_b| = |\det W_a|$, by an exact Bareiss
+  determinant. That test only prunes: a singular candidate fails the exact check, which follows,
+  that the candidate maps the vertices, or the points, bijectively onto themselves. The floating
+  inverse, rounding and determinant filters that these replace lost maps: under the map
+  $S = \bigl(\begin{smallmatrix}1&k\\k&k^2+1\end{smallmatrix}\bigr)$ of $GL_2(\mathbb{Z})$ the
+  unit triangle kept 2 of its 6 automorphisms and symmetry pairs at $k = 1000$.
+- Overflow. The arrays are int64 when $n^2 s^2 \max|\operatorname{adj}(W_a)| < 2^{62}$, where $s$
+  bounds every coordinate and every difference of coordinates, since that bounds every integer the
+  search forms; otherwise they hold Python integers (`_invariants.exact_dtype`). `vertex_label`
+  forms its moment matrices the same way.
+- Inputs. `to_integer_points` raises `ValidationError` on a coordinate that is not an integer,
+  where it truncated SymPy rationals, and `_exact._as_int` accepts a float only when it equals an
+  integer exactly, at its own precision. The affine tests accept rational points: each
+  configuration is scaled by the least common denominator $q$ of its coordinates, and a witness
+  $M', t'$ of the scaled configurations gives $M = (q_a / q_b) M'$ and $t = t' / q_b$. The
+  unimodular test does not scale, since scaling changes the lattice. A point repeated, compared
+  with another, gets the translation between them with $M = I$.
+- The equivalence search takes the basis of the first polytope from its rarest label classes, as
+  the automorphism search does, and generates only the combinations of vertices of the second
+  that carry the labels of that basis, class by class. It used to try every combination of the
+  right size and compare its sorted labels, the same set in a far longer loop.
+
 ### Report and CLI
 
 The flag:
@@ -451,8 +498,8 @@ The flag:
     Lee-Pomeransky integral by $\lambda^{h_0 D/2 + h \cdot \nu}$, and dimensional regularisation
     sets it to zero;
   - otherwise: the origin lies in the affine hull of $P$, so the factor is
-    $\lambda^{h \cdot \nu}$, which does not involve $D$; the integral is not scaleless, and
-    dimensional regularisation does not regulate it.
+    $\lambda^{h \cdot \nu}$, which does not involve $D$; the integral is not scaleless by Lee's
+    criterion, and dimensional regularisation does not regulate it.
 - `fk analyse`: the Newton section gains a line after "Affine dimension": `Scaleless  yes` or
   `no`. The rank remark stays keyed on full-dimensionality, so it follows the polytope and not the
   flag. `fk analyse` reads `gkz.a_matrix` while the flag reads the support of $G$; with one GKZ
@@ -535,20 +582,27 @@ dimension `maps` holds one lift per permutation and `order` counts permutations.
   the pairs coincide with the polytope automorphisms without qualification. The docstring of
   `canonicalise` no longer refers to later work on the face lattice.
 - `a_configuration.py`: `symmetry_pairs` takes the chart path below full dimension in place of
-  `return []`, with its docstring and that of `AConfiguration.symmetry_pairs`.
-  `AConfiguration.newton_polytope_points` and the labels in `symmetry_pairs` become exact through
-  `hull_vertex_indices` and `vertex_edge_graph`, with no change to their code.
-  `finite_index_map` does not change.
+  `return []`, with its docstring and that of `AConfiguration.symmetry_pairs`. It chooses that
+  path by an exact rank, `_basis_indices` tests independence exactly, and the full-dimensional
+  path finds its candidate maps in integers. `_to_pts` raises `ValidationError` on a coordinate
+  that is not an integer, where it truncated it. `AConfiguration.newton_polytope_points` and the
+  labels in `symmetry_pairs` become exact through `hull_vertex_indices` and `vertex_edge_graph`,
+  with no change to their code. `finite_index_map` keeps its floating rank and rounding.
 - `database.py`: the repair step from `user_version` 1 to 2.
 - `polytope.py`: none.
 
 ## Changes elsewhere
 
-- `normal_forms/_invariants.py`: exact `hull_vertex_indices` and `vertex_edge_graph`, and the
-  skeleton and labels of a `PolytopeData`.
-- `normal_forms/polytope_automorphisms.py`: one `polytope_data`, the chart path and the factored
-  search.
-- `normal_forms/affine_equivalence.py`: the chart reduction and the acceptance test.
+- `normal_forms/_invariants.py`: exact `hull_vertex_indices` and `vertex_edge_graph`, the skeleton
+  and the paired labels of a `PolytopeData`, `to_integer_points` raising on non-integers, the
+  integer candidate helpers `exact_dtype`, `integer_inverse` and `integral_candidate`, and
+  `vertex_label` guarded against overflow.
+- `normal_forms/polytope_automorphisms.py`: one `polytope_data`, the chart path, the factored
+  search, and exact ranks and candidates.
+- `normal_forms/affine_equivalence.py`: the chart reduction, the acceptance test, exact ranks and
+  candidates, the combinations generated by label from a label-diverse basis, denominators
+  cleared in the affine tests, and the witness of a repeated point.
+- `_exact.py`: `_as_int` accepts a float only when it is an integer exactly.
 - `normal_forms/_chart.py`: new.
 - `types.py`: the docstring of `PolytopeAutomorphisms`.
 - `io/report.py` and `io/_report_shared.py`: the flag, the summary row, `full_dimensional`, and
@@ -602,17 +656,36 @@ dimension `maps` holds one lift per permutation and `order` counts permutations.
 
 The flag costs two exact ranks of $N$ points. The exact vertices cost one `polytope_data`, which
 the report computes anyway: under 0.1 s for the two-loop graphs above (42 to 54 points). The chart
-path adds a Hermite normal form of a $d \times n$ matrix and a few small exact inverses.
+path adds a Hermite normal form of a $d \times n$ matrix and a few small exact inverses, and the
+exact candidates cost no more than the floating ones did.
 
-The exact 1-skeleton does not make the searches faster where the labels separate nothing. The
-massless pentagon `12e|3e|4e|4e|e|:zzzzz` and hexagon `12e|3e|4e|5e|5e|e|:zzzzzz` have Newton
-polytopes on which every vertex has the same label, with groups of order 720 and 5040. For the
-pentagon `polytope_automorphisms` takes 131 s on the floating hull and 124 s on the exact one, and
-`symmetry_pairs` 222 s and 213 s, and its report without the Landau section 360 s before and
-348 s after; the hexagon's takes more than 20 minutes either way. Where the
-floating labels happened to separate more vertices the exact ones can be slower: `symmetry_pairs`
-on the columns of A of `112|3|4e|5e|5e|e|:nnnnzzz` takes about 35 s, where the floating hull took
-under a second to find the right count. A faster search for such polytopes is a separate change.
+Measured on the final code and on 0.4.0, each case in a fresh process with other work running:
+
+| Case | 0.4.0 | Final |
+|---|---|---|
+| `polytope_automorphisms`, massless box, order 120 | 1.8 s | 0.6 s |
+| `polytope_automorphisms`, the three two-loop graphs of Current state | 0.14 to 0.19 s, orders 4, 12, 12 | 0.3 to 0.4 s, orders 24, 24, 72 |
+| `polytope_automorphisms`, massless pentagon, order 720 | 131 s | 53 s |
+| `symmetry_pairs`, massless pentagon | 222 s | 100 s |
+| `symmetry_pairs` on the columns of A, `112\|3\|4e\|5e\|5e\|e\|:nnnnzzz` | under 1 s | 0.5 s |
+| `polytope_automorphisms`, `123\|4e\|4e\|5e\|5\|e\|:nnnnnnn` | 0.3 s, order 1 | 12 s, order 48 |
+| `polytope_automorphisms`, `123\|4e\|4e\|4e\|\|:nnnnnn`, order 48 | over 10 minutes | 270 s |
+| `is_unimodular_equivalent`, `123\|24\|e\|5e\|5e\|e\|:znnzzzz` and a relabelling | 66 s | 0.6 s |
+| `is_unimodular_equivalent`, `112\|3\|4e\|5e\|5e\|e\|:nznnzzz` and a relabelling | 0.0 s, not equivalent | 0.5 s, equivalent |
+
+Where 0.4.0 was faster it was wrong. Along the way the exact 1-skeleton made some searches slower:
+its labels separated fewer vertices than the floating ones happened to, and the equivalence
+search filtered every combination of vertices by its labels, so that seven-propagator two-loop
+graphs took minutes against a relabelling, more than 600 s for `123|24|e|5e|5e|e|:znnzzzz`. The
+paired labels, and the combinations generated by label from a basis in the rarest label classes
+(Exact arithmetic in the searches), removed both.
+
+The searches stay slow where the labels separate nothing. Every vertex of the Newton polytopes of
+the massless pentagon `12e|3e|4e|4e|e|:zzzzz` and hexagon `12e|3e|4e|5e|5e|e|:zzzzzz` carries the
+same label, the pair included, since their groups, of orders 720 and 5040, act transitively on
+the vertices. The hexagon's `polytope_automorphisms` does not finish in 25 minutes. A search that
+maps the neighbours of the anchor only to neighbours of its image would help there; it is a
+separate change.
 
 ## Out of scope
 
@@ -637,3 +710,6 @@ under a second to find the right count. A faster search for such polytopes is a 
   removed.
 - A database repair step empties the equivalence cache and nulls the automorphism columns. It is
   the step from `user_version` 1 to 2.
+- The automorphism, symmetry-pair and equivalence searches decide everything in exact
+  arithmetic, and a vertex label pairs the Liu-Cai label with the same determinant over all the
+  other vertices.

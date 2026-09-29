@@ -412,3 +412,31 @@ class TestLatticeInvariants:
             lifted.lattice_invariants()
             == FeynmanIntegral.from_cnickel("12e|2e|e|:zzz").lattice_invariants()
         )
+
+    def test_is_cached_per_arguments(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import feynkit.lattice_invariants as module
+
+        calls: list[dict[str, object]] = []
+        original = module.lattice_invariants
+
+        def counting(*args: object, **kwargs: object) -> object:
+            calls.append(kwargs)
+            return original(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(module, "lattice_invariants", counting)
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+        first = fi.lattice_invariants()
+        assert fi.lattice_invariants() is first
+        assert len(calls) == 1
+        fi.lattice_invariants("ambient")
+        fi.lattice_invariants(backend="python", budget=1)
+        fi.lattice_invariants(backend="python", budget=1)
+        assert len(calls) == 3
+        assert fi.with_(dimension=sp.Integer(4)).lattice_invariants() == first
+        assert len(calls) == 4
+
+    def test_the_budget_and_timeout_reach_the_module(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+        found = fi.lattice_invariants(backend="python", budget=1, timeout=5)
+        assert (found.h_star, found.idp, found.normal) == (None, None, None)
+        assert found.lattice_points == fi.lattice_invariants().lattice_points

@@ -176,6 +176,9 @@ class FeynmanIntegral:
         self._use_mandelstam = bool(use_mandelstam)
         self._kinematic_constraints = list(kinematic_constraints or [])
         self._database = database
+        self._lattice_invariants: dict[
+            tuple[str, str, int | None, float | None], LatticeInvariants
+        ] = {}
 
     # -------- Read-only views of the input data --------
 
@@ -444,7 +447,12 @@ class FeynmanIntegral:
         return _exact.affine_rank([*points, origin]) > _exact.affine_rank(points)
 
     def lattice_invariants(
-        self, lattice: Lattice = "support", *, backend: str = "auto"
+        self,
+        lattice: Lattice = "support",
+        *,
+        backend: str = "auto",
+        budget: int | None = None,
+        timeout: float | None = None,
     ) -> LatticeInvariants:
         """
         Exact lattice invariants of the Newton polytope P of G.
@@ -456,9 +464,11 @@ class FeynmanIntegral:
         :func:`feynkit.lattice_invariants.lattice_invariants`. With lattice
         "support", the default, P is measured in the lattice its points
         generate, that of the normalised volume; with "ambient", in
-        aff(P) cap Z^N. backend is that of
-        :func:`feynkit.lattice_invariants.is_idp`: "auto" uses Normaliz when it
-        is installed.
+        aff(P) cap Z^N. backend, budget and timeout are those of
+        :func:`feynkit.lattice_invariants.lattice_invariants`: "auto" uses
+        Normaliz when it is installed, and with a budget the fields that would
+        take more pure-Python work come from Normaliz or are None. The result
+        is cached for each choice of the arguments.
 
         NA is normal exactly when the monomials of G are all the lattice
         points of P and P has IDP. Then C[NA] is Cohen-Macaulay (Hochster
@@ -468,8 +478,13 @@ class FeynmanIntegral:
         """
         from .lattice_invariants import lattice_invariants
 
-        points = [tuple(int(x) for x in p) for p in self.newton_polytope.points]
-        return lattice_invariants(points, lattice=lattice, backend=backend)
+        key = (lattice, backend, budget, timeout)
+        if key not in self._lattice_invariants:
+            points = [tuple(int(x) for x in p) for p in self.newton_polytope.points]
+            self._lattice_invariants[key] = lattice_invariants(
+                points, lattice=lattice, backend=backend, budget=budget, timeout=timeout
+            )
+        return self._lattice_invariants[key]
 
     @cached_property
     def schwinger_gkz(self) -> CayleyGKZSystem:

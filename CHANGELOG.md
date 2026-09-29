@@ -164,7 +164,7 @@
   reflection, where `polytope_automorphisms` and `symmetry_pairs` raised
   `ValueError`. The exact labels separate the vertices of some polytopes less
   well than the floating ones did: `symmetry_pairs` on the columns of A of
-  `112|3|4e|5e|5e|e|:nnnnzzz` takes about 35 s, where it took under a second.
+  `112|3|4e|5e|5e|e|:nnnnzzz` takes about 15 s, where it took under a second.
 - Below full dimension `polytope_automorphisms` found only the identity,
   `is_unimodular_equivalent` found a Newton polytope not equivalent even to
   itself, and `is_affinely_equivalent` and `is_point_config_equivalent`
@@ -191,6 +191,19 @@
   order 2, `polytope_automorphisms` found the identity alone from k = 8 * 10^7,
   and `symmetry_pairs` found no pairs or recursed without end. They now use an
   exact integer rank.
+- `polytope_automorphisms`, `symmetry_pairs` and `is_unimodular_equivalent`
+  computed each candidate map W_b W_a^-1 in floating point, rounded it and
+  filtered it by a floating determinant, so the images of polytopes under
+  unimodular maps with large entries lost automorphisms. Under
+  [[1, k], [k, k^2 + 1]], in GL_2(Z), the unit triangle kept 2 of its 6
+  automorphisms and symmetry pairs at k = 1000, and at k = 10^4
+  `symmetry_pairs` found none, the identity included. Each candidate is now
+  found in integer arithmetic, as W_b adj(W_a) / det(W_a), and kept only when
+  it is integral; the products, and those of the Liu-Cai labels, use Python
+  integers where int64 could overflow. The searches are also faster:
+  `polytope_automorphisms` of the massless pentagon takes about 60 s instead
+  of about 140 s, and `symmetry_pairs` on the columns of A of
+  `112|3|4e|5e|5e|e|:nnnnzzz` about 15 s instead of about 35 s.
 - `symmetry_pairs` returned no pairs, not even the identity, for a
   configuration that is not full-dimensional. It now finds them in the
   lattice chart of the points and extends each to Z^n as

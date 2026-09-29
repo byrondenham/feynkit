@@ -277,7 +277,7 @@ class TestExactVertices:
         ],
     )
     def test_two_loop_pairs_from_the_columns_of_a(self, cnickel: str, order: int) -> None:
-        # The columns of A come in graded order; the second graph takes about 35 s.
+        # The columns of A come in graded order; the second graph takes about 15 s.
         assert len(_fi(cnickel).symmetry_pairs) == order
 
     def test_permutations_index_the_vertices_of_polytope_data(self) -> None:
@@ -455,3 +455,39 @@ class TestEmbedding:
                 compute_polytope_automorphisms(embedded).order
                 == compute_polytope_automorphisms(points).order
             )
+
+
+def _large_image(points: list[tuple[int, ...]], k: int) -> list[tuple[int, ...]]:
+    """The points under S = [[1, k], [k, k^2 + 1]] in GL_2(Z), or its extension to GL_3(Z)."""
+    S = sp.Matrix([[1, k], [k, k * k + 1]])
+    if len(points[0]) == 3:
+        S = sp.Matrix([[1, k, 0], [k, k * k + 1, 0], [0, k, 1]])
+    return [tuple(int(x) for x in S * sp.Matrix(p)) for p in points]
+
+
+LARGE = {
+    "triangle": ([(0, 0), (1, 0), (0, 1)], 6),
+    "square": ([(0, 0), (1, 0), (0, 1), (1, 1)], 8),
+    "simplex": ([(0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)], 24),
+}
+
+
+class TestLargeCoordinates:
+    """The candidate maps are found in integers, so a unimodular image keeps its group."""
+
+    @pytest.mark.parametrize("k", [700, 1000, 10**4, 10**5])
+    @pytest.mark.parametrize("name", sorted(LARGE))
+    def test_orders(self, name: str, k: int) -> None:
+        # In floating point W_b W_a^-1 was not close enough to an integer matrix: at
+        # k = 1000 the triangle kept 2 of its 6 automorphisms, and from 3000 only the
+        # identity. k = 700 runs in int64; the others need Python integers, and at 10^5
+        # the coordinates exceed 2^31, so the labels would overflow int64 as well.
+        points, order = LARGE[name]
+        image = _large_image(points, k)
+        auts = compute_polytope_automorphisms(image)
+        assert auts.order == order
+        vertices = polytope_data(image).vertices
+        for (U, t), perm in zip(auts.maps, auts.vertex_permutations, strict=True):
+            assert abs(U.det()) == 1
+            for i, v in enumerate(vertices):
+                assert tuple(U * sp.Matrix(v) + t) == vertices[perm[i]]

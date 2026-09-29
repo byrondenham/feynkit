@@ -171,7 +171,9 @@ def _basis_search(
 
     ``V_arr`` holds the vertices of a full-dimensional lattice polytope and
     ``GW`` its labelled 1-skeleton, whose node i is row i. Returns no maps
-    when the vertices do not span their ambient space.
+    when the vertices do not span their ambient space. Every candidate
+    U = W_b W_a^-1 is found in integer arithmetic, as W_b adj(W_a) / det(W_a),
+    and kept only when it is integral and permutes the vertices.
     """
     n_vert, n_dim = V_arr.shape
     labels = [GW.nodes[i]["label"] for i in range(n_vert)]
@@ -194,9 +196,8 @@ def _basis_search(
     basis_label_multiset = sorted(labels[k] for k in basis_indices)
     basis_label_seq = [labels[k] for k in basis_indices]
 
-    W_a_np = deltas_a[basis_indices].T.astype(float)
-    W_a_inv_np = np.linalg.inv(W_a_np)
-    abs_det_W_a = abs(np.linalg.det(W_a_np))
+    adj_a, det_a = _invariants.integer_inverse(W_a, 2 * int(np.abs(V_arr).max()) + 1)
+    deltas_exact = deltas_a.astype(adj_a.dtype)
 
     found_maps: list[tuple[sp.ImmutableMatrix, sp.ImmutableMatrix]] = []
     found_vperms: list[list[int]] = []
@@ -231,42 +232,38 @@ def _basis_search(
         for sub_combos in _prod(*sub_combo_iters):
             combo = tuple(v for sub in sub_combos for v in sub)
 
-            W_cand = deltas_b[list(combo)].T.astype(float)
-            if abs(abs(np.linalg.det(W_cand)) - abs_det_W_a) > 0.5:
+            # A unimodular U needs |det W_b| = |det W_a|, the same for every
+            # ordering of the combination; the determinant is exact.
+            if abs(_exact.determinant(deltas_b[list(combo)].tolist())) != abs(det_a):
                 continue
 
             for perm in _label_preserving_orderings(combo, labels, basis_label_seq):
-                W_b_np = deltas_b[list(perm)].T.astype(float)
-                U_np = W_b_np @ W_a_inv_np
-                U_int = np.round(U_np).astype(np.int64)
-                if not np.allclose(U_np, U_int.astype(float), atol=1e-6):
+                U_int = _invariants.integral_candidate(deltas_b[list(perm)].T, adj_a, det_a)
+                if U_int is None:
                     continue
 
-                # Check det +/-1 using the already-computed float det of W_cand.
-                if abs(abs(np.linalg.det(W_b_np)) / abs_det_W_a - 1.0) > 0.05:
-                    continue
-
-                mapped = U_int @ deltas_a.T
+                mapped = U_int @ deltas_exact.T
                 vertex_map: dict[int, int] = {}
+                used: set[int] = set()
                 valid = True
                 for i in range(n_vert):
                     key = tuple(int(x) for x in mapped[:, i])
                     j_opt = delta_to_b_idx.get(key)
-                    if j_opt is None:
+                    if j_opt is None or j_opt in used:
                         valid = False
                         break
                     vertex_map[i] = j_opt
+                    used.add(j_opt)
                 if not valid:
                     continue
 
-                # The numpy check above is exact for integer polytope vertices; the
-                # sympy checks below are only needed to construct the output objects.
+                # The integer checks above are exact; SymPy only builds the output.
                 vperm = tuple(vertex_map[i] for i in range(n_vert))
                 if vperm in seen_vperms:
                     continue
 
                 # Compute exact integer translation: Z = v_0_image - U * v_0.
-                Z_int = v_0_image.astype(np.int64) - U_int @ v_0.astype(np.int64)
+                Z_int = v_0_image.astype(adj_a.dtype) - U_int @ v_0.astype(adj_a.dtype)
 
                 seen_vperms.add(vperm)
                 found_maps.append(

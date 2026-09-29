@@ -14,6 +14,7 @@ from feynkit.normal_forms._invariants import (
     labelled_polytope_graph,
     to_integer_points,
     vertex_edge_graph,
+    vertex_label,
 )
 from feynkit.polytope import polytope_data
 
@@ -65,3 +66,11 @@ def test_integers_in_other_types() -> None:
     assert points.dtype == np.int64
     assert points.tolist() == [[2, 1], [2, 3]]
     assert to_integer_points(np.zeros((0, 3), dtype=np.int64)).shape == (0, 3)
+
+
+def test_labels_of_large_coordinates() -> None:
+    # A_v = [[25 * 10^18 + 1, 10^10], [10^10, 25 * 10^18 + 1]] has entries beyond int64,
+    # where the products wrapped.
+    v = np.array([0, 0], dtype=np.int64)
+    neighbours = np.array([[5 * 10**9, 1], [1, 5 * 10**9]], dtype=np.int64)
+    assert vertex_label(v, neighbours) == (25 * 10**18 + 1) ** 2 - 10**20

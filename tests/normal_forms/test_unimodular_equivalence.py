@@ -399,3 +399,20 @@ def test_rational_points_are_not_scaled() -> None:
     # Scaling would change the lattice. The coordinate 1/2 was read as 0.
     with pytest.raises(ValidationError, match="non-integer"):
         is_unimodular_equivalent([(0, 0), (sp.Rational(1, 2), 0), (0, 1)], unit_simplex(2))
+
+
+@pytest.mark.parametrize("k", [10**4, 10**5])
+@pytest.mark.parametrize(
+    "points",
+    [unit_simplex(2), unit_cube(2), unit_simplex(3)],
+    ids=["triangle", "square", "simplex"],
+)
+def test_images_with_large_entries(points: np.ndarray, k: int) -> None:
+    # S = [[1, k], [k, k^2 + 1]], extended to GL_3(Z) by [[1, k, 0], [k, k^2 + 1, 0],
+    # [0, k, 1]]. The floating candidates found no witness from the image to the points.
+    n = points.shape[1]
+    S = [[1, k], [k, k * k + 1]] if n == 2 else [[1, k, 0], [k, k * k + 1, 0], [0, k, 1]]
+    image = np.array(points.tolist(), dtype=object) @ np.array(S, dtype=object).T
+    image = image.astype(np.int64)
+    _check_witness(points, image, is_unimodular_equivalent(points, image))
+    _check_witness(image, points, is_unimodular_equivalent(image, points))

@@ -275,7 +275,7 @@ def _direct_basis_search(
     GW_b: Any,
     deltas_a: np.ndarray,
     basis_indices: list[int],
-    W_a: sp.Matrix,  # noqa: ARG001 (kept for call-site symmetry with W_a_inv)
+    W_a: sp.Matrix,
     W_a_inv: sp.Matrix,
     idx_a: np.ndarray,
     idx_b: np.ndarray,
@@ -292,25 +292,27 @@ def _direct_basis_search(
       1. Label multiset: sorted labels of the subset must equal sorted labels
          of the basis_indices vertices in V_a (Liu-Cai labels are unimodular
          invariants, so valid maps preserve them).
-      2. |det| = 1: computed once per unordered subset (column permutations
-         only flip the sign, so all orderings share the same |det|).
+      2. |det W_b| = |det W_a|: computed exactly once per unordered subset
+         (column permutations only flip the sign, so all orderings share the
+         same |det|).
       3. Label-preserving orderings only: instead of all n_dim! column
          permutations, only those where the k-th column label matches the
          required label for that basis position, typically prod_lab (count_lab)!
          orderings rather than n_dim!.
 
-    Candidates passing all three filters are verified with numpy integer
-    arithmetic; only survivors reach the exact SymPy step. A verified U that
-    ``accept``, when given, rejects is skipped and the search goes on.
+    Each candidate U = W_b W_a^-1 that passes them is found in integer
+    arithmetic, as W_b adj(W_a) / det(W_a), and kept when it is integral and
+    maps every vertex to a vertex; only survivors reach the exact SymPy step.
+    A verified U that ``accept``, when given, rejects is skipped and the
+    search goes on.
     """
     n_vert = V_a.shape[0]
     n_dim = V_a.shape[1]
     v_0 = V_a[0]
 
-    # Numpy inverse for fast screening (float arithmetic).
-    W_a_np = deltas_a[basis_indices].T.astype(float)
-    W_a_inv_np = np.linalg.inv(W_a_np)
-    abs_det_W_a = abs(np.linalg.det(W_a_np))
+    size = 2 * max(int(np.abs(V_a).max()), int(np.abs(V_b).max())) + 1
+    adj_a, det_a = _invariants.integer_inverse(W_a, size)
+    deltas_exact = deltas_a.astype(adj_a.dtype)
 
     labels_a_node = [GW_a.nodes[i]["label"] for i in range(n_vert)]
     labels_b_node = [GW_b.nodes[i]["label"] for i in range(n_vert)]
@@ -336,22 +338,18 @@ def _direct_basis_search(
                 continue
 
             # Filter 2: |det(W_b)| must equal |det(W_a)| for U = W_b*W_a^-1 to
-            # have det +/-1.  The original filter checked |det| ~ 1 which is only
-            # correct when W_a itself has det +/-1; this is the general form.
-            W_cand = deltas_b[list(combo)].T.astype(float)
-            if abs(abs(np.linalg.det(W_cand)) - abs_det_W_a) > 0.5:
+            # have det +/-1, in exact integer arithmetic.
+            if abs(_exact.determinant(deltas_b[list(combo)].tolist())) != abs(det_a):
                 continue
 
             # Filter 3: only label-preserving column orderings.
             for perm in _label_preserving_orderings(combo, labels_b_node, basis_label_seq):
-                W_b_np = deltas_b[list(perm)].T.astype(float)
-                U_np = W_b_np @ W_a_inv_np
-                U_int = np.round(U_np).astype(np.int64)
-                if not np.allclose(U_np, U_int.astype(float), atol=1e-6):
+                U_int = _invariants.integral_candidate(deltas_b[list(perm)].T, adj_a, det_a)
+                if U_int is None:
                     continue
 
                 # Integer verification of all points.
-                mapped = U_int @ deltas_a.T  # n_dim x n_vert
+                mapped = U_int @ deltas_exact.T  # n_dim x n_vert
                 vertex_map: dict[int, int] = {}
                 valid = True
                 for i in range(n_vert):

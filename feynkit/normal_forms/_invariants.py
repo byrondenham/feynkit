@@ -110,9 +110,48 @@ def vertex_label(v: np.ndarray, neighbours: np.ndarray) -> int:
     Python ``int``; Liu-Cai shows that for any unimodular ``U``,
     ``A_{U v + Z} = U A_v U^T``, so ``det(A_v) = det(A_{U v + Z})``.
     """
-    diffs = neighbours.astype(np.int64) - v.astype(np.int64)  # m x n
+    size = max((abs(int(x)) for x in [*v.ravel(), *neighbours.ravel()]), default=0)
+    # Each entry of A_v is a sum of m products of differences below 2 size.
+    dtype = exact_dtype(neighbours.shape[0] * (2 * size) ** 2)
+    diffs: np.ndarray = neighbours.astype(dtype) - v.astype(dtype)  # m x n
     A_v = diffs.T @ diffs  # n x n integer
     return int(sp.Matrix(A_v.tolist()).det())
+
+
+def exact_dtype(bound: int) -> type:
+    """
+    np.int64 when ``bound``, which caps every integer a computation forms, is below 2^62.
+
+    Otherwise object, for arrays of Python integers, which cannot overflow.
+    The margin to 2^63 leaves room for a sum of two such integers.
+    """
+    return np.int64 if bound < 2**62 else object
+
+
+def integer_inverse(W: sp.Matrix, size: int) -> tuple[np.ndarray, int]:
+    """
+    W^-1 as adj / det, with adj the integer adjugate of W, for exact candidate maps.
+
+    W is an invertible n x n integer matrix, and ``size`` bounds the absolute
+    value of every coordinate, and every difference of coordinates, that the
+    maps W' W^-1 act on. Such a map W' adj / det has entries below
+    n size max|adj|, and its images of those vectors, below
+    n^2 size^2 max|adj|. The array is int64 when exact_dtype allows that
+    bound, and holds Python integers otherwise.
+    """
+    det = int(W.det())
+    adj = [[int(x) for x in row] for row in (W.inv() * det).tolist()]
+    largest = max(abs(x) for row in adj for x in row)
+    return np.array(adj, dtype=exact_dtype(W.rows**2 * size**2 * largest)), det
+
+
+def integral_candidate(W_b: np.ndarray, adj: np.ndarray, det: int) -> np.ndarray | None:
+    """W_b adj / det, in the dtype of adj, when every entry is an integer; otherwise None."""
+    scaled: np.ndarray = W_b.astype(adj.dtype) @ adj
+    if (scaled % det != 0).any():
+        return None
+    quotient: np.ndarray = scaled // det
+    return quotient
 
 
 def label_skeleton(coordinates: np.ndarray, skeleton: nx.Graph) -> nx.Graph:

@@ -268,6 +268,14 @@
   with bridges. `one_loop_landau_surfaces_by_type` describes the cycle, with
   the legs of each tree attached to it moved to the vertex where the tree
   meets it.
+- The documentation of what the face computation can miss now states its extent
+  at one loop, the only loop order checked: a component is lost when the
+  discriminant of a face of three propagators, the Källén function of its
+  sub-triangle, becomes a perfect square because a leg is massless, as
+  p_2^2 - p_3^2 is for the massive triangle at p_1^2 = 0 and for boxes with a
+  massless leg and some massless propagators. No extra factor arises, and
+  none is lost at generic kinematics. A test records the loss as an expected
+  failure.
 
 ### Fixed
 

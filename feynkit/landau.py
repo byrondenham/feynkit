@@ -27,11 +27,18 @@ Faces contribute as follows.
   Gröbner basis small. It contributes the factors of the generator or,
   when there are several, of their greatest common divisor, the
   codimension-one part of their zero set. A component that arises only as
-  a limit under special kinematics can then be missing: at p_1^2 = 0 the
-  massive triangle loses p_2^2 - p_3^2, since the locus of its top face is
+  a limit under special kinematics can then be missing. At one loop, where
+  this has been checked, that happens when the discriminant of a face of
+  three propagators, the Källén function lambda(a, b, c) of its
+  sub-triangle, becomes the perfect square (b - c)^2 because a leg is
+  massless: the component b - c is lost. At p_1^2 = 0 the massive triangle
+  loses p_2^2 - p_3^2, since the locus of its top face is
   p_2^2 = p_3^2 = 0, of codimension two, while the one-loop closed form
-  keeps it. Faces with more points than ``max_face_points`` are skipped
-  and listed in ``LandauAnalysis.skipped_faces``.
+  keeps it; so do boxes with a massless leg and some massless lines. The
+  rule never adds a factor, and at generic kinematics it loses none. Beyond
+  one loop the extent of the loss is not known. Faces with more points than
+  ``max_face_points`` are skipped and listed in
+  ``LandauAnalysis.skipped_faces``.
 
 The factors are candidate codimension-one singular loci on all sheets of the
 integral. Membership is necessary for a singularity, not sufficient, and

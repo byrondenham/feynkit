@@ -1559,8 +1559,14 @@ otherwise. When the face's coefficients are independent linear forms in the inva
 masses, it is taken in fresh symbols for them. A face whose elimination ideal has several
 generators contributes the factors of their greatest common divisor, the codimension-one part of
 its locus. A component that arises only as a limit under special kinematics can then be missing,
-while the one-loop closed form keeps it: with $p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn`
-loses $p_2^2 - p_3^2$, since the locus of its top face is $p_2^2 = p_3^2 = 0$, of codimension two.
+while the one-loop closed form keeps it. At one loop, where this has been checked, that happens
+when the discriminant of a face of three propagators, the Källén function $\lambda(a, b, c)$ of
+its sub-triangle, becomes the perfect square $(b - c)^2$ because a leg is massless, and the
+component $b - c$ is lost. With $p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn` loses
+$p_2^2 - p_3^2$, since the locus of its top face is $p_2^2 = p_3^2 = 0$, of codimension two, and
+boxes with a massless leg and some massless propagators lose components in the same way. The rule
+never adds a factor and loses none at generic kinematics; beyond one loop the extent of the loss
+is not known.
 The massless pentagon and hexagon take about 3 s and 15 s. feynkit eliminates and factors with
 Singular when the `Singular` binary is on the path, except for the discriminants of edges, small
 polynomials that SymPy factors to write them, and falls back to SymPy otherwise, which is much

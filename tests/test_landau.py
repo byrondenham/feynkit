@@ -785,6 +785,29 @@ class TestSeveralGenerators:
         assert faces < closed
         assert closed - faces == {p2 - p3}
 
+    @staticmethod
+    def _triangle_with_massless_leg() -> tuple[FeynmanIntegral, sp.Expr]:
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+        p1, p2, p3 = standard_invariants(3).external_masses
+        products = {
+            pair: sp.expand(sp.sympify(value).subs(p1, 0))
+            for pair, value in fi.momentum_products.items()
+        }
+        return fi.with_(momentum_products=products), p2 - p3
+
+    def test_the_closed_form_keeps_the_component_lost_in_the_limit(self) -> None:
+        on_shell, component = self._triangle_with_massless_leg()
+        assert component in one_loop_landau_surfaces(on_shell)
+
+    @requires_singular
+    @pytest.mark.xfail(
+        strict=True,
+        reason="the gcd rule drops p_2^2 - p_3^2, whose locus in the top face has codimension two",
+    )
+    def test_the_faces_contain_the_component_lost_in_the_limit(self) -> None:
+        on_shell, component = self._triangle_with_massless_leg()
+        assert component in landau_analysis(on_shell).landau_surfaces
+
     @requires_singular
     @pytest.mark.parametrize(
         "name",

@@ -1558,15 +1558,17 @@ function of the exponent, as when the kinematics are free of $\mu$, and with $\m
 otherwise. When the face's coefficients are independent linear forms in the invariants and squared
 masses, it is taken in fresh symbols for them. A face whose elimination ideal has several
 generators contributes the factors of their greatest common divisor, the codimension-one part of
-its locus. A component that arises only as a limit under special kinematics can then be missing,
-while the one-loop closed form keeps it. At one loop, where this has been checked, that happens
-when the discriminant of a face of three propagators, the Källén function $\lambda(a, b, c)$ of
-its sub-triangle, becomes the perfect square $(b - c)^2$ because a leg is massless, and the
-component $b - c$ is lost. With $p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn` loses
-$p_2^2 - p_3^2$, since the locus of its top face is $p_2^2 = p_3^2 = 0$, of codimension two, and
-boxes with a massless leg and some massless propagators lose components in the same way. In the
-one-loop cases checked the rule added no factor and lost none at generic kinematics; beyond one
-loop the extent of the loss is not known.
+its locus, which makes the result the principal Landau determinant of Fevola, Mizera and Telen
+(2024, section 3). At special kinematics it can miss a component that the one-loop closed form
+keeps: a singular point of a face can leave the torus as the kinematics specialise, and no face
+then sees its limit. With $p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn` misses
+$p_2^2 - p_3^2$: where $p_2^2 = p_3^2$ its top face has no singular point in the torus, since it
+has moved onto the facet $u_3 = 0$. At one loop, where this has been checked, the missing
+components come from faces of three propagators whose discriminant, the Källén function
+$\lambda(a, b, c)$ of the sub-triangle, becomes the perfect square $(b - c)^2$ because a leg is
+massless; boxes with a massless leg and some massless propagators miss components in the same
+way. In the one-loop cases checked no factor was added and none was lost at generic kinematics;
+beyond one loop the extent is not known.
 The massless pentagon and hexagon take about 3 s and 15 s. feynkit eliminates and factors with
 Singular when the `Singular` binary is on the path, except for the discriminants of edges, small
 polynomials that SymPy factors to write them, and falls back to SymPy otherwise, which is much

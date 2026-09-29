@@ -803,7 +803,7 @@ class TestSeveralGenerators:
     @requires_singular
     @pytest.mark.xfail(
         strict=True,
-        reason="the gcd rule drops p_2^2 - p_3^2, whose locus in the top face has codimension two",
+        reason="the top face's singular point leaves the torus, so no face gives p_2^2 - p_3^2",
     )
     def test_the_faces_contain_the_component_lost_in_the_limit(self) -> None:
         on_shell, component = self._triangle_with_massless_leg()

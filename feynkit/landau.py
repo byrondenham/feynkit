@@ -26,18 +26,20 @@ Faces contribute as follows.
   symbols standing for them, a change of coordinates that keeps the
   Gröbner basis small. It contributes the factors of the generator or,
   when there are several, of their greatest common divisor, the
-  codimension-one part of their zero set. A component that arises only as
-  a limit under special kinematics can then be missing. At one loop, where
-  this has been checked, that happens when the discriminant of a face of
-  three propagators, the Källén function lambda(a, b, c) of its
-  sub-triangle, becomes the perfect square (b - c)^2 because a leg is
-  massless: the component b - c is lost. At p_1^2 = 0 the massive triangle
-  loses p_2^2 - p_3^2, since the locus of its top face is
-  p_2^2 = p_3^2 = 0, of codimension two, while the one-loop closed form
-  keeps it; so do boxes with a massless leg and some massless lines. In
-  the one-loop cases checked the rule added no factor, and at generic
-  kinematics it lost none. Beyond one loop the extent of the loss is not
-  known. Faces with more points than
+  codimension-one part of their zero set. The result is the principal
+  Landau determinant of Fevola, Mizera and Telen (2024, section 3), which
+  at special kinematics can miss a component: a singular point of a face
+  can leave the torus as the kinematics specialise, and no face then sees
+  its limit. At p_1^2 = 0 and p_2^2 = p_3^2 the massive triangle's top face
+  has no singular point in the torus, since it has moved onto the facet
+  u_3 = 0, so p_2^2 - p_3^2 is missing, while the one-loop closed form
+  keeps it. At one loop, where this has been checked, the missing
+  components come from faces of three propagators whose discriminant, the
+  Källén function of the sub-triangle, becomes a perfect square because a
+  leg is massless; boxes with a massless leg and some massless lines miss
+  components in the same way. In the one-loop cases checked no factor was
+  added and none was lost at generic kinematics. Beyond one loop the
+  extent is not known. Faces with more points than
   ``max_face_points`` are skipped and listed in
   ``LandauAnalysis.skipped_faces``; the factors of those faces are then
   missing from the result, at generic kinematics too.

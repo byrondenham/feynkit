@@ -5,7 +5,7 @@ The database of Fevola, Mizera and Telen, Principal Landau determinants,
 Comput. Phys. Commun. 303 (2024) 109278, arXiv:2311.16219, is published on
 MathRepo (https://mathrepo.mis.mpg.de/PLD/, PLD_database.zip, CC BY 4.0).
 Each entry gives U, F and the f-vector f_0, ..., f_{d-1} of the Newton
-polytope of G = U + F. Three entries are committed under tests/data/pld/ and
+polytope of G = U + F. Four entries are committed under tests/data/pld/ and
 checked always; set FEYNKIT_PLD_DATA to the unpacked database directory to
 check all 114.
 """
@@ -22,6 +22,7 @@ import pytest
 import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr
 
+from feynkit import FeynmanIntegral
 from feynkit.polytope import polytope_data
 from tests.test_polytope import diagram_points
 
@@ -185,6 +186,7 @@ def test_table_row_is_the_database_entry(
     ("name", "f_vector"),
     [
         ("A4_zero_generic", (10, 30, 30, 10)),
+        ("A4_zero_zero", (6, 15, 18, 9)),
         ("par_zero_generic", (9, 24, 24, 9)),
         ("kite_generic_generic", (24, 66, 73, 39, 10)),
     ],
@@ -234,3 +236,96 @@ def test_database_has_every_entry() -> None:
     if reason is not None:
         pytest.skip(reason)
     assert len(_database_files()) == 114
+
+
+# The kinematics of an entry name, internal then external: the CNickel mass code of every
+# propagator, and the value of every p_i^2.
+BOX = "12e|3e|3e|e|"
+PAR = "12ee|22e|e|"
+DBOX = "15e|24|3e|4e|5|e|"
+MASS_CODES = {"zero": "z", "equal": "a", "generic": "n"}
+EXTERNAL_AXES = {"zero": "on_shell", "equal": "equal", "generic": "off_shell"}
+
+
+def by_hand(topology: str, internal: str, external: str) -> FeynmanIntegral:
+    """The graph with the kinematics of a database entry, imposed by substitution."""
+    edges = len(FeynmanIntegral.from_cnickel(topology).graph.get_internal_edges())
+    fi = FeynmanIntegral.from_cnickel(f"{topology}:{MASS_CODES[internal] * edges}")
+    legs = [sp.Symbol(f"p{i}^2", real=True) for i in range(1, fi.graph.external_legs + 1)]
+    value = {"zero": 0, "equal": sp.Symbol("M2", real=True)}.get(external)
+    values = {} if value is None else dict.fromkeys(legs, value)
+    products = {k: sp.expand(v.subs(values)) for k, v in fi.momentum_products.items()}
+    return fi.with_(momentum_products=products)
+
+
+@pytest.mark.parametrize("internal", list(MASS_CODES))
+@pytest.mark.parametrize("external", list(EXTERNAL_AXES))
+def test_box_kinematics_are_the_database_entries(internal: str, external: str) -> None:
+    fi = by_hand(BOX, internal, external)
+    assert fi.kinematic_axes == (internal, EXTERNAL_AXES[external])
+    exponents, published = read_entry(_entry(f"A4_{internal}_{external}"))
+    points = fi.newton_polytope.points
+    assert same_up_to_permutation(points, exponents)
+    assert polytope_data(points).f_vector == published + (1,)
+
+
+CLASSES = [
+    (BOX + ":zzzz", "massless_off_shell", "A4_zero_generic", (10, 30, 30, 10), 11),
+    (BOX + ":zzzz", "massless_on_shell", "A4_zero_zero", (6, 15, 18, 9), 3),
+    (BOX + ":nnnn", "generic", "A4_generic_generic", (8, 16, 14, 6), 15),
+    (BOX + ":nnnn", "equal_masses", "A4_equal_generic", (8, 16, 14, 6), 15),
+    (PAR + ":zzzz", "massless_off_shell", "par_zero_generic", (9, 24, 24, 9), 8),
+    (PAR + ":zzzz", "massless_on_shell", "par_zero_zero", (7, 15, 14, 6), 3),
+    (PAR + ":nnnn", "generic", "par_generic_generic", (15, 33, 27, 9), 35),
+    (PAR + ":nnnn", "equal_masses", "par_equal_generic", (15, 33, 27, 9), 35),
+    (
+        DBOX + ":zzzzzzz",
+        "massless_off_shell",
+        "dbox_zero_generic",
+        (46, 282, 636, 706, 421, 133, 20),
+        903,
+    ),
+    (
+        DBOX + ":zzzzzzz",
+        "massless_on_shell",
+        "dbox_zero_zero",
+        (26, 151, 380, 491, 341, 123, 20),
+        238,
+    ),
+    (DBOX + ":nnnnnnn", "generic", "dbox_generic_generic", (45, 171, 291, 282, 167, 60, 12), 1422),
+    (
+        DBOX + ":nnnnnnn",
+        "equal_masses",
+        "dbox_equal_generic",
+        (45, 171, 291, 282, 167, 60, 12),
+        1422,
+    ),
+]
+
+
+@pytest.mark.parametrize(("cnickel", "name", "entry", "f_vector", "volume"), CLASSES)
+def test_class_is_the_database_entry(
+    cnickel: str, name: str, entry: str, f_vector: tuple[int, ...], volume: int
+) -> None:
+    fi = FeynmanIntegral.from_cnickel(cnickel, kinematics=name)
+    assert fi.kinematic_class == name
+    internal, external = entry.split("_")[1:]
+    assert fi.kinematic_axes == (internal, EXTERNAL_AXES[external])
+    points = fi.newton_polytope.points
+    data = polytope_data(points)
+    assert data.f_vector == f_vector + (1,)
+    assert data.normalized_volume == volume
+    exponents, published = read_entry(_entry(entry))
+    assert published == f_vector
+    assert same_up_to_permutation(points, exponents)
+
+
+@pytest.mark.parametrize(
+    ("cnickel", "points"),
+    [("11e|e|:zz", 2), ("12e|2e|e|:zzz", 3), ("111e|e|:zzz", 3), ("12e|23|3|e|:zzzzz", 8)],
+)
+def test_on_shell_with_two_or_three_legs_is_g_equal_u(cnickel: str, points: int) -> None:
+    fi = FeynmanIntegral.from_cnickel(cnickel, kinematics="massless_on_shell")
+    assert fi.symanzik.g == fi.symanzik.u_lp
+    assert len(fi.newton_polytope.points) == points
+    assert fi.is_scaleless

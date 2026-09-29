@@ -41,6 +41,7 @@ import sympy as sp
 
 if TYPE_CHECKING:
     from .database import FeynkitDatabase
+    from .kinematics.classes import ExternalAxis, InternalAxis, KinematicClass
     from .landau import LandauAnalysis
     from .point_count import TorusCount
 
@@ -208,7 +209,9 @@ class FeynmanIntegral:
     # -------- Constructors from CNickel --------
 
     @classmethod
-    def from_cnickel(cls, cnickel: str, **kwargs: Any) -> FeynmanIntegral:
+    def from_cnickel(
+        cls, cnickel: str, *, kinematics: KinematicClass | None = None, **kwargs: Any
+    ) -> FeynmanIntegral:
         """
         Construct a :class:`FeynmanIntegral` from a CNickel string.
 
@@ -222,9 +225,18 @@ class FeynmanIntegral:
         ----------
         cnickel
             CNickel string, e.g. ``"12e|2e|e|:nzz"`` or ``"12e|2e|e|"``.
+        kinematics
+            A kinematic class to impose with :meth:`with_kinematics`, one of
+            ``generic``, ``massless_off_shell``, ``massless_on_shell`` and
+            ``equal_masses``; by default the kinematics of the string.
         **kwargs
             Forwarded to :class:`FeynmanIntegral` (``dimension``,
             ``propagator_exponents``, ``momentum_products``, ``database``, ...).
+
+        Raises
+        ------
+        ValidationError
+            As :meth:`with_kinematics` raises, when ``kinematics`` is given.
 
         Examples
         --------
@@ -232,8 +244,10 @@ class FeynmanIntegral:
         >>> fi.cnickel
         '12e|2e|e|:zzz'
         >>> fi.toric_ideal.generators
+        >>> FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz", kinematics="massless_on_shell")
         """
-        return cls(Graph.from_cnickel(cnickel), **kwargs)
+        integral = cls(Graph.from_cnickel(cnickel), **kwargs)
+        return integral if kinematics is None else integral.with_kinematics(kinematics)
 
     @classmethod
     def from_nickel(cls, nickel: str, **kwargs: Any) -> FeynmanIntegral:
@@ -261,6 +275,62 @@ class FeynmanIntegral:
     def cnickel(self) -> str:
         """Colored Nickel index: topology + mass colouring (``"topology:colours"``)."""
         return self._graph.cnickel()
+
+    # -------- Kinematic class --------
+
+    @cached_property
+    def kinematic_axes(self) -> tuple[InternalAxis, ExternalAxis]:
+        """
+        The internal and external kinematic axes, derived from the integral as
+        it stands.
+
+        The internal axis is ``zero``, ``equal``, ``generic`` or ``other``, read
+        from the masses m_e; the external axis is ``off_shell``, ``on_shell``,
+        ``equal`` or ``other``, read from the momentum products and any
+        kinematic constraints. See :func:`feynkit.kinematics.kinematic_axes`
+        for the rules. It never raises.
+        """
+        from .kinematics.classes import kinematic_axes
+
+        return kinematic_axes(self)
+
+    @cached_property
+    def kinematic_class(self) -> KinematicClass:
+        """
+        The kinematic class of the axes: ``generic``, ``massless_off_shell``,
+        ``massless_on_shell``, ``equal_masses`` or ``other``.
+
+        They are the kinematics of the entries generic_generic, zero_generic,
+        zero_zero and equal_generic of the principal Landau determinant
+        database of Fevola, Mizera and Telen (arXiv:2311.16219). Every other
+        pair of axes, such as massive propagators with on-shell legs, is
+        ``other``.
+        """
+        from .kinematics.classes import CLASS_OF_AXES
+
+        return CLASS_OF_AXES.get(self.kinematic_axes, "other")
+
+    def with_kinematics(self, kinematic_class: KinematicClass) -> FeynmanIntegral:
+        """
+        The integral with a kinematic class imposed by substitution.
+
+        Returns ``self`` when the integral already has the class. Otherwise
+        ``massless_on_shell`` sets each p_i^2 to 0 in every momentum product,
+        which needs massless propagators, two or more legs and p_i^2 that are
+        symbols, as with ``use_mandelstam=True``; ``equal_masses`` gives every
+        propagator the mass m_a of the CNickel code a, which needs massive
+        propagators. ``generic`` and ``massless_off_shell`` make no
+        substitution. A class never changes which propagators are massless.
+
+        Raises
+        ------
+        ValidationError
+            If the class is not one of the four above, if the substitution
+            cannot be made, or if the result is not of the class.
+        """
+        from .kinematics.classes import impose_kinematics
+
+        return impose_kinematics(self, kinematic_class)
 
     # -------- Internal: shared parametrisation factory --------
 

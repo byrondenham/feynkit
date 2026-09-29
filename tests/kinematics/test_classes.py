@@ -289,3 +289,79 @@ class TestImpose:
         constrained = FeynmanIntegral.from_cnickel(BOX + ":zzzz", kinematic_constraints=[S12])
         with pytest.raises(ValidationError, match="external axis other"):
             impose_kinematics(constrained, "massless_on_shell")
+
+
+class TestFacade:
+    def test_the_properties_are_the_functions_cached(self) -> None:
+        fi = substituted(FeynmanIntegral.from_cnickel(BOX + ":nnnn"), ON_SHELL)
+        assert fi.kinematic_axes == kinematic_axes(fi) == ("generic", "on_shell")
+        assert fi.kinematic_class == kinematic_class(fi) == "other"
+        assert fi.kinematic_axes is fi.kinematic_axes
+
+    def test_with_kinematics(self) -> None:
+        box = FeynmanIntegral.from_cnickel(BOX + ":zzzz")
+        assert box.with_kinematics("massless_off_shell") is box
+        on_shell = box.with_kinematics("massless_on_shell")
+        assert on_shell.kinematic_class == "massless_on_shell"
+        assert (
+            on_shell.momentum_products
+            == impose_kinematics(box, "massless_on_shell").momentum_products
+        )
+        with pytest.raises(ValidationError, match="makes no substitution"):
+            box.with_kinematics("generic")
+
+    @pytest.mark.parametrize(
+        ("cnickel", "classes"),
+        [
+            (BOX + ":zzzz", ("massless_off_shell", "massless_on_shell")),
+            (BOX + ":nnnn", ("generic", "equal_masses")),
+            ("12e|2e|e|:nzz", ("generic",)),
+            ("12e|2e|e|:aaz", ()),
+            ("11e|e|:nn", ("generic", "equal_masses")),
+            ("111e|e|:zzz", ("massless_off_shell", "massless_on_shell")),
+            ("12e|23|3|e|:zzzzz", ("massless_off_shell", "massless_on_shell")),
+            ("15e|24|3e|4e|5|e|:nnnnnnn", ("generic", "equal_masses")),
+        ],
+    )
+    def test_from_cnickel_gives_the_class_asked_for(
+        self, cnickel: str, classes: tuple[str, ...]
+    ) -> None:
+        for name in IMPOSABLE_CLASSES:
+            if name in classes:
+                fi = FeynmanIntegral.from_cnickel(cnickel, kinematics=name)
+                assert fi.kinematic_class == name
+            else:
+                with pytest.raises(ValidationError, match=f"cannot impose {name}"):
+                    FeynmanIntegral.from_cnickel(cnickel, kinematics=name)
+
+    def test_from_cnickel_without_kinematics_is_unchanged(self) -> None:
+        fi = FeynmanIntegral.from_cnickel(BOX + ":zzzz", kinematics=None)
+        assert fi.momentum_products == FeynmanIntegral.from_cnickel(BOX + ":zzzz").momentum_products
+
+    def test_from_cnickel_forwards_the_other_keywords(self) -> None:
+        fi = FeynmanIntegral.from_cnickel(
+            BOX + ":zzzz", kinematics="massless_on_shell", dimension=sp.Integer(4)
+        )
+        assert fi.dimension == 4
+        assert fi.kinematic_class == "massless_on_shell"
+        with pytest.raises(ValidationError, match="use_mandelstam=True"):
+            FeynmanIntegral.from_cnickel(
+                BOX + ":zzzz", kinematics="massless_on_shell", use_mandelstam=False
+            )
+
+    def test_from_nickel_and_other(self) -> None:
+        fi = FeynmanIntegral.from_nickel(BOX, kinematics="massless_on_shell")
+        assert fi.kinematic_class == "massless_on_shell"
+        with pytest.raises(ValidationError, match="'other'"):
+            FeynmanIntegral.from_cnickel(BOX + ":zzzz", kinematics="other")
+
+    def test_sss_keeps_its_mass(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:sss", kinematics="equal_masses")
+        assert {e.get_mass() for e in fi.graph.get_internal_edges()} == {mass("s")}
+
+    def test_on_shell_point_counts(self) -> None:
+        box = FeynmanIntegral.from_cnickel(BOX + ":zzzz")
+        by_class = box.with_kinematics("massless_on_shell").torus_count()
+        by_hand = box.torus_count(on_shell=ON_SHELL)
+        assert by_class.counts == by_hand.counts
+        assert by_class.candidate_master_count == 3

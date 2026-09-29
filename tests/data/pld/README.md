@@ -1,4 +1,4 @@
-# Principal Landau determinant database: three entries
+# Principal Landau determinant database: four entries
 
 The files in this directory are copied unchanged from the database of Fevola, Mizera and Telen,
 Principal Landau determinants, Comput. Phys. Commun. 303 (2024) 109278, arXiv:2311.16219,
@@ -7,6 +7,7 @@ licensed under the Creative Commons Attribution 4.0 International licence (CC BY
 https://creativecommons.org/licenses/by/4.0/).
 
 - `A4_zero_generic.txt`: the massless box
+- `A4_zero_zero.txt`: the massless box with on-shell legs
 - `par_zero_generic.txt`: the diagram `par` with massless propagators
 - `kite_generic_generic.txt`: the massive kite
 

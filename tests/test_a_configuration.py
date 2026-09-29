@@ -770,6 +770,38 @@ class TestSymmetryPairs:
             assert pair.determinant == 1
 
 
+class TestPairsFromAutomorphisms:
+    """The pairs are the automorphisms of the polytope that permute every column."""
+
+    @pytest.mark.parametrize(
+        ("cnickel", "count"),
+        [("12e|3e|4e|4e|e|:zzzzz", 720), ("12e|3e|4e|5e|5e|e|:zzzzzz", 5040)],
+        ids=["pentagon", "hexagon"],
+    )
+    def test_massless_pentagon_and_hexagon(self, cnickel: str, count: int) -> None:
+        # A search of its own took about 100 s for the pentagon's pairs, and the hexagon's
+        # did not finish.
+        pairs = FeynmanIntegral.from_cnickel(cnickel).symmetry_pairs
+        assert len(pairs) == count
+        assert len({pair.column_permutation for pair in pairs}) == count
+
+    def test_the_pairs_keep_their_order(self) -> None:
+        # They come in the order in which the search over all the columns, anchored at the
+        # first, found them.
+        pairs = FeynmanIntegral.from_cnickel("12e|2e|e|:nzz").symmetry_pairs
+        assert [pair.column_permutation for pair in pairs] == [
+            (0, 1, 2, 3, 4, 5, 6),
+            (0, 1, 4, 5, 2, 3, 6),
+            (0, 2, 1, 3, 4, 6, 5),
+            (0, 2, 4, 6, 1, 3, 5),
+            (0, 4, 1, 5, 2, 6, 3),
+            (0, 4, 2, 6, 1, 5, 3),
+        ]
+
+    def test_repeated_points_have_no_pairs(self) -> None:
+        assert symmetry_pairs([(0, 0), (0, 0), (1, 0), (0, 1)]) == []
+
+
 class TestSymmetryPairsBelowFullDimension:
     """Below full dimension the pairs come from the lattice chart of the points."""
 

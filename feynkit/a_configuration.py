@@ -30,12 +30,10 @@ intrinsic_lattice_model(points) -> IntrinsicModel
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from itertools import combinations
-from itertools import product as _prod
 from typing import Any, cast
 
 import numpy as np
@@ -46,7 +44,6 @@ from .core.exceptions import ValidationError
 from .normal_forms._chart import chart_frame, lift_linear
 from .normal_forms._invariants import (
     hull_vertex_indices,
-    labelled_polytope_graph,
     to_integer_points,
 )
 from .normal_forms.affine_equivalence import (
@@ -54,10 +51,7 @@ from .normal_forms.affine_equivalence import (
     is_point_config_equivalent,
     is_unimodular_equivalent,
 )
-from .normal_forms.polytope_automorphisms import (
-    _label_preserving_orderings,
-    _select_basis_indices_by_label,
-)
+from .normal_forms.polytope_automorphisms import configuration_symmetries
 from .polytope import lattice_chart
 from .polytope import normalized_volume as _normalized_volume
 from .types import PolytopeAutomorphisms, PolytopeEquivalence
@@ -619,22 +613,19 @@ def symmetry_pairs(
     list[SymmetryPair]
         All valid self-maps, including the identity.  Empty when the
         configuration has no points, and when a point is repeated but not
-        all points are equal: the search matches points by their
-        coordinates, so it finds no bijection of the columns.
+        all points are equal, since the columns are matched by their
+        coordinates.
 
     Algorithm
     ---------
-    All self-maps of a non-degenerate configuration are unimodular (by the
-    affine volume argument).  Liu-Cai vertex labels, invariants of unimodular
-    maps, are used to (a) filter anchor candidates and (b) generate only
-    label-valid basis combinations.  Fix a label-diverse canonical basis
-    {p_0, p_{b_1}, ..., p_{b_n}} (rarest Liu-Cai class first).  For each
-    anchor image p_a whose label matches p_0, iterate only over unordered
-    target basis combos drawn from same-label buckets, then try all
-    label-consistent orderings via :func:`_label_preserving_orderings`.
-
-    Complexity: O(|Aut| * d!) in the best case (K_4: ~144 checks vs 13 B
-    naive).  Falls back to the full P(N-1, n) count when all labels coincide.
+    A pair permutes the vertices of conv(A), so it is one of the
+    automorphisms of the Newton polytope that
+    :func:`compute_polytope_automorphisms` finds, and the pairs are the
+    automorphisms that send every point to a point
+    (feynkit.normal_forms.polytope_automorphisms.configuration_symmetries).
+    They come in the order in which a basis search over all the points,
+    anchored at the first with a basis from the rarest label classes, finds
+    them.
     """
     pts = _to_pts(cfg)
     N = pts.shape[0]
@@ -660,142 +651,18 @@ def symmetry_pairs(
     if aff_dim != n_dim:
         return _chart_symmetry_pairs(pts)
 
-    # All self-maps of a non-degenerate configuration are unimodular:
-    # |det M| = Vol(M*conv(A)) / Vol(conv(A)) = Vol(conv(A)) / Vol(conv(A)) = 1.
-    # The labels (determinants of moment matrices at each hull vertex, over its
-    # neighbours and over all the other vertices) are unimodular invariants, so
-    # they can filter both anchors and basis combinations.
-    hull_idx = hull_vertex_indices(pts)
-    pts_hull = pts[hull_idx]
-    GW = labelled_polytope_graph(pts_hull)
-    hull_label = {int(hull_idx[i]): GW.nodes[i]["label"] for i in range(len(hull_idx))}
-    # Interior points (not hull vertices) get label 0; they form a separate orbit.
-    labels: list[int] = [hull_label.get(i, 0) for i in range(N)]
-    label_a0 = labels[0]
-    label_count = Counter(labels)
-
-    # Label-diverse source basis: rarest-class rows first, minimising combo count.
-    basis_idx = _select_basis_indices_by_label(deltas, aff_dim, labels, label_count)
-    if basis_idx is None:
-        basis_idx = _basis_indices(deltas, aff_dim)
-    if basis_idx is None:
-        return []
-
-    W_src_sp = sp.Matrix(deltas[basis_idx].T.tolist())
-    W_src_inv_sp = W_src_sp.inv()
-    # W_src^-1 = adj / det_src with adj an integer matrix, so each candidate
-    # M = W_tgt W_src^-1 is found exactly, in integers. The entries of M and of
-    # its images of the points are below n^2 size^2 max|adj|; Python integers
-    # replace int64 when that bound could overflow.
-    det_src = int(W_src_sp.det())
-    adj_rows = [[int(x) for x in row] for row in (W_src_inv_sp * det_src).tolist()]
-    size = 2 * int(np.abs(pts).max()) + 1
-    largest = max(abs(x) for row in adj_rows for x in row)
-    exact: type = np.int64 if n_dim**2 * size**2 * largest < 2**62 else object
-    adj_src: np.ndarray = np.array(adj_rows, dtype=exact)
-    deltas_exact = deltas.astype(exact)
-
-    basis_label_multiset = sorted(labels[k] for k in basis_idx)
-    basis_label_seq = [labels[k] for k in basis_idx]
-    basis_label_needs = Counter(basis_label_multiset)
-    basis_label_classes = sorted(basis_label_needs)
-
-    results: list[SymmetryPair] = []
-    seen: set[tuple] = set()  # deduplicate by (M_int_flat, t_int_flat)
-
-    for anchor_idx in range(N):
-        # Liu-Cai labels are unimodular invariants: skip anchors whose label
-        # differs from pts[0] (they cannot be images of pts[0] under any valid map).
-        if labels[anchor_idx] != label_a0:
-            continue
-
-        v0 = pts[anchor_idx]
-        deltas_from = (pts - v0).astype(np.int64)
-        delta_to_idx: dict[tuple, int] = {
-            tuple(int(x) for x in row): i for i, row in enumerate(deltas_from.tolist())
-        }
-        deltas_from_exact = deltas_from.astype(exact)
-
-        others = [j for j in range(N) if j != anchor_idx]
-
-        # Group non-anchor points by label for direct combo generation.
-        label_to_others: dict[int, list[int]] = defaultdict(list)
-        for j in others:
-            label_to_others[labels[j]].append(j)
-
-        # Skip anchor if any needed label class is underrepresented.
-        if any(len(label_to_others[lbl]) < basis_label_needs[lbl] for lbl in basis_label_classes):
-            continue
-
-        # Generate label-valid unordered combos, then try all orderings that
-        # match the basis label sequence.  This replaces permutations(others, d)
-        # which is P(N-1, d), catastrophically large for K_4 (N=31, d=6 -> 427M).
-        sub_combo_iters = [
-            combinations(label_to_others[lbl], basis_label_needs[lbl])
-            for lbl in basis_label_classes
-        ]
-        for sub_combos in _prod(*sub_combo_iters):
-            combo = tuple(v for sub in sub_combos for v in sub)
-
-            for perm in _label_preserving_orderings(combo, labels, basis_label_seq):
-                # M = W_tgt adj / det_src, kept only when every entry is an integer.
-                scaled = deltas_from_exact[list(perm)].T @ adj_src
-                if (scaled % det_src != 0).any():
-                    continue
-                M_int = scaled // det_src
-
-                # Verify all N source deltas map to target deltas (bijection). A
-                # singular M fails here: it maps the points into a hyperplane,
-                # which cannot hold all of them.
-                mapped = M_int @ deltas_exact.T  # n_dim x N
-                col_perm: list[int] = [-1] * N
-                seen_tgts: set[int] = set()
-                valid = True
-                for i in range(N):
-                    key = tuple(int(x) for x in mapped[:, i])
-                    j_opt = delta_to_idx.get(key)
-                    if j_opt is None or j_opt in seen_tgts:
-                        valid = False
-                        break
-                    col_perm[i] = j_opt
-                    seen_tgts.add(j_opt)
-                if not valid:
-                    continue
-
-                # Exact integer t (no floating point: all operands are integers).
-                t_int = v0.astype(exact) - M_int @ pts[0].astype(exact)
-                dedup_key = tuple(M_int.flatten()) + tuple(int(x) for x in t_int)
-                if dedup_key in seen:
-                    continue
-                seen.add(dedup_key)
-
-                # Exact SymPy reconstruction and final check.
-                W_tgt_sp = sp.Matrix(deltas_from[list(perm)].T.tolist())
-                M = W_tgt_sp * W_src_inv_sp
-                if not all(e.is_Integer for e in M):
-                    continue
-
-                v0_src_col = sp.Matrix(pts[0].tolist())
-                v0_tgt_col = sp.Matrix(v0.tolist())
-                t = v0_tgt_col - M * v0_src_col
-                if not all(e.is_Integer for e in t):
-                    continue
-
-                det = int(abs(M.det()))
-                if det == 0:
-                    continue
-
-                results.append(
-                    SymmetryPair(
-                        linear_map=sp.ImmutableMatrix(M),
-                        translation=sp.ImmutableMatrix(t),
-                        column_permutation=tuple(col_perm),
-                        determinant=det,
-                        is_unimodular=(det == 1),
-                    )
-                )
-
-    return results
+    # Every pair permutes the vertices of conv(A), so it is an automorphism of
+    # the polytope; the pairs are the automorphisms that permute every point.
+    return [
+        SymmetryPair(
+            linear_map=M,
+            translation=t,
+            column_permutation=perm,
+            determinant=1,
+            is_unimodular=True,
+        )
+        for M, t, perm in configuration_symmetries(pts)
+    ]
 
 
 def _chart_symmetry_pairs(pts: np.ndarray) -> list[SymmetryPair]:

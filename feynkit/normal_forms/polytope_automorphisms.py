@@ -261,6 +261,65 @@ def _basis_search(
     return [found[vperm] for vperm in order], [list(vperm) for vperm in order]
 
 
+def configuration_symmetries(
+    points: np.ndarray,
+) -> list[tuple[sp.ImmutableMatrix, sp.ImmutableMatrix, tuple[int, ...]]]:
+    """
+    The unimodular affine maps that permute the rows of ``points``, with their permutations.
+
+    ``points`` is a full-dimensional integer configuration. With a repeated
+    row there are none, since the rows are matched by their coordinates. A
+    map that permutes the points permutes the vertices of conv(points), so it
+    is one of the automorphisms of :func:`compute_polytope_automorphisms`, and
+    the maps sought are those automorphisms that send every point to a point.
+    They come in the order in which a search over all the points, anchored at
+    point 0 with a basis from the rarest label classes, finds them; the hull
+    vertices carry the labels of the automorphism search and the other points
+    the label 0.
+    """
+    n_points, n_dim = points.shape
+    rows = [tuple(int(x) for x in p) for p in points.tolist()]
+    index = {p: i for i, p in enumerate(rows)}
+    if len(index) < n_points:
+        return []
+
+    # The automorphisms, as compute_polytope_automorphisms finds them in full
+    # dimension, with the labels of the vertices for the order below.
+    data = polytope_data(points)
+    V_arr = np.array(data.vertices, dtype=np.int64).reshape(len(data.vertices), n_dim)
+    GW = _invariants.label_skeleton(V_arr, _invariants.polytope_skeleton(data))
+    maps, _ = _basis_search(V_arr, GW)
+
+    size = 2 * int(np.abs(points).max()) + 1
+    found: list[tuple[sp.ImmutableMatrix, sp.ImmutableMatrix, tuple[int, ...]]] = []
+    for U, t in maps:
+        linear = [[int(x) for x in row] for row in U.tolist()]
+        shift = [int(x) for x in t]
+        largest = max(abs(x) for row in linear for x in row)
+        # An image has entries below n_dim max|U| size / 2 + |t|, and |t| is below that plus size.
+        dtype = _invariants.exact_dtype(n_dim * largest * size + size)
+        matrix: np.ndarray = np.array(linear, dtype=dtype)
+        images: np.ndarray = points.astype(dtype) @ matrix.T + np.array(shift, dtype=dtype)
+        perm: list[int] = []
+        for image in images.tolist():
+            j = index.get(tuple(int(x) for x in image))
+            if j is None:
+                break
+            perm.append(j)
+        else:
+            found.append((U, t, tuple(perm)))
+
+    vertex_label = {v: GW.nodes[i]["label"] for i, v in enumerate(data.vertex_indices)}
+    labels = [vertex_label.get(i, 0) for i in range(n_points)]
+    basis = _select_basis_indices_by_label(
+        (points - points[0]).astype(np.int64), n_dim, labels, Counter(labels)
+    )
+    if basis is None:  # pragma: no cover - the points are full-dimensional
+        raise ComputationError("the points do not span their ambient space")
+    found.sort(key=lambda pair: _search_order(pair[2], basis, labels))
+    return found
+
+
 def _matching_neighbours(
     options: list[list[int]], adjacent: list[list[bool]], neighbours: list[set[int]]
 ) -> Iterator[tuple[int, ...]]:

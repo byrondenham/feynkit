@@ -13,6 +13,7 @@ Usage
 >>> record = db.store(fi, label="massless triangle")
 >>> record = db.lookup(fi)                      # None if not stored
 >>> matches = db.find_equivalent(fi)            # unimodular equivalence search
+>>> db.all_integrals(kinematic_class="massless_on_shell")
 >>> print(db.summary())
 """
 
@@ -24,7 +25,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import sympy as sp
 
@@ -67,6 +68,35 @@ CREATE TABLE IF NOT EXISTS equivalences (
 );
 """
 
+# One row per graph and pair of kinematic axes stored for a polytope of integrals. Repair step 3
+# creates it, not _SCHEMA: CREATE TABLE on every open would raise on a read-only older file.
+_KINEMATICS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS kinematic_classes (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    fingerprint      TEXT    NOT NULL,
+    cnickel          TEXT    NOT NULL,
+    internal_axis    TEXT    NOT NULL,
+    external_axis    TEXT    NOT NULL,
+    kinematic_class  TEXT    NOT NULL,
+    stored_at        TEXT    NOT NULL,
+    UNIQUE(fingerprint, cnickel, internal_axis, external_axis)
+)
+"""
+
+
+class StoredKinematics(NamedTuple):
+    """One graph stored with one pair of kinematic axes for a polytope.
+
+    ``cnickel`` is what Graph.cnickel returned, or the empty string when it
+    raised. The class is the one of the axes when stored; a file written by a
+    later version can hold values this one does not name.
+    """
+
+    cnickel: str
+    internal_axis: str
+    external_axis: str
+    kinematic_class: str
+
 
 @dataclass
 class IntegralRecord:
@@ -91,15 +121,19 @@ class IntegralRecord:
     coeff_pres_order: int | None
     vertex_orbits: list[list[int]] | None
     stored_at: str
+    # The graphs and kinematic axes stored for the polytope, oldest first.
+    kinematics: tuple[StoredKinematics, ...] = ()
 
     def __repr__(self) -> str:
         label = f" [{self.label!r}]" if self.label else ""
         gens = f", {self.n_toric_gens} gens" if self.n_toric_gens is not None else ""
         cn = f", cnickel={self.cnickel!r}" if self.cnickel else ""
         aut = f", |Aut(P)|={self.poly_aut_order}" if self.poly_aut_order is not None else ""
+        names = dict.fromkeys(k.kinematic_class for k in self.kinematics)
+        classes = f", classes={','.join(names)}" if names else ""
         return (
             f"IntegralRecord(id={self.id}, A={self.n_rows} x {self.n_cols}"
-            f"{gens}{cn}{aut}{label}, stored={self.stored_at[:10]})"
+            f"{gens}{cn}{aut}{classes}{label}, stored={self.stored_at[:10]})"
         )
 
 
@@ -120,6 +154,7 @@ class FeynkitDatabase:
 
     def __init__(self, path: str | Path = "feynkit.db") -> None:
         self._path = path
+        self._kinematics_table = False
         self._conn = sqlite3.connect(str(path), check_same_thread=False)
         try:
             self._conn.row_factory = sqlite3.Row
@@ -171,7 +206,11 @@ class FeynkitDatabase:
             except sqlite3.OperationalError:
                 pass  # column already present
 
-        repairs = [self._repair_gkz_columns, self._repair_automorphisms]
+        repairs = [
+            self._repair_gkz_columns,
+            self._repair_automorphisms,
+            self._add_kinematic_classes,
+        ]
         while 0 <= self._conn.execute("PRAGMA user_version").fetchone()[0] < len(repairs):
             try:
                 try:
@@ -246,6 +285,34 @@ class FeynkitDatabase:
                SET poly_aut_order = NULL, graph_aut_order = NULL,
                    coeff_pres_order = NULL, vertex_orbits = NULL""")
 
+    def _add_kinematic_classes(self) -> None:
+        """
+        Repair 2 -> 3: create the table of kinematic classes.
+
+        A row records one graph, by its CNickel string, with one pair of
+        kinematic axes that gives the Newton polytope of a row of integrals,
+        and the class of the pair. Stored polytopes get no row: a row of
+        integrals does not hold its momentum products, so the axes cannot be
+        recovered, and storing the integral again adds its row. Releases up
+        to 0.4.0 read and write the file as before and ignore the table.
+        """
+        self._conn.execute(_KINEMATICS_SCHEMA)
+
+    def _has_kinematics(self) -> bool:
+        """
+        Whether the file has the table of kinematic classes.
+
+        It lacks the table until repair step 3 has run, as on a read-only or
+        locked older file, which opens unrepaired: reads then find no class
+        rows, and stores record none.
+        """
+        if not self._kinematics_table:
+            found = self._conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kinematic_classes'"
+            ).fetchone()
+            self._kinematics_table = found is not None
+        return self._kinematics_table
+
     # -- serialisation helpers ---------------------------------------------
 
     @staticmethod
@@ -315,6 +382,31 @@ class FeynkitDatabase:
             coeff_pres_order=_opt("coeff_pres_order"),
             vertex_orbits=orbits,
             stored_at=row["stored_at"],
+            kinematics=self._kinematics_of(row["fingerprint"]),
+        )
+
+    def _kinematics_of(self, fingerprint: str) -> tuple[StoredKinematics, ...]:
+        """The class rows of a polytope, oldest first."""
+        if not self._has_kinematics():
+            return ()
+        rows = self._conn.execute(
+            """SELECT cnickel, internal_axis, external_axis, kinematic_class
+               FROM kinematic_classes WHERE fingerprint = ? ORDER BY id""",
+            (fingerprint,),
+        ).fetchall()
+        return tuple(StoredKinematics(*row) for row in rows)
+
+    def _store_kinematics(self, fi: FeynmanIntegral, fingerprint: str, cnickel: str | None) -> None:
+        """Record fi's graph and kinematic axes for its polytope, once; no commit."""
+        if not self._has_kinematics():
+            return
+        internal, external = fi.kinematic_axes
+        self._conn.execute(
+            """INSERT INTO kinematic_classes
+               (fingerprint, cnickel, internal_axis, external_axis, kinematic_class, stored_at)
+               VALUES (?,?,?,?,?,?)
+               ON CONFLICT DO NOTHING""",
+            (fingerprint, cnickel or "", internal, external, fi.kinematic_class, self._now()),
         )
 
     # -- internal fast-path used by FeynmanIntegral ------------------------
@@ -419,6 +511,7 @@ class FeynkitDatabase:
                 now,
             ),
         )
+        self._store_kinematics(fi, fp, cn)
         self._conn.commit()
 
     # -- public API --------------------------------------------------------
@@ -436,7 +529,9 @@ class FeynkitDatabase:
         If the fingerprint is already present, the record is updated: the
         A-matrix and toric generators are replaced, automorphism data are
         replaced when computed, and the label and CNickel string are kept,
-        being filled in only where they are missing.
+        being filled in only where they are missing. The graph's CNickel
+        string and kinematic axes are recorded for the polytope, once, in
+        ``kinematics``.
 
         Parameters
         ----------
@@ -515,6 +610,7 @@ class FeynkitDatabase:
                 now,
             ),
         )
+        self._store_kinematics(fi, fp, cn)
         self._conn.commit()
 
         row = self._conn.execute("SELECT * FROM integrals WHERE fingerprint=?", (fp,)).fetchone()
@@ -685,12 +781,43 @@ class FeynkitDatabase:
         self._conn.commit()
         return cur.rowcount
 
-    def all_integrals(self) -> list[IntegralRecord]:
-        """Return every stored record, oldest first."""
-        return [
-            self._to_record(r)
-            for r in self._conn.execute("SELECT * FROM integrals ORDER BY id").fetchall()
-        ]
+    def all_integrals(
+        self,
+        *,
+        kinematic_class: str | None = None,
+        internal_axis: str | None = None,
+        external_axis: str | None = None,
+    ) -> list[IntegralRecord]:
+        """
+        Return the stored records, oldest first.
+
+        With any of ``kinematic_class``, ``internal_axis`` and
+        ``external_axis``, only the polytopes stored with a graph whose class
+        row matches every one given. Polytopes stored without a class row,
+        as by releases up to 0.4.0, match no filter.
+        """
+        given = {
+            column: value
+            for column, value in (
+                ("kinematic_class", kinematic_class),
+                ("internal_axis", internal_axis),
+                ("external_axis", external_axis),
+            )
+            if value is not None
+        }
+        if not given:
+            rows = self._conn.execute("SELECT * FROM integrals ORDER BY id").fetchall()
+        elif not self._has_kinematics():
+            rows = []
+        else:
+            where = " AND ".join(f"{column} = ?" for column in given)
+            rows = self._conn.execute(
+                f"""SELECT * FROM integrals WHERE fingerprint IN
+                    (SELECT fingerprint FROM kinematic_classes WHERE {where})
+                    ORDER BY id""",
+                tuple(given.values()),
+            ).fetchall()
+        return [self._to_record(r) for r in rows]
 
     def get_by_id(self, record_id: int) -> IntegralRecord | None:
         row = self._conn.execute("SELECT * FROM integrals WHERE id=?", (record_id,)).fetchone()
@@ -700,11 +827,21 @@ class FeynkitDatabase:
         """Human-readable overview of the database contents."""
         n_int = self._conn.execute("SELECT COUNT(*) FROM integrals").fetchone()[0]
         n_equiv = self._conn.execute("SELECT COUNT(*) FROM equivalences").fetchone()[0]
-        rows = self._conn.execute("""SELECT n_rows, n_cols, n_toric_gens, loop_count,
-                      n_props, is_binomial, cnickel,
+        rows = self._conn.execute("""SELECT fingerprint, n_rows, n_cols, n_toric_gens,
+                      loop_count, n_props, is_binomial, cnickel,
                       poly_aut_order, graph_aut_order, coeff_pres_order,
                       label, stored_at
                FROM integrals ORDER BY id""").fetchall()
+
+        # The distinct classes stored for each polytope, in the order stored.
+        stored: dict[str, dict[str, None]] = {}
+        if self._has_kinematics():
+            for fingerprint, name in self._conn.execute(
+                "SELECT fingerprint, kinematic_class FROM kinematic_classes ORDER BY id"
+            ):
+                stored.setdefault(fingerprint, {})[name] = None
+        classes = [",".join(stored.get(r["fingerprint"], {})) or "?" for r in rows]
+        width = max([len("classes"), *map(len, classes)])
 
         # Decide whether to show automorphism columns (any row has data).
         show_aut = any(r["poly_aut_order"] is not None for r in rows)
@@ -713,12 +850,15 @@ class FeynkitDatabase:
             header = (
                 f"  {'A shape':<10} {'gens':>6}  {'L':>3}  {'props':>5}"
                 f"  {'bin':>4}  {'|Aut(P)|':>9}  {'|Aut(G)|':>9}"
-                f"  {'|CP|':>5}  label"
+                f"  {'|CP|':>5}  {'classes':<{width}}  label"
             )
-            sep = "  " + "-" * 72
+            sep = "  " + "-" * (74 + width)
         else:
-            header = f"  {'A shape':<10} {'gens':>6}  {'L':>3}  {'props':>5}" f"  {'bin':>4}  label"
-            sep = "  " + "-" * 52
+            header = (
+                f"  {'A shape':<10} {'gens':>6}  {'L':>3}  {'props':>5}"
+                f"  {'bin':>4}  {'classes':<{width}}  label"
+            )
+            sep = "  " + "-" * (54 + width)
 
         lines = [
             f"FeynkitDatabase: {self._path}",
@@ -727,8 +867,8 @@ class FeynkitDatabase:
             header,
             sep,
         ]
-        for r in rows:
-            lbl = r["label"] or ""
+        for r, names in zip(rows, classes, strict=True):
+            tail = f"{names:<{width}}  {r['label'] or ''}".rstrip()
             bi = {None: "?", 0: "no", 1: "yes"}[r["is_binomial"]]
             n_gens = "?" if r["n_toric_gens"] is None else r["n_toric_gens"]
             base = (
@@ -746,10 +886,10 @@ class FeynkitDatabase:
                     + f"  {pa if pa is not None else '?':>9}"
                     + f"  {ga if ga is not None else '?':>9}"
                     + f"  {cp if cp is not None else '?':>5}"
-                    + f"  {lbl}"
+                    + f"  {tail}"
                 )
             else:
-                lines.append(base + f"  {lbl}")
+                lines.append(base + f"  {tail}")
         return "\n".join(lines)
 
     def close(self) -> None:

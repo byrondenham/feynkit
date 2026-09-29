@@ -10,7 +10,8 @@ from typing import Any
 import pytest
 import sympy as sp
 
-from feynkit import FeynkitDatabase, FeynmanIntegral
+from feynkit import FeynkitDatabase, FeynmanIntegral, Graph
+from feynkit.database import StoredKinematics
 
 
 @pytest.fixture  # type: ignore[misc]
@@ -263,8 +264,9 @@ class TestStaleRows:
 
 
 def old_file(path: Path) -> None:
-    """A file as 0.4.0 left it, at user_version 0: the massless triangle's row, the on-shell
-    box's stale row with its automorphism order, and a cached equivalence between them."""
+    """A file as 0.4.0 left it, at user_version 0 and without the table of kinematic classes:
+    the massless triangle's row, the on-shell box's stale row with its automorphism order, and
+    a cached equivalence between them."""
     triangle = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
     with FeynkitDatabase(path) as database:
         database.store(triangle, label="triangle")
@@ -282,6 +284,7 @@ def old_file(path: Path) -> None:
            VALUES (?,?,'unimodular',0,NULL,'2026-09-27T00:00:00+00:00')""",
         (box_fp, FeynkitDatabase._fingerprint(triangle.newton_polytope.points)),
     )
+    connection.execute("DROP TABLE kinematic_classes")
     connection.execute("PRAGMA user_version = 0")
     connection.commit()
     connection.close()
@@ -299,11 +302,11 @@ def rows(path: Path) -> tuple[int, list[tuple[Any, ...]], list[tuple[Any, ...]]]
 
 class TestRepair:
     """_migrate repairs an old file once: the GKZ columns from user_version 0 to 1, the
-    cached normal forms from 1 to 2."""
+    cached normal forms from 1 to 2 and the table of kinematic classes from 2 to 3."""
 
-    def test_a_new_file_starts_at_version_2(self, tmp_path: Path) -> None:
+    def test_a_new_file_starts_at_version_3(self, tmp_path: Path) -> None:
         FeynkitDatabase(tmp_path / "new.db").close()
-        assert rows(tmp_path / "new.db")[0] == 2
+        assert rows(tmp_path / "new.db")[0] == 3
 
     def test_an_old_file_is_repaired_when_opened(self, tmp_path: Path) -> None:
         path = tmp_path / "old.db"
@@ -322,7 +325,7 @@ class TestRepair:
             assert record.newton_points == box.newton_polytope.points
             assert len(on_shell_box(db).toric_ideal.generators) == 1
         version, after, _ = rows(path)
-        assert version == 2
+        assert version == 3
         assert after[0] == before[0]  # the triangle's row
         assert equivalences
         assert rows(path)[2] == []
@@ -340,7 +343,7 @@ class TestRepair:
             assert record is not None
             assert record.n_cols == 10
             assert db._lookup_toric(on_shell_box().newton_polytope.points) is None
-        assert rows(path)[0] == 2
+        assert rows(path)[0] == 3
 
     def test_a_failed_repair_leaves_the_file_as_it_was(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -402,7 +405,7 @@ class TestRepair:
         monkeypatch.undo()
         assert rows(path) == before
         FeynkitDatabase(path).close()
-        assert rows(path)[0] == 2
+        assert rows(path)[0] == 3
 
     def test_a_file_from_a_later_release_is_left_as_it_is(self, tmp_path: Path) -> None:
         path = tmp_path / "old.db"
@@ -469,6 +472,7 @@ def file_at_version_1(path: Path) -> tuple[str, str]:
                VALUES (?,?,'unimodular',0,NULL,'2026-09-27T00:00:00+00:00')""",
             (a, b),
         )
+    connection.execute("DROP TABLE kinematic_classes")
     connection.execute("PRAGMA user_version = 1")
     connection.commit()
     connection.close()
@@ -485,7 +489,7 @@ class TestNormalFormRepair:
         assert len(equivalences) == 2
         FeynkitDatabase(path).close()
         version, after, equivalences = rows(path)
-        assert (version, equivalences) == (2, [])
+        assert (version, equivalences) == (3, [])
         with FeynkitDatabase(path) as db:
             for record in db.all_integrals():
                 assert record.poly_aut_order is None
@@ -538,11 +542,11 @@ class TestNormalFormRepair:
         assert len(equivalences) == 1
         monkeypatch.undo()
         FeynkitDatabase(path).close()
-        assert rows(path)[0::2] == (2, [])
+        assert rows(path)[0::2] == (3, [])
         with FeynkitDatabase(path) as db:
             assert [record.poly_aut_order for record in db.all_integrals()] == [None, None]
 
-    def test_a_file_at_version_2_is_not_repaired_again(self, tmp_path: Path) -> None:
+    def test_a_repaired_file_is_not_repaired_again(self, tmp_path: Path) -> None:
         path = tmp_path / "new.db"
         with FeynkitDatabase(path) as db:
             db.store(FeynmanIntegral.from_cnickel("12e|2e|e|:nzz"), compute_automorphisms=True)
@@ -552,3 +556,255 @@ class TestNormalFormRepair:
             assert db.all_integrals()[0].poly_aut_order == 6
         assert rows(path) == before
         assert len(before[2]) == 2
+
+
+# The upsert of FeynkitDatabase.store in 0.4.0.
+STORE_0_4_0 = """INSERT INTO integrals
+               (fingerprint, a_matrix, newton_points, n_rows, n_cols,
+                loop_count, n_props, n_ext, n_toric_gens, toric_gens,
+                is_binomial, cnickel, label,
+                poly_aut_order, graph_aut_order, coeff_pres_order, vertex_orbits,
+                stored_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(fingerprint) DO UPDATE SET
+                   toric_gens       = excluded.toric_gens,
+                   n_toric_gens     = excluded.n_toric_gens,
+                   is_binomial      = excluded.is_binomial,
+                   cnickel          = COALESCE(integrals.cnickel, excluded.cnickel),
+                   label            = COALESCE(integrals.label, excluded.label),
+                   poly_aut_order   = COALESCE(excluded.poly_aut_order,   integrals.poly_aut_order),
+                   graph_aut_order  = COALESCE(excluded.graph_aut_order,  integrals.graph_aut_order),
+                   coeff_pres_order = COALESCE(excluded.coeff_pres_order, integrals.coeff_pres_order),
+                   vertex_orbits    = COALESCE(excluded.vertex_orbits,    integrals.vertex_orbits)"""
+
+MASSIVE_BOX = "12e|3e|3e|e|:nnnn"
+MASSLESS_BOX = "12e|3e|3e|e|:zzzz"
+
+
+def tables(path: Path) -> set[str]:
+    connection = sqlite3.connect(path)
+    names = {
+        row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+    connection.close()
+    return names
+
+
+def file_at_version_2(path: Path) -> None:
+    """A file as the release before the kinematic classes left it: two rows with their
+    automorphism data and a cached equivalence, at user_version 2, without the table."""
+    with FeynkitDatabase(path) as database:
+        database.store(FeynmanIntegral.from_cnickel("12e|2e|e|:nzz"), compute_automorphisms=True)
+        database.find_equivalent(FeynmanIntegral.from_cnickel("12e|2e|e|:znz"))
+        database.store(FeynmanIntegral.from_cnickel("12e|2e|e|:znz"), label="znz")
+    connection = sqlite3.connect(path)
+    connection.execute("DROP TABLE kinematic_classes")
+    connection.execute("PRAGMA user_version = 2")
+    connection.commit()
+    connection.close()
+
+
+class TestKinematicClassesRepair:
+    """The step from user_version 2 to 3 creates the table of kinematic classes."""
+
+    def test_a_new_file_has_the_table(self, tmp_path: Path) -> None:
+        FeynkitDatabase(tmp_path / "new.db").close()
+        assert rows(tmp_path / "new.db")[0] == 3
+        assert "kinematic_classes" in tables(tmp_path / "new.db")
+
+    @pytest.mark.parametrize("build", [old_file, file_at_version_2], ids=["version-0", "version-2"])
+    def test_an_older_file_gains_the_table_once(self, tmp_path: Path, build: Any) -> None:
+        path = tmp_path / "old.db"
+        build(path)
+        assert "kinematic_classes" not in tables(path)
+        _, before, equivalences = rows(path)
+        with FeynkitDatabase(path) as db:
+            records = db.all_integrals()
+            assert [record.kinematics for record in records] == [()] * len(before)
+        version, after, _ = rows(path)
+        assert version == 3
+        assert "kinematic_classes" in tables(path)
+        assert len(after) == len(before)
+        if build is file_at_version_2:
+            assert after == before
+            assert rows(path)[2] == equivalences
+        # Reopening writes nothing.
+        content = path.read_bytes()
+        with FeynkitDatabase(path) as db:
+            db.all_integrals()
+        assert path.read_bytes() == content
+
+    def test_a_read_only_file_without_the_table_opens_and_reads(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = tmp_path / "old.db"
+        file_at_version_2(path)
+        before = rows(path)
+        connect = sqlite3.connect
+
+        def read_only(database: str, **kwargs: Any) -> sqlite3.Connection:
+            return connect(f"file:{database}?mode=ro", uri=True, **kwargs)
+
+        monkeypatch.setattr(sqlite3, "connect", read_only)
+        with FeynkitDatabase(path) as db:
+            record = db.lookup(FeynmanIntegral.from_cnickel("12e|2e|e|:znz"))
+            assert record is not None
+            assert record.kinematics == ()
+            assert len(db.all_integrals()) == 2
+            assert db.all_integrals(kinematic_class="generic") == []
+            assert "?" in db.summary()
+        monkeypatch.undo()
+        assert rows(path) == before
+        assert "kinematic_classes" not in tables(path)
+
+    def test_the_0_4_0_store_statement_still_succeeds(self, tmp_path: Path) -> None:
+        path = tmp_path / "new.db"
+        FeynkitDatabase(path).close()
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+        points = fi.newton_polytope.points
+        connection = sqlite3.connect(path)
+        for _ in range(2):
+            connection.execute(
+                STORE_0_4_0,
+                (
+                    FeynkitDatabase._fingerprint(points),
+                    FeynkitDatabase._ser_matrix(fi.gkz.a_matrix),
+                    json.dumps([list(p) for p in points]),
+                    4,
+                    6,
+                    1,
+                    3,
+                    3,
+                    1,
+                    json.dumps([]),
+                    None,
+                    "12e|2e|e|:zzz",
+                    "triangle",
+                    None,
+                    None,
+                    None,
+                    None,
+                    "2026-09-27T00:00:00+00:00",
+                ),
+            )
+        connection.commit()
+        connection.close()
+        with FeynkitDatabase(path) as db:
+            record = db.lookup(fi)
+            assert record is not None
+            assert (record.label, record.kinematics) == ("triangle", ())
+
+
+class TestKinematicClasses:
+    def test_generic_and_equal_masses_share_a_polytope(self, db: FeynkitDatabase) -> None:
+        generic = FeynmanIntegral.from_cnickel(MASSIVE_BOX)
+        equal = generic.with_kinematics("equal_masses")
+        first = db.store(generic)
+        second = db.store(equal)
+        assert first.id == second.id
+        assert second.cnickel == MASSIVE_BOX
+        assert second.kinematics == (
+            StoredKinematics(MASSIVE_BOX, "generic", "off_shell", "generic"),
+            StoredKinematics("12e|3e|3e|e|:aaaa", "equal", "off_shell", "equal_masses"),
+        )
+        assert "classes=generic,equal_masses" in repr(second)
+        # Storing again adds no row.
+        assert db.store(equal).kinematics == second.kinematics
+
+    def test_off_and_on_shell_are_two_polytopes(self, db: FeynkitDatabase) -> None:
+        box = FeynmanIntegral.from_cnickel(MASSLESS_BOX)
+        off = db.store(box)
+        on = db.store(box.with_kinematics("massless_on_shell"))
+        assert off.id != on.id
+        assert [k.kinematic_class for k in off.kinematics] == ["massless_off_shell"]
+        assert on.kinematics == (
+            StoredKinematics(MASSLESS_BOX, "zero", "on_shell", "massless_on_shell"),
+        )
+
+    def test_the_massive_box_on_shell_keeps_its_axes(self, db: FeynkitDatabase) -> None:
+        box = FeynmanIntegral.from_cnickel(MASSIVE_BOX)
+        legs = {sp.Symbol(f"p{i}^2", real=True): 0 for i in range(1, 5)}
+        products = {k: sp.expand(v.subs(legs)) for k, v in box.momentum_products.items()}
+        db.store(box)
+        record = db.store(box.with_(momentum_products=products))
+        assert record.kinematics[-1] == StoredKinematics(
+            MASSIVE_BOX, "generic", "on_shell", "other"
+        )
+        assert len(record.kinematics) == 2
+
+    def test_the_toric_cache_records_the_class(self, db: FeynkitDatabase) -> None:
+        fi = FeynmanIntegral.from_cnickel(MASSLESS_BOX, database=db).with_kinematics(
+            "massless_on_shell"
+        )
+        assert len(fi.toric_ideal.generators) == 1
+        record = db.lookup(fi)
+        assert record is not None
+        assert [k.kinematic_class for k in record.kinematics] == ["massless_on_shell"]
+
+    def test_a_cnickel_string_that_cannot_be_computed_is_empty(
+        self, db: FeynkitDatabase, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def too_large(self: Graph) -> str:
+            raise NotImplementedError("CNickel index requires V <= 10")
+
+        monkeypatch.setattr(Graph, "cnickel", too_large)
+        record = db.store(FeynmanIntegral.from_cnickel("12e|2e|e|:zzz"))
+        assert record.cnickel is None
+        assert record.kinematics == (
+            StoredKinematics("", "zero", "off_shell", "massless_off_shell"),
+        )
+
+    def test_all_integrals_filters_by_class_and_axes(self, db: FeynkitDatabase) -> None:
+        massive = FeynmanIntegral.from_cnickel(MASSIVE_BOX)
+        massless = FeynmanIntegral.from_cnickel(MASSLESS_BOX)
+        db.store(massive)
+        db.store(massive.with_kinematics("equal_masses"))
+        db.store(massless)
+        db.store(massless.with_kinematics("massless_on_shell"))
+        db.store(FeynmanIntegral.from_cnickel("12e|2e|e|:aaz"))
+
+        def cnickels(**filters: str) -> list[str | None]:
+            return [record.cnickel for record in db.all_integrals(**filters)]
+
+        assert len(db.all_integrals()) == 4
+        assert cnickels(kinematic_class="equal_masses") == [MASSIVE_BOX]
+        assert cnickels(kinematic_class="other") == ["12e|2e|e|:aaz"]
+        assert cnickels(internal_axis="zero") == [MASSLESS_BOX, MASSLESS_BOX]
+        assert cnickels(external_axis="off_shell") == [MASSIVE_BOX, MASSLESS_BOX, "12e|2e|e|:aaz"]
+        assert cnickels(internal_axis="zero", external_axis="on_shell") == [MASSLESS_BOX]
+        # The filters hold on one row together.
+        assert cnickels(internal_axis="equal", kinematic_class="generic") == []
+        assert cnickels(kinematic_class="massless") == []
+
+    def test_summary_lists_the_classes(self, db: FeynkitDatabase) -> None:
+        massive = FeynmanIntegral.from_cnickel(MASSIVE_BOX)
+        db.store(massive, label="box")
+        db.store(massive.with_kinematics("equal_masses"))
+        db.store(FeynmanIntegral.from_cnickel("12e|2e|e|:zzz"), label="triangle")
+        # A row stored by a release without the table of classes.
+        db._conn.execute(
+            "DELETE FROM kinematic_classes WHERE kinematic_class = 'massless_off_shell'"
+        )
+        lines = db.summary().splitlines()
+        header = next(line for line in lines if "A shape" in line)
+        assert header.index("classes") < header.index("label")
+        box = next(line for line in lines if line.endswith("box"))
+        assert "generic,equal_masses" in box
+        triangle = next(line for line in lines if line.endswith("triangle"))
+        assert triangle.split()[-2] == "?"
+
+    def test_values_of_a_later_version_are_returned_as_they_are(self, db: FeynkitDatabase) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+        db.store(fi)
+        db._conn.execute(
+            """INSERT INTO kinematic_classes
+               (fingerprint, cnickel, internal_axis, external_axis, kinematic_class, stored_at)
+               VALUES (?, 'x', 'light', 'soft', 'soft_limit', 'now')""",
+            (FeynkitDatabase._fingerprint(fi.newton_polytope.points),),
+        )
+        record = db.lookup(fi)
+        assert record is not None
+        assert record.kinematics[-1] == StoredKinematics("x", "light", "soft", "soft_limit")
+        assert [r.cnickel for r in db.all_integrals(kinematic_class="soft_limit")] == [
+            "12e|2e|e|:zzz"
+        ]

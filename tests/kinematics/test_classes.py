@@ -365,3 +365,35 @@ class TestFacade:
         by_hand = box.torus_count(on_shell=ON_SHELL)
         assert by_class.counts == by_hand.counts
         assert by_class.candidate_master_count == 3
+
+
+class TestMassesZeroAfterExpansion:
+    """A mass that expands to 0 is massless, as G reads it."""
+
+    ZERO = (sp.Symbol("x") + 1) ** 2 - sp.Symbol("x") ** 2 - 2 * sp.Symbol("x") - 1
+
+    def test_the_axis_is_that_of_the_massless_box(self) -> None:
+        box = FeynmanIntegral.from_cnickel(BOX + ":zzzz")
+        fi = with_masses(box, [self.ZERO, 0, 0, 0])
+        assert fi.symanzik.g == box.symanzik.g
+        assert kinematic_axes(fi) == ("zero", "off_shell")
+        assert kinematic_class(fi) == "massless_off_shell"
+
+    def test_it_can_be_put_on_shell(self) -> None:
+        fi = with_masses(FeynmanIntegral.from_cnickel(BOX + ":zzzz"), [self.ZERO, 0, 0, 0])
+        on_shell = impose_kinematics(fi, "massless_on_shell")
+        assert kinematic_class(on_shell) == "massless_on_shell"
+        assert len(on_shell.newton_polytope.points) == 6
+
+    def test_equal_masses_leaves_it_massless(self) -> None:
+        box = FeynmanIntegral.from_cnickel(BOX + ":nnnn")
+        fi = with_masses(box, [self.ZERO, mass(2), mass(3), mass(4)])
+        assert len(fi.newton_polytope.points) == 13
+        with pytest.raises(ValidationError, match="propagator 1 is massless"):
+            impose_kinematics(fi, "equal_masses")
+
+
+def test_a_single_propagator_cannot_have_equal_masses() -> None:
+    tadpole = FeynmanIntegral.from_cnickel("0|:n", use_mandelstam=False)
+    with pytest.raises(ValidationError, match="a single propagator cannot have equal masses"):
+        impose_kinematics(tadpole, "equal_masses")

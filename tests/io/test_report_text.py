@@ -1043,6 +1043,15 @@ def _on_shell(cnickel: str) -> FeynmanIntegral:
     )
 
 
+def _last_leg_on_shell(cnickel: str) -> FeynmanIntegral:
+    """The graph with p_4^2 = 0 and the other invariants free."""
+    fi = FeynmanIntegral.from_cnickel(cnickel)
+    leg = {sp.Symbol("p4^2", real=True): 0}
+    return fi.with_(
+        momentum_products={k: sp.expand(v.subs(leg)) for k, v in fi.momentum_products.items()}
+    )
+
+
 @pytest.mark.parametrize(  # type: ignore[misc]
     ("fi", "text_sentence", "latex_sentence"),
     [
@@ -1096,6 +1105,13 @@ def _on_shell(cnickel: str) -> FeynmanIntegral:
             "nor distinct symbols and the legs are off shell.",
         ),
         (
+            _last_leg_on_shell("12e|3e|3e|e|:zzzz"),
+            "The kinematic class is other: every propagator is massless and the invariants are "
+            "neither free, on shell nor of equal mass.",
+            "The kinematic class is \\texttt{other}: every propagator is massless and the "
+            "invariants are neither free, on shell nor of equal mass.",
+        ),
+        (
             FeynmanIntegral.from_cnickel("0|:n", use_mandelstam=False),
             "There are no external momenta. The kinematic class is generic: the nonzero masses "
             "m_e are distinct symbols. The second",
@@ -1111,6 +1127,7 @@ def _on_shell(cnickel: str) -> FeynmanIntegral:
         "equal",
         "other",
         "shared",
+        "relation",
         "vacuum",
     ],
 )

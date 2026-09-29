@@ -514,7 +514,7 @@ _EXTERNAL_AXES = {
     "off_shell": "the legs are off shell",
     "on_shell": "every leg is on shell",
     "equal": "every leg has the same {p2}",
-    "other": "the legs are neither off shell, on shell nor of equal mass",
+    "other": "the invariants are neither free, on shell nor of equal mass",
 }
 
 

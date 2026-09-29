@@ -1963,7 +1963,8 @@ massive box with equal masses, or with on-shell legs, has the polytope of the ge
 box. `store()` therefore also records the graph's CNickel string and kinematic axes for the
 polytope, once each, and `rec.kinematics` lists them as `StoredKinematics(cnickel,
 internal_axis, external_axis, kinematic_class)`, oldest first. `all_integrals` filters on them,
-keeping the polytopes with a record that matches every filter given:
+keeping the polytopes with a record that matches every filter given; an unknown class or axis
+value raises `ValidationError`:
 
 ```python
 with FeynkitDatabase("analysis.db") as db:

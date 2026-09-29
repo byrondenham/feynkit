@@ -25,9 +25,12 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple, get_args
 
 import sympy as sp
+
+from .core.exceptions import ValidationError
+from .kinematics.classes import KINEMATIC_CLASSES, ExternalAxis, InternalAxis
 
 if TYPE_CHECKING:
     from .integral import FeynmanIntegral
@@ -795,7 +798,20 @@ class FeynkitDatabase:
         ``external_axis``, only the polytopes stored with a graph whose class
         row matches every one given. Polytopes stored without a class row,
         as by releases up to 0.4.0, match no filter.
+
+        Raises
+        ------
+        ValidationError
+            If a filter names a class or an axis value that this version does
+            not know.
         """
+        for noun, value, known in (
+            ("kinematic class", kinematic_class, KINEMATIC_CLASSES),
+            ("internal axis", internal_axis, get_args(InternalAxis)),
+            ("external axis", external_axis, get_args(ExternalAxis)),
+        ):
+            if value is not None and value not in known:
+                raise ValidationError(f"unknown {noun} {value!r}; choose from {', '.join(known)}")
         given = {
             column: value
             for column, value in (

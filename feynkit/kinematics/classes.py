@@ -81,8 +81,9 @@ def _expression(value: object) -> sp.Expr | None:
 
 
 def _masses(integral: FeynmanIntegral) -> list[sp.Expr | None]:
-    """The mass of each internal edge, as G reads it, in internal-edge order."""
-    return [_expression(e.get_mass()) for e in integral.graph.get_internal_edges()]
+    """The mass of each internal edge, expanded as in G, in internal-edge order."""
+    masses = [_expression(e.get_mass()) for e in integral.graph.get_internal_edges()]
+    return [None if m is None else sp.expand(m) for m in masses]
 
 
 def _internal_axis(integral: FeynmanIntegral) -> InternalAxis:
@@ -253,6 +254,10 @@ def _on_shell(integral: FeynmanIntegral) -> FeynmanIntegral:
 def _equal_masses(integral: FeynmanIntegral) -> FeynmanIntegral:
     """Every internal edge given the mass m_a of the CNickel code a."""
     graph = integral.graph
+    if len(graph.get_internal_edges()) < 2:
+        raise ValidationError(
+            "cannot impose equal_masses: a single propagator cannot have equal masses"
+        )
     massless = [
         e.idx
         for e, m in zip(graph.get_internal_edges(), _masses(integral), strict=True)

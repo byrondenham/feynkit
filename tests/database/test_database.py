@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 import sympy as sp
 
-from feynkit import FeynkitDatabase, FeynmanIntegral, Graph
+from feynkit import FeynkitDatabase, FeynmanIntegral, Graph, ValidationError
 from feynkit.database import StoredKinematics
 
 
@@ -774,7 +774,32 @@ class TestKinematicClasses:
         assert cnickels(internal_axis="zero", external_axis="on_shell") == [MASSLESS_BOX]
         # The filters hold on one row together.
         assert cnickels(internal_axis="equal", kinematic_class="generic") == []
-        assert cnickels(kinematic_class="massless") == []
+
+    @pytest.mark.parametrize(
+        ("filters", "message"),
+        [
+            (
+                {"kinematic_class": "massless"},
+                "unknown kinematic class 'massless'; choose from generic, massless_off_shell, "
+                "massless_on_shell, equal_masses, other",
+            ),
+            (
+                {"internal_axis": "massive"},
+                "unknown internal axis 'massive'; choose from zero, equal, generic, other",
+            ),
+            (
+                {"external_axis": "zero", "internal_axis": "zero"},
+                "unknown external axis 'zero'; choose from off_shell, on_shell, equal, other",
+            ),
+        ],
+    )
+    def test_an_unknown_filter_value_raises(
+        self, db: FeynkitDatabase, filters: dict[str, str], message: str
+    ) -> None:
+        db.store(FeynmanIntegral.from_cnickel(MASSLESS_BOX))
+        with pytest.raises(ValidationError) as caught:
+            db.all_integrals(**filters)
+        assert str(caught.value) == message
 
     def test_summary_lists_the_classes(self, db: FeynkitDatabase) -> None:
         massive = FeynmanIntegral.from_cnickel(MASSIVE_BOX)
@@ -805,6 +830,6 @@ class TestKinematicClasses:
         record = db.lookup(fi)
         assert record is not None
         assert record.kinematics[-1] == StoredKinematics("x", "light", "soft", "soft_limit")
-        assert [r.cnickel for r in db.all_integrals(kinematic_class="soft_limit")] == [
+        assert [r.cnickel for r in db.all_integrals(kinematic_class="massless_off_shell")] == [
             "12e|2e|e|:zzz"
         ]

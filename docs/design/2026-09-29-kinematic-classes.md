@@ -58,8 +58,8 @@ four classes, which is why the database stores the two axes as well as the label
 
 ### Axes
 
-The internal axis is read from the masses $m_e$ of the $N$ internal edges, compared as SymPy
-expressions; the first rule that applies decides.
+The internal axis is read from the masses $m_e$ of the $N$ internal edges, expanded as in $G$ and
+compared as SymPy expressions; the first rule that applies decides.
 
 1. `zero`: every $m_e$ is exactly 0.
 2. `equal`: $N \ge 2$ and every $m_e$ is the same symbol.
@@ -263,7 +263,8 @@ only the first class stored for a polytope, which is the fault this note sets ou
 - `lookup(fi)` still finds the polytope; comparing `fi.cnickel` and `fi.kinematic_axes` with
   `record.kinematics` tells whether this graph and these axes were stored.
 - `all_integrals(*, kinematic_class=None, internal_axis=None, external_axis=None)` returns the
-  polytopes with a class row that matches every filter given.
+  polytopes with a class row that matches every filter given. A class or axis value this version
+  does not know raises `ValidationError`, so that a misspelt filter is not silently empty.
 - `summary()` gains a column `classes`, before `label`, with the distinct classes of each
   polytope joined by commas, or `?`.
 

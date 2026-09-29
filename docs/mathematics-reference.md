@@ -1018,9 +1018,9 @@ of the integral (Klausen 2023, lemma "Landau variety contained in Sing"). feynki
   locus of the massive triangle's top face is $p_2^2 = p_3^2 = 0$, of codimension two, and no
   face gives $p_2^2 - p_3^2$, which the closed form of section 10.2 keeps as the factor of its
   Gram determinant, proportional to $\lambda(0, p_2^2, p_3^2) = (p_2^2 - p_3^2)^2$. Boxes with a
-  massless leg and some massless propagators lose components in the same way. The rule never
-  adds a factor and loses none at generic kinematics; beyond one loop the extent of the loss is
-  not known.
+  massless leg and some massless propagators lose components in the same way. In the one-loop
+  cases checked the rule added no factor and lost none at generic kinematics; beyond one loop the
+  extent of the loss is not known.
 
 In lattice coordinates the exponent of a point $\alpha_0 + k v$ on an edge with primitive direction
 $v$ is $k = \langle \alpha - \alpha_0, v \rangle / \langle v, v \rangle$, not $\langle \alpha, v \rangle$.

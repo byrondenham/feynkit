@@ -34,9 +34,10 @@ Faces contribute as follows.
   massless: the component b - c is lost. At p_1^2 = 0 the massive triangle
   loses p_2^2 - p_3^2, since the locus of its top face is
   p_2^2 = p_3^2 = 0, of codimension two, while the one-loop closed form
-  keeps it; so do boxes with a massless leg and some massless lines. The
-  rule never adds a factor, and at generic kinematics it loses none. Beyond
-  one loop the extent of the loss is not known. Faces with more points than
+  keeps it; so do boxes with a massless leg and some massless lines. In
+  the one-loop cases checked the rule added no factor, and at generic
+  kinematics it lost none. Beyond one loop the extent of the loss is not
+  known. Faces with more points than
   ``max_face_points`` are skipped and listed in
   ``LandauAnalysis.skipped_faces``; the factors of those faces are then
   missing from the result, at generic kinematics too.

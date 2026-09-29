@@ -21,13 +21,16 @@ from sympy.matrices.normalforms import hermite_normal_form
 
 from feynkit import _exact
 from feynkit import lattice_invariants as li
-from feynkit.core.exceptions import ValidationError
+from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.lattice_invariants import (
+    LatticeInvariants,
     count_lattice_points,
     ehrhart_polynomial,
     gorenstein_index,
     h_star_vector,
     invariant_chart,
+    is_idp,
+    lattice_invariants,
     lattice_points,
     lattice_width,
     polar_dual,
@@ -448,6 +451,153 @@ class TestWidth:
             assert found == brute_force_width(coordinates), (points, lattice)
             assert width(coordinates, direction) == found
             assert next(x for x in direction if x) > 0
+
+
+# --- IDP and normality ------------------------------------------------------
+
+# Five points of Z^3 that are all the lattice points of their hull and span Z^3 affinely; 2P
+# holds (2, 1, 1), which is no sum of two of them.
+NOT_IDP = [(0, 0, 0), (0, 0, 1), (1, 1, 1), (1, 2, 2), (3, 1, 0)]
+
+requires_normaliz = pytest.mark.skipif(
+    li._normaliz_binary() is None, reason="Normaliz not installed"
+)
+
+
+def brute_force_idp(points: Points, lattice: str) -> bool:
+    """Whether every lattice point of kP, k <= d + 1, is a sum of k lattice points of P."""
+    d = invariant_chart(points, lattice=lattice).basis.__len__()
+    base = lattice_points(points, lattice=lattice)
+    sums = set(base)
+    for k in range(2, d + 2):
+        sums = {tuple(a + b for a, b in zip(x, y, strict=True)) for x in sums for y in base}
+        if not set(lattice_points(points, k, lattice=lattice)) <= sums:
+            return False
+    return True
+
+
+class TestNormality:
+    @pytest.mark.parametrize("r", [1, 2, 3])
+    def test_reeve_tetrahedra(self, r: int) -> None:
+        assert is_idp(reeve(r), lattice="ambient", backend="python") == (r == 1)
+        found = lattice_invariants(reeve(r), lattice="ambient", backend="python")
+        assert found.support_is_saturated
+        assert found.idp == (r == 1)
+        # In the support lattice the tetrahedron is a unimodular simplex, so N A is normal.
+        assert found.normal
+        assert lattice_invariants(reeve(r), backend="python").normal
+
+    def test_the_rank_jump_configuration(self) -> None:
+        # A = [[1, 1, 1, 1], [0, 1, 3, 4]]: the support misses 2.
+        found = lattice_invariants([(0,), (1,), (3,), (4,)], backend="python")
+        assert found.idp
+        assert not found.support_is_saturated
+        assert not found.normal
+        assert found.lattice_points == 5
+        assert found.h_star == (1, 3)
+
+    def test_a_saturated_support_without_idp(self) -> None:
+        found = lattice_invariants(NOT_IDP, backend="python")
+        assert polytope_data(NOT_IDP).sublattice_index == 1
+        assert found.support_is_saturated
+        assert not found.idp
+        assert not found.normal
+
+    @pytest.mark.parametrize("d", [1, 2, 3, 4])
+    def test_simplex_and_cube(self, d: int) -> None:
+        for points in (simplex(d), cube(d)):
+            found = lattice_invariants(points, backend="python")
+            assert found.idp and found.support_is_saturated and found.normal
+
+    def test_a_point(self) -> None:
+        found = lattice_invariants([(2, 3, 4)], backend="python")
+        assert found == LatticeInvariants(
+            lattice="support",
+            dimension=0,
+            lattice_points=1,
+            interior_points=1,
+            ehrhart=(Fraction(1),),
+            h_star=(1,),
+            gorenstein_index=1,
+            reflexive=True,
+            lattice_width=0,
+            width_direction=(),
+            idp=True,
+            support_is_saturated=True,
+            normal=True,
+        )
+
+    @pytest.mark.parametrize("seed", range(16))
+    def test_brute_force(self, seed: int) -> None:
+        rng = random.Random(6000 + seed)
+        points = random_polytope(rng, 3, spread=1 + seed % 2)
+        for lattice in ("support", "ambient"):
+            assert is_idp(points, lattice=lattice, backend="python") == brute_force_idp(
+                points, lattice
+            )
+
+    def test_normality_is_that_of_the_support_lattice(self) -> None:
+        # The segment 0, 2, 4 of Z: normal in its support lattice 2Z, where it has every
+        # lattice point, but the ambient lattice point 1 is missing.
+        support = lattice_invariants([(0,), (2,), (4,)], backend="python")
+        ambient = lattice_invariants([(0,), (2,), (4,)], lattice="ambient", backend="python")
+        assert support.support_is_saturated and support.normal
+        assert not ambient.support_is_saturated
+        assert ambient.normal
+
+    @pytest.mark.parametrize("seed", range(8))
+    def test_the_record_agrees_with_the_functions(self, seed: int) -> None:
+        rng = random.Random(7000 + seed)
+        points = random_polytope(rng, 1 + seed % 3)
+        for lattice in ("support", "ambient"):
+            found = lattice_invariants(points, lattice=lattice, backend="python")
+            assert found.lattice == lattice
+            assert found.dimension == 1 + seed % 3
+            assert found.lattice_points == count_lattice_points(points, lattice=lattice)
+            assert found.interior_points == count_lattice_points(
+                points, interior=True, lattice=lattice
+            )
+            assert found.ehrhart == tuple(
+                Fraction(int(c.p), int(c.q))
+                for c in reversed(ehrhart_polynomial(points, lattice=lattice).all_coeffs())
+            )
+            assert found.h_star == h_star_vector(points, lattice=lattice)
+            assert found.gorenstein_index == gorenstein_index(points, lattice=lattice)
+            assert found.reflexive == (found.gorenstein_index == 1)
+            assert (found.lattice_width, found.width_direction) == lattice_width(
+                points, lattice=lattice
+            )
+            assert found.idp == is_idp(points, lattice=lattice, backend="python")
+
+
+class TestBackends:
+    def test_unknown_backend(self) -> None:
+        with pytest.raises(ComputationError, match="Unknown backend 'bogus'"):
+            is_idp(simplex(3), backend="bogus")
+
+    def test_normaliz_without_the_binary(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(li, "_normaliz_binary", lambda: None)
+        with pytest.raises(ComputationError, match="normaliz"):
+            is_idp(simplex(3), backend="normaliz")
+        assert is_idp(NOT_IDP, backend="auto") is False
+
+    def test_auto_falls_back_when_normaliz_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(li, "_normaliz_binary", lambda: "/bin/false")
+        assert is_idp(NOT_IDP, backend="auto") is False
+        assert is_idp(cube(4), backend="auto") is True
+        with pytest.raises(ComputationError, match="Normaliz failed"):
+            is_idp(cube(4), backend="normaliz")
+
+    @requires_normaliz
+    @pytest.mark.parametrize("seed", range(12))
+    def test_normaliz_agrees_with_python(self, seed: int) -> None:
+        rng = random.Random(8000 + seed)
+        points = random_polytope(rng, 3 + seed % 2, spread=1 + seed % 2)
+        for lattice in ("support", "ambient"):
+            python = is_idp(points, lattice=lattice, backend="python")
+            assert is_idp(points, lattice=lattice, backend="normaliz") == python
+        assert is_idp(NOT_IDP, backend="normaliz") is False
+        assert is_idp(reeve(2), lattice="ambient", backend="normaliz") is False
 
 
 # --- arguments --------------------------------------------------------------

@@ -147,9 +147,10 @@ negative answer settles nothing.
 
 `backend="normaliz"` writes the chart vertices as a Normaliz `polytope` input with the goal
 `HilbertBasis` and reads the numbers of Hilbert basis elements and of degree-1 elements from the
-`.inv` file: $P$ has IDP exactly when they agree. Normaliz computes in exact integer arithmetic. It
-is found with `shutil.which("normaliz")`; `backend="auto"` uses it when present and falls back to
-Python otherwise.
+`.inv` file: $P$ has IDP exactly when they agree, and the degree-1 count is checked against
+feynkit's. Normaliz computes in exact integer arithmetic. It is found with
+`shutil.which("normaliz")`; `backend="auto"` uses it when present and falls back to Python when it
+is missing or fails, and `backend="normaliz"` raises `ComputationError` instead.
 
 ## Interfaces
 

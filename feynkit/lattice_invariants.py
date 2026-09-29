@@ -37,9 +37,13 @@ because the projection maps the interior of kP_(j+1) onto that of kP_j.
 from __future__ import annotations
 
 import math
+import shutil
+import subprocess
+import tempfile
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
@@ -51,11 +55,14 @@ from .polytope import LatticeChart, lattice_chart
 
 __all__ = [
     "Lattice",
+    "LatticeInvariants",
     "count_lattice_points",
     "ehrhart_polynomial",
     "gorenstein_index",
     "h_star_vector",
     "invariant_chart",
+    "is_idp",
+    "lattice_invariants",
     "lattice_points",
     "lattice_width",
     "polar_dual",
@@ -778,3 +785,241 @@ def lattice_width(
         If a facet list fails its certificate, which would be a bug.
     """
     return _width(_prepare(points, lattice))
+
+
+# --- IDP and normality -------------------------------------------------------
+
+
+def _normaliz_binary() -> str | None:
+    """The path of the Normaliz binary, or None; the analogue of _singular_binary."""
+    return shutil.which("normaliz")
+
+
+def _resolve_backend(backend: str) -> str | None:
+    """The Normaliz binary to use for backend, or None for Python.
+
+    Raises
+    ------
+    ComputationError
+        If backend is unknown, or "normaliz" and the binary is not found.
+    """
+    if backend not in ("auto", "python", "normaliz"):
+        raise ComputationError(
+            f"Unknown backend {backend!r}. Choose 'auto', 'python' or 'normaliz'."
+        )
+    if backend == "python":
+        return None
+    binary = _normaliz_binary()
+    if binary is None and backend == "normaliz":
+        raise ComputationError("normaliz backend requested but the normaliz binary was not found")
+    return binary
+
+
+def _idp_python(polytope: _Polytope) -> bool:
+    """IDP by the bound of Bruns, Gubeladze and Trung: (k+1)P = kP + P for k <= d - 2."""
+    levels = polytope.levels
+    base = list(_points(levels, 1))
+    previous = set(base)
+    for k in range(1, polytope.dimension - 1):
+        current = set()
+        for x in _points(levels, k + 1):
+            if not any(tuple(a - b for a, b in zip(x, y, strict=True)) in previous for y in base):
+                return False
+            current.add(x)
+        previous = current
+    return True
+
+
+def _idp_normaliz(polytope: _Polytope, binary: str) -> bool:
+    """IDP from the Hilbert basis Normaliz computes for the cone over P.
+
+    The vertices go in as a Normaliz polytope, whose lattice is Z^(d+1) with
+    the grading by the last coordinate. P has IDP exactly when every element
+    of the Hilbert basis has degree 1. The number of degree-1 elements is
+    checked against the lattice points of P.
+
+    Raises
+    ------
+    ComputationError
+        If Normaliz fails or its output cannot be read or disagrees with the
+        count of lattice points.
+    """
+    d = polytope.dimension
+    rows = "\n".join(" ".join(str(x) for x in v) for v in polytope.vertices)
+    text = f"amb_space {d + 1}\npolytope {len(polytope.vertices)}\n{rows}\nHilbertBasis\n"
+    with tempfile.TemporaryDirectory(prefix="feynkit-normaliz-") as folder:
+        project = Path(folder) / "polytope"
+        project.with_suffix(".in").write_text(text)
+        try:
+            run = subprocess.run(
+                [binary, "--inv", str(project)], capture_output=True, text=True, check=False
+            )
+        except OSError as exc:
+            raise ComputationError(f"Normaliz failed to start: {exc}") from exc
+        invariants = project.with_suffix(".inv")
+        if run.returncode != 0 or not invariants.exists():
+            message = (run.stderr or run.stdout).strip().splitlines()
+            raise ComputationError(
+                f"Normaliz failed with status {run.returncode}"
+                + (f": {message[-1]}" if message else "")
+            )
+        values = {}
+        for line in invariants.read_text().splitlines():
+            parts = line.split()
+            if len(parts) == 4 and parts[0] == "integer" and parts[2] == "=":
+                values[parts[1]] = int(parts[3])
+    if "hilbert_basis_elements" not in values or "degree_1_elements" not in values:
+        raise ComputationError("the Normaliz output has no Hilbert basis count")
+    closed, _ = _count(polytope.levels, 1)
+    if values["degree_1_elements"] != closed:
+        raise ComputationError(
+            f"Normaliz finds {values['degree_1_elements']} lattice points of P, feynkit {closed}"
+        )
+    return values["hilbert_basis_elements"] == closed
+
+
+def _idp(polytope: _Polytope, backend: str) -> bool:
+    """IDP of P in its chart; every polytope of dimension at most 2 has it.
+
+    With backend "auto" a failure of Normaliz falls back to Python.
+
+    Raises
+    ------
+    ComputationError
+        As _resolve_backend, or if Normaliz fails with backend "normaliz".
+    """
+    binary = _resolve_backend(backend)
+    if polytope.dimension <= 2:
+        return True
+    if binary is not None:
+        try:
+            return _idp_normaliz(polytope, binary)
+        except ComputationError:
+            if backend == "normaliz":
+                raise
+    return _idp_python(polytope)
+
+
+def is_idp(points: PointsLike, *, lattice: Lattice = "support", backend: str = "auto") -> bool:
+    """Whether P = conv(points) has the integer decomposition property.
+
+    P has IDP when every lattice point of kP is a sum of k lattice points of
+    P, for every k >= 1. By Bruns, Gubeladze and Trung (1997) the lattice
+    points of (k+1)P are sums of those of kP and of P for every k >= d - 1,
+    so it suffices to check k = 1, ..., d - 2. Every polytope of dimension at
+    most 2 has IDP.
+
+    Parameters
+    ----------
+    backend
+        "python", the reference, which lists the dilates; "normaliz", the
+        Normaliz binary, which computes the Hilbert basis of the cone over
+        P in exact arithmetic; or "auto", which uses Normaliz when it is
+        installed and falls back to Python when it is not or fails.
+
+    Raises
+    ------
+    ValidationError
+        As invariant_chart.
+    ComputationError
+        If backend is unknown, "normaliz" is asked for and the binary is
+        missing or fails, or a consistency check fails.
+    """
+    return _idp(_prepare(points, lattice), backend)
+
+
+@dataclass(frozen=True)
+class LatticeInvariants:
+    """The lattice invariants of a lattice polytope P of dimension d.
+
+    Every field but normal belongs to the chosen lattice, in whose chart
+    (invariant_chart) the width direction is given.
+
+    Attributes
+    ----------
+    lattice
+        "support" or "ambient".
+    dimension
+        d.
+    lattice_points, interior_points
+        The numbers of lattice points of P and of its relative interior.
+    ehrhart
+        The coefficients c_0, ..., c_d of the Ehrhart polynomial.
+    h_star
+        h*_0, ..., h*_d, trailing zeros included.
+    gorenstein_index
+        The Gorenstein index, or None when P is not Gorenstein.
+    reflexive
+        Whether P is reflexive, that is Gorenstein of index 1.
+    lattice_width, width_direction
+        The lattice width and the first direction that attains it; see
+        lattice_width.
+    idp
+        Whether P has the integer decomposition property.
+    support_is_saturated
+        Whether the points given are all the lattice points of P.
+    normal
+        Whether the monoid N A generated by the columns (1, alpha_j) is
+        normal, that is saturated in the group Z A. It is computed in the
+        support lattice whatever the lattice chosen: N A is normal exactly
+        when the support holds every lattice point of P in the support
+        lattice and P has IDP there. Then C[N A] is Cohen-Macaulay (Hochster
+        1972).
+    """
+
+    lattice: Lattice
+    dimension: int
+    lattice_points: int
+    interior_points: int
+    ehrhart: tuple[Fraction, ...]
+    h_star: tuple[int, ...]
+    gorenstein_index: int | None
+    reflexive: bool
+    lattice_width: int
+    width_direction: tuple[int, ...]
+    idp: bool
+    support_is_saturated: bool
+    normal: bool
+
+
+def lattice_invariants(
+    points: PointsLike, *, lattice: Lattice = "support", backend: str = "auto"
+) -> LatticeInvariants:
+    """Every lattice invariant of P = conv(points) in one record; see LatticeInvariants.
+
+    backend is that of is_idp.
+
+    Raises
+    ------
+    ValidationError
+        As invariant_chart.
+    ComputationError
+        As is_idp, or if a consistency check fails.
+    """
+    polytope = _prepare(points, lattice)
+    closed, inner = _count(polytope.levels, 1)
+    ehrhart = _ehrhart(polytope)
+    found = _gorenstein(polytope)
+    width, direction = _width(polytope)
+    idp = _idp(polytope, backend)
+    saturated = closed == len(polytope.points)
+    if lattice == "support" or polytope.chart == lattice_chart(_exact.integer_points(points)):
+        normal = saturated and idp
+    else:
+        support = _prepare(points, "support")
+        normal = _count(support.levels, 1)[0] == len(support.points) and _idp(support, backend)
+    return LatticeInvariants(
+        lattice=lattice,
+        dimension=polytope.dimension,
+        lattice_points=closed,
+        interior_points=inner,
+        ehrhart=ehrhart,
+        h_star=_h_star(polytope, ehrhart),
+        gorenstein_index=None if found is None else found[0],
+        reflexive=found is not None and found[0] == 1,
+        lattice_width=width,
+        width_direction=direction,
+        idp=idp,
+        support_is_saturated=saturated,
+        normal=normal,
+    )

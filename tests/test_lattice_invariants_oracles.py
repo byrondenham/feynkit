@@ -29,6 +29,8 @@ from feynkit.lattice_invariants import (
     gorenstein_index,
     h_star_vector,
     invariant_chart,
+    is_idp,
+    lattice_invariants,
     polar_dual,
 )
 
@@ -95,13 +97,10 @@ def normaliz_ehrhart(values: dict[str, Any]) -> tuple[Fraction, ...]:
     return tuple(Fraction(c, denominator) for c in quasi)
 
 
-@requires_normaliz
-@pytest.mark.parametrize("cnickel", GRAPHS)
-def test_normaliz(cnickel: str, tmp_path: Path) -> None:
-    points = newton_points(cnickel)
+def check_with_normaliz(points: Points, folder: Path) -> None:
     coordinates = chart_points(points)
     d = len(coordinates[0])
-    values = run_normaliz(coordinates, tmp_path)
+    values = run_normaliz(coordinates, folder)
 
     ehrhart = normaliz_ehrhart(values)
     poly = ehrhart_polynomial(points)
@@ -122,6 +121,35 @@ def test_normaliz(cnickel: str, tmp_path: Path) -> None:
         assert gorenstein_index(points) == values["generator_of_interior"][-1]
     else:
         assert gorenstein_index(points) is None
+
+    # P has IDP exactly when its Hilbert basis lies in degree 1, and N A is normal exactly when
+    # the monoid the points generate is integrally closed.
+    idp = values["hilbert_basis_elements"] == values["degree_1_elements"]
+    assert is_idp(points, backend="python") == idp
+    found = lattice_invariants(points, backend="python")
+    assert found.idp == idp
+    assert found.normal == values["integrally_closed"]
+
+
+@requires_normaliz
+@pytest.mark.parametrize("cnickel", GRAPHS)
+def test_normaliz_on_graphs(cnickel: str, tmp_path: Path) -> None:
+    check_with_normaliz(newton_points(cnickel), tmp_path)
+
+
+@requires_normaliz
+@pytest.mark.parametrize("seed", range(40))
+def test_normaliz_on_random_polytopes(seed: int, tmp_path: Path) -> None:
+    # Random supports in a small box: some miss lattice points, some lack IDP.
+    rng = random.Random(12000 + seed)
+    d = 3 + seed % 2
+    while True:
+        points = [
+            tuple(rng.randint(0, 2) for _ in range(d)) for _ in range(rng.randint(d + 1, d + 5))
+        ]
+        if _exact.affine_rank(points) == d:
+            break
+    check_with_normaliz(points, tmp_path)
 
 
 SAGE_SCRIPT = """

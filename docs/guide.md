@@ -75,6 +75,23 @@ gens = compute_toric_ideal_generators(a_matrix, backend="4ti2")
 gens = compute_toric_ideal_generators(a_matrix, backend="sympy")
 ```
 
+### Optional: PyNormaliz and python-flint
+
+```bash
+pip install -e ".[backends]"    # from source; pip install "feynkit[backends]" from an index
+```
+
+The `backends` extra installs two Python packages, which `uv sync` also installs for development:
+
+- PyNormaliz, on Linux and macOS only. The lattice invariants use it to decide the integer
+  decomposition property, and past their work budget to give the Ehrhart polynomial, which in
+  pure Python take minutes or hours from about dimension 8 (section on lattice invariants below);
+  `polytope_data(backend="normaliz")` takes facet candidates from it.
+- python-flint. `count_torus_points(backend="flint")` counts the points of $G = 0$ with it, point
+  by point: slower than the default numpy backend, it is an independent cross-check of the counts.
+
+feynkit detects both at run time; without them the pure-Python paths, the reference, are used.
+
 ---
 
 ## CLI: fk
@@ -1018,7 +1035,7 @@ a bug, and it raises `ComputationError` rather than returning a wrong face latti
 keyword of `polytope_data`, and of `faces` and `normalized_volume` in `feynkit.polytope`, chooses
 where facet candidates come from: `"python"` (beneath-beyond, the reference, which the default
 `"auto"` uses), `"qhull"` (scipy's Qhull, which can be faster for configurations with hundreds of
-facets) or `"normaliz"` (PyNormaliz, if installed with `pip install PyNormaliz`; requesting it
+facets) or `"normaliz"` (PyNormaliz, installed with `pip install "feynkit[backends]"`; requesting it
 otherwise raises `ComputationError`). Every candidate is verified exactly and the certificate
 applies to every backend. When Qhull or Normaliz fails, or its list fails the certificate,
 beneath-beyond takes over, so all backends return the same `PolytopeData`.
@@ -1136,25 +1153,26 @@ $x = o + Sc$ in which widths and duals are written.
 
 `is_idp` and `lattice_invariants` take `backend`: `"python"`, the reference, checks that every
 lattice point of $(k+1)P$ is one of $kP$ plus one of $P$ for $k \le d - 2$ (Bruns, Gubeladze and
-Trung 1997); `"normaliz"` asks the Normaliz binary for the Hilbert basis of the cone over $P$; and
-`"auto"`, the default, uses Normaliz when it is on the path and Python otherwise. Both are exact.
+Trung 1997); `"normaliz"` asks PyNormaliz for the Hilbert basis of the cone over $P$; and `"auto"`,
+the default, uses PyNormaliz when it is installed and Python otherwise. Both are exact.
 All the invariants of the kite `12e|23|3|e|:nnnnn` take 0.16 s in pure Python, those of the
 massless pentagon `12e|3e|4e|4e|e|:zzzzz` 0.04 s and those of the massless hexagon
 `12e|3e|4e|5e|5e|e|:zzzzzz` 0.15 s, most of it the IDP check, which lists the dilates up to
 $(d - 1)P$. That grows quickly with the dimension: for the three-loop graph
 `123|24|e|45|5|e|:znzzzzzz`, of dimension 8, the check takes minutes in Python and a fraction of a
-second in Normaliz, so install Normaliz (on Arch Linux, `sudo pacman -S normaliz`; on Debian and
-Ubuntu, `sudo apt install normaliz-bin`) for three loops and more.
+second in Normaliz, so install PyNormaliz (`pip install "feynkit[backends]"`) for three loops and
+more.
 
 `lattice_invariants` and `fi.lattice_invariants` take `budget`, the most steps of pure-Python work
 for the Ehrhart polynomial and the IDP check, and `timeout`, the most seconds each run of Normaliz
 may take. A step is one term of an inequality the enumerator evaluates or one set lookup of the
-IDP check, and CPython takes about four million a second. Over budget, Normaliz supplies the Ehrhart
-polynomial and IDP when it is installed; otherwise `ehrhart`, `h_star`, `idp` and `normal` are
+IDP check, and CPython takes about four million a second. Over budget, PyNormaliz supplies the
+Ehrhart polynomial and IDP when it is installed; otherwise `ehrhart`, `h_star`, `idp` and `normal` are
 None, except that `normal` is False whenever the support misses a lattice point. Without a budget,
 the default, everything is computed. The report and `fk analyse` pass `LATTICE_BUDGET`,
 $2 \times 10^7$ steps or about five seconds, and `NORMALIZ_TIMEOUT`, 60 s, both in
-`feynkit.io.report`, and say "not computed" for what is left out. The result is cached on the
+`feynkit.io.report`, and say "not computed" for what is left out. With a timeout PyNormaliz runs in
+a child process, which is ended when the time is up. The result is cached on the
 integral for each choice of the arguments, so the report and the CLI compute it once.
 
 ---

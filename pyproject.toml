@@ -43,6 +43,9 @@ dependencies = [
     "networkx>=3.2,<4",
 ]
 
+[project.optional-dependencies]
+backends = ["PyNormaliz>=2.24; sys_platform != 'win32'", "python-flint>=0.9"]
+
 [project.scripts]
 fk = "feynkit.cli:main"
 
@@ -163,4 +166,6 @@ dev = [
     "mypy>=2.0",
     "pre-commit>=4.0",
     "hypothesis>=6.168",
+    "PyNormaliz>=2.24; sys_platform != 'win32'",
+    "python-flint>=0.9",
 ]

@@ -659,9 +659,10 @@ width at most $w_0$ lies in $w_0 (P - P)^\circ$, whose lattice points feynkit li
 **Normality.** $P$ has the integer decomposition property (IDP) when every lattice point of $kP$ is
 a sum of $k$ lattice points of $P$. Since the lattice points of $(k+1)P$ are sums of those of $kP$
 and $P$ for every $k \ge d - 1$ (Bruns, Gubeladze and Trung 1997), feynkit checks
-$k = 1, \ldots, d - 2$, or asks Normaliz for the Hilbert basis of the cone over $P$ when it is
-installed. At degree $k$ the elements of $\operatorname{cone}(A) \cap \mathbb{Z}A$ are the lattice
-points of $kP$ in the support lattice, and those of $\mathbb{N}A$ the sums of $k$ columns, so
+$k = 1, \ldots, d - 2$, or asks Normaliz, through PyNormaliz, for the Hilbert basis of the cone
+over $P$ when it is installed. At degree $k$ the elements of
+$\operatorname{cone}(A) \cap \mathbb{Z}A$ are the lattice points of $kP$ in the support lattice, and
+those of $\mathbb{N}A$ the sums of $k$ columns, so
 $$\mathbb{N}A \text{ is normal} \iff \text{the support holds every lattice point of } P
 \text{ and } P \text{ has IDP},$$
 both in the support lattice. Then $\mathbb{C}[\mathbb{N}A]$ is Cohen-Macaulay (Hochster 1972), and

@@ -43,6 +43,16 @@ sudo apt install 4ti2     # Ubuntu / Debian
 
 Feynkit detects 4ti2 automatically (`backend="auto"`, the default).
 
+### Optional: PyNormaliz and python-flint
+
+```bash
+pip install -e ".[backends]"
+```
+
+PyNormaliz (Linux and macOS) speeds up the lattice invariants of large Newton polytopes and offers
+facet candidates to `polytope_data`; python-flint gives an independent cross-check of the torus
+point counts. `uv sync` installs both for development.
+
 ---
 
 ## CLI: `fk`

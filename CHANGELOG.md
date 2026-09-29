@@ -109,6 +109,13 @@
 ### Added
 
 - `fk analyze` is an alias of `fk analyse`.
+- An optional extra `backends`, `pip install "feynkit[backends]"`, installs
+  PyNormaliz (Linux and macOS) and python-flint, which the development
+  dependencies now include. PyNormaliz decides IDP and gives the Ehrhart
+  polynomial of large Newton polytopes and offers facet candidates to
+  `polytope_data(backend="normaliz")`; python-flint is the `flint` backend of
+  the torus point counts, an independent cross-check. The tests of both
+  backends, which skipped before, now run.
 - `feynkit.generate`, with `generate_graphs` (also exported from `feynkit`) and
   `mass_colourings`. `generate_graphs` yields the connected, bridgeless graphs
   with given loops, legs and propagators in which every vertex has degree at
@@ -208,15 +215,16 @@
   The tests check them against brute force, and against Normaliz and Sage at
   test time, when installed, on the Newton polytopes of generated graphs.
 - `is_idp` and `lattice_invariants` take `backend`: `"python"`, `"normaliz"`,
-  the Normaliz binary, or `"auto"`, the default, which uses Normaliz when it
-  is on the path and Python otherwise or when Normaliz fails. In Python the
+  through PyNormaliz, or `"auto"`, the default, which uses PyNormaliz when it
+  is installed and Python otherwise or when it fails. In Python the
   invariants of the kite `12e|23|3|e|:nnnnn` take 0.16 s together, those of
   the massless pentagon 0.04 s and of the massless hexagon 0.15 s; for the
   three-loop `123|24|e|45|5|e|:znzzzzzz`, of dimension 8, the IDP check takes
   minutes in Python and 0.05 s in Normaliz.
 - `lattice_invariants` takes `budget`, the most steps of pure-Python work for
   the Ehrhart polynomial and the IDP check, and `timeout`, the most seconds
-  each run of Normaliz may take; `is_idp` takes `timeout`. Over budget,
+  each run of Normaliz may take, in a child process that is ended when the
+  time is up; `is_idp` takes `timeout`. Over budget,
   Normaliz supplies the Ehrhart polynomial, from its Hilbert series checked
   against the volume and the lattice points of P, and IDP; without it
   `ehrhart`, `h_star`, `idp` and `normal` are None, though `normal` is False

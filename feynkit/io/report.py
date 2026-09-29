@@ -426,6 +426,18 @@ def _conventions(fi: FeynmanIntegral) -> Conventions:
     )
 
 
+def _total_degree(expr: sp.Expr, parameters: list[sp.Symbol]) -> int:
+    """The total degree of expr in the parameters, 0 for the zero polynomial.
+
+    SymPy gives the zero polynomial in one variable degree 0 with its own
+    ground types but -inf with python-flint's, which it uses whenever
+    python-flint is installed.
+    """
+    if expr == 0:
+        return 0
+    return int(sp.Poly(expr, *parameters).total_degree())
+
+
 def _polynomials(fi: FeynmanIntegral) -> Polynomials:
     symanzik = fi.symanzik
     parameters = list(symanzik.lp_parameters)
@@ -455,8 +467,8 @@ def _polynomials(fi: FeynmanIntegral) -> Polynomials:
         f_numerator=numerator,
         f_scale_power=power,
         g=symanzik.g,
-        degree_u=int(sp.Poly(symanzik.u_lp, *parameters).total_degree()),
-        degree_f=int(sp.Poly(symanzik.f_lp, *parameters).total_degree()),
+        degree_u=_total_degree(symanzik.u_lp, parameters),
+        degree_f=_total_degree(symanzik.f_lp, parameters),
         monomials_f=monomials_f,
         monomials_g=len(z_table),
         z_table=z_table,

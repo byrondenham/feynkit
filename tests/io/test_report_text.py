@@ -1295,13 +1295,13 @@ def test_newton_section_when_the_budget_ran_out(triangle_report: AnalysisReport)
     ) in text
     assert text.endswith(
         "Whether P has the integer decomposition property [bgt1997], and so whether NA is "
-        "normal, was not computed within the report's budget: install Normaliz, or call "
+        "normal, was not computed within the report's budget: install PyNormaliz, or call "
         "lattice_invariants directly."
     )
     assert latex.endswith(
         "Whether $P$ has the integer decomposition property~\\cite{bgt1997}, and so whether "
         "$\\mathbb{N}A$ is normal, was not computed within the report's budget: install "
-        "Normaliz, or call \\texttt{lattice\\_invariants} directly."
+        "PyNormaliz, or call \\texttt{lattice\\_invariants} directly."
     )
     for document in (text, latex):
         assert "h* vector" not in document and "$h^*$ vector" not in document

@@ -3,14 +3,16 @@ Lattice invariants of Newton polytopes against Normaliz and Sage.
 
 Both run at test time on the Newton polytopes of generated graphs: the
 one-loop graphs with two to six legs, and under the slow marker a sample of
-the two-loop graphs with two to four legs. Each test skips when its program
-is missing. The polytopes go to both in the coordinates of invariant_chart,
+the two-loop graphs with two to four legs. Normaliz is called through
+PyNormaliz, directly rather than through feynkit's backend, and Sage as a
+program. Each test skips when its program is missing. The polytopes go to both in the coordinates of invariant_chart,
 where the support lattice is Z^d, so that their lattice is the one feynkit
 uses by default.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import itertools
 import json
 import random
@@ -34,10 +36,11 @@ from feynkit.lattice_invariants import (
     polar_dual,
 )
 
-NORMALIZ = shutil.which("normaliz")
 SAGE = shutil.which("sage")
 
-requires_normaliz = pytest.mark.skipif(NORMALIZ is None, reason="Normaliz not installed")
+requires_normaliz = pytest.mark.skipif(
+    importlib.util.find_spec("PyNormaliz") is None, reason="PyNormaliz not installed"
+)
 requires_sage = pytest.mark.skipif(SAGE is None, reason="Sage not installed")
 
 ONE_LOOP = list(generate_graphs(1, range(2, 7)))
@@ -59,36 +62,26 @@ def chart_points(points: Points) -> Points:
     return sorted(set(invariant_chart(points).coordinates))
 
 
-def run_normaliz(points: Points, folder: Path) -> dict[str, Any]:
-    """The .inv values Normaliz gives for the polytope of the points, with every goal needed."""
-    assert NORMALIZ is not None
-    d = len(points[0])
-    rows = "\n".join(" ".join(map(str, p)) for p in points)
-    goals = "HilbertBasis\nHilbertSeries\nIsGorenstein\nIsIntegrallyClosed\n"
-    project = folder / "polytope"
-    project.with_suffix(".in").write_text(
-        f"amb_space {d + 1}\npolytope {len(points)}\n{rows}\n{goals}"
-    )
-    subprocess.run([NORMALIZ, "--inv", "-x=1", str(project)], check=True, capture_output=True)
-    lines = project.with_suffix(".inv").read_text().splitlines()
-    values: dict[str, Any] = {}
-    i = 0
-    while i < len(lines):
-        parts = lines[i].split()
-        if parts and parts[0] == "integer":
-            values[parts[1]] = int(parts[3])
-        elif parts and parts[0] == "boolean":
-            values[parts[1]] = parts[3] == "true"
-        elif parts and parts[0] == "vector":
-            values[parts[2]] = [int(x) for x in parts[4:]]
-        elif parts and parts[0] == "matrix":
-            rows_count = int(parts[1])
-            values[parts[3]] = [
-                [int(x) for x in lines[i + 1 + r].split()] for r in range(rows_count)
-            ]
-            i += rows_count
-        i += 1
-    return values
+def run_normaliz(points: Points) -> dict[str, Any]:
+    """What PyNormaliz gives for the polytope of the points, with the keys of a Normaliz .inv file."""
+    import PyNormaliz
+
+    cone = PyNormaliz.Cone(polytope=[list(p) for p in points])
+    numerator, denominator, shift = cone.HilbertSeries()
+    *quasi, quasi_denominator = cone.HilbertQuasiPolynomial()
+    gorenstein = cone.IsGorenstein()
+    assert shift == 0
+    return {
+        "hilbert_basis_elements": len(cone.HilbertBasis()),
+        "degree_1_elements": len(cone.Deg1Elements()),
+        "hilbert_series_num": numerator,
+        "hilbert_series_denom": denominator,
+        "hilbert_quasipolynomial": quasi,
+        "hilbert_quasipolynomial_denom": quasi_denominator,
+        "Gorenstein": gorenstein,
+        "generator_of_interior": cone.GeneratorOfInterior() if gorenstein else None,
+        "integrally_closed": cone.IsIntegrallyClosed(),
+    }
 
 
 def normaliz_ehrhart(values: dict[str, Any]) -> tuple[Fraction, ...]:
@@ -97,10 +90,10 @@ def normaliz_ehrhart(values: dict[str, Any]) -> tuple[Fraction, ...]:
     return tuple(Fraction(c, denominator) for c in quasi)
 
 
-def check_with_normaliz(points: Points, folder: Path) -> None:
+def check_with_normaliz(points: Points) -> None:
     coordinates = chart_points(points)
     d = len(coordinates[0])
-    values = run_normaliz(coordinates, folder)
+    values = run_normaliz(coordinates)
 
     ehrhart = normaliz_ehrhart(values)
     poly = ehrhart_polynomial(points)
@@ -134,13 +127,13 @@ def check_with_normaliz(points: Points, folder: Path) -> None:
 
 @requires_normaliz
 @pytest.mark.parametrize("cnickel", GRAPHS)
-def test_normaliz_on_graphs(cnickel: str, tmp_path: Path) -> None:
-    check_with_normaliz(newton_points(cnickel), tmp_path)
+def test_normaliz_on_graphs(cnickel: str) -> None:
+    check_with_normaliz(newton_points(cnickel))
 
 
 @requires_normaliz
 @pytest.mark.parametrize("seed", range(40))
-def test_normaliz_on_random_polytopes(seed: int, tmp_path: Path) -> None:
+def test_normaliz_on_random_polytopes(seed: int) -> None:
     # Random supports in a small box: some miss lattice points, some lack IDP.
     rng = random.Random(12000 + seed)
     d = 3 + seed % 2
@@ -150,7 +143,7 @@ def test_normaliz_on_random_polytopes(seed: int, tmp_path: Path) -> None:
         ]
         if _exact.affine_rank(points) == d:
             break
-    check_with_normaliz(points, tmp_path)
+    check_with_normaliz(points)
 
 
 SAGE_SCRIPT = """

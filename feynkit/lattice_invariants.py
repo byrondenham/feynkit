@@ -6,7 +6,7 @@ dilates kP, and gives the Ehrhart polynomial, the h*-vector, the Gorenstein
 index with the polar dual of a reflexive P, the lattice width, the integer
 decomposition property and the normality of the monoid NA. Everything is
 done in integers and Fractions, from facets certified complete by the exact
-hull of feynkit._exact; Normaliz can decide IDP instead, also exactly.
+hull of feynkit._exact; PyNormaliz can decide IDP instead, also exactly.
 
 The lattice
 -----------
@@ -37,10 +37,10 @@ because the projection maps the interior of kP_(j+1) onto that of kP_j.
 
 from __future__ import annotations
 
+import json
 import math
-import shutil
 import subprocess
-import tempfile
+import sys
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
@@ -51,8 +51,9 @@ import numpy as np
 import sympy as sp
 
 from . import _exact
+from ._pynormaliz_worker import query
 from .core.exceptions import ComputationError, ValidationError
-from .polytope import LatticeChart, lattice_chart
+from .polytope import LatticeChart, _pynormaliz_available, lattice_chart
 
 __all__ = [
     "Lattice",
@@ -831,29 +832,27 @@ def lattice_width(
 # --- IDP and normality -------------------------------------------------------
 
 
-def _normaliz_binary() -> str | None:
-    """The path of the Normaliz binary, or None; the analogue of _singular_binary."""
-    return shutil.which("normaliz")
-
-
-def _resolve_backend(backend: str) -> str | None:
-    """The Normaliz binary to use for backend, or None for Python.
+def _resolve_backend(backend: str) -> bool:
+    """Whether backend uses PyNormaliz.
 
     Raises
     ------
     ComputationError
-        If backend is unknown, or "normaliz" and the binary is not found.
+        If backend is unknown, or "normaliz" and PyNormaliz is not installed.
     """
     if backend not in ("auto", "python", "normaliz"):
         raise ComputationError(
             f"Unknown backend {backend!r}. Choose 'auto', 'python' or 'normaliz'."
         )
     if backend == "python":
-        return None
-    binary = _normaliz_binary()
-    if binary is None and backend == "normaliz":
-        raise ComputationError("normaliz backend requested but the normaliz binary was not found")
-    return binary
+        return False
+    available = _pynormaliz_available()
+    if not available and backend == "normaliz":
+        raise ComputationError(
+            "normaliz backend requested but PyNormaliz is not installed. "
+            'Install it with: pip install "feynkit[backends]"'
+        )
+    return available
 
 
 def _idp_python(polytope: _Polytope) -> bool:
@@ -882,74 +881,93 @@ def _idp_work(polytope: _Polytope, ehrhart: Sequence[Fraction]) -> int:
     return base * sum(int(_evaluate(ehrhart, k)) for k in range(2, d))
 
 
-def _parse_inv(text: str) -> dict[str, Any]:
-    """The integers, booleans, vectors and matrices of a Normaliz .inv file."""
-    lines = text.splitlines()
-    values: dict[str, Any] = {}
-    i = 0
-    while i < len(lines):
-        parts = lines[i].split()
-        if len(parts) == 4 and parts[0] == "integer" and parts[2] == "=":
-            values[parts[1]] = int(parts[3])
-        elif len(parts) == 4 and parts[0] == "boolean" and parts[2] == "=":
-            values[parts[1]] = parts[3] == "true"
-        elif len(parts) >= 4 and parts[0] == "vector" and parts[3] == "=":
-            values[parts[2]] = [int(x) for x in parts[4:]]
-        elif len(parts) == 5 and parts[0] == "matrix" and parts[4] == "=":
-            count = int(parts[1])
-            values[parts[3]] = [
-                [int(x) for x in row.split()] for row in lines[i + 1 : i + 1 + count]
-            ]
-            i += count
-        i += 1
-    return values
+# The source of feynkit._pynormaliz_worker, run with python -c when PyNormaliz has a timeout.
+_WORKER_SOURCE = (Path(__file__).parent / "_pynormaliz_worker.py").read_text(encoding="utf-8")
+
+
+def _ask_pynormaliz(rows: list[list[int]], series: bool, timeout: float | None) -> dict[str, Any]:
+    """PyNormaliz's answers for the cone over the polytope with vertices rows.
+
+    Without a timeout PyNormaliz runs in this process. With one it runs in a
+    child process of this interpreter, which is ended when the timeout
+    passes: PyNormaliz cannot be interrupted in process.
+
+    Raises
+    ------
+    ComputationError
+        If PyNormaliz fails or does not finish within timeout seconds.
+    """
+    if timeout is None:
+        try:
+            return query(rows, series)
+        except Exception as exc:
+            # PyNormaliz raises its own errors, which derive from Exception, and ordinary ones
+            # for bad input; see polytope._normaliz_candidates.
+            raise ComputationError(f"PyNormaliz failed: {exc}") from exc
+    try:
+        run = subprocess.run(
+            [sys.executable, "-c", _WORKER_SOURCE],
+            input=json.dumps({"rows": rows, "series": series}),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        raise ComputationError(f"Normaliz did not finish within {timeout:g} s") from None
+    except OSError as exc:
+        raise ComputationError(f"PyNormaliz failed to start: {exc}") from exc
+    if run.returncode != 0:
+        message = run.stderr.strip().splitlines()
+        raise ComputationError(
+            f"PyNormaliz failed with status {run.returncode}"
+            + (f": {message[-1]}" if message else "")
+        )
+    try:
+        answer: dict[str, Any] = json.loads(run.stdout)
+    except ValueError as exc:
+        raise ComputationError(f"PyNormaliz gave output that is not JSON: {exc}") from exc
+    return answer
 
 
 def _run_normaliz(
-    polytope: _Polytope, binary: str, closed: int, *, series: bool, timeout: float | None
+    polytope: _Polytope, closed: int, *, series: bool, timeout: float | None
 ) -> dict[str, Any]:
-    """The .inv values Normaliz gives for the cone over P, with its Hilbert basis.
+    """The Hilbert basis counts, and with series the Hilbert series, of the cone over P.
 
-    The vertices go in as a Normaliz polytope, whose lattice is Z^(d+1) with
-    the grading by the last coordinate. With series, the Hilbert series and
-    quasipolynomial are asked for too. The number of degree-1 elements is
+    The vertices go to PyNormaliz as a polytope, whose lattice is Z^(d+1)
+    with the grading by the last coordinate. The result has the counts
+    hilbert_basis_elements and degree_1_elements, and with series
+    hilbert_series_num, hilbert_series_denom (the exponents of the factors
+    1 - t^e), hilbert_quasipolynomial (its rows) and
+    hilbert_quasipolynomial_denom. The number of degree-1 elements is
     checked against closed, the lattice points of P.
 
     Raises
     ------
     ComputationError
-        If Normaliz fails, does not finish within timeout seconds, or gives
-        output that cannot be read or disagrees with closed.
+        If PyNormaliz fails, does not finish within timeout seconds, or gives
+        an answer that cannot be read or disagrees with closed.
     """
-    d = polytope.dimension
-    rows = "\n".join(" ".join(str(x) for x in v) for v in polytope.vertices)
-    goals = "HilbertBasis\nHilbertSeries\n" if series else "HilbertBasis\n"
-    text = f"amb_space {d + 1}\npolytope {len(polytope.vertices)}\n{rows}\n{goals}"
-    with tempfile.TemporaryDirectory(prefix="feynkit-normaliz-") as folder:
-        project = Path(folder) / "polytope"
-        project.with_suffix(".in").write_text(text)
-        try:
-            run = subprocess.run(
-                [binary, "--inv", str(project)],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=timeout,
-            )
-        except subprocess.TimeoutExpired:
-            raise ComputationError(f"Normaliz did not finish within {timeout:g} s") from None
-        except OSError as exc:
-            raise ComputationError(f"Normaliz failed to start: {exc}") from exc
-        invariants = project.with_suffix(".inv")
-        if run.returncode != 0 or not invariants.exists():
-            message = (run.stderr or run.stdout).strip().splitlines()
-            raise ComputationError(
-                f"Normaliz failed with status {run.returncode}"
-                + (f": {message[-1]}" if message else "")
-            )
-        values = _parse_inv(invariants.read_text())
-    if "hilbert_basis_elements" not in values or "degree_1_elements" not in values:
-        raise ComputationError("the Normaliz output has no Hilbert basis count")
+    rows = [list(v) for v in polytope.vertices]
+    answer = _ask_pynormaliz(rows, series, timeout)
+    try:
+        basis = answer["hilbert_basis"]
+        values: dict[str, Any] = {
+            "hilbert_basis_elements": len(basis),
+            "degree_1_elements": sum(1 for v in basis if v[-1] == 1),
+        }
+        if series:
+            numerator, denominator, shift = answer["series"]
+            *quasi, quasi_denominator = answer["quasipolynomial"]
+            if shift:
+                raise ComputationError(f"PyNormaliz shifts the Hilbert series by {shift}")
+            values["hilbert_series_num"] = [int(x) for x in numerator]
+            values["hilbert_series_denom"] = [int(x) for x in denominator]
+            values["hilbert_quasipolynomial"] = [[int(x) for x in row] for row in quasi]
+            values["hilbert_quasipolynomial_denom"] = int(quasi_denominator)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ComputationError(f"PyNormaliz gave an answer that cannot be read: {exc}") from exc
     if values["degree_1_elements"] != closed:
         raise ComputationError(
             f"Normaliz finds {values['degree_1_elements']} lattice points of P, feynkit {closed}"
@@ -960,15 +978,15 @@ def _run_normaliz(
 class _Normaliz:
     """The Normaliz runs for one polytope: at most one with the series, or its failure.
 
-    Without a binary it gives nothing. A failure raises when strict and is
+    Without PyNormaliz it gives nothing. A failure raises when strict and is
     otherwise remembered, so that Normaliz is not run again.
     """
 
     def __init__(
-        self, polytope: _Polytope, binary: str | None, *, strict: bool, timeout: float | None
+        self, polytope: _Polytope, available: bool, *, strict: bool, timeout: float | None
     ) -> None:
         self.polytope = polytope
-        self.binary = binary
+        self.available = available
         self.strict = strict
         self.timeout = timeout
         self.failed = False
@@ -983,12 +1001,12 @@ class _Normaliz:
         ComputationError
             If Normaliz fails and the runs are strict.
         """
-        if self.binary is None or self.failed:
+        if not self.available or self.failed:
             return None
         if self.found is None or (series and not self.with_series):
             try:
                 self.found = _run_normaliz(
-                    self.polytope, self.binary, closed, series=series, timeout=self.timeout
+                    self.polytope, closed, series=series, timeout=self.timeout
                 )
             except ComputationError:
                 if self.strict:
@@ -1041,10 +1059,10 @@ def _idp(polytope: _Polytope, backend: str, timeout: float | None = None) -> boo
     ComputationError
         As _resolve_backend, or if Normaliz fails with backend "normaliz".
     """
-    binary = _resolve_backend(backend)
+    available = _resolve_backend(backend)
     if polytope.dimension <= 2:
         return True
-    runs = _Normaliz(polytope, binary, strict=backend == "normaliz", timeout=timeout)
+    runs = _Normaliz(polytope, available, strict=backend == "normaliz", timeout=timeout)
     closed, _ = _count(polytope.levels, 1)
     values = runs.values(closed, series=False)
     if values is not None:
@@ -1070,19 +1088,22 @@ def is_idp(
     Parameters
     ----------
     backend
-        "python", the reference, which lists the dilates; "normaliz", the
-        Normaliz binary, which computes the Hilbert basis of the cone over
-        P in exact arithmetic; or "auto", which uses Normaliz when it is
+        "python", the reference, which lists the dilates; "normaliz",
+        PyNormaliz, which computes the Hilbert basis of the cone over P in
+        exact arithmetic; or "auto", which uses PyNormaliz when it is
         installed and falls back to Python when it is not or fails.
+        PyNormaliz comes with pip install "feynkit[backends]".
     timeout
-        The most seconds Normaliz may run, or None for no limit.
+        The most seconds Normaliz may run, or None for no limit. With a
+        timeout PyNormaliz runs in a child process, which is ended when the
+        time is up; without one it runs in this process.
 
     Raises
     ------
     ValidationError
         As invariant_chart.
     ComputationError
-        If backend is unknown, "normaliz" is asked for and the binary is
+        If backend is unknown, "normaliz" is asked for and PyNormaliz is
         missing, fails or does not finish within timeout, or a consistency
         check fails.
     """
@@ -1251,11 +1272,11 @@ def lattice_invariants(
     ComputationError
         As is_idp, or if a consistency check fails.
     """
-    binary = _resolve_backend(backend)
+    available = _resolve_backend(backend)
     strict = backend == "normaliz"
     work = _Budget(budget)
     polytope = _prepare(points, lattice)
-    runs = _Normaliz(polytope, binary, strict=strict, timeout=timeout)
+    runs = _Normaliz(polytope, available, strict=strict, timeout=timeout)
     closed, inner = _count(polytope.levels, 1)
     ehrhart, h_star = _series(polytope, work, runs, closed, inner)
     found = _gorenstein(polytope)
@@ -1271,7 +1292,7 @@ def lattice_invariants(
         if support_closed != len(support.points):
             normal = False
         else:
-            support_runs = _Normaliz(support, binary, strict=strict, timeout=timeout)
+            support_runs = _Normaliz(support, available, strict=strict, timeout=timeout)
             support_ehrhart = None
             if (
                 work.limit is not None

@@ -492,7 +492,7 @@ def lattice_normality(polytope: Polytope, cite: Callable[..., str], *, latex: bo
         return (
             f"Whether {p} has the integer decomposition property{cite('bgt1997')}, and so "
             f"whether {na} is normal, was not computed within the report's budget: install "
-            f"Normaliz, or call {call} directly."
+            f"PyNormaliz, or call {call} directly."
         )
     if found.normal:
         head = (

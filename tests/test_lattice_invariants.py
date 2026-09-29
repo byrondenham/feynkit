@@ -12,9 +12,10 @@ import dataclasses
 import itertools
 import math
 import random
+import sys
+import types
 from collections.abc import Callable, Sequence
 from fractions import Fraction
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -462,7 +463,7 @@ class TestWidth:
 NOT_IDP = [(0, 0, 0), (0, 0, 1), (1, 1, 1), (1, 2, 2), (3, 1, 0)]
 
 requires_normaliz = pytest.mark.skipif(
-    li._normaliz_binary() is None, reason="Normaliz not installed"
+    not li._pynormaliz_available(), reason="PyNormaliz not installed"
 )
 
 
@@ -577,17 +578,17 @@ class TestBackends:
         with pytest.raises(ComputationError, match="Unknown backend 'bogus'"):
             is_idp(simplex(3), backend="bogus")
 
-    def test_normaliz_without_the_binary(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(li, "_normaliz_binary", lambda: None)
-        with pytest.raises(ComputationError, match="normaliz"):
+    def test_normaliz_without_pynormaliz(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(li, "_pynormaliz_available", lambda: False)
+        with pytest.raises(ComputationError, match="PyNormaliz is not installed"):
             is_idp(simplex(3), backend="normaliz")
         assert is_idp(NOT_IDP, backend="auto") is False
 
     def test_auto_falls_back_when_normaliz_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(li, "_normaliz_binary", lambda: "/bin/false")
+        broken_pynormaliz(monkeypatch)
         assert is_idp(NOT_IDP, backend="auto") is False
         assert is_idp(cube(4), backend="auto") is True
-        with pytest.raises(ComputationError, match="Normaliz failed"):
+        with pytest.raises(ComputationError, match="PyNormaliz failed: broken"):
             is_idp(cube(4), backend="normaliz")
 
     @requires_normaliz
@@ -609,12 +610,18 @@ class TestBackends:
 UNSATURATED = [*(tuple(2 * x for x in v) for v in cube(3)), (1, 0, 0)]
 
 
-def sleeping_normaliz(folder: Path) -> str:
-    """The path of a stand-in for Normaliz that sleeps for ten seconds."""
-    script = folder / "normaliz"
-    script.write_text("#!/bin/sh\nsleep 10\n")
-    script.chmod(0o755)
-    return str(script)
+def broken_pynormaliz(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in a PyNormaliz whose cones raise, in this process and in the worker."""
+
+    class Cone:
+        def __init__(self, **kwargs: object) -> None:
+            raise RuntimeError("broken")
+
+    module = types.ModuleType("PyNormaliz")
+    module.Cone = Cone  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "PyNormaliz", module)
+    monkeypatch.setattr(li, "_pynormaliz_available", lambda: True)
+    monkeypatch.setattr(li, "_WORKER_SOURCE", "raise SystemExit('broken')")
 
 
 class TestBudget:
@@ -648,14 +655,21 @@ class TestBudget:
         assert not found.support_is_saturated
         assert found.normal is False
 
-    def test_auto_does_not_fall_back_past_the_budget(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(li, "_normaliz_binary", lambda: "/bin/false")
-        found = lattice_invariants(NOT_IDP, budget=1)
+    @pytest.mark.parametrize("timeout", [None, 30.0])
+    def test_auto_does_not_fall_back_past_the_budget(
+        self, monkeypatch: pytest.MonkeyPatch, timeout: float | None
+    ) -> None:
+        broken_pynormaliz(monkeypatch)
+        found = lattice_invariants(NOT_IDP, budget=1, timeout=timeout)
         assert (found.h_star, found.idp, found.normal) == (None, None, None)
-        assert lattice_invariants(NOT_IDP).idp is False
+        assert lattice_invariants(NOT_IDP, timeout=timeout).idp is False
+        with pytest.raises(ComputationError, match="PyNormaliz failed"):
+            is_idp(NOT_IDP, backend="normaliz", timeout=timeout)
 
-    def test_normaliz_times_out(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.setattr(li, "_normaliz_binary", lambda: sleeping_normaliz(tmp_path))
+    def test_normaliz_times_out(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # With a timeout PyNormaliz runs in a child process, here one that sleeps.
+        monkeypatch.setattr(li, "_pynormaliz_available", lambda: True)
+        monkeypatch.setattr(li, "_WORKER_SOURCE", "import time\ntime.sleep(10)\n")
         with pytest.raises(ComputationError, match="Normaliz did not finish within 0.5 s"):
             is_idp(cube(4), backend="normaliz", timeout=0.5)
         found = lattice_invariants(cube(4), budget=1, timeout=0.5)
@@ -667,6 +681,7 @@ class TestBudget:
     def test_over_budget_normaliz_gives_the_series(self, points: Points) -> None:
         exact = lattice_invariants(points, backend="python")
         assert lattice_invariants(points, budget=1) == exact
+        assert lattice_invariants(points, budget=1, timeout=30) == exact
         assert lattice_invariants(points, lattice="ambient", budget=1) == lattice_invariants(
             points, lattice="ambient", backend="python"
         )

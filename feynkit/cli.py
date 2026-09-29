@@ -391,7 +391,7 @@ def _print_lattice_invariants(fi: FeynmanIntegral, full: bool) -> None:
     if found.normal is None:
         _kv(
             "Normal configuration",
-            "not computed  (install Normaliz, or call lattice_invariants directly)",
+            "not computed  (install PyNormaliz, or call lattice_invariants directly)",
         )
         return
     if found.normal:

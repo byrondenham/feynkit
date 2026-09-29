@@ -243,7 +243,7 @@ class TestLatticeInvariantsNotComputed:
         out = _run(capsys, tmp_path, "12e|2e|e|:zzz", "-n")
         assert f"  {'h*-vector':<28} not computed\n" in out
         assert f"  {'Integer decomposition (IDP)':<28} not computed\n" in out
-        reason = "not computed  (install Normaliz, or call lattice_invariants directly)"
+        reason = "not computed  (install PyNormaliz, or call lattice_invariants directly)"
         assert f"  {'Normal configuration':<28} {reason}\n" in out
         assert "Cohen-Macaulay" not in out
 

@@ -22,8 +22,9 @@ $\mathbb{C}[\mathbb{N}A]$ is Cohen-Macaulay (Hochster 1972), and then the rank d
   $P$, and so whether $\mathbb{N}A$ is normal.
 
 Everything is exact: integers and `Fraction`s throughout, facets from the certified hull of
-`feynkit._exact`. No floating point is used. An optional Normaliz backend, found at run time as
-Singular and 4ti2 are, decides IDP for large polytopes; the pure-Python path is the reference.
+`feynkit._exact`. No floating point is used. An optional Normaliz backend, through PyNormaliz as
+in `polytope_data(backend="normaliz")`, decides IDP and gives the Ehrhart polynomial for large
+polytopes; the pure-Python path is the reference.
 
 ## Lattices
 
@@ -145,12 +146,19 @@ negative answer settles nothing.
 
 ### Normaliz backend
 
-`backend="normaliz"` writes the chart vertices as a Normaliz `polytope` input with the goal
-`HilbertBasis` and reads the numbers of Hilbert basis elements and of degree-1 elements from the
-`.inv` file: $P$ has IDP exactly when they agree, and the degree-1 count is checked against
-feynkit's. Normaliz computes in exact integer arithmetic. It is found with
-`shutil.which("normaliz")`; `backend="auto"` uses it when present and falls back to Python when it
-is missing or fails, and `backend="normaliz"` raises `ComputationError` instead.
+`backend="normaliz"` passes the chart vertices to PyNormaliz as a `polytope` cone, whose lattice is
+$\mathbb{Z}^{d+1}$ graded by the last coordinate, and reads its Hilbert basis: $P$ has IDP exactly
+when every element has degree 1, and the degree-1 count is checked against feynkit's. Normaliz
+computes in exact integer arithmetic. PyNormaliz is detected with
+`importlib.util.find_spec("PyNormaliz")`, as in `polytope.py`, so that feynkit has one Normaliz
+integration; `backend="auto"` uses it when present and falls back to Python when it is missing or
+fails, and `backend="normaliz"` raises `ComputationError` instead.
+
+PyNormaliz runs inside the interpreter and cannot be interrupted there. Without a timeout it runs
+in process. With one, feynkit runs the source of `feynkit._pynormaliz_worker`, which imports only
+PyNormaliz, as `python -c` in a child process, passes the vertices as JSON and ends the child when
+the timeout passes; the child costs a few tens of milliseconds. The report and `fk analyse` set a
+timeout, so their Normaliz runs can always be ended.
 
 ### Work budget
 
@@ -227,7 +235,7 @@ not normal and the remark that this decides nothing. The summary gains `Lattice 
 Every invariant is shown by default: all of them take under 0.2 s on the kite, the pentagon and
 the hexagon. Both compute them once, through the cache of `FeynmanIntegral.lattice_invariants`,
 within `LATTICE_BUDGET` and `NORMALIZ_TIMEOUT` of `feynkit.io.report`, and say "not computed"
-for a field left None, with the advice to install Normaliz or call `lattice_invariants`
+for a field left None, with the advice to install PyNormaliz or call `lattice_invariants`
 directly.
 
 ## Timings
@@ -261,8 +269,9 @@ all without the invariants.
   every candidate.
 - Every returned polar dual is reflexive and its dual is $P - p$; every width direction attains
   the width; the Ehrhart polynomial agrees with direct counts beyond the interpolated dilates.
-- Oracles at test time, skipped when absent: the Normaliz binary (Ehrhart series, $h^*$, interior
-  points by reciprocity, Gorenstein index, IDP and integral closure of the support monoid) and
+- Oracles at test time, skipped when absent: Normaliz through PyNormaliz, called directly
+  (Ehrhart series, $h^*$, interior points by reciprocity, Gorenstein index, IDP and integral
+  closure of the support monoid) and
   Sage's `LatticePolytope` (reflexivity, polar dual) on the one-loop graphs of `generate_graphs`
   with up to six legs, and on a sample of the two-loop graphs with up to four legs under the
   `slow` marker. No table of invariants of Feynman polytopes is stored in the tests.

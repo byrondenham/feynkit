@@ -47,6 +47,7 @@ from .normal_forms._chart import chart_frame, lift_linear
 from .normal_forms._invariants import (
     hull_vertex_indices,
     labelled_polytope_graph,
+    to_integer_points,
 )
 from .normal_forms.affine_equivalence import (
     is_affinely_equivalent,
@@ -908,12 +909,14 @@ def intrinsic_lattice_model(
 
 
 def _to_pts(obj: object) -> np.ndarray:
-    """Coerce to an (n_pts x n_dim) integer numpy array."""
+    """Coerce to an (n_pts x n_dim) integer numpy array.
+
+    A coordinate that is not an integer raises ValidationError, as in
+    to_integer_points; it is never rounded.
+    """
     if isinstance(obj, AConfiguration):
         return obj.affine_points
-    if isinstance(obj, np.ndarray):
-        return obj.astype(np.int64)
-    return np.array(list(cast(Iterable[Any], obj)), dtype=np.int64)
+    return to_integer_points(obj)
 
 
 def _basis_indices(deltas: np.ndarray, aff_dim: int) -> list[int] | None:

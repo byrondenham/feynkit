@@ -12,6 +12,7 @@ Key mathematical facts verified:
 """
 
 import random
+from fractions import Fraction
 from pathlib import Path
 
 import numpy as np
@@ -714,6 +715,17 @@ class TestSymmetryPairs:
     def test_banana3_has_identity(self, banana3):
         pairs = symmetry_pairs(banana3)
         assert any(p.is_unimodular and p.linear_map == sp.eye(3) for p in pairs)
+
+    @pytest.mark.parametrize("half", [0.5, Fraction(1, 2), sp.Rational(1, 2)], ids=str)
+    def test_non_integer_points_raise(self, half: object) -> None:
+        # They were truncated: 1/2 became 0, and the triangle a segment.
+        for points in ([(0, 0), (1, 0), (0, half)], np.array([[0, 0], [1, 0], [0, float(half)]])):
+            with pytest.raises(ValidationError, match="non-integer"):
+                symmetry_pairs(points)
+        with pytest.raises(ValidationError, match="non-integer"):
+            finite_index_map([(0, 0), (1, 0), (0, half)], [(0, 0), (1, 0), (0, 1)])
+        # Integral floats are integers.
+        assert len(symmetry_pairs(np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]))) == 6
 
     @pytest.mark.parametrize("shear", [5 * 10**7, 8 * 10**7])
     def test_nearly_dependent_differences(self, shear: int) -> None:

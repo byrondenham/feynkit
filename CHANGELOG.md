@@ -219,6 +219,9 @@
   truncated SymPy rationals, and raised `ValueError` on other floats. A float
   counts as an integer only when it equals one exactly, at its own precision,
   so a SymPy Float of 30 digits that rounds to 1 as a double is rejected.
+- `symmetry_pairs` and `finite_index_map` read a coordinate that is not an
+  integer, such as 0.5 or `Fraction(1, 2)`, as its integer part. They now
+  raise `ValidationError`, as `compute_polytope_automorphisms` does.
 - The basis searches of `compute_polytope_automorphisms`,
   `is_unimodular_equivalent` and `symmetry_pairs` tested linear independence
   with a floating rank, which fails for large coordinates. For the triangle

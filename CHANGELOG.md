@@ -285,6 +285,9 @@
   and `principal_a_determinant`, whatever the kinematics. A box with three or
   four massive propagators skips its polytope of 13 or 14 points at the default
   limit and loses its own factor; the report names the skipped face.
+- The documentation of `timeout` in `landau_analysis` says that it limits each
+  Singular elimination and is not a bound on the whole analysis: the SymPy
+  fallback, the discriminants of edges and the factorisations are not limited.
 
 ### Fixed
 

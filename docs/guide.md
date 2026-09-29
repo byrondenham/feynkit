@@ -1578,7 +1578,10 @@ points and misses its own factor at the default, and the report names each skipp
 `max_face_points` to 13 or 14 recovers it, at a cost of a few seconds.
 `landau_analysis(fi, timeout=60)` gives Singular at most 60 s for each face, with no limit by
 default. An elimination that runs past it, fails or prints output feynkit cannot read raises
-`ComputationError`; a factorisation that fails is left to SymPy.
+`ComputationError`; a factorisation that fails is left to SymPy. The limit applies to each
+elimination and is not a bound on the whole analysis, whose time can reach it for every face
+eliminated. The SymPy fallback, the discriminants of edges and the factorisations are not
+limited, and SymPy's factorisation of a large polynomial can take minutes on its own.
 
 ### LandauAnalysis fields
 

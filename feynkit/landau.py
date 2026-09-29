@@ -834,8 +834,11 @@ def landau_analysis_from_polynomial(
         still that coefficient.
     timeout
         The most seconds to give Singular for each face it eliminates, at
-        most 2,000,000; None, the default, sets no limit. The SymPy
-        fallback is not limited.
+        most 2,000,000; None, the default, sets no limit. It limits each
+        elimination, not the analysis: the total can reach that many
+        seconds for every face eliminated, and the other steps are not
+        limited, namely the SymPy fallback, the discriminants of edges and
+        the factorisations, which SymPy can take minutes over.
 
     Raises
     ------

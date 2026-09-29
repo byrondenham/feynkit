@@ -505,10 +505,11 @@ def _square_test_face(face: FaceDiscriminant, unit: Mapping[sp.Symbol, int]) -> 
 
     It takes those of a face of dimension 1 or more with a principal
     discriminant. With ``unit`` = {scale: 1}, which the caller passes when
-    the Landau analysis eliminated at scale 1, it leaves out a face whose
-    coefficients carry different powers of the scale and whose points with
-    the largest power of 1/scale, the points of F on a face of G, are not
-    affinely independent. Eliminated at scale 1, more faces come out
+    the Landau analysis eliminated at scale 1, it leaves out a face with
+    points of both U and F whose points of F are not affinely independent.
+    Those are the points of largest degree, F being of degree L + 1 in the
+    parameters and U of degree L, so the choice does not depend on how the
+    kinematics carry the scale. Eliminated at scale 1, more faces come out
     principal than with the scale as a variable; on every face with a
     kinematic discriminant of the graphs tried, the faces this rule takes are
     exactly those that were principal then, which the square test took. The
@@ -521,11 +522,10 @@ def _square_test_face(face: FaceDiscriminant, unit: Mapping[sp.Symbol, int]) -> 
         return False
     if not unit:
         return True
-    (scale,) = unit
-    powers = [sp.degree(sp.fraction(sp.together(c))[1], scale) for c in face.coefficients]
-    if min(powers) == max(powers):
+    degrees = [sum(e) for e in face.exponents]
+    if min(degrees) == max(degrees):
         return True
-    leading = [e for e, k in zip(face.exponents, powers, strict=True) if k == max(powers)]
+    leading = [e for e, d in zip(face.exponents, degrees, strict=True) if d == max(degrees)]
     return affine_rank(leading) + 1 == len(leading)
 
 

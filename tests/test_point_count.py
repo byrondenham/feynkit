@@ -629,12 +629,30 @@ class TestCountTorusPoints:
         assert mixed
         assert all(pc._square_test_face(face, {triangle.graph.energy_scale: 1}) for face in mixed)
 
+    def test_the_square_test_does_not_depend_on_how_the_kinematics_carry_mu(self) -> None:
+        # Scaling the two-mass bubble's masses and s by powers of mu leaves G at mu = 1 as it
+        # was, and the Landau analysis still eliminates at mu = 1. Found by the power of mu, the
+        # points of F changed, the square test took the polygon, whose discriminant s need not
+        # be a square, and no candidate came; found by degree, nothing changes.
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        mu = fi.graph.energy_scale
+        masses = [edge.get_mass() for edge in fi.graph.get_internal_edges()]
+        variables = list(fi.symanzik.lp_parameters)
+        (s,) = fi.symanzik.g.free_symbols - set(variables) - {mu, *masses}
+        results = []
+        for power in (0, 1, 2):
+            scaling = {**{m: mu**power * m for m in masses}, s: mu ** (2 * power) * s}
+            g = sp.expand(fi.symanzik.g.subs(scaling, simultaneous=True))
+            count = count_torus_points(g, variables, scale=mu, seed=0)
+            results.append((count.point, count.candidate_euler_characteristic))
+        assert results[0][1] is not None
+        assert results[1] == results[0] == results[2]
+
     def test_the_square_test_takes_every_principal_face_where_mu_stays_a_variable(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # At m_1 = mu the sunrise's coefficient of u_1^2 carries no mu, so the Landau analysis
-        # keeps mu a variable, and to the rule of _square_test_face faces of F alone would look
-        # like faces of U and F. The square test takes every principal face, as it did before.
+        # keeps mu a variable, and the square test takes every principal face, as it did before.
         fi = FeynmanIntegral.from_cnickel("111e|e|:nnn")
         mu = fi.graph.energy_scale
         m1, m2, m3 = (edge.get_mass() for edge in fi.graph.get_internal_edges())

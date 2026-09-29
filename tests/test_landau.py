@@ -49,6 +49,9 @@ from tests.test_pld import _NAME, FIXTURES, _python
 
 requires_singular = pytest.mark.skipif(_singular_binary() is None, reason="Singular not installed")
 
+# SymPy's factorisation, where a test uses it, runs from a fixed state of its generator.
+pytestmark = pytest.mark.usefixtures("sympy_seeded")
+
 
 def _monic(expr: sp.Expr) -> sp.Expr:
     """Normalise a polynomial factor up to a constant, for set comparison."""
@@ -964,19 +967,25 @@ class TestClosedForm:
         self, cnickel: str, backend: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # The oracle is the old computation: every minor expanded in the invariants and
-        # factored by SymPy. The closed form factors with Singular, or with SymPy without it.
+        # factored, by Singular when it is installed and the backend is Singular's, else by
+        # SymPy. SymPy's factorisation of the Cayley minor on 1, 2, 3, 4 of the one-mass box
+        # ran for minutes from some states of its generator, which the module fixes.
         if backend == "sympy":
             monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
         fi = FeynmanIntegral.from_cnickel(cnickel)
         y = _modified_cayley_matrix(fi)
+        subsets = [
+            subset
+            for size in range(1, y.rows + 1)
+            for subset in itertools.combinations(range(y.rows), size)
+        ]
+        minors = [sp.expand(y.extract(list(s), list(s)).det()) for s in subsets]
         first: dict[sp.Expr, None] = {}
         second: dict[sp.Expr, None] = {}
-        for size in range(1, y.rows + 1):
-            for subset in itertools.combinations(range(y.rows), size):
-                minor = sp.expand(y.extract(list(subset), list(subset)).det())
-                target = second if 0 in subset else first
-                for factor in _factor_list(minor, y.free_symbols):
-                    target.setdefault(factor, None)
+        for subset, factors in zip(subsets, _factor_lists(minors, y.free_symbols), strict=True):
+            target = second if 0 in subset else first
+            for factor in factors:
+                target.setdefault(factor, None)
         assert one_loop_landau_surfaces_by_type(fi) == (tuple(first), tuple(second))
 
     @requires_singular

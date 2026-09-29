@@ -5,6 +5,7 @@ from collections.abc import Generator
 
 import pytest
 import sympy as sp
+import sympy.core.random as sympy_random
 from hypothesis import settings
 
 from feynkit.core import Edge, Graph
@@ -15,6 +16,21 @@ from feynkit.core import Edge, Graph
 settings.register_profile("feynkit", parent=settings.get_profile("ci"), max_examples=25)
 settings.register_profile("feynkit-dev", max_examples=200, deadline=None)
 settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "feynkit"))
+
+
+@pytest.fixture  # type: ignore
+def sympy_seeded() -> Generator[None, None, None]:
+    """SymPy's random generator seeded for the test, and its state restored afterwards.
+
+    SymPy factors a multivariate polynomial by Wang's algorithm, which draws
+    evaluation points from this generator, and from some of its states runs
+    for many minutes on a polynomial it otherwise factors in a fraction of a
+    second. Seeded, a test factors the same way on every run.
+    """
+    state = sympy_random.rng.getstate()
+    sympy_random.rng.seed(1)
+    yield
+    sympy_random.rng.setstate(state)
 
 
 @pytest.fixture  # type: ignore

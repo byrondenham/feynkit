@@ -30,6 +30,9 @@ SMALL_PRIMES = (3, 5, 7, 11, 13, 17, 19, 23)
 # Brute force costs (p - 1)^n evaluations, so more variables get smaller primes.
 LARGEST_PRIME = {1: 23, 2: 23, 3: 13, 4: 7}
 
+# SymPy's factorisation, where a test uses it, runs from a fixed state of its generator.
+pytestmark = pytest.mark.usefixtures("sympy_seeded")
+
 
 def brute_force(terms: pc._Terms, n: int, p: int) -> int:
     """#V(F_p) in (F_p^*)^n by evaluating the polynomial at every point."""

@@ -673,12 +673,20 @@ def test_bridge_poles_are_listed() -> None:
     # A massless self-loop with a massive bridge: the whole report used to raise KeyError.
     fi = FeynmanIntegral.from_cnickel("01e|e|:zn")
     text, latex = fi.to_text(), fi.to_latex(["landau"])
-    lead = "The bridge poles, which the faces give as well, are"
+    lead = "The bridge pole, which the faces give as well, is"
     assert f"{lead} -m_2^2 + s The factors are candidate" in _flat(text)
     assert f"{lead}\n\\begin{{align*}}\n&- m_{{2}}^{{2}} + s\n\\end{{align*}}" in latex
     for document in (text, latex):
         assert "and there are no second-type (Gram) factors." in _flat(document)
+        assert "A propagator on no loop is a bridge. The closed form" in _flat(document)
     assert "bridge" not in FeynmanIntegral.from_cnickel("11e|e|:nn").to_text(["landau"])
+
+
+def test_several_bridge_poles_are_listed() -> None:
+    # A triangle with two massive bridges in a row, each with its own pole.
+    fi = FeynmanIntegral.from_cnickel("12e|2e|3|4|e|:nnnnn")
+    for document in (fi.to_text(["landau"]), fi.to_latex(["landau"])):
+        assert "The bridge poles, which the faces give as well, are" in _flat(document)
 
 
 def test_an_empty_factor_list_ends_its_sentence(tadpole: FeynmanIntegral) -> None:

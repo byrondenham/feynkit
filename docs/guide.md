@@ -1449,7 +1449,7 @@ print(second)   # s
 
 A graph with bridges, internal edges on no cycle, is its cycle with trees attached. Its matrix is
 that of the cycle, with the legs of each tree moved to the vertex where the tree meets the cycle,
-and each bridge b adds the pole $m_b^2 = q_b^2$ of its propagator, $q_b$ being the momentum
+and each bridge $b$ adds the pole $m_b^2 = q_b^2$ of its propagator, $q_b$ being the momentum
 through it. `one_loop_bridge_poles(fi)` returns these factors; `one_loop_landau_surfaces(fi)`
 includes them and `one_loop_landau_surfaces_by_type(fi)` does not.
 

@@ -326,10 +326,10 @@
   15 s.
 - The one-loop closed form, and with it `fk analyse` and the report, raised
   `KeyError` for a graph with a bridge and a leg beyond it, such as
-  `01e|e|:zn`, and gave wrong factors when the first internal edge was a
-  bridge, as for `1e|22|e|:nnn`, whose cycle it took to have four edges. A
-  disconnected graph that feynkit counts as one loop, such as `11e|e|33e|e|`,
-  raises `ValueError`.
+  `01e|e|:zn`, or `StopIteration`, as for `13e|23|e|e|:nnnn`, and gave wrong
+  factors when the first internal edge was a bridge, as for `1e|22|e|:nnn`,
+  whose cycle it took to have four edges. A disconnected graph that feynkit
+  counts as one loop, such as `11e|e|33e|e|`, raises `ValueError`.
 - The report's one-loop closed form expanded every principal minor of the
   modified Cayley matrix in the invariants: about 40 s for the massless
   pentagon, and unfinished after 47 minutes for the hexagon. It takes the
@@ -338,6 +338,11 @@
   SymPy's random evaluation points from a fixed seed, so that its time does not
   depend on what ran before: from one state a Gram minor of the hexagon, which
   factors in a fifth of a second, had not factored after seven minutes.
+- The one-loop closed form took each p_a^2 from the standard invariants, not
+  from the momentum products that F uses, so a change to the products such as
+  p_3^2 = 0 did not reach it: for `12e|2e|3|e|:nnnn` the bridge pole stayed
+  m_4^2 - p_3^2 where the faces give m_4. It now takes every squared momentum
+  from the products.
 
 ## 0.4.0 (2026-09-27)
 

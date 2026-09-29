@@ -820,26 +820,74 @@ class TestBridges:
         with pytest.raises(ValueError, match="one-loop"):
             one_loop_bridge_poles(FeynmanIntegral.from_cnickel("11e|2|33|e|:nnnnn"))
 
-    def test_a_disconnected_graph_is_rejected(self) -> None:
-        # Two bubbles with no edge between them count as one loop by E - V + 1.
-        with pytest.raises(ValueError, match="connected"):
-            one_loop_landau_surfaces(FeynmanIntegral.from_cnickel("11e|e|33e|e|"))
-
-    def test_a_graph_with_a_tree_component_is_rejected(self) -> None:
-        # A sunrise on vertices 1 and 2 and a separate edge from 3 to 4, a leg at each vertex,
-        # count as one loop by E - V + 1; removing leaves emptied vertex 3 and raised an
-        # unrelated ValueError.
-        edges = [
-            *(Edge(idx=k, v1=1, v2=2, is_internal=True) for k in (1, 2, 3)),
-            Edge(idx=4, v1=3, v2=4, is_internal=True),
-            *(Edge(idx=4 + v, v1=v, v2=4 + v, is_internal=False) for v in (1, 2, 3, 4)),
-        ]
-        fi = FeynmanIntegral(Graph(internal_vertices=4, external_legs=4, edges=edges))
+    @pytest.mark.parametrize("cnickel", ["11e|e|33e|e|", "122e|3e|e|3e|e|"])
+    def test_a_disconnected_graph_is_rejected(self, cnickel: str) -> None:
+        # Two bubbles with no edge between them, and a two-loop part with a vertex apart, count
+        # as one loop by E - V + 1. The second gave six factors and no error.
+        fi = FeynmanIntegral.from_cnickel(cnickel)
         assert fi.loop_count == 1
         with pytest.raises(ValueError, match="connected"):
             one_loop_landau_surfaces(fi)
-        with pytest.raises(ValueError, match="connected"):
-            one_loop_bridge_poles(fi)
+
+    @pytest.mark.parametrize(
+        ("internal", "vertices", "legs"),
+        [
+            # A sunrise on vertices 1 and 2 and a separate edge from 3 to 4: removing leaves
+            # emptied vertex 3 and raised an unrelated ValueError.
+            ([(1, 2), (1, 2), (1, 2), (3, 4)], 4, [1, 2, 3, 4]),
+            # A triangle with a bubble hung from vertex 3, and vertex 6 apart: the walk from
+            # vertex 5 circled the triangle without end, its list of edges growing.
+            ([(5, 4), (1, 2), (2, 3), (1, 3), (4, 3), (5, 4)], 6, [1, 2, 5, 6]),
+        ],
+        ids=["tree", "vertex-apart"],
+    )
+    def test_a_hand_built_disconnected_graph_is_rejected(
+        self, internal: list[tuple[int, int]], vertices: int, legs: list[int]
+    ) -> None:
+        # Each counts as one loop by E - V + 1. A walk that does not stop would fill the
+        # memory, so an alarm stops it where the platform has one.
+        edges = [
+            Edge(idx=k, v1=a, v2=b, is_internal=True) for k, (a, b) in enumerate(internal, start=1)
+        ]
+        edges += [
+            Edge(idx=len(internal) + k, v1=v, v2=vertices + k, is_internal=False)
+            for k, v in enumerate(legs, start=1)
+        ]
+        graph = Graph(internal_vertices=vertices, external_legs=len(legs), edges=edges)
+        fi = FeynmanIntegral(graph)
+        assert fi.loop_count == 1
+
+        def expire(signum: int, frame: object) -> None:
+            raise TimeoutError("the closed form did not stop")
+
+        alarm = hasattr(signal, "SIGALRM")
+        previous = signal.signal(signal.SIGALRM, expire) if alarm else None
+        if alarm:
+            signal.alarm(10)
+        try:
+            for closed_form in (one_loop_landau_surfaces, one_loop_bridge_poles):
+                with pytest.raises(ValueError, match="connected"):
+                    closed_form(fi)
+        finally:
+            if alarm:
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, previous)
+
+    def test_the_momenta_come_from_the_products(self) -> None:
+        # F sees p_3^2 = 0 set in the momentum products. The closed form took p_3^2 from the
+        # invariants, so the bridge carrying p_3 gave the pole m_4^2 - p_3^2, not m_4^2.
+        fi = FeynmanIntegral.from_cnickel("12e|2e|3|e|:nnnn")
+        p3 = standard_invariants(3).external_masses[2]
+        products = {
+            pair: sp.expand(sp.sympify(value).subs(p3, 0))
+            for pair, value in fi.momentum_products.items()
+        }
+        on_shell = fi.with_(momentum_products=products)
+        m4 = on_shell.graph.get_internal_edges()[3].get_mass()
+        assert one_loop_bridge_poles(on_shell) == (m4,)
+        kin = _kin(on_shell)
+        assert p3 not in kin
+        assert set().union(*(f.free_symbols for f in one_loop_landau_surfaces(on_shell))) <= kin
 
     @requires_singular
     @pytest.mark.parametrize(

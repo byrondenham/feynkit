@@ -741,28 +741,26 @@ def _one_loop_cycle(
 
 
 def _momentum_squared(integral: FeynmanIntegral) -> Callable[[list[int]], sp.Expr]:
-    """The square of the total momentum of a set of legs, from the momentum products."""
+    """The square of the total momentum of a set of legs, from the momentum products.
+
+    The momenta sum to zero, so the momentum q_S of the legs in S is minus
+    that of the others, and q_S^2 = -sum over a in S and c not in S of
+    p_a . p_c. F is written in the same products, so the two agree when the
+    products have been changed, as by setting p_3^2 = 0 in them.
+    """
     products = integral.momentum_products
     n_legs = integral.graph.external_legs
-    inv = None
-    if n_legs >= 2:
-        from .kinematics.mandelstam import standard_invariants
-
-        inv = standard_invariants(n_legs)
-
-    def dot(a: int, b: int) -> sp.Expr:
-        if a == b:
-            if inv is not None and integral.use_mandelstam:
-                return inv.external_masses[a - 1]
-            return -sum(
-                products.get((min(a, c), max(a, c)), sp.Integer(0))
-                for c in range(1, n_legs + 1)
-                if c != a
-            )
-        return products.get((min(a, b), max(a, b)), sp.Integer(0))
 
     def q_squared(legs: list[int]) -> sp.Expr:
-        return sp.expand(sum(dot(a, b) for a in legs for b in legs))
+        inside = set(legs)
+        return sp.expand(
+            -sum(
+                products.get((min(a, c), max(a, c)), sp.Integer(0))
+                for a in legs
+                for c in range(1, n_legs + 1)
+                if c not in inside
+            )
+        )
 
     return q_squared
 
@@ -847,7 +845,7 @@ def one_loop_landau_surfaces_by_type(
     Raises
     ------
     ValueError
-        If the integral has more than one loop.
+        If the integral has no loop or more than one, or its graph is not connected.
     """
     if integral.loop_count != 1:
         raise ValueError("The closed form applies to one-loop integrals only")
@@ -905,7 +903,7 @@ def one_loop_bridge_poles(integral: FeynmanIntegral) -> tuple[sp.Expr, ...]:
     Raises
     ------
     ValueError
-        If the integral has more than one loop.
+        If the integral has no loop or more than one, or its graph is not connected.
     """
     if integral.loop_count != 1:
         raise ValueError("The closed form applies to one-loop integrals only")
@@ -934,7 +932,7 @@ def one_loop_landau_surfaces(integral: FeynmanIntegral) -> tuple[sp.Expr, ...]:
     Raises
     ------
     ValueError
-        If the integral has more than one loop.
+        If the integral has no loop or more than one, or its graph is not connected.
     """
     first, second = one_loop_landau_surfaces_by_type(integral)
     surfaces = first + tuple(s for s in second if s not in first)

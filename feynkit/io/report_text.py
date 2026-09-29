@@ -949,13 +949,17 @@ def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
                 )
             )
         if factors.bridge_poles:
+            lead = (
+                "The bridge pole, which the faces give as well, is"
+                if len(factors.bridge_poles) == 1
+                else "The bridge poles, which the faces give as well, are"
+            )
             blocks += [
                 _paragraph(
-                    "The graph has bridges, propagators on no loop. The closed form is that of "
-                    "its cycle, with the legs of each tree attached to the cycle moved to the "
-                    "vertex where the tree meets it, and each bridge b adds the pole "
-                    "m_b^2 = q_b^2 of its propagator, q_b being the momentum through it. The "
-                    "bridge poles, which the faces give as well, are"
+                    "A propagator on no loop is a bridge. The closed form is that of the graph's "
+                    "cycle, with the legs of each tree attached to the cycle moved to the vertex "
+                    "where the tree meets it, and each bridge b adds the pole m_b^2 = q_b^2 of "
+                    f"its propagator, q_b being the momentum through it. {lead}"
                 ),
                 _expressions(factors.bridge_poles),
             ]

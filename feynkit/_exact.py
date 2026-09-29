@@ -13,7 +13,7 @@ import numbers
 import operator
 from collections.abc import Iterable, Sequence
 from fractions import Fraction
-from typing import Any, NamedTuple, SupportsIndex, cast
+from typing import Any, NamedTuple, SupportsIndex, SupportsInt, cast
 
 import numpy as np
 
@@ -32,6 +32,9 @@ def _as_int(value: object, where: str) -> int:
     ------
     ValidationError
         If value is not an integer. Integral floats and rationals are accepted.
+        A float counts as an integer only when it equals one exactly at its own
+        precision, so a SymPy Float of 30 digits that rounds to 1 as a double
+        is rejected.
     """
     if type(value) is int:
         return value
@@ -41,9 +44,14 @@ def _as_int(value: object, where: str) -> int:
         if value.denominator == 1:
             return int(value.numerator)
     elif isinstance(value, numbers.Real):
-        as_float = float(value)
-        if math.isfinite(as_float) and as_float.is_integer():
-            return int(as_float)
+        whole: int | None
+        try:
+            whole = int(cast(SupportsInt, value))
+        except (OverflowError, TypeError, ValueError):
+            whole = None
+        # The difference, not ==, since SymPy does not call Float(2.0) equal to 2.
+        if whole is not None and not value - whole:
+            return whole
     raise ValidationError(f"{where} has the non-integer coordinate {value!r}")
 
 

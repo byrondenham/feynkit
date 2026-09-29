@@ -659,14 +659,16 @@ def _clear_denominators(points: sp.Matrix) -> tuple[sp.Matrix, int]:
     """
     The points times q, and q, the least positive integer that makes them integers.
 
-    Integral floats count as integers. Raises ValidationError on any other
-    coordinate that is not a rational number, a float that is not an integer
-    included: it is rejected, not rounded.
+    A float counts as an integer when it equals one exactly, at its own
+    precision. Raises ValidationError on any other coordinate that is not a
+    rational number, a float that is not an integer included: it is rejected,
+    not rounded.
     """
     values: list[Any] = []
     for i in range(points.rows):
         for x in points.row(i):
-            if x.is_Float and math.isfinite(float(x)) and float(x).is_integer():
+            # The difference, not ==, since SymPy does not call Float(2.0) equal to 2.
+            if x.is_Float and x.is_finite and not x - int(x):
                 x = sp.Integer(int(x))
             if not x.is_Rational:
                 raise ValidationError(

@@ -214,7 +214,9 @@
   does the same below full dimension, so both accept rational points in every
   dimension. `is_unimodular_equivalent` and `compute_polytope_automorphisms`
   raise `ValidationError` on a coordinate that is not an integer: they
-  truncated SymPy rationals, and raised `ValueError` on other floats.
+  truncated SymPy rationals, and raised `ValueError` on other floats. A float
+  counts as an integer only when it equals one exactly, at its own precision,
+  so a SymPy Float of 30 digits that rounds to 1 as a double is rejected.
 - The basis searches of `compute_polytope_automorphisms`,
   `is_unimodular_equivalent` and `symmetry_pairs` tested linear independence
   with a floating rank, which fails for large coordinates. For the triangle

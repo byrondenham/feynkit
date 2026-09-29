@@ -1,7 +1,7 @@
 """Tests for the polytope-equivalence verbs."""
 
 import pytest
-from sympy import Matrix, Rational, eye
+from sympy import Float, Matrix, Rational, eye
 
 from feynkit import FeynmanIntegral, PolytopeEquivalence, ValidationError
 from feynkit.normal_forms import is_affinely_equivalent, is_point_config_equivalent
@@ -115,4 +115,7 @@ class TestRationalPoints:
             is_affinely_equivalent(Matrix([[0, 0], [0.5, 0], [0, 1]]), unit)
         with pytest.raises(ValidationError, match="not an exact rational"):
             is_point_config_equivalent(Matrix([[0, 0], [0.5, 0.5]]), Matrix([[0, 0], [1, 1]]))
+        almost = Float("1.00000000000000000001", 30)
+        with pytest.raises(ValidationError, match="not an exact rational"):
+            is_point_config_equivalent(Matrix([[0, 0], [almost, almost]]), Matrix([[0, 0], [1, 1]]))
         assert is_affinely_equivalent(Matrix([[0.0, 0.0], [2.0, 0.0], [0.0, 1.0]]), unit).equivalent

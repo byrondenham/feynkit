@@ -56,9 +56,13 @@ def test_labels_are_zero_below_full_dimension() -> None:
     assert [graph.nodes[i]["label"] for i in graph.nodes] == [0, 0, 0]
 
 
-@pytest.mark.parametrize("coordinate", [sp.Rational(1, 2), Fraction(1, 2), 0.5, sp.Float(0.5)])
+@pytest.mark.parametrize(
+    "coordinate",
+    [sp.Rational(1, 2), Fraction(1, 2), 0.5, sp.Float(0.5), sp.Float("1.00000000000000000001", 30)],
+)
 def test_non_integer_points_raise(coordinate: object) -> None:
-    # They were truncated: int(Rational(1, 2)) is 0.
+    # They were truncated: int(Rational(1, 2)) is 0. A float of 30 digits that rounds to 1 as a
+    # double is not an integer either.
     with pytest.raises(ValidationError, match="non-integer"):
         to_integer_points([(0, 0), (coordinate, 1)])
 
@@ -67,6 +71,7 @@ def test_integers_in_other_types() -> None:
     points = to_integer_points([(sp.Integer(2), 1.0), (Fraction(4, 2), sp.Rational(3, 1))])
     assert points.dtype == np.int64
     assert points.tolist() == [[2, 1], [2, 3]]
+    assert to_integer_points([(sp.Float(2.0), sp.Float("-3", 30))]).tolist() == [[2, -3]]
     assert to_integer_points(np.zeros((0, 3), dtype=np.int64)).shape == (0, 3)
 
 

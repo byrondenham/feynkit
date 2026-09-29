@@ -490,6 +490,14 @@ def _read_generator(
     return sp.Poly.from_dict(polynomial, *kin) if polynomial else None
 
 
+class _SingularElimination(NamedTuple):
+    """The generators of an elimination ideal and, when it is zero and a decomposition was
+    asked for, the generators of the elimination ideal of each minimal prime."""
+
+    generators: list[sp.Poly]
+    components: list[list[sp.Poly]] | None
+
+
 def _eliminate_singular(
     system: list[sp.Expr],
     to_eliminate: list[sp.Symbol],
@@ -498,7 +506,8 @@ def _eliminate_singular(
     *,
     points: int,
     timeout: float | None = None,
-) -> list[sp.Poly]:
+    decompose: bool = False,
+) -> _SingularElimination:
     """Elimination ideal via Singular's ``eliminate`` (Decker et al., Singular 4).
 
     Singular prints each generator expanded on one line, which can hold tens
@@ -506,75 +515,56 @@ def _eliminate_singular(
     parser recurses once per term. ``points`` is the number of points of the
     face, for the error messages.
 
-    Raises
-    ------
-    ComputationError
-        If Singular fails, runs past ``timeout`` seconds, or prints anything
-        but polynomials in ``kin``.
-    """
-    declarations, product = _singular_ideal(system, to_eliminate, kin)
-    script = (
-        declarations + f"ideal E = eliminate(I, {product});\n"
-        "int k; for (k = 1; k <= size(E); k++) { print(string(E[k])); }\n"
-        "quit;\n"
-    )
-    stdout = _run_singular(script, binary, points=points, timeout=timeout)
-    generators = (
-        _read_generator(text, len(to_eliminate), kin, points=points, size=len(stdout))
-        for text in stdout.splitlines()
-    )
-    return [g for g in generators if g is not None]
-
-
-def _dominant_components_singular(
-    system: list[sp.Expr],
-    to_eliminate: list[sp.Symbol],
-    kin: list[sp.Symbol],
-    binary: str,
-    *,
-    points: int,
-    timeout: float | None = None,
-) -> list[list[sp.Poly]]:
-    """The elimination ideal of each minimal prime of the ideal of ``system``.
-
-    Singular's ``minAssGTZ`` gives the minimal associated primes, the ideals
-    of the irreducible components of the variety (Gianni, Trager and
-    Zacharias's algorithm, in Singular's primdec.lib), and ``eliminate``
-    projects each. A component projects onto a dense subset of the
+    With ``decompose``, a zero elimination ideal is followed in the same run
+    by the minimal associated primes of the ideal of ``system``, the ideals
+    of the irreducible components of its variety, from ``minAssGTZ`` (Gianni,
+    Trager and Zacharias's algorithm, in Singular's primdec.lib), each
+    eliminated in turn. A component projects onto a dense subset of the
     kinematic space exactly when its elimination ideal is zero, an empty
     list here. Singular prints ``@`` before each component's generators.
 
     Raises
     ------
     ComputationError
-        As :func:`_eliminate_singular` raises, or if the output is not a
-        list of components.
+        If Singular fails, runs past ``timeout`` seconds, as the subclass
+        _EliminationTimeout, or prints anything but polynomials in ``kin``,
+        with the components after the generators.
     """
     declarations, product = _singular_ideal(system, to_eliminate, kin)
     script = (
-        'LIB "primdec.lib";\n' + declarations + "list L = minAssGTZ(I); ideal E; int i; int k;\n"
-        "for (i = 1; i <= size(L); i++) {\n"
-        f'  E = eliminate(L[i], {product}); print("@");\n'
-        "  for (k = 1; k <= ncols(E); k++) { print(string(E[k])); }\n"
-        "}\n"
-        "quit;\n"
+        declarations
+        + f"ideal E = eliminate(I, {product});\n"
+        + "int k; for (k = 1; k <= size(E); k++) { print(string(E[k])); }\n"
     )
-    stdout = _run_singular(script, binary, points=points, timeout=timeout)
-    components: list[list[sp.Poly]] = []
+    if decompose:
+        script += (
+            "if (size(E) == 0) {\n"
+            '  LIB "primdec.lib";\n'
+            "  list L = minAssGTZ(I); int i; ideal F;\n"
+            "  for (i = 1; i <= size(L); i++) {\n"
+            f'    F = eliminate(L[i], {product}); print("@");\n'
+            "    for (k = 1; k <= ncols(F); k++) { print(string(F[k])); }\n"
+            "  }\n"
+            "}\n"
+        )
+    stdout = _run_singular(script + "quit;\n", binary, points=points, timeout=timeout)
+    generators: list[sp.Poly] = []
+    components: list[list[sp.Poly]] | None = None
     for text in stdout.splitlines():
-        if text.strip() == "@":
-            components.append([])
+        if decompose and text.strip() == "@":
+            if generators:
+                raise ComputationError(
+                    f"cannot read Singular's elimination ideal of a face with {points} points: "
+                    "components follow a non-zero ideal"
+                )
+            components = [*(components or []), []]
             continue
         generator = _read_generator(text, len(to_eliminate), kin, points=points, size=len(stdout))
-        if generator is None:
-            continue
-        if not components:
-            raise ComputationError(
-                f"cannot read Singular's decomposition of a face with {points} points: "
-                f"a generator before the first component, {repr(text.strip())[:60]}"
-            )
-        components[-1].append(generator)
-    return components
+        if generator is not None:
+            (generators if components is None else components[-1]).append(generator)
+    if decompose and not generators and components is None:
+        components = []
+    return _SingularElimination(generators, components)
 
 
 def _factor_order(item: tuple[sp.Poly, int]) -> tuple[object, ...]:
@@ -929,27 +919,23 @@ def _elimination_discriminant(
         raise RuntimeError("Singular backend requested but the 'Singular' binary was not found")
     if not kin:
         return _Elimination([], True, False)
-    started = time.monotonic()
+    components: list[list[sp.Poly]] | None = None
     if binary is not None:
-        eliminated = _eliminate_singular(
-            system, to_eliminate, kin, binary, points=len(coeffs), timeout=timeout
+        eliminated, components = _eliminate_singular(
+            system,
+            to_eliminate,
+            kin,
+            binary,
+            points=len(coeffs),
+            timeout=timeout,
+            decompose=True,
         )
     else:
         eliminated = _eliminate_sympy(system, to_eliminate, kin)
     principal, dominant = len(eliminated) <= 1, not eliminated
     if dominant:
-        if binary is None:
+        if components is None:
             return _Elimination([], principal, dominant)
-        # The decomposition has what is left of the face's time.
-        left = None if timeout is None else timeout - (time.monotonic() - started)
-        if left is not None and left <= 0:
-            raise _EliminationTimeout(
-                f"Singular did not decompose a face with {len(coeffs)} points within "
-                f"timeout={timeout} s"
-            )
-        components = _dominant_components_singular(
-            system, to_eliminate, kin, binary, points=len(coeffs), timeout=left
-        )
         # The gcd of the generators of a prime of height two or more is 1.
         eliminated = [_gcd(generators) for generators in components if generators]
         eliminated = [g for g in eliminated if not g.is_ground]

@@ -32,7 +32,6 @@ from feynkit.io.report import AnalysisReport
 from feynkit.io.report_text import render_text
 from feynkit.kinematics.mandelstam import standard_invariants
 from feynkit.landau import (
-    _dominant_components_singular,
     _eliminate_singular,
     _elimination_discriminant,
     _factor_list,
@@ -329,11 +328,11 @@ def fake_singular(
 W, T, X, Y, Z = sp.symbols("w t x y z")
 
 
-def eliminate(timeout: float | None = None) -> list[sp.Poly]:
+def eliminate(timeout: float | None = None, *, decompose: bool = False) -> list[sp.Poly]:
     """A system in w and t over x, y and z, which Singular names v0 to v4."""
     return _eliminate_singular(
-        [W * T - 1], [W, T], [X, Y, Z], "Singular", points=10, timeout=timeout
-    )
+        [W * T - 1], [W, T], [X, Y, Z], "Singular", points=10, timeout=timeout, decompose=decompose
+    ).generators
 
 
 def singular_term(k: int, exponents: tuple[int, ...]) -> str:
@@ -440,28 +439,6 @@ class TestSingularOutput:
         assert [len(face) for face in analysis.skipped_faces] == [5]
         assert all(face.dimension < 2 for face in analysis.face_discriminants)
         assert set(analysis.landau_surfaces) == set(one_loop_landau_surfaces(massive_bubble)) - {S}
-
-    def test_the_decomposition_shares_the_time_limit(
-        self, monkeypatch: pytest.MonkeyPatch, massive_bubble: FeynmanIntegral
-    ) -> None:
-        # The elimination ideal is zero, and the minimal primes run past what is left.
-        timeouts: list[float | None] = []
-
-        def run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-            script = Path(args[-1]).read_text()
-            if "eliminate" not in script:
-                return subprocess.CompletedProcess(args, 1, stdout="", stderr="")
-            timeouts.append(kwargs["timeout"])  # type: ignore[arg-type]
-            if "minAssGTZ" in script:
-                raise subprocess.TimeoutExpired(args, 7)
-            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
-
-        monkeypatch.setattr(landau_module, "_singular_binary", lambda: "Singular")
-        monkeypatch.setattr(landau_module.subprocess, "run", run)
-        analysis = landau_analysis(massive_bubble, timeout=7)
-        assert [len(face) for face in analysis.skipped_faces] == [5]
-        eliminate, decompose = timeouts
-        assert eliminate == 7 and decompose is not None and 0 < decompose <= 7
 
     def test_timeout_reaches_singular(
         self, monkeypatch: pytest.MonkeyPatch, massive_bubble: FeynmanIntegral
@@ -1174,19 +1151,32 @@ class TestDominantFaces:
     ) -> None:
         # Two minimal primes: the first projects onto everything, the second onto x y = z.
         seen = fake_singular(monkeypatch, "@\n@\nv2*v3-v4\n")
-        components = _dominant_components_singular(
-            [W * T - 1], [W, T], [X, Y, Z], "Singular", points=10
+        result = _eliminate_singular(
+            [W * T - 1], [W, T], [X, Y, Z], "Singular", points=10, decompose=True
         )
-        assert [[g.as_expr() for g in c] for c in components] == [[], [X * Y - Z]]
+        assert result.generators == []
+        assert result.components is not None
+        assert [[g.as_expr() for g in c] for c in result.components] == [[], [X * Y - Z]]
+        # One run: the primes are sought only when the ideal is zero.
+        assert "if (size(E) == 0)" in str(seen["script"])
         assert "minAssGTZ" in str(seen["script"])
 
-    @pytest.mark.parametrize("stdout", ["v2\n", "@\nv0*v2\n", "@\n?\n"])
+    def test_a_nonzero_ideal_has_no_components(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_singular(monkeypatch, "v2\n")
+        result = _eliminate_singular(
+            [W * T - 1], [W, T], [X, Y, Z], "Singular", points=10, decompose=True
+        )
+        assert result == ([sp.Poly(X, X, Y, Z)], None)
+        fake_singular(monkeypatch, "")
+        assert eliminate(decompose=True) == []
+
+    @pytest.mark.parametrize("stdout", ["v2\n@\n", "@\nv0*v2\n", "@\n?\n"])
     def test_output_that_is_not_a_decomposition_raises(
         self, stdout: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         fake_singular(monkeypatch, stdout)
         with pytest.raises(ComputationError, match="cannot read"):
-            _dominant_components_singular([W * T - 1], [W, T], [X, Y, Z], "Singular", points=10)
+            eliminate(decompose=True)
 
     @requires_singular
     def test_a_database_entry_is_unchanged(self) -> None:

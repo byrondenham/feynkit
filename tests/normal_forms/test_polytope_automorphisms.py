@@ -272,12 +272,12 @@ class TestExactVertices:
         ("cnickel", "order"),
         [
             ("112|3|4e|5e|5e|e|:nnnnnzz", 24),
-            pytest.param("112|3|4e|5e|5e|e|:nnnnzzz", 24, marks=pytest.mark.slow),
+            ("112|3|4e|5e|5e|e|:nnnnzzz", 24),
             ("112|3|4e|5e|5e|e|:zznnnzz", 72),
         ],
     )
     def test_two_loop_pairs_from_the_columns_of_a(self, cnickel: str, order: int) -> None:
-        # The columns of A come in graded order; the second graph takes about 15 s.
+        # The columns of A come in graded order.
         assert len(_fi(cnickel).symmetry_pairs) == order
 
     def test_permutations_index_the_vertices_of_polytope_data(self) -> None:

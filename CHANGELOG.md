@@ -114,6 +114,21 @@
   unimodular maps of Z^n that take the polytope to itself form an infinite
   group there. The witnesses of the equivalence tests are such extensions. In
   full dimension nothing changes.
+- The searches for automorphisms, symmetry pairs and unimodular equivalences
+  label each vertex by its Liu-Cai label paired with the same determinant over
+  all the other vertices, which separates more vertices. The equivalence
+  search takes its basis from the rarest label classes and generates only the
+  combinations of vertices that carry the labels of that basis, where it tried
+  every combination of the right size. The groups, pairs and verdicts do not
+  change, though the pairs can come in another order. Against 0.4.0:
+  `is_unimodular_equivalent` of `123|24|e|5e|5e|e|:znnzzzz` and a relabelling
+  takes under a second instead of about 66 s; `polytope_automorphisms` and
+  `symmetry_pairs` of the massless pentagon take about 50 s and 90 s instead of
+  about 130 s and 220 s; `symmetry_pairs` on the columns of A of
+  `112|3|4e|5e|5e|e|:nnnnzzz` takes about 0.5 s, as before. Where 0.4.0 was
+  faster it was wrong: `polytope_automorphisms` of `123|4e|4e|5e|5|e|:nnnnnnn`
+  takes about 12 s, where 0.4.0 gave order 1 in 0.3 s instead of 48. The
+  massless hexagon still takes more than 20 minutes.
 - The report's symmetry section and `fk analyse -S` show the symmetries of a
   Newton polytope of dimension below 2 or below full dimension, which they
   left out. Below full dimension the order is that of the group in the affine
@@ -180,9 +195,7 @@
   and `vertex_orbits` index `polytope_data(points).vertices`, the list the
   report numbers v_1, v_2, .... The massive tadpole's segment gets its
   reflection, where `polytope_automorphisms` and `symmetry_pairs` raised
-  `ValueError`. The exact labels separate the vertices of some polytopes less
-  well than the floating ones did: `symmetry_pairs` on the columns of A of
-  `112|3|4e|5e|5e|e|:nnnnzzz` takes about 15 s, where it took under a second.
+  `ValueError`.
 - Below full dimension `polytope_automorphisms` found only the identity,
   `is_unimodular_equivalent` found a Newton polytope not equivalent even to
   itself, and `is_affinely_equivalent` and `is_point_config_equivalent`
@@ -218,10 +231,7 @@
   `symmetry_pairs` found none, the identity included. Each candidate is now
   found in integer arithmetic, as W_b adj(W_a) / det(W_a), and kept only when
   it is integral; the products, and those of the Liu-Cai labels, use Python
-  integers where int64 could overflow. The searches are also faster:
-  `polytope_automorphisms` of the massless pentagon takes about 60 s instead
-  of about 140 s, and `symmetry_pairs` on the columns of A of
-  `112|3|4e|5e|5e|e|:nnnnzzz` about 15 s instead of about 35 s.
+  integers where int64 could overflow.
 - `symmetry_pairs` returned no pairs, not even the identity, for a
   configuration that is not full-dimensional. It now finds them in the
   lattice chart of the points and extends each to Z^n as

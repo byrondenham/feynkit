@@ -111,8 +111,9 @@ Liu and Cai (arXiv:2506.23846), originally introduced for deciding unimodular
 automorphism $(U, t)$ is determined by the image of a single basis: fix a
 vertex $v_0 \in P$ and an affinely independent set of $n$ neighbouring vertices
 $\{v_1, \ldots, v_n\}$ forming a basis for the translations. The image of $v_0$
-can be any vertex $v_0'$ with the same combinatorial label (degree sequence in
-the polytope graph), and the images of $v_1, \ldots, v_n$ are constrained by
+can be any vertex $v_0'$ with the same label, an invariant of unimodular maps
+built from moment matrices at the vertex (section 7.2 of the mathematics
+reference), and the images of $v_1, \ldots, v_n$ are constrained by
 the requirement that $U$ is integer-valued and unimodular. The algorithm
 enumerates all such candidate bases, filters by integrality and determinant, and
 verifies each candidate against all vertices. Unlike the equivalence test, every

@@ -158,18 +158,26 @@ def label_skeleton(coordinates: np.ndarray, skeleton: nx.Graph) -> nx.Graph:
     """
     A copy of ``skeleton`` with the Liu-Cai labels of the vertices at ``coordinates``.
 
-    Node ``i`` of ``skeleton`` is the vertex ``coordinates[i]``. The node
-    attribute ``"label"`` is its label, 0 when it has no neighbour, and the edge
-    attribute ``"weight"`` the sum of the labels of the two ends. The
-    coordinates may be those of a lattice chart, in which a polytope that is
-    not full-dimensional is full-dimensional; in the ambient coordinates every
-    label of such a polytope is 0.
+    Node ``i`` of ``skeleton`` is the vertex ``coordinates[i]``. Its node
+    attribute ``"label"`` combines two unimodular invariants: its Liu-Cai
+    label over its neighbours, 0 when it has none, and the same determinant
+    over all the other vertices, which separates vertices that the first
+    leaves together. Both are non-negative, as determinants of sums of outer
+    products, and Cantor's pairing function (a + b)(a + b + 1)/2 + b encodes
+    the pair as one integer. The edge attribute ``"weight"`` is the sum of the
+    labels of the two ends. The coordinates may be those of a lattice chart,
+    in which a polytope that is not full-dimensional is full-dimensional; in
+    the ambient coordinates every label of such a polytope is 0.
     """
     G = skeleton.copy()
+    nodes = list(G.nodes())
     labels: dict[int, int] = {}
-    for i in G.nodes():
+    for i in nodes:
         nbrs = list(G.neighbors(i))
-        labels[i] = vertex_label(coordinates[i], coordinates[np.array(nbrs)]) if nbrs else 0
+        local = vertex_label(coordinates[i], coordinates[np.array(nbrs)]) if nbrs else 0
+        others = [j for j in nodes if j != i]
+        whole = vertex_label(coordinates[i], coordinates[np.array(others)]) if others else 0
+        labels[i] = (local + whole) * (local + whole + 1) // 2 + whole
     nx.set_node_attributes(G, labels, "label")
     for u, v in G.edges():
         G[u][v]["weight"] = labels[u] + labels[v]
@@ -181,7 +189,8 @@ def labelled_polytope_graph(vertices: np.ndarray) -> nx.Graph:
     Build the Liu-Cai labelled vertex-edge graph $\\mathcal{GW}(P)$:
 
     - nodes ``0..d-1`` index into ``vertices`` (assumed to be extreme points),
-    - node attribute ``"label"`` is the Liu-Cai vertex label ``det(A_v)``,
+    - node attribute ``"label"`` pairs the Liu-Cai vertex label ``det(A_v)`` with
+      the same determinant over all the other vertices (see label_skeleton),
     - edge attribute ``"weight"`` is the sum of endpoint labels.
     """
     return label_skeleton(vertices, vertex_edge_graph(vertices))

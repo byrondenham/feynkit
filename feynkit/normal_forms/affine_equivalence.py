@@ -17,8 +17,10 @@ witness map (when known), and a vertex correspondence (when known).
 from __future__ import annotations
 
 import math
+from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator
 from itertools import combinations, permutations
+from itertools import product as _prod
 from typing import Any
 
 import numpy as np
@@ -30,6 +32,7 @@ from ..polytope import PolytopeData, polytope_data
 from ..types import PolytopeEquivalence
 from . import _invariants
 from ._chart import ChartFrame, chart_frame, lift_linear
+from .polytope_automorphisms import _select_basis_indices_by_label
 
 # ------------------------------------------------------------------------------
 # Public API: Liu-Cai unimodular equivalence
@@ -156,10 +159,15 @@ def is_unimodular_equivalent(
     if GW_a.number_of_edges() != GW_b.number_of_edges():
         return PolytopeEquivalence(False, "unimodular")
 
-    # Select a basis in the vertices of the first polytope.
+    # Select a basis in the vertices of the first polytope, from the rarest
+    # label classes first, so that few combinations of vertices of the second
+    # share its labels.
     v_0 = coords_a[0]
     deltas_a = (coords_a - v_0).astype(np.int64)
-    basis_indices = _select_basis_indices(deltas_a, coords_a.shape[1])
+    labels = [GW_a.nodes[i]["label"] for i in range(n_vert)]
+    basis_indices = _select_basis_indices_by_label(
+        deltas_a, coords_a.shape[1], labels, Counter(labels)
+    )
     if basis_indices is None:
         return PolytopeEquivalence(False, "unimodular")
 
@@ -197,26 +205,6 @@ def _vertices(pts: np.ndarray) -> tuple[PolytopeData | None, np.ndarray]:
         return None, np.arange(0)
     data = polytope_data(pts)
     return data, np.array(data.vertex_indices, dtype=np.int64)
-
-
-def _select_basis_indices(deltas: np.ndarray, n_dim: int) -> list[int] | None:
-    """
-    Greedy selection of ``n_dim`` row indices of ``deltas`` whose rows are
-    linearly independent. Returns ``None`` if no such basis exists.
-
-    The first row (index 0) corresponds to the anchor vertex itself
-    (delta = 0), so it is skipped.
-    """
-    chosen: list[int] = []
-    chosen_rows: list[list[int]] = []
-    for i in range(1, deltas.shape[0]):
-        row = [int(x) for x in deltas[i]]
-        if _exact.rank([*chosen_rows, row]) == len(chosen) + 1:
-            chosen.append(i)
-            chosen_rows.append(row)
-            if len(chosen) == n_dim:
-                return chosen
-    return None
 
 
 def _label_preserving_orderings(
@@ -285,13 +273,13 @@ def _direct_basis_search(
     """
     Enumerate candidate (anchor, ordered-basis) pairs in V_b and solve for U.
 
-    For each anchor vertex in V_b whose Liu-Cai label matches V_a[0], try all
-    C(n_vert-1, n_dim) unordered n-subsets of the remaining vertices as the
-    basis image, filtered by:
+    For each anchor vertex in V_b whose Liu-Cai label matches V_a[0], try the
+    unordered n-subsets of the remaining vertices as the basis image, with:
 
-      1. Label multiset: sorted labels of the subset must equal sorted labels
-         of the basis_indices vertices in V_a (Liu-Cai labels are unimodular
-         invariants, so valid maps preserve them).
+      1. Label multiset: the subsets are generated class by class, so that
+         their labels are those of the basis_indices vertices in V_a (Liu-Cai
+         labels are unimodular invariants, so valid maps preserve them). They
+         are exactly the subsets whose sorted labels equal the basis's.
       2. |det W_b| = |det W_a|: computed exactly once per unordered subset
          (column permutations only flip the sign, so all orderings share the
          same |det|).
@@ -307,7 +295,6 @@ def _direct_basis_search(
     search goes on.
     """
     n_vert = V_a.shape[0]
-    n_dim = V_a.shape[1]
     v_0 = V_a[0]
 
     size = 2 * max(int(np.abs(V_a).max()), int(np.abs(V_b).max())) + 1
@@ -317,8 +304,9 @@ def _direct_basis_search(
     labels_a_node = [GW_a.nodes[i]["label"] for i in range(n_vert)]
     labels_b_node = [GW_b.nodes[i]["label"] for i in range(n_vert)]
     label_a0 = labels_a_node[0]
-    basis_label_multiset = sorted(labels_a_node[k] for k in basis_indices)
     basis_label_seq = [labels_a_node[k] for k in basis_indices]
+    basis_label_needs = Counter(basis_label_seq)
+    basis_label_classes = sorted(basis_label_needs)
 
     for anchor_idx in range(n_vert):
         if labels_b_node[anchor_idx] != label_a0:
@@ -330,12 +318,17 @@ def _direct_basis_search(
         # Fast delta->index lookup (hull vertices are distinct, so no collisions).
         delta_to_b_idx = {tuple(int(x) for x in row): i for i, row in enumerate(deltas_b.tolist())}
 
-        others = [j for j in range(n_vert) if j != anchor_idx]
-
-        for combo in combinations(others, n_dim):
-            # Filter 1: label multiset.
-            if sorted(labels_b_node[j] for j in combo) != basis_label_multiset:
-                continue
+        # Filter 1: generate only the subsets with the labels of the basis.
+        label_to_others: dict[int, list[int]] = defaultdict(list)
+        for other in range(n_vert):
+            if other != anchor_idx:
+                label_to_others[labels_b_node[other]].append(other)
+        sub_combo_iters = [
+            combinations(label_to_others[lbl], basis_label_needs[lbl])
+            for lbl in basis_label_classes
+        ]
+        for sub_combos in _prod(*sub_combo_iters):
+            combo = tuple(v for sub in sub_combos for v in sub)
 
             # Filter 2: |det(W_b)| must equal |det(W_a)| for U = W_b*W_a^-1 to
             # have det +/-1, in exact integer arithmetic.

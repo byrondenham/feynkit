@@ -699,6 +699,15 @@ $d \times d$ determinants.
 **Invariance:** For any unimodular map $(U,t)$, $\ell(Uv + t) = \ell(v)$.  This follows because the
 outer-product matrix transforms as $A_{Uv+t} = U A_v U^T$, so $\det A_{Uv+t} = (\det U)^2 \det A_v = \det A_v$.
 
+feynkit pairs $\ell(v)$ with the same determinant over all the other vertices,
+
+$$\ell_V(v) \;=\; \det\!\left(\sum_{w \in V,\, w \ne v} (w - v)(w - v)^T\right),$$
+
+which is invariant for the same reason and separates vertices that $\ell$ leaves together: for
+`112|3|4e|5e|5e|e|:nnnnzzz` the 45 vertices fall into 6 classes of $\ell$ and into 9 of the pair,
+the orbits of its group. Both determinants are non-negative, and the pair is stored as one integer
+by Cantor's pairing function.
+
 Labels are used to filter candidate basis points, reducing the search from $O(N^n)$ brute force to
 $O(|\mathrm{Aut}| \cdot n!)$ in typical cases.
 
@@ -848,10 +857,10 @@ fields `.equivalent` (bool), `.witness_map` ($U$), `.translation` ($t$), `.deter
 
 The algorithm is the Liu-Cai basis-search (same as automorphism computation, but between two
 configurations): build the labelled polytope graphs, fix an affine basis of the first polytope,
-map it to each label-preserving choice of vertices of the second, solve for $U$ and verify it on
-every vertex. Below full dimension the two polytopes must have the same affine dimension and
-their vertex sets the same sublattice index, and the search runs in the lattice charts of those
-vertex sets. A chart map is
+drawn from its rarest label classes, map it to each choice of vertices of the second with the same
+labels, generated class by class, solve for $U$ and verify it on every vertex. Below full
+dimension the two polytopes must have the same affine dimension and their vertex sets the same
+sublattice index, and the search runs in the lattice charts of those vertex sets. A chart map is
 accepted when it maps the integer points of one affine hull onto those of the other, and the
 witness is its extension to $GL_n(\mathbb{Z})$, as in section 7.3. Two points are always
 equivalent, and two segments exactly when their lattice lengths agree.

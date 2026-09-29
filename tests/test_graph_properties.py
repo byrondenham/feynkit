@@ -229,6 +229,14 @@ def test_a_scaleless_graph_is_equivalent_to_itself() -> None:
     assert integral(graph).is_unimodular_equivalent_to(integral(relabelled)).equivalent
 
 
+def test_a_two_loop_graph_with_seven_propagators_is_equivalent_to_a_relabelling() -> None:
+    # The equivalence search tried every set of vertices of the size of its basis and kept those
+    # with the labels of the basis: minutes for this graph. It now generates only those sets.
+    r = Relabelling("123|24|e|5e|5e|e|:znnzzzz", (4, 2, 5, 3, 0, 1), (6, 1, 0, 5, 4, 3, 2), 1)
+    graph, relabelled = relabel(r)
+    assert integral(graph).is_unimodular_equivalent_to(integral(relabelled)).equivalent
+
+
 @given(relabellings(POOL))
 @with_examples(EXAMPLES)
 def test_deletion_contraction(r: Relabelling) -> None:

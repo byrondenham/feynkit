@@ -11,7 +11,9 @@ import sympy as sp
 from feynkit import FeynmanIntegral, ValidationError
 from feynkit.normal_forms._invariants import (
     hull_vertex_indices,
+    label_skeleton,
     labelled_polytope_graph,
+    polytope_skeleton,
     to_integer_points,
     vertex_edge_graph,
     vertex_label,
@@ -74,3 +76,27 @@ def test_labels_of_large_coordinates() -> None:
     v = np.array([0, 0], dtype=np.int64)
     neighbours = np.array([[5 * 10**9, 1], [1, 5 * 10**9]], dtype=np.int64)
     assert vertex_label(v, neighbours) == (25 * 10**18 + 1) ** 2 - 10**20
+
+
+def test_the_label_pairs_two_invariants() -> None:
+    # Over its neighbours the labels of the vertices of 112|3|4e|5e|5e|e|:nnnnzzz fall into
+    # 6 classes; paired with the determinant over all the other vertices, into 9, the orbits
+    # of its group. Both parts are unchanged by a unimodular map.
+    points = FeynmanIntegral.from_cnickel("112|3|4e|5e|5e|e|:nnnnzzz").newton_polytope.points
+    data = polytope_data(points)
+    V = np.array(data.vertices, dtype=np.int64)
+    skeleton = polytope_skeleton(data)
+    graph = label_skeleton(V, skeleton)
+    local = {i: vertex_label(V[i], V[list(graph.neighbors(i))]) for i in graph.nodes}
+    for i in graph.nodes:
+        whole = vertex_label(V[i], np.delete(V, i, axis=0))
+        pair = local[i] + whole
+        assert graph.nodes[i]["label"] == pair * (pair + 1) // 2 + whole
+    assert len(set(local.values())) == 6
+    assert len({graph.nodes[i]["label"] for i in graph.nodes}) == 9
+    U = np.eye(V.shape[1], dtype=np.int64)
+    U[0, 1], U[3, 6], U[5, 2] = 1, -2, 3
+    image = label_skeleton(V @ U.T + 5, skeleton)
+    assert [image.nodes[i]["label"] for i in image.nodes] == [
+        graph.nodes[i]["label"] for i in graph.nodes
+    ]

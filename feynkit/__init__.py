@@ -43,7 +43,7 @@ algebra
 normal_forms
     Pairing-matrix canonicalisation and polytope equivalence.
 kinematics
-    Momentum products and Mandelstam variables.
+    Momentum products, Mandelstam variables and kinematic classes.
 visualisation
     TikZ generation and Newton polytope rendering.
 io
@@ -88,6 +88,12 @@ from feynkit.database import FeynkitDatabase
 from feynkit.generate import generate_graphs
 from feynkit.integral import FeynmanIntegral
 from feynkit.io.report import AnalysisReport
+from feynkit.kinematics import (
+    KINEMATIC_CLASSES,
+    impose_kinematics,
+    kinematic_axes,
+    kinematic_class,
+)
 from feynkit.landau import (
     FaceDiscriminant,
     LandauAnalysis,
@@ -124,6 +130,11 @@ __all__ = [
     "generate_graphs",
     # Analysis report
     "AnalysisReport",
+    # Kinematic classes
+    "KINEMATIC_CLASSES",
+    "impose_kinematics",
+    "kinematic_axes",
+    "kinematic_class",
     # Conformal artifacts
     "massless_polygon_a_config",
     "bms_simplex_a_config",

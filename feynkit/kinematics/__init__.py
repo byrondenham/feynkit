@@ -20,6 +20,10 @@ KinematicInvariants
     Dataclass holding the standard independent invariants for n external legs.
 standard_invariants
     Express the external dot products in the standard planar invariants.
+kinematic_axes, kinematic_class
+    The internal and external kinematic axes of an integral, and its class.
+impose_kinematics
+    The integral with a kinematic class imposed by substitution.
 
 Examples
 --------
@@ -31,6 +35,17 @@ Examples
 {(1, 2): -p1^2/2 - p2^2/2 + p3^2/2, (1, 3): -p1^2/2 + p2^2/2 - p3^2/2, (2, 3): p1^2/2 - p2^2/2 - p3^2/2}
 """
 
+from .classes import (
+    CLASS_OF_AXES,
+    IMPOSABLE_CLASSES,
+    KINEMATIC_CLASSES,
+    ExternalAxis,
+    InternalAxis,
+    KinematicClass,
+    impose_kinematics,
+    kinematic_axes,
+    kinematic_class,
+)
 from .mandelstam import (
     KinematicInvariants,
     create_mandelstam_variables,
@@ -51,4 +66,13 @@ __all__ = [
     "mandelstam_constraints",
     "KinematicInvariants",
     "standard_invariants",
+    "CLASS_OF_AXES",
+    "IMPOSABLE_CLASSES",
+    "KINEMATIC_CLASSES",
+    "ExternalAxis",
+    "InternalAxis",
+    "KinematicClass",
+    "impose_kinematics",
+    "kinematic_axes",
+    "kinematic_class",
 ]

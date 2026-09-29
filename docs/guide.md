@@ -1681,8 +1681,12 @@ function of the exponent, as when the kinematics are free of $\mu$, and with $\m
 otherwise. When the face's coefficients are independent linear forms in the invariants and squared
 masses, it is taken in fresh symbols for them. A face whose elimination ideal has several
 generators contributes the factors of their greatest common divisor, the codimension-one part of
-its locus, which makes the result the principal Landau determinant of Fevola, Mizera and Telen
-(2024, section 3). At special kinematics it can miss a component that the one-loop closed form
+its locus. A face whose elimination ideal is zero has a component that projects onto all of
+kinematic space; Singular's `minAssGTZ` splits its ideal into minimal primes, and each prime that
+projects onto a hypersurface contributes that hypersurface, as $bc = ad$ does in example 3.9 of
+Fevola, Mizera and Telen (2024), while the dominant ones are left out and `face.dominant` is set.
+Without Singular such a face contributes nothing. This makes the result the principal Landau
+determinant of Fevola, Mizera and Telen (2024, section 3). At special kinematics it can miss a component that the one-loop closed form
 keeps: a singular point of a face can leave the torus as the kinematics specialise, and no face
 then sees its limit. With $p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn` misses
 $p_2^2 - p_3^2$: where $p_2^2 = p_3^2$ its top face has no singular point in the torus, since it
@@ -1727,6 +1731,7 @@ limited, and SymPy's factorisation of a large polynomial can take minutes on its
 | `face.discriminant` | `sp.Expr` | Discriminant of the restriction, 1 if trivial |
 | `face.is_simplex` | `bool` | Lattice points affinely independent |
 | `face.principal` | `bool` | Elimination ideal had a single generator; with several, the discriminant holds the factors of their greatest common divisor |
+| `face.dominant` | `bool` | Elimination ideal was zero: a component projects onto all of kinematic space and is left out, and the discriminant holds the hypersurfaces the other components project onto |
 
 ---
 

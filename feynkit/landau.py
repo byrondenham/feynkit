@@ -26,7 +26,10 @@ Faces contribute as follows.
   symbols standing for them, a change of coordinates that keeps the
   Gröbner basis small. It contributes the factors of the generator or,
   when there are several, of their greatest common divisor, the
-  codimension-one part of their zero set. The result is the principal
+  codimension-one part of their zero set. When the ideal is zero, a
+  component projects onto all of kinematic space; it is left out, and the
+  minimal primes give the hypersurfaces the other components project onto.
+  The result is the principal
   Landau determinant of Fevola, Mizera and Telen (2024, section 3), which
   at special kinematics can miss a component: a singular point of a face
   can leave the torus as the kinematics specialise, and no face then sees
@@ -63,12 +66,13 @@ import numbers
 import re
 import subprocess
 import tempfile
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from fractions import Fraction
 from itertools import combinations
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
 import sympy as sp
@@ -125,6 +129,15 @@ class FaceDiscriminant:
         product of the kinematic factors of their greatest common divisor,
         since an irreducible polynomial defines a codimension-one component
         of their common zero set exactly when it divides every generator.
+    dominant
+        True when the elimination ideal of a face of dimension two or more
+        is zero: a component of the face's incidence variety projects onto
+        a dense subset of the kinematic space. Such components are left out
+        (Fevola, Mizera and Telen 2024, definition 3.5), and the
+        discriminant holds the factors of the others that project onto
+        hypersurfaces, found through the minimal primes of the incidence
+        ideal. Without Singular they are not sought, and the discriminant
+        of such a face is 1.
     """
 
     dimension: int
@@ -133,6 +146,7 @@ class FaceDiscriminant:
     discriminant: sp.Expr
     is_simplex: bool
     principal: bool = True
+    dominant: bool = False
 
 
 @dataclass(frozen=True)
@@ -311,6 +325,84 @@ def _read_singular_polynomial(
     return terms
 
 
+class _EliminationTimeout(ComputationError):
+    """Singular ran past the time limit on a face."""
+
+
+def _singular_ideal(
+    system: list[sp.Expr], to_eliminate: list[sp.Symbol], kin: list[sp.Symbol]
+) -> tuple[str, str]:
+    """Singular's declarations of the ring and of the ideal of ``system``, in the variables
+    v0, v1, ..., those to eliminate first, and the product of those to eliminate."""
+    names = {sym: f"v{i}" for i, sym in enumerate(to_eliminate + kin)}
+
+    def render(expr: sp.Expr) -> str:
+        return str(sp.expand(expr).subs(names, simultaneous=True)).replace("**", "^")
+
+    ring_vars = ",".join(names[v] for v in to_eliminate + kin)
+    ideal = ",".join(render(g) for g in system)
+    declarations = f"ring r = 0, ({ring_vars}), dp;\nideal I = {ideal};\n"
+    return declarations, "*".join(names[v] for v in to_eliminate)
+
+
+def _run_singular(script: str, binary: str, *, points: int, timeout: float | None) -> str:
+    """What Singular prints on stdout for a script eliminating a face with ``points`` points.
+
+    Raises
+    ------
+    ComputationError
+        If Singular fails, or runs past ``timeout`` seconds, as the subclass
+        _EliminationTimeout.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "elim.sing"
+        path.write_text(script)
+        try:
+            result = subprocess.run(
+                [binary, "-q", "--no-warn", str(path)],
+                capture_output=True,
+                text=True,
+                errors="replace",
+                check=False,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            raise _EliminationTimeout(
+                f"Singular did not eliminate a face with {points} points within "
+                f"timeout={timeout} s"
+            ) from None
+    if result.returncode != 0:
+        reason = " ".join(result.stderr.split())[:100] or f"exit status {result.returncode}"
+        raise ComputationError(
+            f"Singular failed on a face with {points} points, "
+            f"{len(result.stdout)} characters of output: {reason}"
+        ) from None
+    return result.stdout
+
+
+def _read_generator(
+    text: str, n_eliminated: int, kin: list[sp.Symbol], *, points: int, size: int
+) -> sp.Poly | None:
+    """A generator of an elimination ideal that Singular printed on one line, or None for 0.
+
+    Raises
+    ------
+    ComputationError
+        If the line is not a polynomial in ``kin``.
+    """
+    line = text.replace(" ", "")
+    if not line or line == "0":
+        return None
+    terms = _read_singular_polynomial(line, n_eliminated, len(kin))
+    if terms is None:
+        raise ComputationError(
+            f"cannot read Singular's elimination ideal of a face with {points} points "
+            f"from {size} characters of output, at {repr(text.strip())[:60]}"
+        ) from None
+    polynomial = {key: sp.Rational(c.numerator, c.denominator) for key, c in terms.items() if c}
+    return sp.Poly.from_dict(polynomial, *kin) if polynomial else None
+
+
 def _eliminate_singular(
     system: list[sp.Expr],
     to_eliminate: list[sp.Symbol],
@@ -333,59 +425,69 @@ def _eliminate_singular(
         If Singular fails, runs past ``timeout`` seconds, or prints anything
         but polynomials in ``kin``.
     """
-    names = {sym: f"v{i}" for i, sym in enumerate(to_eliminate + kin)}
-
-    def render(expr: sp.Expr) -> str:
-        return str(sp.expand(expr).subs(names, simultaneous=True)).replace("**", "^")
-
-    ring_vars = ",".join(names[v] for v in to_eliminate + kin)
-    ideal = ",".join(render(g) for g in system)
-    product = "*".join(names[v] for v in to_eliminate)
+    declarations, product = _singular_ideal(system, to_eliminate, kin)
     script = (
-        f"ring r = 0, ({ring_vars}), dp;\n"
-        f"ideal I = {ideal};\n"
-        f"ideal E = eliminate(I, {product});\n"
+        declarations + f"ideal E = eliminate(I, {product});\n"
         "int k; for (k = 1; k <= size(E); k++) { print(string(E[k])); }\n"
         "quit;\n"
     )
-    with tempfile.TemporaryDirectory() as tmp:
-        path = Path(tmp) / "elim.sing"
-        path.write_text(script)
-        try:
-            result = subprocess.run(
-                [binary, "-q", "--no-warn", str(path)],
-                capture_output=True,
-                text=True,
-                errors="replace",
-                check=False,
-                timeout=timeout,
-            )
-        except subprocess.TimeoutExpired:
-            raise ComputationError(
-                f"Singular did not eliminate a face with {points} points within "
-                f"timeout={timeout} s"
-            ) from None
-    size = f"{len(result.stdout)} characters of output"
-    if result.returncode != 0:
-        reason = " ".join(result.stderr.split())[:100] or f"exit status {result.returncode}"
-        raise ComputationError(
-            f"Singular failed on a face with {points} points, {size}: {reason}"
-        ) from None
-    out: list[sp.Poly] = []
-    for text in result.stdout.splitlines():
-        line = text.replace(" ", "")
-        if not line or line == "0":
+    stdout = _run_singular(script, binary, points=points, timeout=timeout)
+    generators = (
+        _read_generator(text, len(to_eliminate), kin, points=points, size=len(stdout))
+        for text in stdout.splitlines()
+    )
+    return [g for g in generators if g is not None]
+
+
+def _dominant_components_singular(
+    system: list[sp.Expr],
+    to_eliminate: list[sp.Symbol],
+    kin: list[sp.Symbol],
+    binary: str,
+    *,
+    points: int,
+    timeout: float | None = None,
+) -> list[list[sp.Poly]]:
+    """The elimination ideal of each minimal prime of the ideal of ``system``.
+
+    Singular's ``minAssGTZ`` gives the minimal associated primes, the ideals
+    of the irreducible components of the variety (Gianni, Trager and
+    Zacharias's algorithm, in Singular's primdec.lib), and ``eliminate``
+    projects each. A component projects onto a dense subset of the
+    kinematic space exactly when its elimination ideal is zero, an empty
+    list here. Singular prints ``@`` before each component's generators.
+
+    Raises
+    ------
+    ComputationError
+        As :func:`_eliminate_singular` raises, or if the output is not a
+        list of components.
+    """
+    declarations, product = _singular_ideal(system, to_eliminate, kin)
+    script = (
+        'LIB "primdec.lib";\n' + declarations + "list L = minAssGTZ(I); ideal E; int i; int k;\n"
+        "for (i = 1; i <= size(L); i++) {\n"
+        f'  E = eliminate(L[i], {product}); print("@");\n'
+        "  for (k = 1; k <= ncols(E); k++) { print(string(E[k])); }\n"
+        "}\n"
+        "quit;\n"
+    )
+    stdout = _run_singular(script, binary, points=points, timeout=timeout)
+    components: list[list[sp.Poly]] = []
+    for text in stdout.splitlines():
+        if text.strip() == "@":
+            components.append([])
             continue
-        terms = _read_singular_polynomial(line, len(to_eliminate), len(kin))
-        if terms is None:
+        generator = _read_generator(text, len(to_eliminate), kin, points=points, size=len(stdout))
+        if generator is None:
+            continue
+        if not components:
             raise ComputationError(
-                f"cannot read Singular's elimination ideal of a face with {points} points "
-                f"from {size}, at {repr(text.strip())[:60]}"
-            ) from None
-        polynomial = {key: sp.Rational(c.numerator, c.denominator) for key, c in terms.items() if c}
-        if polynomial:
-            out.append(sp.Poly.from_dict(polynomial, *kin))
-    return out
+                f"cannot read Singular's decomposition of a face with {points} points: "
+                f"a generator before the first component, {repr(text.strip())[:60]}"
+            )
+        components[-1].append(generator)
+    return components
 
 
 def _factor_order(item: tuple[sp.Poly, int]) -> tuple[object, ...]:
@@ -658,6 +760,22 @@ def _unit_scale_is_exact(support: list[tuple[tuple[int, ...], sp.Expr]], scale: 
     return affine_rank(lifted) == affine_rank([exponents for exponents, _ in support])
 
 
+class _Elimination(NamedTuple):
+    """What :func:`_elimination_discriminant` finds for a face."""
+
+    factors: list[sp.Expr]
+    principal: bool
+    dominant: bool
+
+
+def _gcd(polys: list[sp.Poly]) -> sp.Poly:
+    """The greatest common divisor of one or more polynomials."""
+    common = polys[0]
+    for g in polys[1:]:
+        common = common.gcd(g)
+    return common
+
+
 def _elimination_discriminant(
     coeffs: list[sp.Expr],
     exps: list[tuple[int, ...]],
@@ -666,15 +784,23 @@ def _elimination_discriminant(
     *,
     scale: sp.Symbol | None = None,
     timeout: float | None = None,
-) -> tuple[list[sp.Expr], bool]:
+) -> _Elimination:
     """Kinematic locus where f = sum c_k t^{e_k} has a singular point in the torus.
 
-    Returns (distinct kinematic factors, principal) where principal is True
-    when the elimination ideal had at most one generator. The factors are
-    those of the generator or, when there are several, of their greatest
-    common divisor: an irreducible polynomial defines a codimension-one
-    component of their common zeros exactly when it divides every one of
-    them. A component that arises only as a limit under special kinematics
+    Returns the distinct kinematic factors, whether the elimination ideal
+    had at most one generator (principal) and whether it was zero
+    (dominant). The factors are those of the generator or, when there are
+    several, of their greatest common divisor: an irreducible polynomial
+    defines a codimension-one component of their common zeros exactly when
+    it divides every one of them. A zero ideal means that a component of the
+    incidence variety projects onto a dense subset of the kinematic space.
+    With Singular, the ideal of each minimal prime is then eliminated in
+    turn, the dominant components, whose ideals are zero, are left out, and
+    the factors are those of the greatest common divisor of each of the
+    others, which is 1 unless the component projects onto a hypersurface
+    (Fevola, Mizera and Telen 2024, definition 3.5 and example 3.9). The
+    SymPy fallback has no decomposition and gives no factor for such a
+    face. A component that arises only as a limit under special kinematics
     can then be missing, as p_2^2 - p_3^2 is for the massive triangle at
     p_1^2 = 0, whose top face has the locus p_2^2 = p_3^2 = 0. Eliminates
     and factors with Singular when it is installed and ``backend`` is
@@ -713,24 +839,40 @@ def _elimination_discriminant(
     if backend == "singular" and binary is None:
         raise RuntimeError("Singular backend requested but the 'Singular' binary was not found")
     if not kin:
-        return [], True
+        return _Elimination([], True, False)
+    started = time.monotonic()
     if binary is not None:
         eliminated = _eliminate_singular(
             system, to_eliminate, kin, binary, points=len(coeffs), timeout=timeout
         )
     else:
         eliminated = _eliminate_sympy(system, to_eliminate, kin)
-    if not eliminated:
-        return [], True
+    principal, dominant = len(eliminated) <= 1, not eliminated
+    if dominant:
+        if binary is None:
+            return _Elimination([], principal, dominant)
+        # The decomposition has what is left of the face's time.
+        left = None if timeout is None else timeout - (time.monotonic() - started)
+        if left is not None and left <= 0:
+            raise _EliminationTimeout(
+                f"Singular did not decompose a face with {len(coeffs)} points within "
+                f"timeout={timeout} s"
+            )
+        components = _dominant_components_singular(
+            system, to_eliminate, kin, binary, points=len(coeffs), timeout=left
+        )
+        # The gcd of the generators of a prime of height two or more is 1.
+        eliminated = [_gcd(generators) for generators in components if generators]
+        eliminated = [g for g in eliminated if not g.is_ground]
+        if not eliminated:
+            return _Elimination([], principal, dominant)
+        eliminated = [sp.prod(eliminated[1:], start=eliminated[0])]
 
     # sp.factor_list makes each factor primitive with a positive leading coefficient in the
     # order sp.Poly gives the symbols; factoring in that order normalises these factors as
     # _factor_list normalises those of the other faces.
     order = sp.Poly(sp.Add(*kin)).gens
-    common = eliminated[0]
-    for g in eliminated[1:]:
-        common = common.gcd(g)
-    common = common.reorder(*order)
+    common = _gcd(eliminated).reorder(*order)
     factored = None
     if binary is not None and not common.is_ground:
         factored = _factorize_singular([common], binary)
@@ -751,7 +893,7 @@ def _elimination_discriminant(
         for fac, _exp in pairs:
             if fac.free_symbols & kinematic_syms:
                 factors.setdefault(fac.as_expr(), None)
-    return list(factors), len(eliminated) == 1
+    return _Elimination(list(factors), principal, dominant)
 
 
 def _face_discriminant(
@@ -762,25 +904,26 @@ def _face_discriminant(
     max_face_points: int,
     scale: sp.Symbol | None = None,
     timeout: float | None = None,
-) -> tuple[sp.Expr, list[sp.Expr] | None, bool, bool] | None:
-    """Return (discriminant, its kinematic factors, is_simplex, principal), or None if the
-    face is skipped. The factors of a vertex or an edge are None: they are those of the
+) -> tuple[sp.Expr, list[sp.Expr] | None, bool, bool, bool] | None:
+    """Return (discriminant, its kinematic factors, is_simplex, principal, dominant), or None
+    if the face is skipped. The factors of a vertex or an edge are None: they are those of the
     discriminant, which the caller factors with the others."""
     n_pts = len(coeffs)
     is_simplex = n_pts == dimension + 1
     if dimension == 0:
-        return sp.together(coeffs[0]), None, True, True
+        return sp.together(coeffs[0]), None, True, True, False
     if is_simplex:
-        return sp.Integer(1), [], True, True
+        return sp.Integer(1), [], True, True, False
     if n_pts > max_face_points:
         return None
     lattice = _lattice_coordinates(np.array(exps_ambient, dtype=int))
     if dimension == 1:
-        return _univariate_discriminant(coeffs, [c[0] for c in lattice]), None, False, True
-    factors, principal = _elimination_discriminant(
+        disc = _univariate_discriminant(coeffs, [c[0] for c in lattice])
+        return disc, None, False, True, False
+    factors, principal, dominant = _elimination_discriminant(
         coeffs, lattice, kinematic_syms, scale=scale, timeout=timeout
     )
-    return sp.Mul(*factors), factors, False, principal
+    return sp.Mul(*factors), factors, False, principal, dominant
 
 
 def _reduced(
@@ -878,7 +1021,7 @@ def landau_analysis_from_polynomial(
         if result is None:
             skipped.append(tuple(face_exps))
             continue
-        disc, factors, is_simplex, principal = result
+        disc, factors, is_simplex, principal, dominant = result
         if factors is None:
             pending.append((len(factors_by_face), disc))
         if not (disc.free_symbols & kinematic_syms):
@@ -892,6 +1035,7 @@ def landau_analysis_from_polynomial(
                 discriminant=disc,
                 is_simplex=is_simplex,
                 principal=principal,
+                dominant=dominant,
             )
         )
 

@@ -488,6 +488,15 @@
   of seconds greater than 0 and at most 2,000,000. True was taken as 1 s, and
   None, a string, inf and values past about 2.1 million raised `TypeError` or
   `OverflowError`.
+- The Landau analysis gave nothing for a face whose elimination ideal is zero,
+  which happens when a component of the face's incidence variety projects onto
+  all of kinematic space. The principal Landau determinant leaves out only that
+  component (Fevola, Mizera and Telen 2024, definition 3.5). The analysis now
+  eliminates each minimal prime of the face's ideal, found with Singular's
+  `minAssGTZ`, and keeps the hypersurfaces the other components project onto:
+  their example 3.9, (1 + a_1)(a + b a_1 + c a_2 + d a_1 a_2), gains
+  bc - ad. `FaceDiscriminant` gains `dominant`, set on such faces. Without
+  Singular the decomposition is not made and such a face still gives nothing.
 - The Landau analysis of the massless pentagon `12e|3e|4e|4e|e|:zzzzz` had not
   finished after forty minutes, and that of the massless hexagon
   `12e|3e|4e|5e|5e|e|:zzzzzz` failed after about six. They take about 3 s and

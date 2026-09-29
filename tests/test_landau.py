@@ -30,6 +30,7 @@ from feynkit.io.report import AnalysisReport
 from feynkit.io.report_text import render_text
 from feynkit.kinematics.mandelstam import standard_invariants
 from feynkit.landau import (
+    _dominant_components_singular,
     _eliminate_singular,
     _elimination_discriminant,
     _factor_list,
@@ -430,7 +431,8 @@ class TestSingularOutput:
     def test_timeout_reaches_singular(
         self, monkeypatch: pytest.MonkeyPatch, massive_bubble: FeynmanIntegral
     ) -> None:
-        seen = fake_singular(monkeypatch)
+        # A generator in the first kinematic symbol, so that the ideal is not zero.
+        seen = fake_singular(monkeypatch, "v3\n")
         landau_analysis(massive_bubble)
         assert seen["timeout"] is None
         landau_analysis(massive_bubble, timeout=7)
@@ -534,7 +536,7 @@ class TestElimination:
         kinematic = set().union(*(y.free_symbols for y in HEXAGON_Y.values())) | {MU}
         renaming, squared = _renaming(list(HEXAGON_Y.values()))
         assert len(renaming) == 6 and not squared
-        factors, principal = _elimination_discriminant(
+        factors, principal, dominant = _elimination_discriminant(
             coefficients, lattice_coordinates(np.array(HEXAGON_FACE)), kinematic, scale=MU
         )
         # The modified Cayley matrix of the box: Y bordered by a row and a column of ones.
@@ -545,7 +547,7 @@ class TestElimination:
             for b, j in enumerate(edges, start=1):
                 if i != j:
                     cayley[a, b] = HEXAGON_Y[min(i, j), max(i, j)]
-        assert principal
+        assert principal and not dominant
         assert len(factors) == 1
         assert len(sp.Add.make_args(factors[0])) == 145
         assert sp.expand(cayley.det() - 2 * factors[0]) == 0
@@ -593,7 +595,7 @@ class TestElimination:
         exponents = [(0,), (1,), (2,)]
         renaming, squared = _renaming(coefficients)
         assert len(renaming) == 3 and squared
-        factors, principal = _elimination_discriminant(
+        factors, principal, dominant = _elimination_discriminant(
             coefficients, exponents, {S, M1, M2}, backend
         )
         assert principal
@@ -604,7 +606,7 @@ class TestElimination:
         with pytest.MonkeyPatch.context() as monkeypatch:
             monkeypatch.setattr(landau_module, "_renaming", lambda coefficients: ({}, False))
             plain = _elimination_discriminant(coefficients, exponents, {S, M1, M2}, backend)
-        assert plain == (factors, principal)
+        assert plain == (factors, principal, dominant)
 
     def test_mu_is_set_to_one_only_where_that_is_exact(self) -> None:
         exact = landau_module._unit_scale_is_exact
@@ -637,7 +639,7 @@ class TestElimination:
         scales: list[sp.Symbol | None] = []
         eliminate = landau_module._elimination_discriminant
 
-        def spy(*args: object, **kwargs: object) -> tuple[list[sp.Expr], bool]:
+        def spy(*args: object, **kwargs: object) -> tuple[list[sp.Expr], bool, bool]:
             scales.append(kwargs["scale"])  # type: ignore[arg-type]
             return eliminate(*args, **kwargs)  # type: ignore[arg-type]
 
@@ -736,12 +738,12 @@ class TestSeveralGenerators:
         # factors that are not components; only s divides them all.
         g, variables, _ = pld_entry("kite_generic_generic")
         support = dict(extract_monomial_support(sp.expand(g), variables))
-        factors, principal = _elimination_discriminant(
+        factors, principal, dominant = _elimination_discriminant(
             [support[point] for point in KITE_FACE],
             lattice_coordinates(np.array(KITE_FACE)),
             g.free_symbols - set(variables),
         )
-        assert (factors, principal) == ([sp.Symbol("s")], False)
+        assert (factors, principal, dominant) == ([sp.Symbol("s")], False, False)
 
     @pytest.mark.parametrize("backend", backends())
     def test_generators_without_a_common_factor(
@@ -823,6 +825,79 @@ class TestSeveralGenerators:
         # three other components come from HyperInt alone.
         g, variables, components = pld_entry(name)
         analysis = landau_analysis_from_polynomial(g, variables, max_face_points=30)
+        assert set(analysis.landau_surfaces) == components
+
+
+A1, A2 = sp.symbols("a1 a2")
+A_, B_, C_, D_, Z_ = sp.symbols("a b c d z")
+
+
+class TestDominantFaces:
+    """A face whose elimination ideal is zero has a component of its incidence variety that
+    projects onto the whole kinematic space. Its other components are found through the
+    minimal primes (Fevola, Mizera and Telen 2024, definition 3.5)."""
+
+    @requires_singular
+    def test_example_3_9_keeps_the_component_beside_the_dominant_one(self) -> None:
+        # FMT24a example 3.9: the dense face has a dominant component and one projecting to
+        # bc = ad, which restricting the generic principal A-determinant loses.
+        f = sp.expand((1 + A1) * (A_ + B_ * A1 + C_ * A2 + D_ * A1 * A2))
+        analysis = landau_analysis_from_polynomial(f, [A1, A2])
+        expected = [A_, B_, C_, D_, A_ - B_, C_ - D_, B_ * C_ - A_ * D_]
+        assert _factor_set(analysis.landau_surfaces, {A_, B_, C_, D_}) == _factor_set(
+            expected, {A_, B_, C_, D_}
+        )
+        (top,) = [face for face in analysis.face_discriminants if face.dimension == 2]
+        assert top.dominant
+        assert _monic(top.discriminant) == _monic(B_ * C_ - A_ * D_)
+
+    @requires_singular
+    def test_example_3_10_gives_only_the_edge(self) -> None:
+        # FMT24a example 3.10: the Euler characteristic drops at z = 0, which no face sees.
+        f = sp.expand((A2 - 1) ** 2 - (A1 - Z_) * A1**2)
+        analysis = landau_analysis_from_polynomial(f, [A1, A2])
+        assert set(analysis.landau_surfaces) == {4 * Z_**3 + 27}
+
+    def test_a_face_with_a_nonzero_ideal_is_not_dominant(
+        self, massive_bubble: FeynmanIntegral
+    ) -> None:
+        assert not any(face.dominant for face in landau_analysis(massive_bubble).face_discriminants)
+
+    def test_without_singular_the_other_components_are_not_sought(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
+        f = sp.expand((1 + A1) * (A_ + B_ * A1 + C_ * A2 + D_ * A1 * A2))
+        analysis = landau_analysis_from_polynomial(f, [A1, A2])
+        (top,) = [face for face in analysis.face_discriminants if face.dimension == 2]
+        assert top.dominant
+        assert top.discriminant == 1
+
+    def test_the_decomposition_is_read_component_by_component(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Two minimal primes: the first projects onto everything, the second onto x y = z.
+        seen = fake_singular(monkeypatch, "@\n@\nv2*v3-v4\n")
+        components = _dominant_components_singular(
+            [W * T - 1], [W, T], [X, Y, Z], "Singular", points=10
+        )
+        assert [[g.as_expr() for g in c] for c in components] == [[], [X * Y - Z]]
+        assert "minAssGTZ" in str(seen["script"])
+
+    @pytest.mark.parametrize("stdout", ["v2\n", "@\nv0*v2\n", "@\n?\n"])
+    def test_output_that_is_not_a_decomposition_raises(
+        self, stdout: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_singular(monkeypatch, stdout)
+        with pytest.raises(ComputationError, match="cannot read"):
+            _dominant_components_singular([W * T - 1], [W, T], [X, Y, Z], "Singular", points=10)
+
+    @requires_singular
+    def test_a_database_entry_is_unchanged(self) -> None:
+        # The massless parachute has dominant faces; they add no component.
+        g, variables, components = pld_entry("par_zero_generic")
+        analysis = landau_analysis_from_polynomial(g, variables)
+        assert any(face.dominant for face in analysis.face_discriminants)
         assert set(analysis.landau_surfaces) == components
 
 

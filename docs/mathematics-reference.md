@@ -1077,7 +1077,15 @@ of the integral (Klausen 2023, lemma "Landau variety contained in Sing"). feynki
   generators in the fresh symbols, with the forms substituted back, generate the elimination
   ideal. The face contributes the irreducible factors of its generator or, when it has several,
   of their greatest common divisor: an irreducible $h$ defines a codimension-one component of
-  $V(g_1, \ldots, g_k)$ exactly when it divides every $g_i$. Each face thus gives the
+  $V(g_1, \ldots, g_k)$ exactly when it divides every $g_i$. When the elimination ideal is zero,
+  a component of the face's incidence variety projects onto a dense subset of kinematic space.
+  Such dominant components are discarded, and the ideal of each minimal prime of the face's ideal
+  (Singular's `minAssGTZ`) is eliminated in turn; each contributes the factors of its greatest
+  common divisor, which is $1$ unless the component projects onto a hypersurface, since a prime of
+  height two or more has no common factor. For $(1 + u_1)(a + b u_1 + c u_2 + d u_1 u_2)$ the dense
+  face has a dominant component and one over $bc = ad$ (Fevola, Mizera and Telen 2024, example
+  3.9). Without Singular the decomposition is not made and such a face contributes nothing. Each
+  face thus gives the
   codimension-one part of its locus, as the face computations of Fevola, Mizera and Telen do: the
   result is their principal Landau determinant (2024, section 3). At special kinematics it can
   miss a component, since a singular point of a face can leave the torus as the kinematics

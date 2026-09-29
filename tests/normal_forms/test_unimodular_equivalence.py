@@ -416,3 +416,15 @@ def test_images_with_large_entries(points: np.ndarray, k: int) -> None:
     image = image.astype(np.int64)
     _check_witness(points, image, is_unimodular_equivalent(points, image))
     _check_witness(image, points, is_unimodular_equivalent(image, points))
+
+
+@pytest.mark.parametrize("seed", range(3))
+def test_the_massless_hexagon_and_its_unimodular_images(seed: int) -> None:
+    # Every vertex of the hexagon's Newton polytope carries one label, so the labels prune
+    # nothing. The search tried every set of vertices of the size of its basis, minutes for
+    # some images; it now maps the basis only to neighbours of the anchor's image.
+    points = _support("12e|3e|4e|5e|5e|e|:zzzzzz")
+    rng = np.random.default_rng(seed)
+    image = apply_unimodular(points, random_unimodular_map(6, rng), rng.integers(-3, 4, size=6))
+    rng.shuffle(image)
+    _check_witness(points, image, is_unimodular_equivalent(points, image))

@@ -861,10 +861,12 @@ alone implies all this only when every column is a vertex; section 9.3 checks al
 Accessed via `fi.is_unimodular_equivalent_to(other)`, which returns a `PolytopeEquivalence` with
 fields `.equivalent` (bool), `.witness_map` ($U$), `.translation` ($t$), `.determinant`, `.vertex_correspondence`.
 
-The algorithm is the Liu-Cai basis-search (same as automorphism computation, but between two
-configurations): build the labelled polytope graphs, fix an affine basis of the first polytope,
-drawn from its rarest label classes, map it to each choice of vertices of the second with the same
-labels, generated class by class, solve for $U$ and verify it on every vertex. Below full
+The algorithm is the search of section 7.3 between two configurations: build the labelled
+polytope graphs, take an anchor in the rarest label class of the first polytope and a basis among
+its neighbours, map them to each vertex of the second with the label and degree of the anchor and
+to its neighbours with the same labels and edges, solve for $U$ and verify it on every vertex. The
+witness is the first $U$ with $|\det U| = 1$; the translation, when it maps one vertex set onto
+the other, is tried first. Below full
 dimension the two polytopes must have the same affine dimension and their vertex sets the same
 sublattice index, and the search runs in the lattice charts of those vertex sets. A chart map is
 accepted when it maps the integer points of one affine hull onto those of the other, and the

@@ -17,22 +17,19 @@ witness map (when known), and a vertex correspondence (when known).
 from __future__ import annotations
 
 import math
-from collections import Counter, defaultdict
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from itertools import combinations, permutations
-from itertools import product as _prod
 from typing import Any
 
 import numpy as np
 import sympy as sp
 
-from .. import _exact
 from ..core.exceptions import ValidationError
 from ..polytope import PolytopeData, polytope_data
 from ..types import PolytopeEquivalence
 from . import _invariants
 from ._chart import ChartFrame, chart_frame, lift_linear
-from .polytope_automorphisms import _select_basis_indices_by_label
+from .polytope_automorphisms import vertex_maps
 
 # ------------------------------------------------------------------------------
 # Public API: Liu-Cai unimodular equivalence
@@ -80,9 +77,12 @@ def is_unimodular_equivalent(
     2. Build the labelled vertex/edge graph $\\mathcal{GW}(P)$ on the exact
        1-skeleton, with node label ``lab(v) = det(A_v)`` (Liu-Cai,
        Definition 5.2) and edge weight ``lab(u) + lab(v)``.
-    3. Fix an affine basis of the first polytope and, for each anchor and
-       label-preserving choice of basis images in the second, solve for
-       ``U`` and verify it on every vertex.
+    3. Fix an anchor vertex of the first polytope, in its rarest label
+       class, and a basis among its neighbours; map them to each vertex of
+       the second with the same label and to its neighbours with the same
+       labels and edges, solve for ``U`` and verify it on every vertex
+       (feynkit.normal_forms.polytope_automorphisms.vertex_maps). The
+       translation, when it maps one vertex set onto the other, comes first.
 
     Below full dimension both polytopes must have the same dimension d, and
     the search runs in the lattice charts of their vertex sets, where they are
@@ -159,36 +159,7 @@ def is_unimodular_equivalent(
     if GW_a.number_of_edges() != GW_b.number_of_edges():
         return PolytopeEquivalence(False, "unimodular")
 
-    # Select a basis in the vertices of the first polytope, from the rarest
-    # label classes first, so that few combinations of vertices of the second
-    # share its labels.
-    v_0 = coords_a[0]
-    deltas_a = (coords_a - v_0).astype(np.int64)
-    labels = [GW_a.nodes[i]["label"] for i in range(n_vert)]
-    basis_indices = _select_basis_indices_by_label(
-        deltas_a, coords_a.shape[1], labels, Counter(labels)
-    )
-    if basis_indices is None:
-        return PolytopeEquivalence(False, "unimodular")
-
-    W_a = sp.Matrix(deltas_a[basis_indices].T.tolist())
-    if W_a.det() == 0:
-        return PolytopeEquivalence(False, "unimodular")
-    W_a_inv = W_a.inv()
-
-    result = _direct_basis_search(
-        coords_a,
-        coords_b,
-        GW_a,
-        GW_b,
-        deltas_a,
-        basis_indices,
-        W_a,
-        W_a_inv,
-        idx_a,
-        idx_b,
-        accept=accept,
-    )
+    result = _direct_basis_search(coords_a, coords_b, GW_a, GW_b, idx_a, idx_b, accept=accept)
     if frames is None or not result.equivalent:
         return result
     return PolytopeEquivalence(
@@ -207,198 +178,43 @@ def _vertices(pts: np.ndarray) -> tuple[PolytopeData | None, np.ndarray]:
     return data, np.array(data.vertex_indices, dtype=np.int64)
 
 
-def _label_preserving_orderings(
-    combo: tuple[int, ...],
-    labels_b: list[int],
-    basis_label_seq: list[int],
-) -> Iterator[tuple[int, ...]]:
-    """
-    Yield all column orderings of ``combo`` where the k-th entry has the same
-    Liu-Cai label as ``basis_label_seq[k]``.
-
-    Liu-Cai labels are unimodular invariants, so any valid witness map must
-    preserve them.  Restricting to label-preserving orderings reduces the
-    search space from ``n_dim!`` to ``prod_lab (count_lab)!`` where ``count_lab`` is
-    the multiplicity of label ``lab`` in the basis, typically a small constant.
-    """
-    from collections import defaultdict
-    from itertools import product as _prod
-
-    # Group combo entries by their label.
-    label_to_entries: dict[int, list[int]] = defaultdict(list)
-    for j in combo:
-        label_to_entries[labels_b[j]].append(j)
-
-    # Group basis positions by required label.
-    label_to_positions: dict[int, list[int]] = defaultdict(list)
-    for k, lab in enumerate(basis_label_seq):
-        label_to_positions[lab].append(k)
-
-    # Check structural compatibility.
-    if set(label_to_entries) != set(label_to_positions):
-        return
-    for lab in label_to_positions:
-        if len(label_to_entries[lab]) != len(label_to_positions[lab]):
-            return
-
-    # For each label group, generate all permutations of that group's entries.
-    # Then take the Cartesian product across groups to form full orderings.
-    groups = [
-        (label_to_positions[lab], list(permutations(label_to_entries[lab])))
-        for lab in sorted(label_to_positions)
-    ]
-
-    result: list[int] = [-1] * len(combo)
-    for group_perms in _prod(*[perms for _, perms in groups]):
-        for (positions, _), assigned in zip(groups, group_perms, strict=True):
-            for pos, entry in zip(positions, assigned, strict=True):
-                result[pos] = entry
-        yield tuple(result)
-
-
 def _direct_basis_search(
     V_a: np.ndarray,
     V_b: np.ndarray,
     GW_a: Any,  # networkx.Graph with integer 'label' node attributes
     GW_b: Any,
-    deltas_a: np.ndarray,
-    basis_indices: list[int],
-    W_a: sp.Matrix,
-    W_a_inv: sp.Matrix,
     idx_a: np.ndarray,
     idx_b: np.ndarray,
     *,
     accept: Callable[[sp.Matrix], bool] | None = None,
 ) -> PolytopeEquivalence:
     """
-    Enumerate candidate (anchor, ordered-basis) pairs in V_b and solve for U.
+    The first unimodular map of V_a onto V_b that vertex_maps finds.
 
-    For each anchor vertex in V_b whose Liu-Cai label matches V_a[0], try the
-    unordered n-subsets of the remaining vertices as the basis image, with:
-
-      1. Label multiset: the subsets are generated class by class, so that
-         their labels are those of the basis_indices vertices in V_a (Liu-Cai
-         labels are unimodular invariants, so valid maps preserve them). They
-         are exactly the subsets whose sorted labels equal the basis's.
-      2. |det W_b| = |det W_a|: computed exactly once per unordered subset
-         (column permutations only flip the sign, so all orderings share the
-         same |det|).
-      3. Label-preserving orderings only: instead of all n_dim! column
-         permutations, only those where the k-th column label matches the
-         required label for that basis position, typically prod_lab (count_lab)!
-         orderings rather than n_dim!.
-
-    Each candidate U = W_b W_a^-1 that passes them is found in integer
-    arithmetic, as W_b adj(W_a) / det(W_a), and kept when it is integral and
-    maps every vertex to a vertex; only survivors reach the exact SymPy step.
-    A verified U that ``accept``, when given, rejects is skipped and the
-    search goes on.
+    ``GW_a`` and ``GW_b`` are the labelled 1-skeletons, node i being row i.
+    Liu-Cai labels are unimodular invariants, so the maps sought keep them. A
+    candidate is kept when it is integral, sends every vertex to a vertex and
+    has determinant +/-1; a map that ``accept``, when given, rejects is skipped
+    and the search goes on.
     """
     n_vert = V_a.shape[0]
-    v_0 = V_a[0]
-
-    size = 2 * max(int(np.abs(V_a).max()), int(np.abs(V_b).max())) + 1
-    adj_a, det_a = _invariants.integer_inverse(W_a, size)
-    deltas_exact = deltas_a.astype(adj_a.dtype)
-
-    labels_a_node = [GW_a.nodes[i]["label"] for i in range(n_vert)]
-    labels_b_node = [GW_b.nodes[i]["label"] for i in range(n_vert)]
-    label_a0 = labels_a_node[0]
-    basis_label_seq = [labels_a_node[k] for k in basis_indices]
-    basis_label_needs = Counter(basis_label_seq)
-    basis_label_classes = sorted(basis_label_needs)
-
-    for anchor_idx in range(n_vert):
-        if labels_b_node[anchor_idx] != label_a0:
+    labels_a = [GW_a.nodes[i]["label"] for i in range(n_vert)]
+    labels_b = [GW_b.nodes[i]["label"] for i in range(n_vert)]
+    neighbours_a = [set(GW_a.neighbors(i)) for i in range(n_vert)]
+    neighbours_b = [set(GW_b.neighbors(i)) for i in range(n_vert)]
+    for U_int, _, perm in vertex_maps(V_a, V_b, neighbours_a, neighbours_b, labels_a, labels_b):
+        U = sp.Matrix(U_int.tolist())
+        if abs(U.det()) != 1:
             continue
-
-        v_0_image = V_b[anchor_idx]
-        deltas_b = (V_b - v_0_image).astype(np.int64)
-
-        # Fast delta->index lookup (hull vertices are distinct, so no collisions).
-        delta_to_b_idx = {tuple(int(x) for x in row): i for i, row in enumerate(deltas_b.tolist())}
-
-        # Filter 1: generate only the subsets with the labels of the basis.
-        label_to_others: dict[int, list[int]] = defaultdict(list)
-        for other in range(n_vert):
-            if other != anchor_idx:
-                label_to_others[labels_b_node[other]].append(other)
-        sub_combo_iters = [
-            combinations(label_to_others[lbl], basis_label_needs[lbl])
-            for lbl in basis_label_classes
-        ]
-        for sub_combos in _prod(*sub_combo_iters):
-            combo = tuple(v for sub in sub_combos for v in sub)
-
-            # Filter 2: |det(W_b)| must equal |det(W_a)| for U = W_b*W_a^-1 to
-            # have det +/-1, in exact integer arithmetic.
-            if abs(_exact.determinant(deltas_b[list(combo)].tolist())) != abs(det_a):
-                continue
-
-            # Filter 3: only label-preserving column orderings.
-            for perm in _label_preserving_orderings(combo, labels_b_node, basis_label_seq):
-                U_int = _invariants.integral_candidate(deltas_b[list(perm)].T, adj_a, det_a)
-                if U_int is None:
-                    continue
-
-                # Integer verification of all points.
-                mapped = U_int @ deltas_exact.T  # n_dim x n_vert
-                vertex_map: dict[int, int] = {}
-                valid = True
-                for i in range(n_vert):
-                    key = tuple(int(x) for x in mapped[:, i])
-                    j = delta_to_b_idx.get(key)
-                    if j is None:
-                        valid = False
-                        break
-                    vertex_map[i] = j
-                if not valid:
-                    continue
-
-                # Exact SymPy verification.
-                W_b_sp = sp.Matrix(deltas_b[list(perm)].T.tolist())
-                U = W_b_sp * W_a_inv
-                if not all(e.is_Integer for e in U):
-                    continue
-                if abs(U.det()) != 1:
-                    continue
-
-                v_0_col = sp.Matrix(v_0.tolist())
-                v_0_img_col = sp.Matrix(v_0_image.tolist())
-                Z = v_0_img_col - U * v_0_col
-                if not all(e.is_Integer for e in Z):
-                    continue
-
-                if not _verify_unimodular_witness(U, Z, V_a, V_b, vertex_map):
-                    continue
-                if accept is not None and not accept(U):
-                    continue
-
-                corr = [vertex_map[i] for i in range(n_vert)]
-                return PolytopeEquivalence(
-                    equivalent=True,
-                    relation="unimodular",
-                    witness_map=sp.ImmutableMatrix(U),
-                    vertex_correspondence=_lift_correspondence(idx_a, idx_b, corr),
-                )
-
+        if accept is not None and not accept(U):
+            continue
+        return PolytopeEquivalence(
+            equivalent=True,
+            relation="unimodular",
+            witness_map=sp.ImmutableMatrix(U),
+            vertex_correspondence=_lift_correspondence(idx_a, idx_b, list(perm)),
+        )
     return PolytopeEquivalence(False, "unimodular")
-
-
-def _verify_unimodular_witness(
-    U: sp.Matrix,
-    Z: sp.Matrix,
-    V_a: np.ndarray,
-    V_b: np.ndarray,
-    vertex_map: dict[int, int],
-) -> bool:
-    """Check ``U*v + Z == V_b[vertex_map[i]]`` for every vertex ``v = V_a[i]``."""
-    for i in range(V_a.shape[0]):
-        v_a_col = sp.Matrix(V_a[i].tolist())
-        v_b_target = sp.Matrix(V_b[vertex_map[i]].tolist())
-        if U * v_a_col + Z != v_b_target:
-            return False
-    return True
 
 
 def _lift_correspondence(

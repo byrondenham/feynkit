@@ -200,27 +200,28 @@
   full dimension nothing changes.
 - The searches for automorphisms, symmetry pairs and unimodular equivalences
   label each vertex by its Liu-Cai label paired with the same determinant over
-  all the other vertices, which separates more vertices. The equivalence
-  search takes its basis from the rarest label classes and generates only the
-  combinations of vertices that carry the labels of that basis, where it tried
-  every combination of the right size. The groups, pairs and verdicts do not
-  change, though the pairs can come in another order. Against 0.4.0,
-  `is_unimodular_equivalent` of `123|24|e|5e|5e|e|:znnzzzz` and a relabelling
-  takes under a second instead of about 66 s.
-- `polytope_automorphisms` takes the basis of its search among the neighbours
-  of an anchor vertex in the 1-skeleton, and maps it only to neighbours of each
-  candidate image with the same labels and the same edges among them, since an
-  automorphism maps the neighbours of a vertex onto those of its image.
-  `symmetry_pairs` takes the pairs from the automorphisms, as those that send
-  every point to a point, instead of searching again. The results, and their
-  order, do not change. Where every vertex carries one label nothing else
-  prunes. Against 0.4.0, the automorphisms and pairs of the massless pentagon
-  take about 0.3 s and 0.4 s instead of about 130 s and 220 s, and those of the
-  massless hexagon, of order 5040, about 2 s each, where 0.4.0 did not finish
-  in 20 minutes. Where 0.4.0 was faster it was wrong: the automorphisms and
-  pairs of `123|4e|4e|5e|5|e|:nnnnnnn` take about 0.3 s and 0.5 s, where 0.4.0
-  found 1 of 48 in 0.3 s and 0.2 s. `symmetry_pairs` on the columns of A of
-  `112|3|4e|5e|5e|e|:nnnnzzz` takes about 0.4 s, as 0.4.0 did.
+  all the other vertices, which separates more vertices. The groups, pairs
+  and verdicts do not change, though the pairs can come in another order.
+- `polytope_automorphisms` and `is_unimodular_equivalent` take the basis of
+  their search among the neighbours of an anchor vertex in the 1-skeleton, and
+  map it only to neighbours of each candidate image with the same labels and the
+  same edges among them, since an affine bijection of the vertices maps the
+  neighbours of a vertex onto those of its image. The equivalence search tries
+  the translation first, so that equal or translated vertex sets get the
+  identity. `symmetry_pairs` takes the pairs from the automorphisms, as those
+  that send every point to a point, instead of searching again. The results, and
+  their order, do not change, except that `is_unimodular_equivalent` can return
+  another witness where there are several. Where every vertex carries one label
+  nothing else prunes. Against 0.4.0, `is_unimodular_equivalent` of
+  `123|24|e|5e|5e|e|:znnzzzz` and a relabelling takes about a second instead of
+  about 66 s, and the massless hexagon against images of its support under maps
+  of GL_6(Z) takes under a second. The automorphisms and pairs of the massless
+  pentagon take about 0.3 s and 0.4 s instead of about 130 s and 220 s, and
+  those of the massless hexagon, of order 5040, about 2 s each, where 0.4.0 did
+  not finish in 20 minutes. Where 0.4.0 was faster it was wrong: the
+  automorphisms and pairs of `123|4e|4e|5e|5|e|:nnnnnnn` take about 0.3 s and
+  0.5 s, where 0.4.0 found 1 of 48 in 0.3 s and 0.2 s. `symmetry_pairs` on the
+  columns of A of `112|3|4e|5e|5e|e|:nnnnzzz` takes about 0.4 s, as 0.4.0 did.
 - The report and `fk analyse -S` can list the same symmetry pairs in another
   order than 0.4.0 did, since the search now takes its vertices and labels from
   the exact face lattice: 4 of 380 generated one- and two-loop graphs checked,

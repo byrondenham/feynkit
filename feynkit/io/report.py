@@ -59,6 +59,8 @@ if TYPE_CHECKING:
 
 __all__ = [
     "DEFAULT_SECTIONS",
+    "LATTICE_BUDGET",
+    "NORMALIZ_TIMEOUT",
     "SECTION_NAMES",
     "AnalysisReport",
     "Conventions",
@@ -90,6 +92,12 @@ SECTION_NAMES = (
 # The sections built when none are named: all but the point counts, which take seconds for
 # five propagators; seven exceed the default budget.
 DEFAULT_SECTIONS = tuple(name for name in SECTION_NAMES if name != "torus")
+
+# The budget and Normaliz timeout of the lattice invariants in the report and in fk analyse:
+# about five seconds of pure-Python work, beyond which Normaliz takes over or the fields that
+# need more are not computed. The massless three-loop box would need about 10^10 steps.
+LATTICE_BUDGET = 2 * 10**7
+NORMALIZ_TIMEOUT = 60.0
 
 
 # --- section data types ------------------------------------------------------
@@ -259,7 +267,8 @@ class Polytope:
         draw legibly.
     invariants
         The lattice invariants of FeynmanIntegral.lattice_invariants, in the
-        lattice the points generate; None only for a Polytope built by hand.
+        lattice the points generate, within LATTICE_BUDGET and
+        NORMALIZ_TIMEOUT; None only for a Polytope built by hand.
 
     Point indices in ``data`` (``vertex_indices``, ``faces``, each facet's
     ``point_indices``) follow the order of ``newton_polytope.points``, which
@@ -488,7 +497,7 @@ def _polytope(fi: FeynmanIntegral, data: PolytopeData, figure_max_vertices: int)
     return Polytope(
         data=data,
         figure=fi.visualise_polytope() if draw else None,
-        invariants=fi.lattice_invariants(),
+        invariants=fi.lattice_invariants(budget=LATTICE_BUDGET, timeout=NORMALIZ_TIMEOUT),
     )
 
 

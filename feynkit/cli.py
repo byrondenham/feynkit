@@ -46,7 +46,13 @@ from feynkit.core.exceptions import FeynkitError, ValidationError
 from feynkit.core.graph import Graph
 from feynkit.database import FeynkitDatabase
 from feynkit.integral import FeynmanIntegral
-from feynkit.io.report import DEFAULT_SECTIONS, SECTION_NAMES, AnalysisReport
+from feynkit.io.report import (
+    DEFAULT_SECTIONS,
+    LATTICE_BUDGET,
+    NORMALIZ_TIMEOUT,
+    SECTION_NAMES,
+    AnalysisReport,
+)
 from feynkit.io.report_latex import render_latex
 from feynkit.io.report_text import render_text
 from feynkit.kinematics.classes import IMPOSABLE_CLASSES, KinematicClass
@@ -374,7 +380,7 @@ def _yes_no(value: bool | None) -> str:
 
 def _print_lattice_invariants(fi: FeynmanIntegral, full: bool) -> None:
     """The lattice invariants of the Newton polytope and, when NA is normal, the certificate."""
-    found = fi.lattice_invariants()
+    found = fi.lattice_invariants(budget=LATTICE_BUDGET, timeout=NORMALIZ_TIMEOUT)
     index = found.gorenstein_index
     gorenstein = "none" if index is None else str(index)
     _kv("Lattice points", f"{found.lattice_points}  ({found.interior_points} interior)")

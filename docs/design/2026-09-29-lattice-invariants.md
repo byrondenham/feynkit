@@ -224,8 +224,11 @@ no rank jumps", with the rank clause only in full dimension, or with the reasons
 not normal and the remark that this decides nothing. The summary gains `Lattice points`,
 `Interior lattice points`, `Gorenstein index` and `Normal configuration`, and so does the JSON of
 `fk analyse --json`; `fk analyse -n` prints the same with the $h^*$-vector, the width and IDP.
-Every invariant is computed by default: all of them take under 0.2 s on the kite, the pentagon and
-the hexagon, so none needs a flag.
+Every invariant is shown by default: all of them take under 0.2 s on the kite, the pentagon and
+the hexagon. Both compute them once, through the cache of `FeynmanIntegral.lattice_invariants`,
+within `LATTICE_BUDGET` and `NORMALIZ_TIMEOUT` of `feynkit.io.report`, and say "not computed"
+for a field left None, with the advice to install Normaliz or call `lattice_invariants`
+directly.
 
 ## Timings
 

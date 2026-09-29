@@ -1143,8 +1143,19 @@ massless pentagon `12e|3e|4e|4e|e|:zzzzz` 0.04 s and those of the massless hexag
 `12e|3e|4e|5e|5e|e|:zzzzzz` 0.15 s, most of it the IDP check, which lists the dilates up to
 $(d - 1)P$. That grows quickly with the dimension: for the three-loop graph
 `123|24|e|45|5|e|:znzzzzzz`, of dimension 8, the check takes minutes in Python and a fraction of a
-second in Normaliz, so install Normaliz (on Arch Linux, `sudo pacman -S normaliz`) for three loops
-and more.
+second in Normaliz, so install Normaliz (on Arch Linux, `sudo pacman -S normaliz`; on Debian and
+Ubuntu, `sudo apt install normaliz-bin`) for three loops and more.
+
+`lattice_invariants` and `fi.lattice_invariants` take `budget`, the most steps of pure-Python work
+for the Ehrhart polynomial and the IDP check, and `timeout`, the most seconds each run of Normaliz
+may take. A step is one term of an inequality the enumerator evaluates or one set lookup of the
+IDP check, and CPython takes about four million a second. Over budget, Normaliz supplies the Ehrhart
+polynomial and IDP when it is installed; otherwise `ehrhart`, `h_star`, `idp` and `normal` are
+None, except that `normal` is False whenever the support misses a lattice point. Without a budget,
+the default, everything is computed. The report and `fk analyse` pass `LATTICE_BUDGET`,
+$2 \times 10^7$ steps or about five seconds, and `NORMALIZ_TIMEOUT`, 60 s, both in
+`feynkit.io.report`, and say "not computed" for what is left out. The result is cached on the
+integral for each choice of the arguments, so the report and the CLI compute it once.
 
 ---
 

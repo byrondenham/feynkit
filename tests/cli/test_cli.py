@@ -257,6 +257,28 @@ class TestLatticeInvariantsNotComputed:
         assert json.loads(capsys.readouterr().out)["summary"]["normal_configuration"] is None
 
 
+def test_fk_analyse_computes_the_invariants_once_within_the_budget(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import feynkit.lattice_invariants as module
+    from feynkit.io.report import LATTICE_BUDGET, NORMALIZ_TIMEOUT
+
+    calls: list[dict[str, object]] = []
+    original = module.lattice_invariants
+
+    def counting(*args: object, **kwargs: object) -> object:
+        calls.append(kwargs)
+        return original(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(module, "lattice_invariants", counting)
+    text = tmp_path / "report.txt"
+    _run(capsys, tmp_path, "12e|2e|e|:zzz", "-n", "--text", str(text), "--sections", "polytope")
+    assert "Normal configuration" in text.read_text(encoding="utf-8")
+    assert len(calls) == 1
+    assert calls[0]["budget"] == LATTICE_BUDGET == 2 * 10**7
+    assert calls[0]["timeout"] == NORMALIZ_TIMEOUT
+
+
 def test_every_key_fits_its_column() -> None:
     # _kv pads keys to 28 characters; a longer key pushes its value out of line.
     # Every call must pass a literal key, so that each one is checked here.

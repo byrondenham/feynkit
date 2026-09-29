@@ -214,14 +214,27 @@
   the massless pentagon 0.04 s and of the massless hexagon 0.15 s; for the
   three-loop `123|24|e|45|5|e|:znzzzzzz`, of dimension 8, the IDP check takes
   minutes in Python and 0.05 s in Normaliz.
-- `FeynmanIntegral.lattice_invariants(lattice="support", backend="auto")`.
+- `lattice_invariants` takes `budget`, the most steps of pure-Python work for
+  the Ehrhart polynomial and the IDP check, and `timeout`, the most seconds
+  each run of Normaliz may take; `is_idp` takes `timeout`. Over budget,
+  Normaliz supplies the Ehrhart polynomial, from its Hilbert series checked
+  against the volume and the lattice points of P, and IDP; without it
+  `ehrhart`, `h_star`, `idp` and `normal` are None, though `normal` is False
+  whenever the support misses a lattice point. With `backend="auto"` a
+  failure of Normaliz falls back to Python only within the budget. Without a
+  budget, the default, everything is computed.
+- `FeynmanIntegral.lattice_invariants(lattice="support", backend="auto",
+  budget=None, timeout=None)`, cached for each choice of the arguments.
   When NA is normal, C[NA] is Cohen-Macaulay (Hochster 1972), and for a
   full-dimensional Newton polytope there are then no rank jumps: the
   holonomic rank is the normalised volume for every beta (Matusevich, Miller
   and Walther 2005). A monoid that is not normal can still be Cohen-Macaulay.
 - The report's Newton polytope section and `fk analyse -n` give the lattice
   points, the h*-vector, the lattice width, the Gorenstein index and whether
-  NA is normal, with the Cohen-Macaulay certificate when it is. `Polytope` of
+  NA is normal, with the Cohen-Macaulay certificate when it is. They compute
+  the invariants once, within `LATTICE_BUDGET`, 2 * 10^7 steps or about five
+  seconds of pure Python, and `NORMALIZ_TIMEOUT`, 60 s, both in
+  `feynkit.io.report`, and say what they leave uncomputed. `Polytope` of
   `feynkit.io.report` gains the field `invariants`, last and None by default.
   The report cites Beck and Robins, Bruns, Gubeladze and Trung, Hochster and
   Batyrev, which the mathematics reference and the guide list too.

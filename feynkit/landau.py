@@ -58,6 +58,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import sympy as sp
+import sympy.core.random as sympy_random
+from sympy.polys.matrices import DomainMatrix
 
 from ._exact import affine_rank
 from .core.exceptions import ComputationError, ValidationError
@@ -678,7 +680,7 @@ def _one_loop_cycle(
     Raises
     ------
     ValueError
-        If the edges left are not one cycle, as for a disconnected graph.
+        If the graph is not connected, or the edges left are not one cycle.
     """
     graph = integral.graph
     internal = graph.get_internal_edges()
@@ -693,6 +695,17 @@ def _one_loop_cycle(
 
     def other_end(k: int, v: int) -> int:
         return internal[k].v2 if internal[k].v1 == v else internal[k].v1
+
+    # Removing leaves needs a connected graph: a separate tree would end in a vertex without edges.
+    reached, frontier = {1}, [1]
+    while frontier:
+        v = frontier.pop()
+        for w in (other_end(k, v) for k in incident[v]):
+            if w not in reached:
+                reached.add(w)
+                frontier.append(w)
+    if len(reached) != n_int:
+        raise ValueError("The closed form applies to connected one-loop graphs only")
 
     bridges: list[tuple[int, list[int]]] = []
     leaves = [v for v, ks in incident.items() if len(ks) == 1]
@@ -764,6 +777,46 @@ def one_loop_principal_a_determinant(integral: FeynmanIntegral) -> sp.Expr:
     return sp.Mul(*surfaces) if surfaces else sp.Integer(1)
 
 
+def _factor_list_reproducibly(expr: sp.Expr, kinematic_syms: set[sp.Symbol]) -> list[sp.Expr]:
+    """:func:`_factor_list`, with SymPy's random choices drawn from a fixed seed.
+
+    SymPy factors a multivariate polynomial by Wang's algorithm, which draws
+    evaluation points from a generator the whole process shares, so the time
+    it takes depends on what ran before, though the factors do not. After some
+    histories a Gram minor of the massless hexagon, 130 terms that factor in a
+    fifth of a second, had not factored after seven minutes. The generator is
+    seeded for each call and its state restored afterwards.
+    """
+    state = sympy_random.rng.getstate()
+    sympy_random.rng.seed(0)
+    try:
+        return _factor_list(expr, kinematic_syms)
+    finally:
+        sympy_random.rng.setstate(state)
+
+
+def _modified_cayley_matrix(integral: FeynmanIntegral) -> sp.Matrix:
+    """The modified Cayley matrix of the cycle of a one-loop integral.
+
+    Y_00 = 0, Y_0i = 1, Y_ii = 2 m_i^2 and Y_ij = m_i^2 + m_j^2 - q_ij^2, with
+    q_ij the momentum between propagators i and j of the cycle, in cycle order.
+    """
+    edges, legs_at, _bridges = _one_loop_cycle(integral)
+    n = len(edges)
+    q_squared = _momentum_squared(integral)
+    masses = [e.get_mass() ** 2 for e in edges]
+    y = sp.zeros(n + 1, n + 1)
+    for i in range(1, n + 1):
+        y[0, i] = y[i, 0] = 1
+        y[i, i] = 2 * masses[i - 1]
+    for i in range(1, n + 1):
+        for j in range(i + 1, n + 1):
+            # Cutting edges i and j isolates the cycle vertices strictly after edge i up to edge j.
+            legs = [leg for k in range(i, j) for leg in legs_at[k]]
+            y[i, j] = y[j, i] = masses[i - 1] + masses[j - 1] - q_squared(legs)
+    return y
+
+
 def one_loop_landau_surfaces_by_type(
     integral: FeynmanIntegral,
 ) -> tuple[tuple[sp.Expr, ...], tuple[sp.Expr, ...]]:
@@ -798,35 +851,43 @@ def one_loop_landau_surfaces_by_type(
     """
     if integral.loop_count != 1:
         raise ValueError("The closed form applies to one-loop integrals only")
-    edges, legs_at, _bridges = _one_loop_cycle(integral)
-    n = len(edges)
-    products = integral.momentum_products
-    q_squared = _momentum_squared(integral)
-
-    masses = [e.get_mass() ** 2 for e in edges]
-    y = sp.zeros(n + 1, n + 1)
-    for i in range(1, n + 1):
-        y[0, i] = y[i, 0] = 1
-        y[i, i] = 2 * masses[i - 1]
-    for i in range(1, n + 1):
-        for j in range(i + 1, n + 1):
-            # Cutting edges i and j isolates the cycle vertices strictly after edge i up to edge j.
-            legs = [leg for k in range(i, j) for leg in legs_at[k]]
-            y[i, j] = y[j, i] = masses[i - 1] + masses[j - 1] - q_squared(legs)
-
-    kinematic_syms = set().union(*(sp.sympify(x).free_symbols for x in masses)) | set().union(
-        *(v.free_symbols for v in products.values())
+    y = _modified_cayley_matrix(integral)
+    n = y.rows - 1
+    kinematic_syms = y.free_symbols
+    # The minors are taken with a symbol for each distinct entry that is not constant and
+    # factored before the entries are substituted back. When the entries are linearly
+    # independent forms in symbols alone (see _renaming), each factor stays irreducible.
+    entries = [sp.expand(y[i, j]) for i in range(n + 1) for j in range(i, n + 1)]
+    names, squared = _renaming(entries)
+    exact = bool(names) and not squared
+    if not names:
+        distinct = dict.fromkeys(entry for entry in entries if entry.free_symbols)
+        names = {entry: sp.Dummy(f"y{k}") for k, entry in enumerate(distinct, start=1)}
+    back = {symbol: entry for entry, symbol in names.items()}
+    # Minors in the polynomial ring of the symbols, much faster than Matrix.det.
+    symbolic = DomainMatrix.from_Matrix(
+        y.applyfunc(lambda entry: names.get(sp.expand(entry), entry))
     )
     first: dict[sp.Expr, None] = {}
     second: dict[sp.Expr, None] = {}
     for size in range(1, n + 2):
         for subset in combinations(range(n + 1), size):
-            minor = sp.expand(y.extract(list(subset), list(subset)).det())
+            minor = symbolic.domain.to_sympy(symbolic.extract(list(subset), list(subset)).det())
             if minor == 0:
                 continue
+            factors = _factor_list_reproducibly(minor, set(back))
+            images = [sp.expand(f.xreplace(back)) for f in factors]
+            if any(image == 0 for image in images):
+                continue
             target = second if 0 in subset else first
-            for fac in _factor_list(minor, kinematic_syms):
-                target.setdefault(fac, None)
+            for image in images:
+                if exact:
+                    pieces = [_normalised(image)]
+                else:
+                    pieces = _factor_list_reproducibly(image, kinematic_syms)
+                for fac in pieces:
+                    if fac.free_symbols & kinematic_syms:
+                        target.setdefault(fac, None)
     return tuple(first), tuple(second)
 
 

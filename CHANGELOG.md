@@ -330,6 +330,14 @@
   bridge, as for `1e|22|e|:nnn`, whose cycle it took to have four edges. A
   disconnected graph that feynkit counts as one loop, such as `11e|e|33e|e|`,
   raises `ValueError`.
+- The report's one-loop closed form expanded every principal minor of the
+  modified Cayley matrix in the invariants: about 40 s for the massless
+  pentagon, and unfinished after 47 minutes for the hexagon. It takes the
+  minors in a symbol per entry and factors them before substituting back:
+  about 1 s for the pentagon and 40 s for the hexagon. Each factorisation draws
+  SymPy's random evaluation points from a fixed seed, so that its time does not
+  depend on what ran before: from one state a Gram minor of the hexagon, which
+  factors in a fifth of a second, had not factored after seven minutes.
 
 ## 0.4.0 (2026-09-27)
 

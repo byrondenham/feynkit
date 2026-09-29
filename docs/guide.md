@@ -1968,9 +1968,9 @@ kinematic constraints.
 latex = fi.to_latex(["polytope", "gkz"], title="Massive triangle")
 ```
 
-The Landau section dominates the build time: the kite `12e|23|3|e|:zzzzz` takes about 6 s in all,
-over 4 s of it in the Landau analysis, and the massive box `12e|3e|3e|e|:nnnn` about 17 s, 16 s of
-it Landau. A survey over many graphs can leave it out and keep everything else:
+The Landau section dominates the build time: the kite `12e|23|3|e|:zzzzz` and the massive box
+`12e|3e|3e|e|:nnnn` each take about 6 s in all, over 4 s of it in the Landau analysis. A survey
+over many graphs can leave it out and keep everything else:
 
 ```python
 from feynkit.io.report import DEFAULT_SECTIONS

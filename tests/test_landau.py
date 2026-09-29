@@ -10,20 +10,25 @@ from __future__ import annotations
 
 import itertools
 import re
+import signal
 import subprocess
 from pathlib import Path
 
 import numpy as np
 import pytest
 import sympy as sp
+import sympy.core.random as sympy_random
 
 from feynkit import Edge, FeynmanIntegral, Graph, landau_analysis, landau_analysis_from_polynomial
 from feynkit import landau as landau_module
 from feynkit.core.exceptions import ComputationError, ValidationError
+from feynkit.io.report import AnalysisReport
 from feynkit.kinematics.mandelstam import standard_invariants
 from feynkit.landau import (
     _eliminate_singular,
     _elimination_discriminant,
+    _factor_list,
+    _modified_cayley_matrix,
     _one_loop_cycle,
     _read_singular_polynomial,
     _renaming,
@@ -820,6 +825,22 @@ class TestBridges:
         with pytest.raises(ValueError, match="connected"):
             one_loop_landau_surfaces(FeynmanIntegral.from_cnickel("11e|e|33e|e|"))
 
+    def test_a_graph_with_a_tree_component_is_rejected(self) -> None:
+        # A sunrise on vertices 1 and 2 and a separate edge from 3 to 4, a leg at each vertex,
+        # count as one loop by E - V + 1; removing leaves emptied vertex 3 and raised an
+        # unrelated ValueError.
+        edges = [
+            *(Edge(idx=k, v1=1, v2=2, is_internal=True) for k in (1, 2, 3)),
+            Edge(idx=4, v1=3, v2=4, is_internal=True),
+            *(Edge(idx=4 + v, v1=v, v2=4 + v, is_internal=False) for v in (1, 2, 3, 4)),
+        ]
+        fi = FeynmanIntegral(Graph(internal_vertices=4, external_legs=4, edges=edges))
+        assert fi.loop_count == 1
+        with pytest.raises(ValueError, match="connected"):
+            one_loop_landau_surfaces(fi)
+        with pytest.raises(ValueError, match="connected"):
+            one_loop_bridge_poles(fi)
+
     @requires_singular
     @pytest.mark.parametrize(
         "cnickel",
@@ -836,3 +857,83 @@ class TestBridges:
         # With a massless bridge, 11e|2|e|:nnz and 12e|2e|3|e|:nnnz need the rule for several
         # generators: every factor of every generator added m_1 - m_2, m_1 + m_2 and a quartic.
         assert _same_surfaces(FeynmanIntegral.from_cnickel(cnickel))
+
+
+class TestClosedForm:
+    """The minors of the modified Cayley matrix are taken with a symbol per distinct entry and
+    factored before the entries are substituted back."""
+
+    @pytest.mark.parametrize(
+        "cnickel", ["11e|e|:nn", "12e|2e|e|:aaa", "12e|3e|3e|e|:nzzz", "12e|3e|3e|e|:zzzz"]
+    )
+    def test_the_factors_of_the_expanded_minors(self, cnickel: str) -> None:
+        # The oracle is the old computation: every minor expanded in the invariants.
+        fi = FeynmanIntegral.from_cnickel(cnickel)
+        y = _modified_cayley_matrix(fi)
+        first: dict[sp.Expr, None] = {}
+        second: dict[sp.Expr, None] = {}
+        for size in range(1, y.rows + 1):
+            for subset in itertools.combinations(range(y.rows), size):
+                minor = sp.expand(y.extract(list(subset), list(subset)).det())
+                target = second if 0 in subset else first
+                for factor in _factor_list(minor, y.free_symbols):
+                    target.setdefault(factor, None)
+        assert one_loop_landau_surfaces_by_type(fi) == (tuple(first), tuple(second))
+
+    def test_sympys_random_state_is_left_alone(self) -> None:
+        # The minors are factored with SymPy's generator seeded, and the generator is restored;
+        # with equal masses the substituted factors are factored again, the same way.
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:aaa")
+        sympy_random.seed(7)
+        state = sympy_random.rng.getstate()
+        one_loop_landau_surfaces_by_type(fi)
+        assert sympy_random.rng.getstate() == state
+
+
+@pytest.mark.slow
+class TestPolygonClosedForms:
+    """The massless pentagon's closed form took about 40 s, and the hexagon's did not finish
+    in 47 minutes."""
+
+    @requires_singular
+    def test_pentagon(self) -> None:
+        # The face computation skips the polytope itself, 15 points, and misses its factor.
+        fi = FeynmanIntegral.from_cnickel("12e|3e|4e|4e|e|:zzzzz")
+        faces = set(landau_analysis(fi).landau_surfaces)
+        first, second = one_loop_landau_surfaces_by_type(fi)
+        closed = set(first) | set(second)
+        assert faces < closed
+        assert len(closed - faces) == 1
+        assert not (closed - faces) & set(first)
+
+    def test_hexagon_whatever_sympys_random_state(self) -> None:
+        # SymPy's factorisation draws evaluation points from a generator the process shares.
+        # Factoring each minor as it came, from this state a Gram minor of 130 terms that
+        # factors in a fifth of a second had not factored after seven minutes.
+        if not hasattr(signal, "SIGALRM"):
+            pytest.skip("stopping a stalled factorisation needs SIGALRM")
+
+        def expire(signum: int, frame: object) -> None:
+            raise TimeoutError("the hexagon's closed form took more than 300 s")
+
+        fi = FeynmanIntegral.from_cnickel("12e|3e|4e|5e|5e|e|:zzzzzz")
+        previous = signal.signal(signal.SIGALRM, expire)
+        signal.alarm(300)
+        try:
+            sympy_random.seed(0)
+            first, second = one_loop_landau_surfaces_by_type(fi)
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, previous)
+        assert (len(first), len(second)) == (37, 57)
+
+    @requires_singular
+    def test_hexagon_report(self) -> None:
+        # The eight faces skipped, seven of 15 points and the polytope itself, miss eight factors.
+        fi = FeynmanIntegral.from_cnickel("12e|3e|4e|5e|5e|e|:zzzzzz")
+        landau = AnalysisReport.from_integral(fi, ["landau"]).landau
+        assert landau is not None
+        closed = set(landau.first_type) | set(landau.second_type)
+        faces = set(landau.analysis.landau_surfaces)
+        assert faces < closed
+        assert len(closed - faces) == 8

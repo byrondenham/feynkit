@@ -1638,7 +1638,8 @@ la = landau_analysis_from_polynomial(G, [u1, u2, u3])
 For one-loop graphs `one_loop_landau_surfaces(fi)` returns the same factors, for generic
 kinematics and when no face is skipped, from the principal minors of the modified Cayley matrix
 (Dlapa, Helmer, Papathanasiou, Tellander 2023). With special kinematics it can keep a factor the
-faces miss (see [Backends](#backends)), and it keeps those of skipped faces: at the default
+faces miss, which the limit surfaces then give (see
+[Specialised kinematics](#specialised-kinematics)), and it keeps those of skipped faces: at the default
 `max_face_points` the faces miss 1 of the 32 factors of the massless pentagon and 8 of the
 hexagon's 79. It is fast, needs no Gröbner basis, and is what the test-suite checks the face
 computation against. The massless pentagon takes about half a second, the massless hexagon about
@@ -1685,17 +1686,9 @@ its locus. A face whose elimination ideal is zero has a component that projects 
 kinematic space; Singular's `minAssGTZ` splits its ideal into minimal primes, and each prime that
 projects onto a hypersurface contributes that hypersurface, as $bc = ad$ does in example 3.9 of
 Fevola, Mizera and Telen (2024), while the dominant ones are left out and `face.dominant` is set.
-Without Singular such a face contributes nothing. This makes the result the principal Landau
-determinant of Fevola, Mizera and Telen (2024, section 3). At special kinematics it can miss a component that the one-loop closed form
-keeps: a singular point of a face can leave the torus as the kinematics specialise, and no face
-then sees its limit. With $p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn` misses
-$p_2^2 - p_3^2$: where $p_2^2 = p_3^2$ its top face has no singular point in the torus, since it
-has moved onto the facet $u_3 = 0$. At one loop, where this has been checked, the missing
-components come from faces of three propagators whose discriminant, the Källén function
-$\lambda(a, b, c)$ of the sub-triangle, becomes the perfect square $(b - c)^2$ because a leg is
-massless; boxes with a massless leg and some massless propagators miss components in the same
-way. In the one-loop cases checked no factor was added and none was lost at generic kinematics;
-beyond one loop the extent is not known.
+Without Singular such a face contributes nothing. The result is, by definition, the principal
+Landau determinant of Fevola, Mizera and Telen (2024, definition 3.5); see
+[Specialised kinematics](#specialised-kinematics) for what it can leave out.
 The massless pentagon and hexagon take about 3 s and 15 s. feynkit eliminates and factors with
 Singular when the `Singular` binary is on the path, except for the discriminants of edges, small
 polynomials that SymPy factors to write them, and falls back to SymPy otherwise, which is much
@@ -1714,6 +1707,57 @@ on the whole analysis, whose time can reach it for every face eliminated. The Sy
 discriminants of edges and the factorisations are not limited, and SymPy's factorisation of a
 large polynomial can take minutes on its own.
 
+### Specialised kinematics
+
+The principal Landau determinant is the locus the faces see. Fevola, Mizera and Telen conjecture
+that it lies in the Euler discriminant, where $|\chi|$ of the complement of $\{G = 0\}$ in the
+torus drops (2024, definition 3.2 and conjecture 3.6), and show that it can be strictly smaller
+(example 3.10). At special kinematics this happens already at one loop: a singular point of a
+face can leave the torus as the kinematics specialise, and no face then sees its limit. With
+$p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn` has no $p_2^2 - p_3^2$ among its Landau surfaces:
+where $p_2^2 = p_3^2$ its top face has no singular point in the torus, since it has moved onto the
+facet $u_3 = 0$, yet $|\chi|$ drops from 6 to 5 there.
+
+For a `FeynmanIntegral` whose momentum products are not the generic ones, `landau_analysis`
+therefore also analyses the parent family, the same graph and masses with the momentum products it
+would have by default, whose invariants the integral's products determine. It restricts the
+parent's surfaces to the integral's kinematics, factors them, and keeps the irreducible factors
+that do not vanish and are not Landau surfaces already. Each is tested with
+`critical_point_count` (see [Torus point counts](#torus-point-counts)): the number of critical
+points, which is $|\chi|$ for generic exponents, is counted at a random rational point of the
+family and at two random rational points of the factor, each off every other surface found. A
+factor at whose points the count drops is a limit surface, in `la.limit_surfaces`; the others are
+in `la.limit_candidates`, each with the reason. The drop is evidence, not proof: the points are
+random, and the counts are taken modulo two primes.
+
+```python
+import sympy as sp
+from feynkit.kinematics.mandelstam import standard_invariants
+
+fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+p1, p2, p3 = standard_invariants(3).external_masses
+fi = fi.with_(momentum_products={k: sp.expand(v.subs(p1, 0)) for k, v in fi.momentum_products.items()})
+la = landau_analysis(fi)
+(limit,) = la.limit_surfaces
+print(limit.surface, limit.generic_count, limit.counts)   # p2^2 - p3^2  6  (5, 5)
+```
+
+`landau_analysis(fi, confirm=False)` lists every factor as a candidate without counting,
+`confirm_timeout` (default 60 s) limits the counts of each factor, and `seed` fixes the points and
+the exponents. `limits=False` leaves the parent out. `landau_analysis_from_polynomial` has no parent
+unless one is passed, as `parent=` a polynomial in the same variables and `restriction=` the map
+from its kinematic symbols to expressions in the polynomial's, under which it must restrict to the
+polynomial. A restricted surface that vanishes identically gives nothing, and a skipped face of the
+parent, listed in `la.parent.skipped_faces`, gives nothing either.
+
+On the one-loop bubbles, triangles and boxes, with every set of massless legs, the Landau surfaces
+lie within the one-loop closed form and, with the limit surfaces, equal it; every factor tested
+dropped. Two questions stay open. Whether every non-vanishing restricted factor lies in the Euler
+discriminant is not known, which is why each is tested. Beyond one loop the two lists together
+need not be the whole Euler discriminant: the parachute has a component of it outside the
+principal Landau determinant at generic kinematics (Fevola, Mizera and Telen 2024, eq. (3.18)),
+where there is no parent.
+
 ### LandauAnalysis fields
 
 | Attribute | Type | Description |
@@ -1722,6 +1766,13 @@ large polynomial can take minutes on its own.
 | `la.principal_a_determinant` | `sp.Expr` | Product of the distinct kinematic factors |
 | `la.landau_surfaces` | `tuple[sp.Expr, ...]` | The factors themselves |
 | `la.skipped_faces` | `tuple` | Faces with more points than `max_face_points`, or past `timeout` |
+| `la.limit_surfaces` | `tuple[LimitSurface, ...]` | Restricted factors of the parent's surfaces outside the Landau surfaces, confirmed by a drop of the count |
+| `la.limit_candidates` | `tuple[LimitSurface, ...]` | The other such factors, not confirmed |
+| `la.parent` | `LandauAnalysis \| None` | The analysis of the parent family, if there is one |
+
+A `LimitSurface` has `surface`, the `parent_surfaces` whose restrictions it divides,
+`generic_count`, the `counts` at its `points`, `reason`, None when the counts dropped, and
+`confirmed`.
 
 ### FaceDiscriminant fields
 

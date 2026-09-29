@@ -29,24 +29,37 @@ Faces contribute as follows.
   codimension-one part of their zero set. When the ideal is zero, a
   component projects onto all of kinematic space; it is left out, and the
   minimal primes give the hypersurfaces the other components project onto.
-  The result is the principal
-  Landau determinant of Fevola, Mizera and Telen (2024, section 3), which
-  at special kinematics can miss a component: a singular point of a face
-  can leave the torus as the kinematics specialise, and no face then sees
-  its limit. At p_1^2 = 0 and p_2^2 = p_3^2 the massive triangle's top face
-  has no singular point in the torus, since it has moved onto the facet
-  u_3 = 0, so p_2^2 - p_3^2 is missing, while the one-loop closed form
-  keeps it. At one loop, where this has been checked, the missing
-  components come from faces of three propagators whose discriminant, the
-  Källén function of the sub-triangle, becomes a perfect square because a
-  leg is massless; boxes with a massless leg and some massless lines miss
-  components in the same way. In the one-loop cases checked no factor was
-  added and none was lost at generic kinematics. Beyond one loop the
-  extent is not known. Faces with more points than
-  ``max_face_points``, and faces whose elimination runs past ``timeout``,
-  are skipped and listed in ``LandauAnalysis.skipped_faces``; the factors
-  of those faces are then missing from the result, at generic kinematics
-  too.
+  The result is, by definition, the principal Landau determinant of
+  Fevola, Mizera and Telen (2024, definition 3.5): the hypersurfaces onto
+  which components of the faces' incidence varieties in the torus
+  project. Faces with more points than ``max_face_points``, and faces
+  whose elimination runs past ``timeout``, are skipped and listed in
+  ``LandauAnalysis.skipped_faces``; the factors of those faces are then
+  missing from the result, at generic kinematics too.
+
+The principal Landau determinant is conjectured to lie in the Euler
+discriminant, the locus where |chi| of the complement of {G = 0} in the
+torus drops (Fevola, Mizera and Telen 2024, definition 3.2 and conjecture
+3.6), and can be strictly smaller (their example 3.10). At special
+kinematics a singular point of a face can leave the torus, and no face
+sees its limit: at p_1^2 = 0 and p_2^2 = p_3^2 the massive triangle's top
+face has no singular point in the torus, since it has moved onto the facet
+u_3 = 0, so p_2^2 - p_3^2 is not in the principal Landau determinant,
+though |chi| drops from 6 to 5 there. For a Feynman integral whose
+momentum products are not the generic ones, :func:`landau_analysis` also
+restricts the surfaces of the parent family, the same graph and masses
+with generic external kinematics, and tests each irreducible factor of
+the restrictions that is not in the principal Landau determinant: it is a
+limit surface when the number of critical points, |chi| for generic
+exponents, drops at two random rational points of it, and a candidate
+otherwise (see :class:`LimitSurface`). This is evidence, not proof. It is
+not known whether every such factor lies in the Euler discriminant, nor,
+beyond one loop, whether the two lists give all of it; in general they do
+not, since at generic kinematics the parachute has a component of the
+Euler discriminant outside the principal Landau determinant (Fevola,
+Mizera and Telen 2024, eq. (3.18)). On the one-loop bubbles, triangles and
+boxes with massless legs checked, the principal Landau determinant and the
+limit surfaces together give the one-loop closed form.
 
 The factors are candidate codimension-one singular loci on all sheets of the
 integral. Membership is necessary for a singularity, not sufficient, and
@@ -58,17 +71,20 @@ closed form of Dlapa, Helmer, Papathanasiou and Tellander (2023, eq.
 1LoopEA): the product of the principal minors of the modified Cayley
 matrix of the cycle and, for a graph with bridges, the poles of the
 bridges' propagators. It is used as an independent check of the face
-computation for generic kinematics.
+computation for generic kinematics, and of the limit surfaces at special
+kinematics.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import numbers
+import random
 import re
 import subprocess
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 from itertools import combinations
@@ -94,6 +110,7 @@ if TYPE_CHECKING:
 __all__ = [
     "FaceDiscriminant",
     "LandauAnalysis",
+    "LimitSurface",
     "landau_analysis",
     "landau_analysis_from_polynomial",
     "one_loop_bridge_poles",
@@ -151,6 +168,58 @@ class FaceDiscriminant:
 
 
 @dataclass(frozen=True)
+class LimitSurface:
+    """A factor of a restricted surface of the parent family, outside the principal Landau
+    determinant.
+
+    The parent family has the same graph and masses with generic external
+    kinematics; its surfaces, restricted to the kinematics analysed, factor
+    into irreducible polynomials, and this is one of them that the faces of
+    the family itself do not give. It is tested for a drop of the Euler
+    characteristic: the number of critical points of
+    sum_e nu_e log u_e - (D/2) log G on the complement of {G = 0} in the
+    torus, which is |chi| of that complement for generic exponents, is
+    counted with :func:`~feynkit.point_count.critical_point_count` at a
+    random rational point of the family and at random rational points of the
+    surface. A drop at every point is evidence that the surface lies in the
+    Euler discriminant (Fevola, Mizera and Telen 2024, definition 3.2), not a
+    proof: the points are random, and the counts are taken modulo two primes.
+
+    Attributes
+    ----------
+    surface
+        The irreducible polynomial, in the kinematic symbols of the family.
+    parent_surfaces
+        The Landau surfaces of the parent family whose restrictions it
+        divides.
+    generic_count
+        The count at a random point of the family, or None if it was not
+        made or failed.
+    counts
+        The counts at the points of the surface, in the order drawn; the
+        test stops at the first that fails.
+    points
+        Those points, each as (symbol, value) pairs sorted by name, with the
+        energy scale left out when the analysis took it to be 1.
+    reason
+        None when the count dropped at every point, otherwise why the
+        surface is only a candidate.
+    """
+
+    surface: sp.Expr
+    parent_surfaces: tuple[sp.Expr, ...]
+    generic_count: int | None = None
+    counts: tuple[int, ...] = ()
+    points: tuple[tuple[tuple[sp.Symbol, sp.Rational], ...], ...] = ()
+    reason: str | None = None
+
+    @property
+    def confirmed(self) -> bool:
+        """Whether the count dropped at every point of the surface tested."""
+        return self.reason is None
+
+
+@dataclass(frozen=True)
 class LandauAnalysis:
     """Reduced principal A-determinant of a Feynman integral.
 
@@ -178,12 +247,27 @@ class LandauAnalysis:
         pentagon, whose polytope has 15 points, misses its own factor at
         the default ``max_face_points`` of 14, which covers every one-loop
         box.
+    limit_surfaces
+        The factors of the parent family's surfaces, restricted to these
+        kinematics, that are not in ``landau_surfaces`` and at whose random
+        points the count of critical points dropped; see
+        :class:`LimitSurface`. Empty without a parent.
+    limit_candidates
+        The other such factors: the count did not drop at a point, no
+        rational point was found on the factor, a count failed or ran past
+        its time, or the test was not asked for.
+    parent
+        The analysis of the parent family, the same graph and masses with
+        generic external kinematics, or None when there is no parent.
     """
 
     face_discriminants: tuple[FaceDiscriminant, ...]
     principal_a_determinant: sp.Expr
     landau_surfaces: tuple[sp.Expr, ...]
     skipped_faces: tuple[tuple[tuple[int, ...], ...], ...] = ()
+    limit_surfaces: tuple[LimitSurface, ...] = ()
+    limit_candidates: tuple[LimitSurface, ...] = ()
+    parent: LandauAnalysis | None = None
 
 
 # --- discriminants -----------------------------------------------------------
@@ -258,9 +342,10 @@ def _singular_binary() -> str | None:
 _MAX_TIMEOUT = 2_000_000
 
 
-def _check_timeout(timeout: object, *, optional: bool = True) -> None:
+def _check_timeout(timeout: object, *, optional: bool = True, name: str = "timeout") -> None:
     """Raise ValidationError unless ``timeout`` is a number of seconds greater
-    than 0 and at most 2,000,000, or None when ``optional``."""
+    than 0 and at most 2,000,000, or None when ``optional``; ``name`` is the
+    argument's, for the message."""
     if timeout is None and optional:
         return
     if (
@@ -272,7 +357,7 @@ def _check_timeout(timeout: object, *, optional: bool = True) -> None:
         return
     what = "None or a number" if optional else "a number"
     raise ValidationError(
-        f"timeout must be {what} of seconds greater than 0 and at most {_MAX_TIMEOUT:,}; "
+        f"{name} must be {what} of seconds greater than 0 and at most {_MAX_TIMEOUT:,}; "
         f"got {timeout!r:.60}"
     )
 
@@ -802,9 +887,10 @@ def _elimination_discriminant(
     others, which is 1 unless the component projects onto a hypersurface
     (Fevola, Mizera and Telen 2024, definition 3.5 and example 3.9). The
     SymPy fallback has no decomposition and gives no factor for such a
-    face. A component that arises only as a limit under special kinematics
-    can then be missing, as p_2^2 - p_3^2 is for the massive triangle at
-    p_1^2 = 0, whose top face has the locus p_2^2 = p_3^2 = 0. Eliminates
+    face. A component that arises only as the limit of a singular point
+    leaving the torus is in no face's locus, as p_2^2 - p_3^2 is in none
+    for the massive triangle at p_1^2 = 0, whose top face has the locus
+    p_2^2 = p_3^2 = 0; see :class:`LimitSurface`. Eliminates
     and factors with Singular when it is installed and ``backend`` is
     "auto" or "singular", else with SymPy; ``timeout`` limits the face's
     elimination and decomposition by Singular together, in seconds, and
@@ -942,6 +1028,208 @@ def _reduced(
     return (sp.Mul(*surfaces) if surfaces else sp.Integer(1)), surfaces
 
 
+# --- limit surfaces ----------------------------------------------------------
+
+# Kinematic values are drawn as a / b with a in [1, 97] and b in [1, 11].
+_NUMERATORS = (1, 97)
+_DENOMINATORS = (1, 11)
+# Draws tried for a point, of the family or of a surface, before giving up.
+_POINT_TRIES = 50
+# Points of each surface at which the count must drop.
+_POINTS_PER_SURFACE = 2
+
+
+def _rational_root(poly: sp.Poly) -> sp.Rational | None:
+    """A rational root of a univariate polynomial of degree 1 or 2, or None."""
+    if poly.degree() == 1:
+        a, b = poly.all_coeffs()
+        return sp.Rational(-b / a)
+    if poly.degree() == 2:
+        a, b, c = poly.all_coeffs()
+        root = sp.sqrt(b * b - 4 * a * c)
+        if root.is_Rational:
+            return sp.Rational((-b + root) / (2 * a))
+    return None
+
+
+class _Family:
+    """The polynomials G(u; z) of a family, for counting critical points at points z.
+
+    The kinematic symbols in ``fixed`` keep their values there, the energy
+    scale 1 when the analysis eliminated at scale 1; the others are drawn.
+    """
+
+    def __init__(
+        self,
+        g: sp.Expr,
+        variables: list[sp.Symbol],
+        fixed: dict[sp.Symbol, sp.Expr],
+        *,
+        seed: int,
+    ) -> None:
+        self.g = g
+        self.variables = variables
+        self.fixed = fixed
+        self.symbols = sorted(g.free_symbols - set(variables) - set(fixed), key=str)
+        self.coefficients = [c for _, c in extract_monomial_support(g, variables)]
+        self.seed = seed
+        self.rng = random.Random(seed)
+
+    def _draw(self) -> dict[sp.Symbol, sp.Rational]:
+        return {
+            x: sp.Rational(self.rng.randint(*_NUMERATORS), self.rng.randint(*_DENOMINATORS))
+            for x in self.symbols
+        }
+
+    def point(
+        self, avoid: list[sp.Expr], on: sp.Expr | None = None
+    ) -> dict[sp.Symbol, sp.Rational] | None:
+        """A random rational point off every polynomial of ``avoid``: on {on = 0} when
+        ``on`` is given, and otherwise off every coefficient of G as well. None if
+        _POINT_TRIES draws found none.
+
+        On a surface, the other symbols are drawn and a symbol in which ``on`` then
+        has degree 1, or degree 2 with a rational root, is solved for.
+        """
+        checks = avoid if on is not None else avoid + self.coefficients
+        for _ in range(_POINT_TRIES):
+            values = self._draw()
+            if on is not None:
+                unknowns = [x for x in self.symbols if x in on.free_symbols]
+                self.rng.shuffle(unknowns)
+                for x in unknowns:
+                    rest = {y: v for y, v in values.items() if y != x}
+                    root = _rational_root(sp.Poly(on.xreplace({**rest, **self.fixed}), x))
+                    if root is not None:
+                        values[x] = root
+                        break
+                else:
+                    continue
+            at = {**values, **self.fixed}
+            if not any(sp.sympify(h).xreplace(at) == 0 for h in checks):
+                return values
+        return None
+
+    def count(self, values: dict[sp.Symbol, sp.Rational], timeout: float) -> int:
+        """The number of critical points of the likelihood function at the point."""
+        from . import point_count
+
+        g = sp.expand(self.g.xreplace({**values, **self.fixed}))
+        return point_count.critical_point_count(
+            g, self.variables, {}, seed=self.seed, timeout=timeout
+        )
+
+
+def _restricted_factors(
+    parent: LandauAnalysis,
+    restriction: Mapping[sp.Symbol, sp.Expr],
+    surfaces: tuple[sp.Expr, ...],
+    kinematic_syms: set[sp.Symbol],
+    surface_syms: set[sp.Symbol],
+) -> dict[sp.Expr, list[sp.Expr]]:
+    """The irreducible factors of the parent's surfaces, restricted, that are not in
+    ``surfaces``, each with the parent surfaces whose restrictions it divides.
+    Restrictions that vanish identically are left out."""
+    images = [(h, sp.expand(h.xreplace(dict(restriction)))) for h in parent.landau_surfaces]
+    images = [(h, image) for h, image in images if image != 0]
+    known = {_normalised(h) for h in surfaces}
+    found: dict[sp.Expr, list[sp.Expr]] = {}
+    factor_lists = _factor_lists([image for _, image in images], kinematic_syms)
+    for (h, _), factors in zip(images, factor_lists, strict=True):
+        for factor in factors:
+            if factor.free_symbols & surface_syms and _normalised(factor) not in known:
+                found.setdefault(factor, []).append(h)
+    return found
+
+
+def _confirmed(
+    family: _Family,
+    candidates: dict[sp.Expr, list[sp.Expr]],
+    surfaces: tuple[sp.Expr, ...],
+    *,
+    confirm: bool,
+    confirm_timeout: float,
+) -> list[LimitSurface]:
+    """Each candidate with the counts that confirm it, or the reason they do not."""
+    generic: int | None = None
+    shared: str | None = "not tested, since confirm is False" if not confirm else None
+    others = list(surfaces) + list(candidates)
+    if shared is None:
+        point = family.point(others)
+        if point is None:
+            shared = "no random point of the family was found off every surface"
+        else:
+            try:
+                generic = family.count(point, confirm_timeout)
+            except (ComputationError, RuntimeError, ValidationError) as exc:
+                shared = f"the count at a random point of the family failed: {exc}"
+    records: list[LimitSurface] = []
+    for h, parents in candidates.items():
+        counts: list[int] = []
+        points: list[dict[sp.Symbol, sp.Rational]] = []
+        reason = shared
+        deadline = time.monotonic() + confirm_timeout
+        while reason is None and len(counts) < _POINTS_PER_SURFACE:
+            point = family.point([x for x in others if x != h], on=h)
+            left = deadline - time.monotonic()
+            if point is None:
+                reason = "no rational point found on it"
+            elif left <= 0:
+                reason = f"its counts ran past confirm_timeout={confirm_timeout} s"
+            else:
+                try:
+                    counts.append(family.count(point, left))
+                except (ComputationError, RuntimeError, ValidationError) as exc:
+                    reason = f"the count failed: {exc}"
+                    break
+                points.append(point)
+                if generic is not None and counts[-1] >= generic:
+                    reason = f"the count, {counts[-1]}, did not drop below {generic}"
+        records.append(
+            LimitSurface(
+                surface=h,
+                parent_surfaces=tuple(parents),
+                generic_count=generic,
+                counts=tuple(counts),
+                points=tuple(
+                    tuple(sorted(point.items(), key=lambda item: str(item[0]))) for point in points
+                ),
+                reason=reason,
+            )
+        )
+    return records
+
+
+def _generic_parent(
+    integral: FeynmanIntegral,
+) -> tuple[FeynmanIntegral, dict[sp.Symbol, sp.Expr]] | None:
+    """The integral with the same graph and masses and generic external kinematics, and
+    the restriction taking its kinematic symbols to the integral's; None when the
+    integral's momentum products are already those.
+
+    The generic products are linear forms in the invariants, as many as the
+    products and independent, so equating them with the integral's products
+    gives each invariant uniquely.
+    """
+    parent = integral.with_(momentum_products=None)
+    generic = {key: sp.sympify(v) for key, v in parent.momentum_products.items()}
+    given = {key: sp.sympify(v) for key, v in integral.momentum_products.items()}
+    given = {(min(key), max(key)): v for key, v in given.items()}
+    invariants = sorted(set().union(*(v.free_symbols for v in generic.values())), key=str)
+    if not invariants or set(given) != {(min(k), max(k)) for k in generic}:
+        return None
+    fresh = {x: sp.Dummy(x.name) for x in invariants}
+    equations = [v.xreplace(fresh) - given[(min(key), max(key))] for key, v in generic.items()]
+    matrix, rhs = sp.linear_eq_to_matrix(equations, [fresh[x] for x in invariants])
+    if matrix.rows != matrix.cols or matrix.det() == 0:
+        return None
+    solution = matrix.LUsolve(rhs)
+    restriction = {x: sp.expand(solution[k]) for k, x in enumerate(invariants)}
+    if all(value == x for x, value in restriction.items()):
+        return None
+    return parent, restriction
+
+
 # --- public API --------------------------------------------------------------
 
 
@@ -952,6 +1240,11 @@ def landau_analysis_from_polynomial(
     max_face_points: int = 14,
     scale: sp.Symbol | None = None,
     timeout: float | None = None,
+    parent: sp.Expr | None = None,
+    restriction: Mapping[sp.Symbol, sp.Expr] | None = None,
+    confirm: bool = True,
+    confirm_timeout: float = 60,
+    seed: int = 0,
 ) -> LandauAnalysis:
     """Reduced principal A-determinant of a polynomial in the given variables.
 
@@ -993,16 +1286,89 @@ def landau_analysis_from_polynomial(
         are not limited, namely the SymPy fallback, the discriminants of
         edges and the factorisations, which SymPy can take minutes over.
 
+    parent, restriction
+        A polynomial in the same variables of which ``g_poly`` is a
+        restriction, and the map from its kinematic symbols to expressions
+        in those of ``g_poly`` that restricts it: substituted, ``parent``
+        must be ``g_poly``. The restriction defaults to no substitution.
+        The parent is analysed with the same ``max_face_points``, ``scale``
+        and ``timeout``, and the irreducible factors of its surfaces,
+        restricted, that are not among ``landau_surfaces`` and do not
+        vanish identically, are tested and listed in ``limit_surfaces`` or
+        ``limit_candidates``. Without a parent both are empty.
+    confirm
+        Whether to test each factor for a drop of the number of critical
+        points (see :class:`LimitSurface`); when False every factor is a
+        candidate.
+    confirm_timeout
+        The most seconds to give the counts of each factor, and the count at
+        a random point of the family, at most 2,000,000. Its point search
+        is not limited.
+    seed
+        Seed of the random points and of the random exponents of the counts.
+
     Raises
     ------
     ValidationError
         If ``timeout`` is neither None nor a number greater than 0 and at
-        most 2,000,000.
+        most 2,000,000, nor ``confirm_timeout`` such a number; if
+        ``restriction`` is given without ``parent``; or if ``parent`` does
+        not restrict to ``g_poly``.
     ComputationError
         If Singular fails on a face or prints output that is not an
         elimination ideal.
     """
     _check_timeout(timeout)
+    _check_timeout(confirm_timeout, optional=False, name="confirm_timeout")
+    if parent is None and restriction is not None:
+        raise ValidationError("a restriction needs a parent polynomial")
+    parent_g: sp.Expr | None = None
+    if parent is not None:
+        restriction = dict(restriction or {})
+        parent_g = sp.expand(parent)
+        if sp.expand(parent_g.xreplace(restriction) - sp.expand(g_poly)) != 0:
+            raise ValidationError(
+                "the parent polynomial does not restrict to the polynomial under the restriction"
+            )
+    analysis = _analysis(g_poly, lp_parameters, max_face_points, scale, timeout)
+    if parent_g is None or restriction is None:
+        return analysis
+    parent_analysis = _analysis(parent_g, lp_parameters, max_face_points, scale, timeout)
+    g_poly = sp.expand(g_poly)
+    kinematic_syms = g_poly.free_symbols - set(lp_parameters)
+    surface_syms = kinematic_syms - ({scale} if scale is not None else set())
+    candidates = _restricted_factors(
+        parent_analysis, restriction, analysis.landau_surfaces, kinematic_syms, surface_syms
+    )
+    fixed: dict[sp.Symbol, sp.Expr] = {}
+    if scale is not None and scale in g_poly.free_symbols:
+        support = extract_monomial_support(g_poly, lp_parameters)
+        if _unit_scale_is_exact(support, scale):
+            fixed[scale] = sp.Integer(1)
+    family = _Family(g_poly, list(lp_parameters), fixed, seed=seed)
+    records = _confirmed(
+        family,
+        candidates,
+        analysis.landau_surfaces,
+        confirm=confirm,
+        confirm_timeout=confirm_timeout,
+    )
+    return dataclasses.replace(
+        analysis,
+        limit_surfaces=tuple(r for r in records if r.confirmed),
+        limit_candidates=tuple(r for r in records if not r.confirmed),
+        parent=parent_analysis,
+    )
+
+
+def _analysis(
+    g_poly: sp.Expr,
+    lp_parameters: list[sp.Symbol],
+    max_face_points: int,
+    scale: sp.Symbol | None,
+    timeout: float | None,
+) -> LandauAnalysis:
+    """The principal Landau determinant of :func:`landau_analysis_from_polynomial`."""
     g_poly = sp.expand(g_poly)
     if g_poly == 0:
         return LandauAnalysis((), sp.Integer(1), ())
@@ -1063,21 +1429,42 @@ def landau_analysis_from_polynomial(
 
 
 def landau_analysis(
-    integral: FeynmanIntegral, *, max_face_points: int = 14, timeout: float | None = None
+    integral: FeynmanIntegral,
+    *,
+    max_face_points: int = 14,
+    timeout: float | None = None,
+    limits: bool = True,
+    confirm: bool = True,
+    confirm_timeout: float = 60,
+    seed: int = 0,
 ) -> LandauAnalysis:
     """Reduced principal A-determinant of G = U + F for a Feynman integral.
 
     See the module docstring for what the faces contribute and for the
     caveats on interpreting the factors as Landau singularities, and
     :func:`landau_analysis_from_polynomial` for the arguments and errors.
+
+    The parent family is the integral with the same graph and masses and the
+    generic momentum products, those the integral would have been given by
+    default, when its own differ. Its invariants are found from the
+    integral's products, which they determine uniquely, and give the
+    restriction. With ``limits`` False, or when the products are the
+    generic ones, there is no parent, and ``limit_surfaces`` and
+    ``limit_candidates`` are empty.
     """
     sym = integral.symanzik
+    found = _generic_parent(integral) if limits else None
     return landau_analysis_from_polynomial(
         sym.g,
         list(sym.lp_parameters),
         max_face_points=max_face_points,
         scale=integral.graph.energy_scale,
         timeout=timeout,
+        parent=found[0].symanzik.g if found is not None else None,
+        restriction=found[1] if found is not None else None,
+        confirm=confirm,
+        confirm_timeout=confirm_timeout,
+        seed=seed,
     )
 
 

@@ -97,6 +97,7 @@ from feynkit.kinematics import (
 from feynkit.landau import (
     FaceDiscriminant,
     LandauAnalysis,
+    LimitSurface,
     landau_analysis,
     landau_analysis_from_polynomial,
     one_loop_bridge_poles,

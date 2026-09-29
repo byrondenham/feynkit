@@ -1085,20 +1085,10 @@ of the integral (Klausen 2023, lemma "Landau variety contained in Sing"). feynki
   height two or more has no common factor. For $(1 + u_1)(a + b u_1 + c u_2 + d u_1 u_2)$ the dense
   face has a dominant component and one over $bc = ad$ (Fevola, Mizera and Telen 2024, example
   3.9). Without Singular the decomposition is not made and such a face contributes nothing. Each
-  face thus gives the
-  codimension-one part of its locus, as the face computations of Fevola, Mizera and Telen do: the
-  result is their principal Landau determinant (2024, section 3). At special kinematics it can
-  miss a component, since a singular point of a face can leave the torus as the kinematics
-  specialise, and no face then sees its limit. With $p_1^2 = 0$ and $p_2^2 = p_3^2$ the massive
-  triangle's top face has no singular point in the torus, since it has moved onto the facet
-  $u_3 = 0$, and no face gives $p_2^2 - p_3^2$, which the closed form of section 10.2 keeps as the
-  factor of its Gram determinant, proportional to $\lambda(0, p_2^2, p_3^2) = (p_2^2 - p_3^2)^2$.
-  At one loop, where this has been checked, the missing components come from faces of three
-  propagators whose discriminant, the Källén function $\lambda(a, b, c)$ of the sub-triangle,
-  becomes the perfect square $(b - c)^2$ because a leg is massless; boxes with a massless leg and
-  some massless propagators miss components in the same way. In the one-loop cases checked no
-  factor was added and none was lost at generic kinematics; beyond one loop the extent is not
-  known.
+  face thus gives the codimension-one projections of the components of its incidence variety in
+  the torus, the dominant ones left out, and the result is, by definition, the principal Landau
+  determinant $\mathrm{PLD}(\mathcal E)$ of the family over the kinematic space $\mathcal E$
+  (Fevola, Mizera and Telen 2024, definition 3.5). Section 10.3 says what it can leave out.
 
 In lattice coordinates the exponent of a point $\alpha_0 + k v$ on an edge with primitive direction
 $v$ is $k = \langle \alpha - \alpha_0, v \rangle / \langle v, v \rangle$, not $\langle \alpha, v \rangle$.
@@ -1119,7 +1109,8 @@ singularities $m_i^2 = 0$ and, for massless propagators, the external masses $p_
 only the normal and pseudo-normal thresholds; for massless internal lines every edge is a simplex
 and the edge part is trivial (Fevola, Mizera, Telen 2023, lemma 4.10). `one_loop_landau_surfaces`
 implements the closed form and the test-suite checks the face computation against it for generic
-kinematics; with special kinematics it can keep a factor the faces miss (section 10.1).
+kinematics; with special kinematics it can keep a factor the faces miss, which the limit surfaces
+of section 10.3 then give.
 
 A graph with bridges, internal edges on no cycle, factorises. Each bridge $b$ carries the momentum
 $q_b$ of the legs on its side away from the cycle, so the integral is that of the cycle, with the
@@ -1128,7 +1119,48 @@ $1/(m_b^2 - q_b^2)^{\nu_b}$, and $G = U_C \bigl(1 + \sum_b (m_b^2 - q_b^2) u_b /
 $U_C$ and $F$ those of the cycle. The closed form is then that of the cycle times the poles
 $m_b^2 - q_b^2$, which `one_loop_bridge_poles` returns and `one_loop_landau_surfaces` includes.
 
-### 10.3 Caveats
+### 10.3 Limit Surfaces and the Euler Discriminant
+
+Let $X_z$ be the complement of $\{G = 0\}$ in the torus at kinematics $z \in \mathcal E$. The
+Euler discriminant $\nabla_\chi(\mathcal E)$ is the closure of the set of $z$ where $|\chi(X_z)|$
+is below its generic value (Fevola, Mizera and Telen 2024, definition 3.2). They conjecture
+$\mathrm{PLD}(\mathcal E) \subseteq \nabla_\chi(\mathcal E)$ (conjecture 3.6), and the inclusion
+can be strict: in their example 3.10 a node of $\{f = 0\}$ becomes a cusp at $z = 0$ on the
+boundary of the torus, so no face sees it, while $|\chi|$ drops from 4 to 3.
+
+At special kinematics this already happens at one loop. Take the massive triangle on
+$\mathcal E = \{p_1^2 = 0\}$. The top face has the singular point $u = -H^{-1} \mathbf 1$, $H$
+the Hessian of $G$, on the Gram locus; as $p_1^2 \to 0$ along it the
+point tends to the facet $u_3 = 0$, where $G = (u_1 + u_2)(1 + m_1^2 u_1 + m_2^2 u_2)$ is singular
+along a curve for every $z$, a dominant component. Over $p_2^2 = p_3^2$ no singular point is left
+in the torus, so $p_2^2 - p_3^2$ is not in $\mathrm{PLD}(\mathcal E)$, yet $|\chi|$ drops from 6
+to 5 there, and the closed form of section 10.2 keeps it: its Gram determinant restricts to
+$\lambda(0, p_2^2, p_3^2) = (p_2^2 - p_3^2)^2$.
+
+Restricting the surfaces of the generic family keeps such limits, and loses what vanishes
+identically (Fevola, Mizera and Telen 2024, example 3.9). For a family $\mathcal E$ inside the
+kinematic space $K$ of the same graph and masses with generic external kinematics, the parent,
+`landau_analysis` therefore reports
+$$\mathrm{PLD}(\mathcal E) \quad\text{and}\quad \{\, h \text{ irreducible} :
+h \mid g|_{\mathcal E} \neq 0 \text{ for a surface } g \text{ of } \mathrm{PLD}(K),\
+h \notin \mathrm{PLD}(\mathcal E) \,\}$$
+separately, the second as limit surfaces when a drop of $|\chi|$ is found on them and as
+candidates otherwise. The drop is tested by counting critical points of
+$\sum_e \nu_e \log u_e - (D/2) \log G$ on $X_z$, which number $|\chi(X_z)|$ for generic exponents
+(section 4.7), at a random rational point of $\mathcal E$ and at two random rational points of
+$\{h = 0\}$, each off every other surface found, as Fevola, Mizera and Telen filter candidate
+components (2024, appendix A). This is evidence, not proof: the points are random, and the counts
+are taken over $\mathbb F_p$ for two large primes.
+
+On every bubble, triangle and box with each propagator massless or of its own mass and each set
+of massless legs, $\mathrm{PLD}(\mathcal E)$ lies within the closed form, and with the limit
+surfaces it is the closed form; every factor tested dropped. Whether every non-vanishing
+restricted factor lies in $\nabla_\chi(\mathcal E)$ is not known. Beyond one loop the union need
+not be all of $\nabla_\chi(\mathcal E)$: at generic kinematics, where there is no parent, the
+parachute has the component (3.18) of Fevola, Mizera and Telen outside its principal Landau
+determinant.
+
+### 10.4 Caveats
 
 The factors are candidate codimension-one loci on all sheets of the integral. A point on one of
 them may or may not be singular on the physical sheet, and the list is not guaranteed complete
@@ -1141,7 +1173,7 @@ factors are missing from the result, at generic kinematics too. The default limi
 every one-loop box, whose polytope has at most $4 + 10$ points; the massless pentagon's has 15, and
 its own factor is lost.
 
-### 10.4 Known Results
+### 10.5 Known Results
 
 - **Massive bubble:** $m_1^2$, $m_2^2$, $s$ (Gram) and $\lambda(s, m_1^2, m_2^2)$, which factors
   over the masses into $s = (m_1 \pm m_2)^2$.
@@ -1151,7 +1183,8 @@ its own factor is lost.
   2023, example 3.4).
 
 Accessed via `landau_analysis(fi)`, returning `LandauAnalysis` with `.face_discriminants`,
-`.principal_a_determinant`, `.landau_surfaces` and `.skipped_faces`.
+`.principal_a_determinant`, `.landau_surfaces`, `.skipped_faces`, `.limit_surfaces`,
+`.limit_candidates` and `.parent`.
 
 ---
 
@@ -1324,6 +1357,8 @@ This table maps every mathematical symbol to the corresponding Python identifier
 | reduced $E_A(G)$ | `la.principal_a_determinant` |
 | Per-face discriminants | `la.face_discriminants` (tuple of `FaceDiscriminant`) |
 | Landau surfaces | `la.landau_surfaces` |
+| Limit surfaces and candidates | `la.limit_surfaces`, `la.limit_candidates` (tuples of `LimitSurface`) |
+| Analysis of the parent family | `la.parent` |
 | Face exponent vectors | `face.exponents` |
 | Face kinematic coefficients | `face.coefficients` |
 | One-loop closed form | `one_loop_landau_surfaces(fi)` |

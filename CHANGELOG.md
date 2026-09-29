@@ -84,13 +84,12 @@
   `11e|2|e|:nnz`. With faces of up to 30 points eliminated, the database's
   massive kite now gives exactly the ten components the database computed
   from faces, where it gave fourteen factors; at the default `max_face_points`
-  it is unchanged. A component that arises only as a limit under special
-  kinematics can be missing, while the one-loop closed form keeps it: with
-  p_1^2 = 0 the massive triangle `12e|2e|e|:nnn` loses p_2^2 - p_3^2, which is
-  a component of no face's locus, since the locus of its top face is
-  p_2^2 = p_3^2 = 0, of codimension two. The discriminants of such faces
-  shrink, and the report's lists by face dimension with them. Where they
-  shrink, the primes `count_torus_points` excludes, and so those it fits and
+  it is unchanged. The result is the principal Landau determinant, which at
+  special kinematics can leave out a component that the one-loop closed form
+  keeps, such as p_2^2 - p_3^2 for the massive triangle `12e|2e|e|:nnn` at
+  p_1^2 = 0; such components are now reported as limit surfaces (see Added).
+  The discriminants of faces with several generators shrink, and the report's
+  lists by face dimension with them. Where they shrink, the primes `count_torus_points` excludes, and so those it fits and
   verifies at, can change: `11e|2|e|:nnz` no longer excludes 23. On the graphs
   tried, the candidate did not change.
 - `landau_analysis` and `landau_analysis_from_polynomial` skip a face whose
@@ -258,6 +257,24 @@
   The report cites Beck and Robins, Bruns, Gubeladze and Trung, Hochster and
   Batyrev, which the mathematics reference and the guide list too.
 
+- Limit surfaces. For a Feynman integral whose momentum products are not the
+  generic ones, `landau_analysis` also analyses the parent family, the same
+  graph and masses with generic external kinematics, restricts its surfaces,
+  and tests each irreducible factor that does not vanish and is not among
+  `landau_surfaces` for a drop of the Euler characteristic:
+  `critical_point_count` counts critical points at a random rational point
+  of the family and at two random rational points of the factor. The drop is
+  evidence, not proof. `LandauAnalysis` gains `limit_surfaces`, the factors
+  whose counts dropped, `limit_candidates`, the others with the reason, and
+  `parent`, the parent's analysis; `LimitSurface` holds each factor with its
+  parent surfaces, points and counts. With p_1^2 = 0 the massive triangle
+  `12e|2e|e|:nnn` has the limit surface p_2^2 - p_3^2, where |chi| drops
+  from 6 to 5. On the 121 bubbles, triangles and boxes with massless legs
+  checked, the Landau surfaces and the limit surfaces together give the
+  one-loop closed form. `landau_analysis` takes `limits`, `confirm`,
+  `confirm_timeout` and `seed`; `landau_analysis_from_polynomial` has a
+  parent only when given one, as `parent` and `restriction`.
+
 ### Changed
 
 - `nickel_index`, `cnickel()` and `compute_graph_automorphisms` find the
@@ -346,17 +363,12 @@
   with bridges. `one_loop_landau_surfaces_by_type` describes the cycle, with
   the legs of each tree attached to it moved to the vertex where the tree
   meets it.
-- The documentation of what the face computation can miss now says why, and
-  how far at one loop, the only loop order checked. The result is the
-  principal Landau determinant, and at special kinematics a singular point of
-  a face can leave the torus, so that no face sees its limit. At one loop
-  this happens for faces of three propagators whose discriminant, the Källén
-  function of the sub-triangle, becomes a perfect square because a leg is
-  massless: p_2^2 - p_3^2 is missing for the massive triangle at p_1^2 = 0,
-  and boxes with a massless leg and some massless propagators miss components
-  in the same way. In the cases checked no extra factor arises and none is
-  lost at generic kinematics. A test records the missing component as an
-  expected failure.
+- The documentation describes `landau_surfaces` as the principal Landau
+  determinant of Fevola, Mizera and Telen by definition, says why it can leave
+  out a component at special kinematics, where a singular point of a face
+  leaves the torus, and what stays open: whether every limit surface lies in
+  the Euler discriminant, and that beyond one loop the Landau and limit
+  surfaces together need not be all of it.
 - The documentation of `max_face_points` and `LandauAnalysis.skipped_faces`
   says that the factors of a skipped face are missing from `landau_surfaces`
   and `principal_a_determinant`, whatever the kinematics; the report names

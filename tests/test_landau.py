@@ -25,6 +25,7 @@ from sympy.polys.rings import PolyRing
 
 from feynkit import Edge, FeynmanIntegral, Graph, landau_analysis, landau_analysis_from_polynomial
 from feynkit import landau as landau_module
+from feynkit import point_count as point_count_module
 from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.generate import generate_graphs
 from feynkit.io.report import AnalysisReport
@@ -50,6 +51,7 @@ from feynkit.landau import (
     one_loop_landau_surfaces_by_type,
     one_loop_principal_a_determinant,
 )
+from feynkit.point_count import critical_point_count
 from feynkit.polytope import lattice_coordinates
 from feynkit.systems.monomial import extract_monomial_support
 from tests.test_pld import _NAME, FIXTURES, _python
@@ -836,13 +838,18 @@ class TestSeveralGenerators:
         assert component in one_loop_landau_surfaces(on_shell)
 
     @requires_singular
-    @pytest.mark.xfail(
-        strict=True,
-        reason="the top face's singular point leaves the torus, so no face gives p_2^2 - p_3^2",
-    )
-    def test_the_faces_contain_the_component_lost_in_the_limit(self) -> None:
+    def test_the_component_lost_in_the_limit_is_a_limit_surface(self) -> None:
+        # The Euler characteristic drops from 6 to 5 on p_2^2 = p_3^2.
         on_shell, component = self._triangle_with_massless_leg()
-        assert component in landau_analysis(on_shell).landau_surfaces
+        analysis = landau_analysis(on_shell)
+        assert component not in analysis.landau_surfaces
+        (limit,) = analysis.limit_surfaces
+        assert limit.surface == component
+        assert limit.confirmed
+        assert (limit.generic_count, limit.counts) == (6, (5, 5))
+        assert not analysis.limit_candidates
+        closed = set(one_loop_landau_surfaces(on_shell))
+        assert set(analysis.landau_surfaces) | {component} == closed
 
     @requires_singular
     @pytest.mark.parametrize(
@@ -859,6 +866,262 @@ class TestSeveralGenerators:
         g, variables, components = pld_entry(name)
         analysis = landau_analysis_from_polynomial(g, variables, max_face_points=30)
         assert set(analysis.landau_surfaces) == components
+
+
+def _massless_legs(cnickel: str, legs: tuple[int, ...]) -> FeynmanIntegral:
+    """The integral with p_i^2 = 0 for the given legs."""
+    fi = FeynmanIntegral.from_cnickel(cnickel)
+    external = standard_invariants(fi.graph.external_legs).external_masses
+    zero = {external[i - 1]: 0 for i in legs}
+    products = {
+        pair: sp.expand(sp.sympify(v).subs(zero)) for pair, v in fi.momentum_products.items()
+    }
+    return fi.with_(momentum_products=products)
+
+
+class TestLimitSurfaces:
+    """At special kinematics, the factors of the surfaces of the same graph with generic legs,
+    restricted, that are not in the principal Landau determinant, each tested for a drop of the
+    number of critical points at random points of it."""
+
+    def test_generic_kinematics_have_no_parent(self, massive_bubble: FeynmanIntegral) -> None:
+        analysis = landau_analysis(massive_bubble)
+        assert analysis.parent is None
+        assert analysis.limit_surfaces == analysis.limit_candidates == ()
+
+    @requires_singular
+    def test_the_parent_has_the_same_graph_and_generic_legs(self) -> None:
+        on_shell = _massless_legs("12e|2e|e|:nnn", (1,))
+        analysis = landau_analysis(on_shell, confirm=False)
+        generic = landau_analysis(FeynmanIntegral.from_cnickel("12e|2e|e|:nnn"))
+        assert analysis.parent is not None
+        assert analysis.parent.landau_surfaces == generic.landau_surfaces
+        (candidate,) = analysis.limit_candidates
+        p1, p2, p3 = standard_invariants(3).external_masses
+        assert candidate.surface == p2 - p3
+        # The Gram determinant, lambda(p_1^2, p_2^2, p_3^2), restricts to (p_2^2 - p_3^2)^2.
+        assert sp.expand(sp.Mul(*candidate.parent_surfaces).subs(p1, 0)) == sp.expand(
+            (p2 - p3) ** 2
+        )
+        assert candidate.reason == "not tested, since confirm is False"
+        assert not candidate.confirmed
+        assert analysis.limit_surfaces == ()
+
+    def test_limits_can_be_left_out(self) -> None:
+        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), limits=False)
+        assert analysis.parent is None
+        assert analysis.limit_candidates == ()
+
+    @requires_singular
+    def test_a_count_that_does_not_drop_leaves_a_candidate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(point_count_module, "critical_point_count", lambda *a, **k: 6)
+        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)))
+        (candidate,) = analysis.limit_candidates
+        assert candidate.counts == (6,)
+        assert candidate.reason == "the count, 6, did not drop below 6"
+
+    @requires_singular
+    def test_a_count_that_fails_leaves_a_candidate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        counts = iter([6])
+
+        def count(*args: object, **kwargs: object) -> int:
+            for value in counts:
+                return value
+            raise ComputationError("Singular did not finish within timeout=60 s")
+
+        monkeypatch.setattr(point_count_module, "critical_point_count", count)
+        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)))
+        (candidate,) = analysis.limit_candidates
+        assert candidate.reason == ("the count failed: Singular did not finish within timeout=60 s")
+
+    @requires_singular
+    def test_a_surface_without_a_rational_point_is_a_candidate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(landau_module, "_rational_root", lambda poly: None)
+        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)))
+        (candidate,) = analysis.limit_candidates
+        assert candidate.reason == "no rational point found on it"
+        assert candidate.generic_count == 6
+
+    @requires_singular
+    def test_the_time_limit_applies_to_each_candidate(self) -> None:
+        with pytest.raises(ValidationError, match="confirm_timeout must be a number"):
+            landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), confirm_timeout=None)
+        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), confirm_timeout=1e-9)
+        (candidate,) = analysis.limit_candidates
+        assert candidate.reason is not None
+
+    @requires_singular
+    def test_a_generic_count_that_fails_leaves_every_candidate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def count(*args: object, **kwargs: object) -> int:
+            raise RuntimeError("critical_point_count needs Singular, which was not found")
+
+        monkeypatch.setattr(point_count_module, "critical_point_count", count)
+        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)))
+        (candidate,) = analysis.limit_candidates
+        assert candidate.reason == (
+            "the count at a random point of the family failed: critical_point_count needs "
+            "Singular, which was not found"
+        )
+        assert candidate.generic_count is None
+
+    @requires_singular
+    def test_the_points_are_on_the_surface(self) -> None:
+        analysis = landau_analysis(_massless_legs("12e|3e|3e|e|:nnzz", (1,)))
+        assert analysis.limit_surfaces
+        for limit in analysis.limit_surfaces:
+            assert len(limit.points) == 2
+            for point in limit.points:
+                assert limit.surface.xreplace(dict(point)) == 0
+
+    @requires_singular
+    def test_a_polynomial_with_a_parent(self) -> None:
+        # FMT24a example 3.9 as the restriction of the generic polynomial on the same support:
+        # every factor of the restricted principal A-determinant that does not vanish is in the
+        # principal Landau determinant, which also has bc - ad.
+        z = sp.symbols("z1:7")
+        monomials = [1, A1, A2, A1**2, A1 * A2, A1**2 * A2]
+        parent = sum(c * m for c, m in zip(z, monomials, strict=True))
+        restriction = dict(zip(z, [A_, A_ + B_, C_, B_, C_ + D_, D_], strict=True))
+        f = sp.expand((1 + A1) * (A_ + B_ * A1 + C_ * A2 + D_ * A1 * A2))
+        analysis = landau_analysis_from_polynomial(
+            f, [A1, A2], parent=parent, restriction=restriction
+        )
+        assert analysis.parent is not None
+        assert len(analysis.parent.landau_surfaces) == 7
+        assert analysis.limit_surfaces == analysis.limit_candidates == ()
+
+    def test_the_parent_must_restrict_to_the_polynomial(self) -> None:
+        f = sp.expand((1 + A1) * (A_ + B_ * A1))
+        with pytest.raises(ValidationError, match="does not restrict to"):
+            landau_analysis_from_polynomial(f, [A1], parent=f + A1, restriction={})
+        with pytest.raises(ValidationError, match="restriction needs a parent"):
+            landau_analysis_from_polynomial(f, [A1], restriction={A_: B_})
+
+
+def _specialised_one_loop_cases() -> list[tuple[str, tuple[int, ...]]]:
+    """Every bubble, triangle and box with each mass massless or its own, and each non-empty
+    set of massless legs; a bubble's two legs are massless together, at s = 0."""
+    cases = []
+    for cnickel in generate_graphs(1, range(2, 5)):
+        n = len(cnickel.split(":")[1])
+        subsets = (
+            [(1, 2)]
+            if n == 2
+            else [c for r in range(1, n + 1) for c in itertools.combinations(range(1, n + 1), r)]
+        )
+        cases += [(cnickel, legs) for legs in subsets]
+    return cases
+
+
+@requires_singular
+@pytest.mark.slow
+@pytest.mark.parametrize(("cnickel", "legs"), _specialised_one_loop_cases())
+def test_the_limit_surfaces_complete_the_closed_form(cnickel: str, legs: tuple[int, ...]) -> None:
+    # The principal Landau determinant lies within the closed form, and with the limit
+    # surfaces, each confirmed, it is the closed form.
+    fi = _massless_legs(cnickel, legs)
+    analysis = landau_analysis(fi)
+    closed = set(one_loop_landau_surfaces(fi))
+    faces = set(analysis.landau_surfaces)
+    assert not analysis.skipped_faces
+    assert faces <= closed
+    assert not analysis.limit_candidates
+    assert faces | {limit.surface for limit in analysis.limit_surfaces} == closed
+
+
+def test_there_are_121_specialised_one_loop_cases() -> None:
+    assert len(_specialised_one_loop_cases()) == 3 + 4 * 7 + 6 * 15
+
+
+def _symbols(fi: FeynmanIntegral) -> dict[str, sp.Symbol]:
+    return {x.name: x for x in fi.symanzik.g.free_symbols}
+
+
+def _generic_count(fi: FeynmanIntegral) -> int:
+    """The number of critical points at a rational point off every Landau surface found."""
+    g = fi.symanzik.g.subs(fi.graph.energy_scale, 1)
+    variables = list(fi.symanzik.lp_parameters)
+    kinematic = sorted(g.free_symbols - set(variables), key=str)
+    values = dict(zip(kinematic, [sp.Rational(p, 7) for p in (13, 29, 47, 61, 83)], strict=False))
+    return critical_point_count(sp.expand(g.subs(values)), variables, {})
+
+
+class TestTwoLoopExamples:
+    """The two-loop examples of Fevola, Mizera and Telen (2024), with the Euler
+    characteristics they give."""
+
+    @requires_singular
+    def test_the_banana(self) -> None:
+        # Example 3.7: m_1 m_2 m_3 s and the four thresholds; |chi| = 7 (remark 2.6).
+        fi = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+        x = _symbols(fi)
+        m1, m2, m3, s = x["m_1"], x["m_2"], x["m_3"], x["s"]
+        thresholds = [s - (m1 + a * m2 + b * m3) ** 2 for a in (1, -1) for b in (1, -1)]
+        analysis = landau_analysis(fi)
+        assert _factor_set(analysis.landau_surfaces, set(x.values())) == _factor_set(
+            [m1, m2, m3, s, *thresholds], set(x.values())
+        )
+        assert analysis.parent is None
+        assert _generic_count(fi) == 7
+
+    @requires_singular
+    def test_the_banana_with_a_massless_line(self) -> None:
+        # Example 3.8: m_2 m_3 s lambda(s, m_2^2, m_3^2), and |chi| = 4.
+        fi = FeynmanIntegral.from_cnickel("111e|e|:znn")
+        x = _symbols(fi)
+        m2, m3, s = x["m_2"], x["m_3"], x["s"]
+        analysis = landau_analysis(fi)
+        expected = [m2, m3, s, s - (m2 + m3) ** 2, s - (m2 - m3) ** 2]
+        assert _factor_set(analysis.landau_surfaces, set(x.values())) == _factor_set(
+            expected, set(x.values())
+        )
+        assert _generic_count(fi) == 4
+
+    @requires_singular
+    @pytest.mark.slow
+    def test_the_parachute_at_s_zero_with_two_massless_lines(self) -> None:
+        # Section 3.5: on s = m_1 = m_2 = 0 the principal Landau determinant is
+        # m_3 m_4 M_3 M_4 (M_3 - M_4) lambda(M_3, m_3, m_4) lambda(M_4, m_3, m_4), which is the
+        # Euler discriminant; here M_3 and M_4 are p_4^2 and p_3^2. The parent family, with s
+        # generic, adds nothing; its polytope has a face of 15 points.
+        fi = FeynmanIntegral.from_cnickel("12ee|22e|e|:zznn")
+        x = _symbols(fi)
+        s12 = x["s12"]
+        products = {
+            k: sp.expand(sp.sympify(v).subs(s12, 0)) for k, v in fi.momentum_products.items()
+        }
+        on_s = fi.with_(momentum_products=products)
+        m3, m4, p3, p4 = x["m_3"], x["m_4"], x["p3^2"], x["p4^2"]
+        expected = [m3, m4, p3, p4, p3 - p4] + [
+            q - (m3 + a * m4) ** 2 for q in (p3, p4) for a in (1, -1)
+        ]
+        analysis = landau_analysis(on_s, max_face_points=15)
+        assert _factor_set(analysis.landau_surfaces, set(x.values())) == _factor_set(
+            expected, set(x.values())
+        )
+        assert analysis.parent is not None
+        assert not analysis.skipped_faces and not analysis.parent.skipped_faces
+        assert analysis.limit_surfaces == analysis.limit_candidates == ()
+        assert _generic_count(on_s) == 7
+
+    @requires_singular
+    def test_the_massless_parachute(self) -> None:
+        # The database's massless parachute: M_3, M_4, s and lambda(s, M_3, M_4); |chi| = 4.
+        fi = FeynmanIntegral.from_cnickel("12ee|22e|e|:zzzz")
+        x = _symbols(fi)
+        s12, p3, p4 = x["s12"], x["p3^2"], x["p4^2"]
+        kallen = s12**2 + p3**2 + p4**2 - 2 * s12 * p3 - 2 * s12 * p4 - 2 * p3 * p4
+        analysis = landau_analysis(fi)
+        assert _factor_set(analysis.landau_surfaces, set(x.values())) == _factor_set(
+            [s12, p3, p4, kallen], set(x.values())
+        )
+        assert _generic_count(fi) == 4
 
 
 A1, A2 = sp.symbols("a1 a2")

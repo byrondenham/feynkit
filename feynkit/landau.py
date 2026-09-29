@@ -43,9 +43,10 @@ Faces contribute as follows.
   components in the same way. In the one-loop cases checked no factor was
   added and none was lost at generic kinematics. Beyond one loop the
   extent is not known. Faces with more points than
-  ``max_face_points`` are skipped and listed in
-  ``LandauAnalysis.skipped_faces``; the factors of those faces are then
-  missing from the result, at generic kinematics too.
+  ``max_face_points``, and faces whose elimination runs past ``timeout``,
+  are skipped and listed in ``LandauAnalysis.skipped_faces``; the factors
+  of those faces are then missing from the result, at generic kinematics
+  too.
 
 The factors are candidate codimension-one singular loci on all sheets of the
 integral. Membership is necessary for a singularity, not sufficient, and
@@ -170,12 +171,13 @@ class LandauAnalysis:
         vertex or an edge whose coefficients carry the scale in a
         numerator.
     skipped_faces
-        Exponent sets of faces that were too large to eliminate. Their
-        discriminants are left out, so ``landau_surfaces`` and
-        ``principal_a_determinant`` are then incomplete, whatever the
-        kinematics: a box with three or four massive propagators, whose
-        polytope has 13 or 14 points, misses its own factor at the default
-        ``max_face_points``.
+        Exponent sets of faces with more points than ``max_face_points``,
+        or whose elimination ran past ``timeout``. Their discriminants are
+        left out, so ``landau_surfaces`` and ``principal_a_determinant``
+        are then incomplete, whatever the kinematics: the massless
+        pentagon, whose polytope has 15 points, misses its own factor at
+        the default ``max_face_points`` of 14, which covers every one-loop
+        box.
     """
 
     face_discriminants: tuple[FaceDiscriminant, ...]
@@ -804,8 +806,9 @@ def _elimination_discriminant(
     can then be missing, as p_2^2 - p_3^2 is for the massive triangle at
     p_1^2 = 0, whose top face has the locus p_2^2 = p_3^2 = 0. Eliminates
     and factors with Singular when it is installed and ``backend`` is
-    "auto" or "singular", else with SymPy; ``timeout`` limits each
-    elimination by Singular, in seconds.
+    "auto" or "singular", else with SymPy; ``timeout`` limits the face's
+    elimination and decomposition by Singular together, in seconds, and
+    running past it raises _EliminationTimeout.
 
     The coefficients are taken at ``scale`` = 1, which the caller passes
     only when :func:`_unit_scale_is_exact`: rescaling the scale is then a
@@ -946,7 +949,7 @@ def landau_analysis_from_polynomial(
     g_poly: sp.Expr,
     lp_parameters: list[sp.Symbol],
     *,
-    max_face_points: int = 12,
+    max_face_points: int = 14,
     scale: sp.Symbol | None = None,
     timeout: float | None = None,
 ) -> LandauAnalysis:
@@ -961,7 +964,9 @@ def landau_analysis_from_polynomial(
     max_face_points
         Faces of dimension two or more with more monomials than this are
         not eliminated and are reported in ``skipped_faces``; the surfaces
-        and their product then lack those faces' factors.
+        and their product then lack those faces' factors. The default, 14,
+        covers every one-loop box; the massless pentagon's polytope has 15
+        points, and Singular had not eliminated it after 20 minutes.
     scale
         The energy scale mu, if ``g_poly`` carries one. When every
         coefficient of ``g_poly`` is a power of mu times an expression free
@@ -980,11 +985,13 @@ def landau_analysis_from_polynomial(
         still that coefficient.
     timeout
         The most seconds to give Singular for each face it eliminates, at
-        most 2,000,000; None, the default, sets no limit. It limits each
-        elimination, not the analysis: the total can reach that many
-        seconds for every face eliminated, and the other steps are not
-        limited, namely the SymPy fallback, the discriminants of edges and
-        the factorisations, which SymPy can take minutes over.
+        most 2,000,000; None, the default, sets no limit. A face that runs
+        past it is skipped and listed in ``skipped_faces``, as a face with
+        too many points is. It limits each face, its decomposition into
+        minimal primes included, not the analysis: the total can reach
+        that many seconds for every face eliminated, and the other steps
+        are not limited, namely the SymPy fallback, the discriminants of
+        edges and the factorisations, which SymPy can take minutes over.
 
     Raises
     ------
@@ -992,8 +999,8 @@ def landau_analysis_from_polynomial(
         If ``timeout`` is neither None nor a number greater than 0 and at
         most 2,000,000.
     ComputationError
-        If Singular fails on a face, runs past ``timeout``, or prints
-        output that is not an elimination ideal.
+        If Singular fails on a face or prints output that is not an
+        elimination ideal.
     """
     _check_timeout(timeout)
     g_poly = sp.expand(g_poly)
@@ -1015,9 +1022,18 @@ def landau_analysis_from_polynomial(
     for dimension, idx in _faces(exps):
         face_exps = [tuple(int(x) for x in exps[i]) for i in idx]
         face_coeffs = [support[i][1] for i in idx]
-        result = _face_discriminant(
-            face_coeffs, face_exps, dimension, kinematic_syms, max_face_points, unit_scale, timeout
-        )
+        try:
+            result = _face_discriminant(
+                face_coeffs,
+                face_exps,
+                dimension,
+                kinematic_syms,
+                max_face_points,
+                unit_scale,
+                timeout,
+            )
+        except _EliminationTimeout:
+            result = None
         if result is None:
             skipped.append(tuple(face_exps))
             continue
@@ -1047,7 +1063,7 @@ def landau_analysis_from_polynomial(
 
 
 def landau_analysis(
-    integral: FeynmanIntegral, *, max_face_points: int = 12, timeout: float | None = None
+    integral: FeynmanIntegral, *, max_face_points: int = 14, timeout: float | None = None
 ) -> LandauAnalysis:
     """Reduced principal A-determinant of G = U + F for a Feynman integral.
 

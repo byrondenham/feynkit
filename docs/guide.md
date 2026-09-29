@@ -1700,17 +1700,19 @@ The massless pentagon and hexagon take about 3 s and 15 s. feynkit eliminates an
 Singular when the `Singular` binary is on the path, except for the discriminants of edges, small
 polynomials that SymPy factors to write them, and falls back to SymPy otherwise, which is much
 slower and whose factorisation now and then takes minutes. Faces with more monomials than
-`max_face_points` (default 12) are skipped and listed in `la.skipped_faces`. Their factors are
+`max_face_points` (default 14) are skipped and listed in `la.skipped_faces`. Their factors are
 missing from `la.landau_surfaces` and `la.principal_a_determinant`, which are then incomplete
-whatever the kinematics: a box with three or four massive propagators has a polytope of 13 or 14
-points and misses its own factor at the default, and the report names each skipped face. Raising
-`max_face_points` to 13 or 14 recovers it, at a cost of a few seconds.
-`landau_analysis(fi, timeout=60)` gives Singular at most 60 s for each face, with no limit by
-default. An elimination that runs past it, fails or prints output feynkit cannot read raises
-`ComputationError`; a factorisation that fails is left to SymPy. The limit applies to each
-elimination and is not a bound on the whole analysis, whose time can reach it for every face
-eliminated. The SymPy fallback, the discriminants of edges and the factorisations are not
-limited, and SymPy's factorisation of a large polynomial can take minutes on its own.
+whatever the kinematics, and the report names each skipped face. The default covers every
+one-loop box, whose polytope has at most 14 points: the all-massive box `12e|3e|3e|e|:nnnn` takes
+about 6 s, against 2 s without its polytope. The massless pentagon's polytope has 15 points and is
+skipped; Singular had not eliminated it after 20 minutes. `landau_analysis(fi, timeout=60)` gives
+Singular at most 60 s for each face, with no limit by default, and a face that runs past it is
+skipped and listed in `la.skipped_faces` as a face with too many points is. An elimination that fails or prints output
+feynkit cannot read raises `ComputationError`; a factorisation that fails is left to SymPy. The
+limit applies to each face, its decomposition into minimal primes included, and is not a bound
+on the whole analysis, whose time can reach it for every face eliminated. The SymPy fallback, the
+discriminants of edges and the factorisations are not limited, and SymPy's factorisation of a
+large polynomial can take minutes on its own.
 
 ### LandauAnalysis fields
 
@@ -1719,7 +1721,7 @@ limited, and SymPy's factorisation of a large polynomial can take minutes on its
 | `la.face_discriminants` | `tuple[FaceDiscriminant, ...]` | One per face of the Newton polytope |
 | `la.principal_a_determinant` | `sp.Expr` | Product of the distinct kinematic factors |
 | `la.landau_surfaces` | `tuple[sp.Expr, ...]` | The factors themselves |
-| `la.skipped_faces` | `tuple` | Faces too large to eliminate |
+| `la.skipped_faces` | `tuple` | Faces with more points than `max_face_points`, or past `timeout` |
 
 ### FaceDiscriminant fields
 

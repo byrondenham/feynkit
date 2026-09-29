@@ -93,6 +93,15 @@
   shrink, the primes `count_torus_points` excludes, and so those it fits and
   verifies at, can change: `11e|2|e|:nnz` no longer excludes 23. On the graphs
   tried, the candidate did not change.
+- `landau_analysis` and `landau_analysis_from_polynomial` skip a face whose
+  elimination runs past `timeout` and list it in `skipped_faces`, where they
+  raised `ComputationError`; a failure of Singular still raises. Their default
+  `max_face_points` is 14, where it was 12, which covers every one-loop box: a
+  box with three or four massive propagators, whose polytope has 13 or 14
+  points, now gets its own factor, and `12e|3e|3e|e|:nnnn` takes about 6 s
+  where it took 2 s. `count_torus_points` runs its Landau analysis at the new
+  default. The massless pentagon's polytope, of 15 points, is still skipped:
+  Singular had not eliminated it after 20 minutes.
 - `Conventions` of `feynkit.io.report` gains `kinematic_axes` and
   `kinematic_class`, without defaults, so code that builds it by hand must pass
   them. `AnalysisReport.summary()` gains the row `Kinematic class` after
@@ -350,12 +359,11 @@
   expected failure.
 - The documentation of `max_face_points` and `LandauAnalysis.skipped_faces`
   says that the factors of a skipped face are missing from `landau_surfaces`
-  and `principal_a_determinant`, whatever the kinematics. A box with three or
-  four massive propagators skips its polytope of 13 or 14 points at the default
-  limit and loses its own factor; the report names the skipped face.
+  and `principal_a_determinant`, whatever the kinematics; the report names
+  each skipped face.
 - The documentation of `timeout` in `landau_analysis` says that it limits each
-  Singular elimination and is not a bound on the whole analysis: the SymPy
-  fallback, the discriminants of edges and the factorisations are not limited.
+  face and is not a bound on the whole analysis: the SymPy fallback, the
+  discriminants of edges and the factorisations are not limited.
 
 ### Fixed
 

@@ -26,6 +26,7 @@ from sympy.polys.rings import PolyRing
 from feynkit import Edge, FeynmanIntegral, Graph, landau_analysis, landau_analysis_from_polynomial
 from feynkit import landau as landau_module
 from feynkit.core.exceptions import ComputationError, ValidationError
+from feynkit.generate import generate_graphs
 from feynkit.io.report import AnalysisReport
 from feynkit.io.report_text import render_text
 from feynkit.kinematics.mandelstam import standard_invariants
@@ -427,6 +428,38 @@ class TestSingularOutput:
             eliminate(timeout=7)
         assert seen["timeout"] == 7
         assert info.value.__suppress_context__
+
+    def test_a_face_past_the_time_limit_is_skipped(
+        self, monkeypatch: pytest.MonkeyPatch, massive_bubble: FeynmanIntegral
+    ) -> None:
+        # The polygon is the bubble's only face that needs an elimination.
+        fake_singular(monkeypatch, error=subprocess.TimeoutExpired(["Singular"], 7))
+        analysis = landau_analysis(massive_bubble, timeout=7)
+        assert [len(face) for face in analysis.skipped_faces] == [5]
+        assert all(face.dimension < 2 for face in analysis.face_discriminants)
+        assert set(analysis.landau_surfaces) == set(one_loop_landau_surfaces(massive_bubble)) - {S}
+
+    def test_the_decomposition_shares_the_time_limit(
+        self, monkeypatch: pytest.MonkeyPatch, massive_bubble: FeynmanIntegral
+    ) -> None:
+        # The elimination ideal is zero, and the minimal primes run past what is left.
+        timeouts: list[float | None] = []
+
+        def run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            script = Path(args[-1]).read_text()
+            if "eliminate" not in script:
+                return subprocess.CompletedProcess(args, 1, stdout="", stderr="")
+            timeouts.append(kwargs["timeout"])  # type: ignore[arg-type]
+            if "minAssGTZ" in script:
+                raise subprocess.TimeoutExpired(args, 7)
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(landau_module, "_singular_binary", lambda: "Singular")
+        monkeypatch.setattr(landau_module.subprocess, "run", run)
+        analysis = landau_analysis(massive_bubble, timeout=7)
+        assert [len(face) for face in analysis.skipped_faces] == [5]
+        eliminate, decompose = timeouts
+        assert eliminate == 7 and decompose is not None and 0 < decompose <= 7
 
     def test_timeout_reaches_singular(
         self, monkeypatch: pytest.MonkeyPatch, massive_bubble: FeynmanIntegral
@@ -1282,7 +1315,8 @@ class TestFactorLists:
         finally:
             signal.alarm(0)
             signal.signal(signal.SIGALRM, previous)
-        assert len(analysis.landau_surfaces) == 26
+        # 26 from the faces of up to 12 points and one from the polytope, of 14.
+        assert len(analysis.landau_surfaces) == 27
 
     def test_without_singular(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
@@ -1312,6 +1346,30 @@ class TestFactorLists:
         seen = fake_singular(monkeypatch, stdout, returncode=returncode)
         assert _factor_lists([expression], {a, b}) == [expected]
         assert "factorize" in str(seen["script"])
+
+
+class TestFaceLimit:
+    """The default max_face_points covers every one-loop box."""
+
+    @requires_singular
+    def test_the_default_limit_covers_the_box(self) -> None:
+        # Every one-loop box has at most 14 points: 4 on U and 10 on F.
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:nnnz")
+        analysis = landau_analysis(fi)
+        assert not analysis.skipped_faces
+        assert set(analysis.landau_surfaces) == set(one_loop_landau_surfaces(fi))
+
+    @requires_singular
+    @pytest.mark.slow
+    def test_every_generic_one_loop_colouring_is_the_closed_form(self) -> None:
+        # The bubbles, triangles and boxes, each mass massless or its own: 3, 4 and 6.
+        cnickels = list(generate_graphs(1, range(2, 5)))
+        assert len(cnickels) == 13
+        for cnickel in cnickels:
+            fi = FeynmanIntegral.from_cnickel(cnickel)
+            analysis = landau_analysis(fi)
+            assert not analysis.skipped_faces, cnickel
+            assert set(analysis.landau_surfaces) == set(one_loop_landau_surfaces(fi)), cnickel
 
 
 @pytest.mark.slow
@@ -1371,14 +1429,6 @@ class TestPolygonClosedForms:
             "1 face was skipped as too large to eliminate, and its discriminant is missing "
             "from the list: the whole polytope, 13 points."
         ) in text
-
-    @requires_singular
-    @pytest.mark.slow
-    def test_a_larger_limit_recovers_the_box_factor(self) -> None:
-        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:nnnz")
-        analysis = landau_analysis(fi, max_face_points=13)
-        assert not analysis.skipped_faces
-        assert set(analysis.landau_surfaces) == set(one_loop_landau_surfaces(fi))
 
     @requires_singular
     def test_hexagon_report(self) -> None:

@@ -1136,9 +1136,10 @@ them may or may not be singular on the physical sheet, and the list is not guara
 coefficients can vanish identically after specialising to physical kinematics, and the face-by-face
 computation here specialises first; this is the "principal Landau determinant" of Fevola, Mizera and
 Telen rather than $E_A$ of the generic polynomial. Multiplicities are dropped. A face with more
-lattice points than `max_face_points` is skipped and its factors are missing from the result, at
-generic kinematics too: the polytope of a box with three or four massive propagators has 13 or 14
-points, so at the default limit of 12 the box's own factor is lost.
+lattice points than `max_face_points`, or whose elimination runs past `timeout`, is skipped and its
+factors are missing from the result, at generic kinematics too. The default limit of 14 covers
+every one-loop box, whose polytope has at most $4 + 10$ points; the massless pentagon's has 15, and
+its own factor is lost.
 
 ### 10.4 Known Results
 

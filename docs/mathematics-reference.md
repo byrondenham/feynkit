@@ -715,15 +715,21 @@ $O(|\mathrm{Aut}| \cdot n!)$ in typical cases.
 
 1. Compute the vertices and the edges of $\Delta_G$ from the certified face lattice of
    `polytope_data` (section 5.5), and the Liu-Cai labels on that 1-skeleton.
-2. Select a **label-diverse basis**: $n$ vertices, choosing rarest labels first, whose differences
-   from the anchor vertex $\alpha_0$ form an invertible matrix, tested by an exact integer rank.
-3. For each vertex $w$ with the same label as the anchor $\alpha_0$, attempt it as the image
-   anchor.
-4. For each label-preserving ordered $n$-tuple of remaining vertices (generated via
-   `_label_preserving_orderings`), solve for $U = \Delta_{\mathrm{target}}\Delta_{\mathrm{src}}^{-1}$
-   and check that it is integral with $|\det U| = 1$.
+2. Take an anchor vertex $\alpha_0$ in the rarest label class and a basis among its **neighbours**:
+   $n$ adjacent vertices, rarest labels first, whose differences from $\alpha_0$ form an
+   invertible matrix, tested by an exact integer rank. The edge directions at a vertex of a
+   full-dimensional polytope span the space, so such a basis exists.
+3. For each vertex $w$ with the label and the degree of $\alpha_0$, attempt it as the image anchor.
+4. For each ordered $n$-tuple of neighbours of $w$ with the labels of the basis and the same edges
+   among them, solve for $U = \Delta_{\mathrm{target}}\Delta_{\mathrm{src}}^{-1}$ in integer
+   arithmetic and check that it is integral. An automorphism maps the neighbours of $\alpha_0$
+   onto those of its image, so none is missed.
 5. Verify that $U$ permutes the vertices.
-6. Deduplicate by the vertex permutation.
+6. Deduplicate by the vertex permutation, and sort the maps into the order of a search over all
+   vertices anchored at the first vertex, so that the result does not depend on the anchor.
+
+The symmetry pairs of section 8 are the automorphisms that send every point of the support to a
+point; `symmetry_pairs` takes them from this search in full dimension.
 
 Below full dimension the search runs in the lattice chart $x = o + Bc$ of the vertices (section
 5.3), where they are full-dimensional in $\mathbb{Z}^d$. The Hermite normal form

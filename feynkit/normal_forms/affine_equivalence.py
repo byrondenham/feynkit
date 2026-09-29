@@ -7,8 +7,10 @@ This module exposes two complementary verbs:
   (arXiv:2506.23846). Decides whether two integer point configurations span
   unimodularly-isomorphic lattice polytopes, and returns a witness
   ``U in GL_n(Z)`` and an integer translation when one exists.
-- :func:`is_affinely_equivalent`, broader equivalence over the rationals.
-  Uses brute-force search over affine bases.
+- :func:`is_affinely_equivalent`, broader equivalence over the rationals,
+  and :func:`is_point_config_equivalent`, the same for every point. Both use
+  the vertex search of the unimodular test with rational maps and labels
+  that every affine bijection keeps.
 
 Both return a :class:`feynkit.PolytopeEquivalence` carrying the verdict, a
 witness map (when known), and a vertex correspondence (when known).
@@ -17,13 +19,14 @@ witness map (when known), and a vertex correspondence (when known).
 from __future__ import annotations
 
 import math
+from collections import Counter
 from collections.abc import Callable
-from itertools import combinations, permutations
 from typing import Any
 
 import numpy as np
 import sympy as sp
 
+from .. import _exact
 from ..core.exceptions import ValidationError
 from ..polytope import PolytopeData, polytope_data
 from ..types import PolytopeEquivalence
@@ -249,6 +252,15 @@ def is_affinely_equivalent(
     discarded, use :func:`is_point_config_equivalent` if you need the
     stricter all-columns GKZ check.
 
+    The search is that of :func:`is_unimodular_equivalent`, with rational
+    maps: an anchor in the rarest label class and a basis among its
+    neighbours, mapped to vertices of the other polytope with the same labels
+    and edges. An affine bijection multiplies both Liu-Cai determinants at
+    every vertex by det(M)^2, so each polytope's are divided by the sum of the
+    second over its vertices, which every such map keeps
+    (feynkit.normal_forms._invariants.affine_labels). The translation, when it
+    maps one vertex set onto the other, is tried first.
+
     The coordinates may be rational. Each configuration is scaled by the
     least common denominator of its coordinates, q_a or q_b, and a map
     ``M', t'`` between the scaled vertex sets gives ``M = (q_a / q_b) M'`` and
@@ -315,11 +327,13 @@ def is_point_config_equivalent(
      equivalence, where the full monomial support, not just the Newton polytope
     , determines the hypergeometric system.
 
-     Below full dimension the map is found between the lattice charts of
-     the two configurations, where it is unique for a correspondence of
-     affine bases. Rational points are first scaled to integers, each
-     configuration by the least common denominator q_a or q_b of its
-     coordinates, and a map ``M', t'`` between the scaled points gives
+     The map is an affine bijection of the two polytopes, so it is found
+     among the maps of their vertices, as in :func:`is_affinely_equivalent`,
+     and checked on every point. Below full dimension it is found between the
+     lattice charts of the two configurations, where it is unique for a
+     correspondence of affine bases. Rational points are first scaled to
+     integers, each configuration by the least common denominator q_a or q_b
+     of its coordinates, and a map ``M', t'`` between the scaled points gives
      ``M = (q_a / q_b) M'`` and ``t = t' / q_b``.
 
      Parameters
@@ -339,8 +353,8 @@ def is_point_config_equivalent(
      Raises
      ------
      ValidationError
-         Below full dimension, if a coordinate is not a rational number given
-         exactly; floats that are not integers are rejected, not rounded.
+         If a coordinate is not a rational number given exactly; floats that
+         are not integers are rejected, not rounded.
     """
     pts_a = _coerce_sympy_points(points_a)
     pts_b = _coerce_sympy_points(points_b)
@@ -358,8 +372,7 @@ def is_point_config_equivalent(
 
 
 # ------------------------------------------------------------------------------
-# Internal: brute-force sympy backend (preserved from the original
-# implementation; the algorithm is correct and was hand-tuned).
+# Internal: the affine search, in integer arithmetic
 # ------------------------------------------------------------------------------
 
 
@@ -370,96 +383,40 @@ def _coerce_sympy_points(data: object) -> sp.Matrix:
     return matrix
 
 
-def _affine_rank(points: sp.Matrix) -> int:
-    if points.rows <= 1:
-        return 0
-    base = points[0, :]
-    deltas = [points[i, :] - base for i in range(1, points.rows)]
-    return int(sp.Matrix(deltas).rank())
-
-
-def _affine_basis_indices(points: sp.Matrix, rank: int) -> list[tuple[int, ...]]:
-    n_points, _dim = points.shape
-    if n_points < rank + 1:
-        return []
-
-    bases: list[tuple[int, ...]] = []
-    for idxs in combinations(range(n_points), rank + 1):
-        base = points[idxs[0], :]
-        deltas = [points[i, :] - base for i in idxs[1:]]
-        if sp.Matrix(deltas).rank() == rank:
-            bases.append(idxs)
-    return bases
-
-
-def _solve_affine_map(source_basis: sp.Matrix, target_basis: sp.Matrix) -> sp.Matrix | None:
-    dim = source_basis.shape[1]
-    variables = sp.symbols(f"w0:{dim * (dim + 1)}")
-    affine_map = sp.Matrix(dim + 1, dim, variables)
-
-    equations: list[sp.Expr] = []
-    for i in range(source_basis.rows):
-        x = source_basis.row(i)
-        y = target_basis.row(i)
-        lhs = x.row_join(sp.Matrix([[1]])) * affine_map
-        equations.extend((lhs[0, j] - y[0, j]) for j in range(dim))
-
-    solution = sp.linsolve(equations, variables)
-    if solution == sp.EmptySet:
-        return None
-
-    solved = next(iter(solution))
-    concrete = [value.subs(dict.fromkeys(value.free_symbols, 0)) for value in solved]
-    return sp.Matrix(dim + 1, dim, concrete)
-
-
-def _apply_affine_map(points: sp.Matrix, affine_map: sp.Matrix) -> sp.Matrix:
-    points_aug = points.row_join(sp.ones(points.rows, 1))
-    mapped = points_aug * affine_map
-    return mapped.applyfunc(sp.simplify)
-
-
-def _point_key(point: list[sp.Expr]) -> tuple[tuple, ...]:
-    return tuple(sp.default_sort_key(sp.simplify(value)) for value in point)
-
-
-def _same_point_multiset(points_a: sp.Matrix, points_b: sp.Matrix) -> bool:
-    if points_a.shape != points_b.shape:
-        return False
-    keys_a = sorted(_point_key(row) for row in points_a.tolist())
-    keys_b = sorted(_point_key(row) for row in points_b.tolist())
-    return keys_a == keys_b
-
-
 def _affine_witness(
     points_a: sp.Matrix,
     points_b: sp.Matrix,
 ) -> tuple[sp.Matrix, sp.Matrix, sp.Expr] | None:
     """
-    _find_affine_witness, run in the lattice charts below full dimension.
+    (M, t, det M) of an affine map x -> M x + t sending the rows of points_a onto those of points_b.
 
-    Below full dimension the points do not determine the linear part of an
-    affine map between them, and _find_affine_witness sets its free
-    parameters to 0, which can leave it singular. In the charts, where both
-    configurations are full-dimensional, the map is unique for each
-    correspondence of affine bases, and its lift is invertible. Its
-    determinant then depends on the complements of the two direction spaces
-    that the lift maps onto each other. Below full dimension the points are
-    first scaled to integers, each configuration by the least common
-    denominator of its coordinates, and the witness is scaled back.
+    The rows are compared as multisets. The points are first scaled to
+    integers, each configuration by the least common denominator of its
+    coordinates, and the witness is scaled back. Two configurations of one
+    point each, perhaps repeated, get M = I. In full dimension the map is
+    found by _find_affine_witness. Below full dimension the points do not
+    determine the linear part of a map between them, so it is found between
+    the lattice charts, where both configurations are full-dimensional and
+    the map is unique for each correspondence of affine bases, and lifted; the
+    lift is invertible, and its determinant depends on the complements of the
+    two direction spaces that it maps onto each other.
     """
     if points_a.shape != points_b.shape:
         return None
-    rank = _affine_rank(points_a)
-    if rank in (0, points_a.cols) or rank != _affine_rank(points_b):
-        return _find_affine_witness(points_a, points_b)
-    points_a, q_a = _clear_denominators(points_a)
-    points_b, q_b = _clear_denominators(points_b)
-    frame_a = chart_frame(points_a.tolist())
-    frame_b = chart_frame(points_b.tolist())
-    found = _find_affine_witness(
-        sp.Matrix(frame_a.chart.coordinates), sp.Matrix(frame_b.chart.coordinates)
-    )
+    scaled_a, q_a = _clear_denominators(points_a)
+    scaled_b, q_b = _clear_denominators(points_b)
+    pts_a = _invariants.to_integer_points(scaled_a)
+    pts_b = _invariants.to_integer_points(scaled_b)
+    rank = _exact.affine_rank(pts_a.tolist())
+    if rank != _exact.affine_rank(pts_b.tolist()):
+        return None
+    if rank == 0:
+        t = sp.Matrix(pts_b[0].tolist()) - sp.Matrix(pts_a[0].tolist())
+        return _rescaled((sp.eye(pts_a.shape[1]), t, sp.Integer(1)), q_a, q_b)
+    if rank == pts_a.shape[1]:
+        return _rescaled(_find_affine_witness(pts_a, pts_b), q_a, q_b)
+    frame_a, frame_b = chart_frame(pts_a), chart_frame(pts_b)
+    found = _find_affine_witness(frame_a.coordinates, frame_b.coordinates)
     if found is None:
         return None
     m, s, _ = found
@@ -467,7 +424,7 @@ def _affine_witness(
     if M is None:  # pragma: no cover - lift_linear returns None only when integral
         return None
     image = frame_b.chart.to_ambient(list(m * sp.Matrix(frame_a.chart.coordinates[0]) + s))
-    t = sp.Matrix(image) - M * points_a.row(0).T
+    t = sp.Matrix(image) - M * sp.Matrix(pts_a[0].tolist())
     return _rescaled((M, t, M.det()), q_a, q_b)
 
 
@@ -507,54 +464,56 @@ def _rescaled(
 
 
 def _find_affine_witness(
-    points_a: sp.Matrix,
-    points_b: sp.Matrix,
+    pts_a: np.ndarray, pts_b: np.ndarray
 ) -> tuple[sp.Matrix, sp.Matrix, sp.Expr] | None:
     """
-    Return ``(M, t, det(M))`` of the first affine map ``v -> M*v + t`` sending
-    the multiset ``points_a`` onto ``points_b``, or ``None`` if none exists.
+    (M, t, det M) of the first affine map x -> M x + t sending the rows of pts_a onto those of pts_b.
 
-    ``M`` is the linear part (dim x dim), ``t`` is the translation column
-    vector (dim x 1).  Both may be rational.
+    Both are full-dimensional integer configurations, compared as multisets
+    of rows; None when there is no such map. M and t may be rational. Such a
+    map is an affine bijection of the two polytopes, so it sends the vertices
+    of one onto those of the other and keeps the labels of affine_labels. The
+    candidates are the maps that vertex_maps finds with those labels, the
+    translation first, each checked on every row.
     """
-    if points_a.shape != points_b.shape:
+    data_a, data_b = polytope_data(pts_a), polytope_data(pts_b)
+    V_a = np.array(data_a.vertices, dtype=np.int64)
+    V_b = np.array(data_b.vertices, dtype=np.int64)
+    if V_a.shape != V_b.shape or data_b.dimension != pts_b.shape[1]:
+        return None
+    skeleton_a = _invariants.polytope_skeleton(data_a)
+    skeleton_b = _invariants.polytope_skeleton(data_b)
+    if skeleton_a.number_of_edges() != skeleton_b.number_of_edges():
+        return None
+    labels_a, _ = _invariants.affine_labels(V_a, skeleton_a)
+    labels_b, _ = _invariants.affine_labels(V_b, skeleton_b)
+    if sorted(labels_a) != sorted(labels_b):
         return None
 
-    dim = points_a.cols
-    rank_a = _affine_rank(points_a)
-    rank_b = _affine_rank(points_b)
-    if rank_a != rank_b:
-        return None
-    if rank_a == 0:
-        # Each configuration is one point, perhaps repeated: the translation
-        # t = b - a maps one onto the other.
-        M = sp.eye(dim)
-        t = (points_b.row(0) - points_a.row(0)).T
-        return M, t, sp.Integer(1)
-
-    source_bases = _affine_basis_indices(points_a, rank_a)
-    if not source_bases:
-        return None
-
-    target_bases = _affine_basis_indices(points_b, rank_b)
-    if not target_bases:
-        return None
-
-    for source_idxs in source_bases:
-        source_basis = points_a[list(source_idxs), :]
-        for target_idxs in target_bases:
-            target_points = points_b[list(target_idxs), :]
-            for perm in permutations(range(rank_a + 1)):
-                permuted_target = target_points[list(perm), :]
-                affine_map = _solve_affine_map(source_basis, permuted_target)
-                if affine_map is None:
-                    continue
-                mapped = _apply_affine_map(points_a, affine_map)
-                if _same_point_multiset(mapped, points_b):
-                    # affine_map is (dim+1) x dim: rows 0..dim-1 form M^T,
-                    # row dim is the translation t^T.
-                    M = affine_map[:dim, :].T
-                    t = affine_map[dim, :].T
-                    det = M.det()
-                    return M, t, det
+    rows_a = [[int(x) for x in row] for row in pts_a.tolist()]
+    rows_b = Counter(tuple(int(x) for x in row) for row in pts_b.tolist())
+    neighbours_a = [set(skeleton_a.neighbors(i)) for i in range(len(V_a))]
+    neighbours_b = [set(skeleton_b.neighbors(i)) for i in range(len(V_b))]
+    for N, q, perm in vertex_maps(
+        V_a, V_b, neighbours_a, neighbours_b, labels_a, labels_b, integral=False
+    ):
+        # q t = q V_b[perm[0]] - N V_a[0], and q (M x + t) = N x + q t, in Python integers.
+        linear = [[int(x) for x in row] for row in N.tolist()]
+        shift = [
+            q * int(b) - sum(n * int(a) for n, a in zip(row, V_a[0], strict=True))
+            for row, b in zip(linear, V_b[perm[0]], strict=True)
+        ]
+        images: Counter[tuple[int, ...]] = Counter()
+        for x in rows_a:
+            scaled = [
+                sum(n * c for n, c in zip(row, x, strict=True)) + s
+                for row, s in zip(linear, shift, strict=True)
+            ]
+            if any(y % q for y in scaled):
+                break
+            images[tuple(y // q for y in scaled)] += 1
+        else:
+            if images == rows_b:
+                M = sp.Matrix(linear) / q
+                return M, sp.Matrix(shift) / q, M.det()
     return None

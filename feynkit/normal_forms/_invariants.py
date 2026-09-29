@@ -12,6 +12,7 @@ labels, or the label-preserving automorphism group.
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
+from fractions import Fraction
 from typing import Any, cast
 
 import networkx as nx
@@ -170,18 +171,52 @@ def label_skeleton(coordinates: np.ndarray, skeleton: nx.Graph) -> nx.Graph:
     the ambient coordinates every label of such a polytope is 0.
     """
     G = skeleton.copy()
-    nodes = list(G.nodes())
-    labels: dict[int, int] = {}
-    for i in nodes:
-        nbrs = list(G.neighbors(i))
-        local = vertex_label(coordinates[i], coordinates[np.array(nbrs)]) if nbrs else 0
-        others = [j for j in nodes if j != i]
-        whole = vertex_label(coordinates[i], coordinates[np.array(others)]) if others else 0
-        labels[i] = (local + whole) * (local + whole + 1) // 2 + whole
+    labels = {
+        i: (local + whole) * (local + whole + 1) // 2 + whole
+        for i, (local, whole) in _label_pairs(coordinates, skeleton).items()
+    }
     nx.set_node_attributes(G, labels, "label")
     for u, v in G.edges():
         G[u][v]["weight"] = labels[u] + labels[v]
     return G
+
+
+def affine_labels(
+    coordinates: np.ndarray, skeleton: nx.Graph
+) -> tuple[list[tuple[Fraction, Fraction]], int]:
+    """
+    Labels of the vertices kept by every affine bijection, and the scale they are divided by.
+
+    Node ``i`` of ``skeleton`` is the vertex ``coordinates[i]``, and the
+    vertices span their space, with at least two of them. The label of a
+    vertex is the pair of determinants of label_skeleton, each divided by S,
+    the sum over the vertices of the second. An affine bijection
+    x -> M x + t of the vertices onto those of another polytope maps the
+    skeleton onto its skeleton, so it multiplies both determinants at every
+    vertex, and S, by det(M)^2: the labels are kept, and det(M)^2 is the
+    ratio of the two values of S. S is positive, since the other vertices span
+    the space at each vertex. Returns the labels in node order, and S.
+    """
+    pairs = _label_pairs(coordinates, skeleton)
+    scale = sum(whole for _, whole in pairs.values())
+    labels = [
+        (Fraction(local, scale), Fraction(whole, scale))
+        for local, whole in (pairs[i] for i in range(len(pairs)))
+    ]
+    return labels, scale
+
+
+def _label_pairs(coordinates: np.ndarray, skeleton: nx.Graph) -> dict[int, tuple[int, int]]:
+    """For each node, its Liu-Cai label over its neighbours and the same over all other nodes."""
+    nodes = list(skeleton.nodes())
+    pairs: dict[int, tuple[int, int]] = {}
+    for i in nodes:
+        nbrs = list(skeleton.neighbors(i))
+        local = vertex_label(coordinates[i], coordinates[np.array(nbrs)]) if nbrs else 0
+        others = [j for j in nodes if j != i]
+        whole = vertex_label(coordinates[i], coordinates[np.array(others)]) if others else 0
+        pairs[i] = (local, whole)
+    return pairs
 
 
 def labelled_polytope_graph(vertices: np.ndarray) -> nx.Graph:

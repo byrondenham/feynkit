@@ -222,6 +222,20 @@
   automorphisms and pairs of `123|4e|4e|5e|5|e|:nnnnnnn` take about 0.3 s and
   0.5 s, where 0.4.0 found 1 of 48 in 0.3 s and 0.2 s. `symmetry_pairs` on the
   columns of A of `112|3|4e|5e|5e|e|:nnnnzzz` takes about 0.4 s, as 0.4.0 did.
+- `is_affinely_equivalent` and `is_point_config_equivalent` find their maps
+  with the vertex search of `is_unimodular_equivalent`, with rational maps and
+  in integer arithmetic, where they tried every affine basis of both
+  configurations, with a SymPy rank for each. Their labels are the two
+  Liu-Cai determinants at each vertex divided by the sum of the second over
+  the vertices, which every affine bijection keeps. For the massive kite
+  `12e|23|3|e|:nnnnn`, 34 points in R^5, against itself or a relabelling, both
+  take about 0.3 s, where the first took about 8 minutes and the second did
+  not finish in 15. The verdicts do not change. The witness can be another map
+  where there are several, and the translation comes first, so that a
+  configuration compared with itself gets the identity.
+  `is_point_config_equivalent` raises `ValidationError` in full dimension too
+  on a coordinate that is not an exact rational number, as it did below full
+  dimension; in full dimension it computed with such a coordinate as given.
 - The report and `fk analyse -S` can list the same symmetry pairs in another
   order than 0.4.0 did, since the search now takes its vertices and labels from
   the exact face lattice: 4 of 380 generated one- and two-loop graphs checked,

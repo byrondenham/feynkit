@@ -886,6 +886,12 @@ factor $|\det M|$ in the identity, and the generic holonomic rank, the normalise
 (section 5.3), is the same.  What a rational map need not preserve is the ambient lattice
 $\mathbb{Z}^n$, so the Smith invariants of the two configurations can differ (section 11.3).
 
+The search is that of section 9.1 with rational maps. An affine bijection $x \mapsto Mx + t$ of
+the vertices maps one polytope onto the other and its 1-skeleton onto the other's, so it multiplies
+both determinants of section 7.2 at every vertex by $(\det M)^2$. Dividing each by $S$, the sum of
+$\ell_V$ over the vertices, gives labels that every such map keeps, and $(\det M)^2$ is the ratio
+of the two values of $S$.
+
 Below full dimension the points do not determine the linear part of such a map. feynkit finds the
 map between the lattice charts, where it is unique for a given correspondence of affine bases,
 and returns its extension, which is invertible; its determinant depends on the complements of the
@@ -903,6 +909,9 @@ different GKZ systems with the same Feynman polytope.
 
 A map of all columns, integer or not, gives the identity of section 9.4,
 $I_A(\beta, z_P) = |\det M|\, I_B(T\beta, z)$, with $T$ rational when $M$ is.
+
+Such a map is an affine bijection of the two Newton polytopes, so feynkit finds it among the maps
+of section 9.2 between their vertices and checks each on every point.
 
 Below full dimension the map is found between the lattice charts, as in section 9.2.
 

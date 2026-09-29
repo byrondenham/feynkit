@@ -5,10 +5,11 @@ from sympy import Float, Matrix, Rational, eye
 
 from feynkit import FeynmanIntegral, PolytopeEquivalence, ValidationError
 from feynkit.normal_forms import is_affinely_equivalent, is_point_config_equivalent
+from feynkit.polytope import polytope_data
 
 
 class TestAffineEquivalence:
-    """Tests for the broader rational equivalence (brute-force backend)."""
+    """Tests for the broader rational equivalence."""
 
     def test_self_equivalence(self) -> None:
         points = Matrix([[0, 0], [1, 0], [0, 1]])
@@ -115,7 +116,61 @@ class TestRationalPoints:
             is_affinely_equivalent(Matrix([[0, 0], [0.5, 0], [0, 1]]), unit)
         with pytest.raises(ValidationError, match="not an exact rational"):
             is_point_config_equivalent(Matrix([[0, 0], [0.5, 0.5]]), Matrix([[0, 0], [1, 1]]))
+        # In full dimension too, where the search computed with the float.
+        with pytest.raises(ValidationError, match="not an exact rational"):
+            is_point_config_equivalent(Matrix([[0, 0], [0.5, 0], [0, 1]]), unit)
         almost = Float("1.00000000000000000001", 30)
         with pytest.raises(ValidationError, match="not an exact rational"):
             is_point_config_equivalent(Matrix([[0, 0], [almost, almost]]), Matrix([[0, 0], [1, 1]]))
         assert is_affinely_equivalent(Matrix([[0.0, 0.0], [2.0, 0.0], [0.0, 1.0]]), unit).equivalent
+
+
+def _kite(cnickel: str) -> Matrix:
+    """The support of G of a labelling of the massive kite: 34 points in R^5, 24 of them vertices."""
+    return Matrix(FeynmanIntegral.from_cnickel(cnickel).newton_polytope.points)
+
+
+class TestTheMassiveKite:
+    """Both tests searched every affine basis of both sides: minutes to hours for the kite."""
+
+    def test_a_relabelling(self) -> None:
+        a, b = _kite("12e|23|3|e|:nnnnn"), _kite("123|2e|3|e|:nnnnn")
+        for test in (is_affinely_equivalent, is_point_config_equivalent):
+            result = test(a, b)
+            assert abs(result.determinant) == 1
+            assert result.equivalent
+            if test is is_point_config_equivalent:
+                assert _maps_onto(result, a, b)
+
+    def test_itself_by_the_identity(self) -> None:
+        a = _kite("12e|23|3|e|:nnnnn")
+        for test in (is_affinely_equivalent, is_point_config_equivalent):
+            result = test(a, a)
+            assert result.witness_map == eye(5)
+            assert result.translation == Matrix([0] * 5)
+
+    def test_an_image_of_determinant_two(self) -> None:
+        a = _kite("12e|23|3|e|:nnnnn")
+        M = Matrix(
+            [[1, 1, 0, 0, 0], [0, 2, 0, 0, 0], [0, 1, 1, 0, 0], [1, 0, 0, 1, 0], [0, 0, 0, 1, 1]]
+        )
+        b = Matrix(
+            [list(M * a.row(i).T + Matrix([3, -1, 0, 2, 5])) for i in range(a.rows - 1, -1, -1)]
+        )
+        result = is_point_config_equivalent(a, b)
+        assert result.equivalent and abs(result.determinant) == 2
+        assert _maps_onto(result, a, b)
+        reverse = is_point_config_equivalent(b, a)
+        assert reverse.equivalent and abs(reverse.determinant) == Rational(1, 2)
+        assert _maps_onto(reverse, b, a)
+
+    def test_another_point_inside(self) -> None:
+        # A point that is not a vertex doubled in place of another: the polytope is the same,
+        # the configuration is not.
+        a = _kite("12e|23|3|e|:nnnnn")
+        rows = [tuple(a.row(i)) for i in range(a.rows)]
+        vertices = set(polytope_data(rows).vertices)
+        inside = [r for r in rows if r not in vertices]
+        b = Matrix([r for r in rows if r != inside[0]] + [inside[1]])
+        assert is_affinely_equivalent(a, b).equivalent
+        assert not is_point_config_equivalent(a, b).equivalent

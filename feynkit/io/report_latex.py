@@ -718,8 +718,12 @@ def _scaleless(report: AnalysisReport, doc: _Document) -> str:
 def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) -> str:
     orbits = symmetries.vertex_orbits
     if report.polytope is not None:
+        # A long orbit may break after any of its commas.
         listed = join_words(
-            ["$\\{" + ", ".join(f"v_{{{i + 1}}}" for i in orbit) + "\\}$" for orbit in orbits]
+            [
+                "$\\{" + ",\\allowbreak ".join(f"v_{{{i + 1}}}" for i in orbit) + "\\}$"
+                for orbit in orbits
+            ]
         )
         action = (
             f"acts on the vertices listed in Section~\\ref{{sec:newton-polytope}} with "

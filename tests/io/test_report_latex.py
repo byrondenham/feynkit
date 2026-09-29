@@ -414,3 +414,10 @@ def test_reasons_without_a_candidate_set_their_maths() -> None:
     )
     assert _reason(guard) == guard
     assert _reason("a_1 & 50%") == "a\\_1 \\& 50\\%"
+
+
+def test_a_long_orbit_can_break() -> None:
+    # Each orbit was one unbreakable math group: the orbit of 12 vertices of
+    # 112|3|4e|5e|5e|e|:nnnnnzz ran 123 pt into the margin.
+    latex = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz").to_latex(["polytope", "symmetries"])
+    assert "$\\{v_{1},\\allowbreak v_{2},\\allowbreak v_{3}," in latex

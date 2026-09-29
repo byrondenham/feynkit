@@ -95,7 +95,7 @@ def _text_summary(text: str) -> list[tuple[str, str]]:
 def _latex_summary(latex: str) -> list[tuple[str, str]]:
     table = latex.split("\\section{Summary}")[1].split("\\end{tabular}")[0]
     rows = re.findall(r"^(.+) & (.+) \\\\$", table, re.M)
-    return [(label.replace("$", ""), value) for label, value in rows]
+    return [(label.replace("$", ""), value.replace("\\_", "_")) for label, value in rows]
 
 
 # Names the prose uses for mathematical objects, which the LaTeX writes in
@@ -138,6 +138,7 @@ def _latex_prose(latex: str, intended: tuple[tuple[str, str], ...] = _INTENDED) 
         body = body.replace(old, new)
     environments = r"equation\*|align\*|gather\*|figure|tabular|longtable"
     body = re.sub(rf"\\begin\{{({environments})\}}.*?\\end\{{\1\}}", " ", body, flags=re.S)
+    body = re.sub(r"\\texttt\{([^}]*)\}", r"\1", body)
     body = re.sub(r"\$[^$]*\$", " ", body)
     body = re.sub(r"~?\\cite\{[^}]*\}", " ", body)
     body = re.sub(r"\\(?:section|subsection|label|begin|end)\{[^}]*\}", " ", body)
@@ -665,7 +666,8 @@ def test_vacuum_graphs_have_no_external_momenta(tadpole: FeynmanIntegral) -> Non
     for fi in (tadpole, FeynmanIntegral(sunrise, use_mandelstam=False)):
         for document in (fi.to_latex([]), fi.to_text([])):
             flat = " ".join(document.split())
-            assert "dimensionless. There are no external momenta. The second Symanzik" in flat
+            assert "dimensionless. There are no external momenta. The kinematic class is " in flat
+            assert "are distinct symbols. The second Symanzik" in flat
             assert "kinematics is written" not in flat
 
 
@@ -1027,3 +1029,102 @@ def test_an_integral_below_full_dimension_that_is_not_scaleless() -> None:
     )
     assert "so the integral is not scaleless by Lee's criterion~\\cite{lee2013}" in latex
     assert "arXiv:1310.1145." in document
+
+
+# --- kinematic class ---------------------------------------------------------
+
+
+def _on_shell(cnickel: str) -> FeynmanIntegral:
+    """The graph with every p_i^2 set to 0, whatever its masses."""
+    fi = FeynmanIntegral.from_cnickel(cnickel)
+    legs = {x: 0 for v in fi.momentum_products.values() for x in v.free_symbols if "^2" in x.name}
+    return fi.with_(
+        momentum_products={k: sp.expand(v.subs(legs)) for k, v in fi.momentum_products.items()}
+    )
+
+
+@pytest.mark.parametrize(  # type: ignore[misc]
+    ("fi", "text_sentence", "latex_sentence"),
+    [
+        (
+            FeynmanIntegral.from_cnickel("12e|2e|e|:nnn"),
+            "The kinematic class is generic: the nonzero masses m_e are distinct symbols, and no "
+            "relation among the invariants is imposed.",
+            "The kinematic class is \\texttt{generic}: the nonzero masses $m_e$ are distinct "
+            "symbols, and no relation among the invariants is imposed.",
+        ),
+        (
+            FeynmanIntegral.from_cnickel("12e|2e|e|:zzz"),
+            "The kinematic class is massless_off_shell: every propagator is massless, and no "
+            "relation among the invariants is imposed.",
+            "The kinematic class is \\texttt{massless\\_off\\_shell}: every propagator is "
+            "massless, and no relation among the invariants is imposed.",
+        ),
+        (
+            FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz", kinematics="massless_on_shell"),
+            "The kinematic class is massless_on_shell: every propagator is massless and every "
+            "leg on shell, p_i^2 = 0, leaving s12 and s23.",
+            "The kinematic class is \\texttt{massless\\_on\\_shell}: every propagator is "
+            "massless and every leg on shell, $p_i^2 = 0$, leaving $s_{12}$ and $s_{23}$.",
+        ),
+        (
+            FeynmanIntegral.from_cnickel("11e|e|:zz", kinematics="massless_on_shell"),
+            "The kinematic class is massless_on_shell: every propagator is massless and every "
+            "leg on shell, p_i^2 = 0, so every product p_i . p_j vanishes.",
+            "The kinematic class is \\texttt{massless\\_on\\_shell}: every propagator is "
+            "massless and every leg on shell, $p_i^2 = 0$, so every product $p_i \\cdot p_j$ "
+            "vanishes.",
+        ),
+        (
+            FeynmanIntegral.from_cnickel("12e|2e|e|:nnn", kinematics="equal_masses"),
+            "The kinematic class is equal_masses: every propagator has the mass m_a, and no "
+            "relation among the invariants is imposed.",
+            "The kinematic class is \\texttt{equal\\_masses}: every propagator has the mass "
+            "$m_{a}$, and no relation among the invariants is imposed.",
+        ),
+        (
+            _on_shell("12e|3e|3e|e|:nnnn"),
+            "The kinematic class is other: the masses are generic and every leg is on shell.",
+            "The kinematic class is \\texttt{other}: the masses are generic and every leg is on "
+            "shell.",
+        ),
+        (
+            FeynmanIntegral.from_cnickel("12e|2e|e|:aaz"),
+            "The kinematic class is other: the masses are neither all zero, all equal nor "
+            "distinct symbols and the legs are off shell.",
+            "The kinematic class is \\texttt{other}: the masses are neither all zero, all equal "
+            "nor distinct symbols and the legs are off shell.",
+        ),
+        (
+            FeynmanIntegral.from_cnickel("0|:n", use_mandelstam=False),
+            "There are no external momenta. The kinematic class is generic: the nonzero masses "
+            "m_e are distinct symbols. The second",
+            "There are no external momenta. The kinematic class is \\texttt{generic}: the "
+            "nonzero masses $m_e$ are distinct symbols. The second",
+        ),
+    ],
+    ids=[
+        "generic",
+        "massless",
+        "on-shell",
+        "on-shell-bubble",
+        "equal",
+        "other",
+        "shared",
+        "vacuum",
+    ],
+)
+def test_conventions_name_the_kinematic_class(
+    fi: FeynmanIntegral, text_sentence: str, latex_sentence: str
+) -> None:
+    report = AnalysisReport.from_integral(fi, [])
+    assert text_sentence in _flat(_section(render_text(report), "Conventions"))
+    conventions = render_latex(report).split("\\section{Conventions}")[1].split("\\section")[0]
+    assert latex_sentence in _flat(conventions)
+    # Without the polytope sections, only the graph figure's sentences differ on purpose.
+    assert _prose_diff(report, _INTENDED[:2])[1] == []
+
+
+def test_the_class_follows_the_kinematics_sentence() -> None:
+    text = _flat(FeynmanIntegral.from_cnickel("12e|2e|e|:zzz").to_text([]))
+    assert "the external masses p_i^2. The kinematic class is massless_off_shell: " in text

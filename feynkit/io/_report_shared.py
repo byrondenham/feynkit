@@ -22,7 +22,16 @@ import sympy as sp
 
 from ..point_count import TorusCount
 from .latex import factor_energy_scale
-from .report import GKZ, AnalysisReport, Landau, Polytope, Representations, Schwinger, Symmetries
+from .report import (
+    GKZ,
+    AnalysisReport,
+    Conventions,
+    Landau,
+    Polytope,
+    Representations,
+    Schwinger,
+    Symmetries,
+)
 
 __all__ = [
     "CITATIONS",
@@ -40,6 +49,7 @@ __all__ = [
     "in_squared_masses",
     "integrand_templates",
     "join_words",
+    "kinematic_class_sentence",
     "landau_factors",
     "not_computed",
     "primes_left_out",
@@ -490,3 +500,64 @@ def append_signed(sum_text: str, expr: sp.Expr, printer: Callable[[sp.Expr], str
     if term.startswith("-"):
         return f"{sum_text} - {term[1:].lstrip()}"
     return f"{sum_text} + {term}"
+
+
+# What each kinematic axis says, for a class that is "other". Maths is written as LaTeX and
+# passed through the renderer's ``math``.
+_INTERNAL_AXES = {
+    "zero": "every propagator is massless",
+    "equal": "every propagator has the same mass",
+    "generic": "the masses are generic",
+    "other": "the masses are neither all zero, all equal nor distinct symbols",
+}
+_EXTERNAL_AXES = {
+    "off_shell": "the legs are off shell",
+    "on_shell": "every leg is on shell",
+    "equal": "every leg has the same {p2}",
+    "other": "the legs are neither off shell, on shell nor of equal mass",
+}
+
+
+def kinematic_class_sentence(
+    conventions: Conventions,
+    external_legs: int,
+    masses: Sequence[sp.Expr],
+    *,
+    name: Callable[[str], str],
+    math: Callable[[str], str],
+    printer: Callable[[sp.Expr], str],
+) -> str:
+    """The sentence of the conventions naming the kinematic class and what it imposes.
+
+    ``name`` sets the class as code, ``math`` a LaTeX fragment as the
+    renderer writes maths and ``printer`` an expression. With fewer than two
+    legs there are no invariants, and the sentence says nothing of the legs.
+    """
+    kinematic_class = conventions.kinematic_class
+    internal, external = conventions.kinematic_axes
+    legs = external_legs >= 2
+    free = ", and no relation among the invariants is imposed" if legs else ""
+    if kinematic_class == "generic":
+        what = f"the nonzero masses {math('m_e')} are distinct symbols{free}"
+    elif kinematic_class == "massless_off_shell":
+        what = f"every propagator is massless{free}"
+    elif kinematic_class == "equal_masses":
+        what = f"every propagator has the mass {printer(masses[0])}{free}"
+    elif kinematic_class == "massless_on_shell":
+        left = sorted(
+            {x for _, value in conventions.momentum_products for x in value.free_symbols},
+            key=sp.default_sort_key,
+        )
+        dot, zero = math("p_i \\cdot p_j"), math("p_i^2 = 0")
+        rest = (
+            f"leaving {join_words([printer(x) for x in left])}"
+            if left
+            else f"so every product {dot} vanishes"
+        )
+        what = f"every propagator is massless and every leg on shell, {zero}, {rest}"
+    else:
+        what = _INTERNAL_AXES.get(internal, _INTERNAL_AXES["other"])
+        if legs or external != "off_shell":
+            phrase = _EXTERNAL_AXES.get(external, _EXTERNAL_AXES["other"])
+            what += " and " + phrase.format(p2=math("p_i^2"))
+    return f"The kinematic class is {name(kinematic_class)}: {what}."

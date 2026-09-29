@@ -49,6 +49,7 @@ def test_json_summary_of_the_chosen_sections(capsys: pytest.CaptureFixture[str])
             "loops": 1,
             "propagators": 2,
             "external_legs": 2,
+            "kinematic_class": "massless_off_shell",
             "monomials_of_f": 1,
             "monomials_of_g": 3,
             "independent_invariants": 1,

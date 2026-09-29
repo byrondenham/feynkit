@@ -36,6 +36,7 @@ from ._report_shared import (
     in_squared_masses,
     integrand_templates,
     join_words,
+    kinematic_class_sentence,
     landau_factors,
     not_computed,
     primes_left_out,
@@ -315,6 +316,14 @@ def _conventions(report: AnalysisReport, doc: _Document) -> str:
         )
     else:
         momenta = "There are no external momenta."
+    kinematic_class = kinematic_class_sentence(
+        conventions,
+        report.identity.external_legs,
+        report.identity.edge_masses,
+        name=lambda text: f"\\texttt{{{_escape(text)}}}",
+        math=lambda text: f"${text}$",
+        printer=_math,
+    )
     return "\n".join(
         [
             "The integral is",
@@ -329,7 +338,7 @@ def _conventions(report: AnalysisReport, doc: _Document) -> str:
             f"$\\nu = {to_latex(nu_total)}$. Dimensional regularisation sets "
             "$D = D_0 - 2\\epsilon$ for an even integer $D_0$ chosen when the result is "
             "expanded. The energy scale $\\mu$ makes $I$ and the Symanzik polynomials "
-            f"dimensionless. {momenta} The second Symanzik polynomial is "
+            f"dimensionless. {momenta} {kinematic_class} The second Symanzik polynomial is "
             "$F = -\\sum_{T_2} s_{T_2} \\prod_{e \\notin T_2} a_e + U \\sum_e m_e^2 a_e$, "
             "divided by $\\mu^2$, the sum running over spanning two-forests $T_2$ and "
             "$s_{T_2}$ being the square of the momentum flowing from one tree of $T_2$ to the "

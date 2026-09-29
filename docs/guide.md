@@ -83,8 +83,8 @@ After `pip install -e .` or `uv sync`, the `fk` command is on the PATH (run it a
 under uv). It has two subcommands:
 
 ```
-fk analyse CNICKEL [section flags] [--latex FILE] [--text FILE] [--json] [--sections NAMES]
-           [--seed N] [--torus-budget N] [--db PATH | --no-db] [--verbose]
+fk analyse CNICKEL [--kinematics CLASS] [section flags] [--latex FILE] [--text FILE] [--json]
+           [--sections NAMES] [--seed N] [--torus-budget N] [--db PATH | --no-db] [--verbose]
 fk compare A B [--db PATH | --no-db] [--verbose]
 fk --version
 ```
@@ -119,9 +119,34 @@ fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive 
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
 | | `--torus-count` | Candidate Euler characteristic from finite-field point counts; left out when no flag is given |
 
-The graph header (CNickel string, Nickel index, loop count, propagators, external legs) is
-printed whatever the section flags, and so is the database record unless `--no-db` is given. The
-header shows the string as typed, with its canonical form beside it when the two differ.
+The graph header (CNickel string, Nickel index, loop count, propagators, external legs,
+kinematic class) is printed whatever the section flags, and so is the database record unless
+`--no-db` is given. The header shows the string as typed, with its canonical form beside it when
+the two differ.
+
+#### Imposing a kinematic class
+
+A CNickel string fixes the masses of the propagators but says nothing of the legs, and `fk`
+analyses it with generic invariants. `--kinematics CLASS` imposes a kinematic class first (see
+[Kinematic classes](#kinematic-classes)):
+
+| Class | Effect |
+|-------|--------|
+| `generic` | none; the masses must be distinct symbols (codes `n` and `z`) |
+| `massless_off_shell` | none; every propagator must be massless |
+| `massless_on_shell` | sets every $p_i^2$ to 0; every propagator must be massless |
+| `equal_masses` | gives every propagator the mass $m_a$ of the code `a`; every propagator must be massive |
+
+```bash
+fk analyse "12e|3e|3e|e|:zzzz" --kinematics massless_on_shell -n
+fk analyse "12e|3e|3e|e|:nnnn" --kinematics equal_masses --json --no-db
+```
+
+An unknown class is a usage error (status 2). A class the integral cannot take, such as
+`massless_on_shell` on a graph with a massive propagator, or on one with fewer than two legs,
+stops with one line on stderr and status 1. `equal_masses` changes the CNickel string, to
+`12e|3e|3e|e|:aaaa` in the second example, and the header shows the new form beside the one
+typed. The database records the class with the polytope.
 
 #### Point counts
 
@@ -173,7 +198,8 @@ fk analyse "12e|2e|e|:nzz" --json --no-db
 
 The JSON object holds the string as typed (`input`), its canonical form (`cnickel`), the report
 sections asked for (`sections`) and the numbers of `AnalysisReport.summary()` for the sections
-built (`summary`), keyed in snake case, with `scaleless` as a JSON boolean:
+built (`summary`), keyed in snake case, with `scaleless` as a JSON boolean and the kinematic
+class as a string:
 
 ```
 $ fk analyse "12e|2e|e|:nzz" --json --sections gkz --no-db
@@ -187,6 +213,7 @@ $ fk analyse "12e|2e|e|:nzz" --json --sections gkz --no-db
     "loops": 1,
     "propagators": 3,
     "external_legs": 3,
+    "kinematic_class": "generic",
     "monomials_of_f": 4,
     "monomials_of_g": 7,
     "independent_invariants": 4,
@@ -272,6 +299,7 @@ $ fk analyse "12e|2e|e|:zzz" -g -n --no-db
   Loop count                   1
   Propagators                  3
   External legs                3
+  Kinematic class              massless_off_shell
 
 --------------------------------------------------------------------
   GKZ hypergeometric system

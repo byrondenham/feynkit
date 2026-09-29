@@ -35,6 +35,7 @@ SUMMARY_LABELS = (
     "Loops",
     "Propagators",
     "External legs",
+    "Kinematic class",
     "Monomials of F",
     "Monomials of G",
     "Independent invariants",

@@ -43,13 +43,14 @@ from sympy.matrices import NonSquareMatrixError
 
 from feynkit.a_configuration import AConfiguration, FiniteIndexResult, finite_index_map
 from feynkit.core.constants import __version__
-from feynkit.core.exceptions import FeynkitError
+from feynkit.core.exceptions import FeynkitError, ValidationError
 from feynkit.core.graph import Graph
 from feynkit.database import FeynkitDatabase
 from feynkit.integral import FeynmanIntegral
 from feynkit.io.report import DEFAULT_SECTIONS, SECTION_NAMES, AnalysisReport
 from feynkit.io.report_latex import render_latex
 from feynkit.io.report_text import render_text
+from feynkit.kinematics.classes import IMPOSABLE_CLASSES, KinematicClass
 from feynkit.landau import LandauAnalysis
 from feynkit.point_count import TorusCount
 from feynkit.polytope import polytope_data
@@ -222,22 +223,29 @@ class CliError(Exception):
     """A bad input or a failed write, which main reports in one line on stderr."""
 
 
-def _load(cnickel: str) -> FeynmanIntegral:
-    """The integral of a CNickel string.
+def _load(cnickel: str, kinematics: KinematicClass | None = None) -> FeynmanIntegral:
+    """The integral of a CNickel string, with a kinematic class imposed if one is given.
 
     A string that does not parse raises CliError with the grammar. The
     Mandelstam invariants need two external legs, so a graph with fewer, such
     as the massive tadpole 0|:n, gets generic momentum products instead. Any
-    other failure to build the integral raises CliError without the grammar.
+    other failure to build the integral raises CliError without the grammar,
+    and so does a class that FeynmanIntegral.with_kinematics refuses.
     """
     try:
         graph = Graph.from_cnickel(cnickel)
     except ValueError as exc:
         raise CliError(f"cannot parse CNickel {cnickel!r}: {exc}; {CNICKEL_GRAMMAR}") from exc
     try:
-        return FeynmanIntegral(graph, use_mandelstam=graph.external_legs >= 2)
+        integral = FeynmanIntegral(graph, use_mandelstam=graph.external_legs >= 2)
     except (ValueError, FeynkitError) as exc:
         raise CliError(f"cannot build the integral of CNickel {cnickel!r}: {exc}") from exc
+    if kinematics is None:
+        return integral
+    try:
+        return integral.with_kinematics(kinematics)
+    except ValidationError as exc:
+        raise CliError(f"CNickel {cnickel!r}: {exc}") from exc
 
 
 def _fail(message: str) -> NoReturn:
@@ -279,6 +287,7 @@ def _print_graph(given: str, fi: FeynmanIntegral) -> None:
     _kv("Loop count", fi.loop_count)
     _kv("Propagators", len(fi.graph.get_internal_edges()))
     _kv("External legs", fi.graph.external_legs)
+    _kv("Kinematic class", fi.kinematic_class)
 
 
 def _print_symanzik(fi: FeynmanIntegral) -> None:
@@ -474,6 +483,15 @@ def _budget(text: str) -> int:
     return _integer(text, 1)
 
 
+def _kinematic_class(text: str) -> KinematicClass:
+    """Parse --kinematics: a kinematic class that FeynmanIntegral.with_kinematics imposes."""
+    if text not in IMPOSABLE_CLASSES:
+        raise argparse.ArgumentTypeError(
+            f"unknown kinematic class {text!r}; choose from {', '.join(IMPOSABLE_CLASSES)}"
+        )
+    return text
+
+
 def _section_list(text: str) -> tuple[str, ...]:
     """Parse --sections: comma-separated names from SECTION_NAMES, kept in report order."""
     names = {name.strip() for name in text.split(",") if name.strip()}
@@ -572,10 +590,12 @@ def analyse_one(
     *,
     report: ReportOptions | None = None,
     verbose: bool = False,
+    kinematics: KinematicClass | None = None,
 ) -> None:
     """Analyse one diagram: every section or the chosen ones, then the reports asked for.
 
-    With --json, only the report's summary is printed, as JSON. Stdout is
+    ``kinematics`` is a kinematic class to impose on the integral of the
+    string. With --json, only the report's summary is printed, as JSON. Stdout is
     flushed after each stage; verbose prints each stage's time on stderr. The
     point counts are printed only when ``sections`` holds "torus". They run once
     when the report holds them too, and otherwise take the report's Landau
@@ -584,7 +604,7 @@ def analyse_one(
     options = report if report is not None else ReportOptions()
     t0 = time.perf_counter()
     with _stage("parse", verbose):
-        fi = _load(cnickel)
+        fi = _load(cnickel, kinematics)
     built: list[AnalysisReport] = []
 
     def build() -> AnalysisReport:
@@ -827,7 +847,9 @@ def _compare(
 
 # Options that take a value. The bare form needs them to tell a value from a
 # second diagram: fk "12e|2e|e|" --db x.db names one diagram, not two.
-_VALUE_OPTIONS = frozenset({"--db", "--latex", "--text", "--sections", "--seed", "--torus-budget"})
+_VALUE_OPTIONS = frozenset(
+    {"--db", "--latex", "--text", "--sections", "--seed", "--torus-budget", "--kinematics"}
+)
 
 _MAIN_EPILOG = """\
 examples:
@@ -855,6 +877,7 @@ examples:
   fk analyse "11e|e|:nn" --torus-count         the point counts alone; slow for larger graphs
   fk analyse "12e|2e|e|:nnn" --latex triangle.tex --text triangle.txt
   fk analyse "12e|2e|e|:nzz" --json --sections gkz,polytope --no-db
+  fk analyse "12e|3e|3e|e|:zzzz" --kinematics massless_on_shell -n
 
 Quote every CNickel string: an unquoted | is a shell pipe.
 """
@@ -924,6 +947,12 @@ def _build_parser() -> _Parsers:
     )
     analyse.add_argument(
         "cnickel", metavar="CNICKEL", help='CNickel string, quoted, e.g. "12e|2e|e|:nzz"'
+    )
+    analyse.add_argument(
+        "--kinematics",
+        type=_kinematic_class,
+        metavar="CLASS",
+        help="kinematic class to impose; by default the kinematics of the CNickel string",
     )
     shown = analyse.add_argument_group(
         "sections", "sections to print; all but --torus-count when no flag is given"
@@ -1140,7 +1169,12 @@ def _run(parsers: _Parsers, args: argparse.Namespace) -> int:
         if args.command == "analyse":
             options = _report_options(parsers.analyse, args)
             analyse_one(
-                args.cnickel, db_path, _section_flags(args), report=options, verbose=args.verbose
+                args.cnickel,
+                db_path,
+                _section_flags(args),
+                report=options,
+                verbose=args.verbose,
+                kinematics=args.kinematics,
             )
             return 0
         found = analyse_pair(args.first, args.second, db_path, verbose=args.verbose)

@@ -142,12 +142,17 @@ class Conventions:
         than two external legs or does not use Mandelstam variables.
     momentum_products
         The products p_i . p_j as ((i, j), value) pairs, sorted by key.
+    kinematic_axes, kinematic_class
+        The internal and external kinematic axes and the kinematic class, as
+        FeynmanIntegral.kinematic_axes and kinematic_class give them.
     """
 
     dimension: sp.Expr
     energy_scale: sp.Symbol
     invariants: KinematicInvariants | None
     momentum_products: tuple[tuple[tuple[int, int], sp.Expr], ...]
+    kinematic_axes: tuple[str, str]
+    kinematic_class: str
 
 
 @dataclass(frozen=True)
@@ -402,6 +407,8 @@ def _conventions(fi: FeynmanIntegral) -> Conventions:
         energy_scale=fi.graph.energy_scale,
         invariants=invariants,
         momentum_products=tuple(sorted(fi.momentum_products.items())),
+        kinematic_axes=fi.kinematic_axes,
+        kinematic_class=fi.kinematic_class,
     )
 
 
@@ -696,6 +703,7 @@ class AnalysisReport:
             ("Loops", str(self.identity.loop_count)),
             ("Propagators", str(self.identity.propagators)),
             ("External legs", str(self.identity.external_legs)),
+            ("Kinematic class", self.conventions.kinematic_class),
             ("Monomials of F", str(self.polynomials.monomials_f)),
             ("Monomials of G", str(self.polynomials.monomials_g)),
             ("Independent invariants", str(self.polynomials.independent_invariants)),

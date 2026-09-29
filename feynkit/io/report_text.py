@@ -38,6 +38,7 @@ from ._report_shared import (
     in_squared_masses,
     integrand_templates,
     join_words,
+    kinematic_class_sentence,
     landau_factors,
     not_computed,
     primes_left_out,
@@ -410,6 +411,14 @@ def _conventions(report: AnalysisReport, doc: _Document) -> str:
         )
     else:
         momenta = "There are no external momenta."
+    kinematic_class = kinematic_class_sentence(
+        conventions,
+        report.identity.external_legs,
+        report.identity.edge_masses,
+        name=str,
+        math=lambda text: text.replace(" \\cdot ", " . "),
+        printer=_str,
+    )
     return _blocks(
         "The integral is",
         f"{_INDENT}I = exp(L epsilon gamma_E) (mu^2)^(nu - L D/2)\n"
@@ -421,8 +430,8 @@ def _conventions(report: AnalysisReport, doc: _Document) -> str:
             "metric signature (+,-,...,-) and nu = sum_e nu_e, here "
             f"nu = {_str(nu_total)}. Dimensional regularisation sets D = D_0 - 2 epsilon "
             "for an even integer D_0 chosen when the result is expanded. The energy scale mu "
-            f"makes I and the Symanzik polynomials dimensionless. {momenta} The second "
-            "Symanzik polynomial is "
+            f"makes I and the Symanzik polynomials dimensionless. {momenta} {kinematic_class} "
+            "The second Symanzik polynomial is "
             "F = -sum_{T_2} s_{T_2} prod_{e not in T_2} a_e + U sum_e m_e^2 a_e, divided by "
             "mu^2, the sum running over spanning two-forests T_2 and s_{T_2} being the square "
             "of the momentum flowing from one tree of T_2 to the "

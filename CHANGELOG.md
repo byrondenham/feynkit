@@ -88,9 +88,11 @@
 - `FeynmanIntegral.is_scaleless`: whether G satisfies Lee's criterion of a
   zero sector (R. N. Lee, arXiv:1310.1145, section 3), that is whether the
   origin lies outside the affine hull of the Newton polytope. Dimensional
-  regularisation sets such an integral to zero. A scaleless integral's Newton
-  polytope is not full-dimensional, but not every such integral is scaleless:
-  `1ee|1|:zn`, whose massless line carries no momentum, is not.
+  regularisation sets such an integral to zero. The Newton polytope of an
+  integral that satisfies the criterion is not full-dimensional, but the
+  converse fails: `1ee|1|:zn`, whose massless line carries no momentum, does
+  not satisfy it. The criterion is sufficient, not necessary, so a false flag
+  says only that the criterion does not apply.
 - The report's summary, `fk analyse -n` and `fk analyse --json` say whether
   the integral is scaleless (`Scaleless`, and `scaleless` as a JSON boolean).
   Below full dimension the Newton polytope section also says whether it is and

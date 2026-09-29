@@ -364,9 +364,9 @@ class FeynmanIntegral:
         full-dimensional; the converse fails. For 1ee|1|:zn, a massive tadpole
         joined to its external vertex by a massless line that carries no
         momentum, every equation has h_0 = 0: the integral converges for no D
-        and nu, but it is not scaleless, and dimensional regularisation does
-        not regulate it. The flag depends on the monomials of G only, not on D
-        or nu.
+        and nu, but it is not scaleless by Lee's criterion, and dimensional
+        regularisation does not regulate it. The flag depends on the monomials
+        of G only, not on D or nu.
         """
         points = [tuple(int(x) for x in p) for p in self.newton_polytope.points]
         origin = (0,) * len(self.newton_polytope.parameters)

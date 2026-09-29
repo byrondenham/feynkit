@@ -1304,4 +1304,4 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 
 34. **Lee (2013).** R.N. Lee.
     *LiteRed 1.4: a powerful tool for the reduction of the multiloop integrals.*
-    arXiv:1310.1145.
+    J.\ Phys.\ Conf.\ Ser.\ **523** (2014) 012059.  arXiv:1310.1145.

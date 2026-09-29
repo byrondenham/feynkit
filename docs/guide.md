@@ -214,8 +214,9 @@ fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"    # the mass on two different propag
 2. tests four equivalences between the two A-configurations: `unimodular`, `affine_polytope`,
    `point_config` and `finite_index`. When the ambient dimensions differ, as for the triangle and
    the bubble, it reports the mismatch and stops. Below full dimension, as for `011e|e|:znn`, the
-   checks work in the lattice charts of the points, `finite_index` is skipped, and the identity of
-   a `point_config` map holds only trivially, since for generic $\beta$ the GKZ systems have no
+   `unimodular` and `affine_polytope` checks work in the lattice charts of the two vertex sets and
+   `point_config` in those of all the points, `finite_index` is skipped, and the identity of a
+   `point_config` map holds only trivially, since for generic $\beta$ the GKZ systems have no
    non-zero solutions;
 3. prints each map it finds. A `point_config` or `finite_index` map sends every column of one
    A-matrix to a column of the other, and for such a map it also prints the column permutation
@@ -906,8 +907,8 @@ it is also scaleless by Lee's criterion (R. N. Lee, arXiv:1310.1145, section 3):
 lies outside the affine hull of the polytope, so that rescaling the $u_e$ multiplies the integral
 by a power of $\lambda$ that involves $D$, and dimensional regularisation sets it to zero. A
 massless self-loop makes an integral scaleless; `1ee|1|:zn`, whose massless line carries no
-momentum, is not full-dimensional but not scaleless either. The analysis report (section 21)
-lists one such expression per facet:
+momentum, is not full-dimensional but does not satisfy the criterion either. The analysis report
+(section 21) lists one such expression per facet:
 
 ```python
 from feynkit.io import AnalysisReport

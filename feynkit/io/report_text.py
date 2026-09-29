@@ -643,10 +643,11 @@ def _scaleless(report: AnalysisReport, doc: _Document) -> str:
             "lambda^(h_0 D/2 + sum_e h_e nu_e), and dimensional regularisation sets it to zero."
         )
     return (
-        f"The origin lies in the affine hull of P, so the integral is not scaleless{cite}: for "
-        "every equation h . x = 0 of the affine hull, substituting lambda^(h_e) u_e for u_e "
-        "multiplies the Lee-Pomeransky integral by lambda^(sum_e h_e nu_e), which does not "
-        "involve D, and dimensional regularisation does not regulate it."
+        "The origin lies in the affine hull of P, so the integral is not scaleless by Lee's "
+        f"criterion{cite}: for every equation h . x = 0 of the affine hull, substituting "
+        "lambda^(h_e) u_e for u_e multiplies the Lee-Pomeransky integral by "
+        "lambda^(sum_e h_e nu_e), which does not involve D, and dimensional regularisation "
+        "does not regulate it."
     )
 
 

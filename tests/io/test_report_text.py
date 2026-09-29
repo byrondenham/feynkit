@@ -999,10 +999,11 @@ def test_an_integral_below_full_dimension_that_is_not_scaleless() -> None:
     latex = " ".join(fi.to_latex(["polytope"]).split("\\section{Newton polytope}")[1].split())
     assert "its holonomic rank is 0, not the normalised volume." in text
     assert text.endswith(
-        "The origin lies in the affine hull of P, so the integral is not scaleless [lee2013]: "
+        "The origin lies in the affine hull of P, so the integral is not scaleless by Lee's "
+        "criterion [lee2013]: "
         "for every equation h . x = 0 of the affine hull, substituting lambda^(h_e) u_e for "
         "u_e multiplies the Lee-Pomeransky integral by lambda^(sum_e h_e nu_e), which does not "
         "involve D, and dimensional regularisation does not regulate it."
     )
-    assert "so the integral is not scaleless~\\cite{lee2013}" in latex
+    assert "so the integral is not scaleless by Lee's criterion~\\cite{lee2013}" in latex
     assert "arXiv:1310.1145." in document

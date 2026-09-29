@@ -707,9 +707,9 @@ def _scaleless(report: AnalysisReport, doc: _Document) -> str:
             "dimensional regularisation sets it to zero."
         )
     return (
-        "The origin lies in the affine hull of $P$, so the integral is not scaleless"
-        f"{cite}: for every equation $h \\cdot x = 0$ of the affine hull, substituting "
-        "$\\lambda^{h_e} u_e$ for $u_e$ multiplies the Lee-Pomeransky integral by "
+        "The origin lies in the affine hull of $P$, so the integral is not scaleless by "
+        f"Lee's criterion{cite}: for every equation $h \\cdot x = 0$ of the affine hull, "
+        "substituting $\\lambda^{h_e} u_e$ for $u_e$ multiplies the Lee-Pomeransky integral by "
         "$\\lambda^{\\sum_e h_e \\nu_e}$, which does not involve $D$, and dimensional "
         "regularisation does not regulate it."
     )

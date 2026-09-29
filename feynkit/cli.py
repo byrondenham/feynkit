@@ -941,7 +941,7 @@ def _build_parser() -> _Parsers:
         "-n",
         "--newton",
         action="store_true",
-        help="Newton polytope: vertices, normalised volume, Smith invariants",
+        help="Newton polytope: vertices, whether scaleless, normalised volume, Smith invariants",
     )
     shown.add_argument(
         "-S", "--symmetries", action="store_true", help="polytope automorphisms and symmetry pairs"

@@ -63,7 +63,7 @@ CITATIONS: dict[str, str] = {
     ),
     "lee2013": (
         "R.N. Lee, \\emph{LiteRed 1.4: a powerful tool for the reduction of the multiloop "
-        "integrals}, arXiv:1310.1145."
+        "integrals}, J. Phys. Conf. Ser. 523 (2014) 012059, arXiv:1310.1145."
     ),
     "klausen2020": (
         "R.P. Klausen, \\emph{Hypergeometric series representations of Feynman integrals by "

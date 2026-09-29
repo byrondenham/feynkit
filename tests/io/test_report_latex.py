@@ -16,9 +16,11 @@ import pytest
 import sympy as sp
 
 from feynkit import Edge, FeynmanIntegral, Graph
+from feynkit.io import report_latex
 from feynkit.io._report_shared import integrand_templates
+from feynkit.io.latex import to_latex_lines
 from feynkit.io.report import AnalysisReport
-from feynkit.io.report_latex import CITATIONS, _reason, render_latex
+from feynkit.io.report_latex import CITATIONS, _factor_lines, _reason, render_latex
 from feynkit.normal_forms._invariants import hull_vertex_indices, to_integer_points
 from feynkit.polytope import polytope_data
 
@@ -421,3 +423,25 @@ def test_a_long_orbit_can_break() -> None:
     # 112|3|4e|5e|5e|e|:nnnnnzz ran 123 pt into the margin.
     latex = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz").to_latex(["polytope", "symmetries"])
     assert "$\\{v_{1},\\allowbreak v_{2},\\allowbreak v_{3}," in latex
+
+
+def test_long_factor_lists_are_split_into_displays(monkeypatch: pytest.MonkeyPatch) -> None:
+    # TeX sets a display whole, and the massless hexagon's first-type list, over 9,000 lines
+    # in one display, ran out of pdflatex's memory. A list is split between factors, and a
+    # factor longer than a display across displays.
+    x = sp.symbols("x1:50")
+    long = sp.Add(*x)
+    assert len(to_latex_lines(long, max_length=100)) == 5
+    short = _factor_lines([x[0], x[1]])
+    whole = _factor_lines([x[0], x[1], long, x[2]])
+    assert whole.count("\\begin{align*}") == 1
+    monkeypatch.setattr(report_latex, "_DISPLAY_LINES", 3)
+
+    def rows(text: str) -> list[int]:
+        return [display.count("\n&") for display in text.split("\\end{align*}")[:-1]]
+
+    assert _factor_lines([x[0], x[1]]) == short
+    assert rows(_factor_lines([x[0], x[1], x[2], x[3]])) == [3, 1]
+    assert rows(_factor_lines([x[0], long, x[2]])) == [1, 3, 3]
+    split = _factor_lines([x[0], x[1], long, x[2]])
+    assert split.replace("\n\\end{align*}\n\\begin{align*}\n", " \\\\\n") == whole

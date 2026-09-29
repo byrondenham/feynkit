@@ -194,14 +194,30 @@ def _equation(lhs: str, lines: Sequence[str]) -> str:
     return "\\begin{equation*}\n" + body + "\n\\end{equation*}"
 
 
+# TeX sets an align* whole before breaking it across pages, and the massless hexagon's list of
+# over 9,000 lines ran out of pdflatex's memory; 3,967 lines still fitted.
+_DISPLAY_LINES = 500
+
+
 def _factor_lines(factors: Sequence[sp.Expr]) -> str:
-    """An ``align*`` with each factor on its own line, long factors broken further."""
-    rows = []
+    """``align*`` displays with each factor on its own line, long factors broken further.
+
+    A list longer than _DISPLAY_LINES lines is split into several displays,
+    between factors where one fits, and a longer factor across displays.
+    """
+    blocks: list[list[str]] = [[]]
     for factor in factors:
         lines = to_latex_lines(factor, max_length=100)
-        rows.append("&" + lines[0])
-        rows.extend("&\\quad {}" + line for line in lines[1:])
-    return "\\begin{align*}\n" + " \\\\\n".join(rows) + "\n\\end{align*}"
+        rows = ["&" + lines[0]] + ["&\\quad {}" + line for line in lines[1:]]
+        if blocks[-1] and len(blocks[-1]) + len(rows) > _DISPLAY_LINES:
+            blocks.append([])
+        for row in rows:
+            if len(blocks[-1]) == _DISPLAY_LINES:
+                blocks.append([])
+            blocks[-1].append(row)
+    return "\n".join(
+        "\\begin{align*}\n" + " \\\\\n".join(block) + "\n\\end{align*}" for block in blocks
+    )
 
 
 def _factor_list(kind: str, factors: Sequence[sp.Expr]) -> str:

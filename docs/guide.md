@@ -1431,10 +1431,12 @@ la = landau_analysis_from_polynomial(G, [u1, u2, u3])
 ### One-loop closed form
 
 For one-loop graphs `one_loop_landau_surfaces(fi)` returns the same factors, for generic
-kinematics, from the principal minors of the modified Cayley matrix (Dlapa, Helmer, Papathanasiou,
-Tellander 2023); with special kinematics it can keep a factor the faces miss (see
-[Backends](#backends)). It is fast, needs no Gröbner basis, and is what the test-suite checks the
-face computation against. The massless pentagon takes about 1 s and the hexagon about 45 s. With
+kinematics and when no face is skipped, from the principal minors of the modified Cayley matrix
+(Dlapa, Helmer, Papathanasiou, Tellander 2023). With special kinematics it can keep a factor the
+faces miss (see [Backends](#backends)), and it keeps those of skipped faces: at the default
+`max_face_points` the faces miss 1 of the 32 factors of the massless pentagon and 8 of the
+hexagon's 79. It is fast, needs no Gröbner basis, and is what the test-suite checks the face
+computation against. The massless pentagon takes about 1 s and the hexagon about 45 s. With
 Singular on the path the minors are factored there, in one run. Without it SymPy factors them,
 which usually takes about as long but now and then far longer: SymPy's factorisation draws
 evaluation points from a random generator the whole process shares, and from some of its states a
@@ -1478,7 +1480,8 @@ its locus. A component that arises only as a limit under special kinematics can 
 while the one-loop closed form keeps it: with $p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn`
 loses $p_2^2 - p_3^2$, since the locus of its top face is $p_2^2 = p_3^2 = 0$, of codimension two.
 The massless pentagon and hexagon take about 3 s and 15 s. feynkit eliminates and factors with
-Singular when the `Singular` binary is on the path, and falls back to SymPy otherwise, which is much
+Singular when the `Singular` binary is on the path, but for the discriminants of edges, small
+polynomials that SymPy factors to write them, and falls back to SymPy otherwise, which is much
 slower and whose factorisation now and then takes minutes. Faces with more monomials than
 `max_face_points` (default 12) are skipped and listed in `la.skipped_faces`.
 `landau_analysis(fi, timeout=60)` gives Singular at most 60 s for each face, with no limit by

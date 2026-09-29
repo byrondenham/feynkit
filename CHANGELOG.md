@@ -133,10 +133,12 @@
   what follows for the integral.
 - `landau_analysis` and `landau_analysis_from_polynomial` take `timeout`, the
   most seconds Singular may spend eliminating one face; None, the default, sets
-  no limit.
+  no limit. Any other value that is not a number of seconds greater than 0 and
+  at most 2,000,000 raises `ValidationError`.
 - `one_loop_bridge_poles(integral)` returns the factors of the poles
   m_b^2 = q_b^2 of the bridges of a one-loop graph, the internal edges on no
-  cycle, q_b being the momentum through bridge b. The report's Landau section
+  cycle, q_b being the momentum through bridge b. The report's `Landau` gains
+  the field `bridge_poles`, last and empty by default, and its Landau section
   lists them after the closed form's first-type and second-type factors.
 
 ### Changed
@@ -355,7 +357,8 @@
   ten minutes on `12e|3e|3e|e|:nnnn` with p_1^2 = p_2^2 = 0, and now and then
   on `12e|3e|3e|e|:nnzz`; 0.4.0 could stall the same way. With Singular
   installed the analysis now factors with it, as the closed form does, and
-  the results are the same.
+  the results are the same. SymPy still factors each edge's discriminant to
+  write it for display; these have had at most 36 terms on the graphs tried.
 - The one-loop closed form took each p_a^2 from the standard invariants, not
   from the momentum products that F uses, so a change to the products such as
   p_2^2 = 0 did not reach it: for `12e|2e|e|:nnn` its factors kept p_2^2, which

@@ -72,6 +72,11 @@ def test_json_summary_of_the_default_sections(capsys: pytest.CaptureFixture[str]
     assert data["sections"] == list(DEFAULT_SECTIONS)
     assert "candidate_master_count" not in data["summary"]
     assert data["summary"]["normalised_volume"] == 1
+    found = FeynmanIntegral.from_cnickel("11e|e|:zz").lattice_invariants()
+    assert data["summary"]["lattice_points"] == found.lattice_points
+    assert data["summary"]["interior_lattice_points"] == found.interior_points
+    assert data["summary"]["gorenstein_index"] == found.gorenstein_index
+    assert data["summary"]["normal_configuration"] is found.normal
     assert data["summary"]["polytope_automorphisms"] == 6
     assert data["summary"]["landau_surfaces"] == 1
 

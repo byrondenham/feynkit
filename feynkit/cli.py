@@ -365,6 +365,36 @@ def _print_newton(fi: FeynmanIntegral) -> None:
     _kv("Normalised volume", f"{volume}  (the holonomic rank for generic beta)" if full else volume)
     _kv("Smith invariants", cfg.smith_invariants)
     _kv("Lattice base point", cfg.intrinsic_model().base_point)
+    _print_lattice_invariants(fi, full)
+
+
+def _print_lattice_invariants(fi: FeynmanIntegral, full: bool) -> None:
+    """The lattice invariants of the Newton polytope and, when NA is normal, the certificate."""
+    found = fi.lattice_invariants()
+    index = found.gorenstein_index
+    gorenstein = "none" if index is None else str(index)
+    _kv("Lattice points", f"{found.lattice_points}  ({found.interior_points} interior)")
+    _kv("h*-vector", found.h_star)
+    _kv("Gorenstein index", f"{gorenstein}  (reflexive)" if index == 1 else gorenstein)
+    _kv("Lattice width", found.lattice_width)
+    _kv("Integer decomposition (IDP)", "yes" if found.idp else "no")
+    if found.normal:
+        _kv("Normal configuration", "yes")
+        if full:
+            print("  NA is normal, so C[NA] is Cohen-Macaulay (Hochster 1972)")
+            print("  and there are no rank jumps (Matusevich, Miller and Walther 2005).")
+        else:
+            print("  NA is normal, so C[NA] is Cohen-Macaulay (Hochster 1972).")
+        return
+    reasons = []
+    if not found.idp:
+        reasons.append("P is not IDP")
+    if not found.support_is_saturated:
+        missing = found.lattice_points - len({tuple(p) for p in fi.newton_polytope.points})
+        reasons.append(
+            f"the support misses {missing} lattice point{'s' if missing != 1 else ''} of P"
+        )
+    _kv("Normal configuration", f"no  ({'; '.join(reasons)})")
 
 
 def _print_symmetries(fi: FeynmanIntegral) -> None:
@@ -959,7 +989,10 @@ def _build_parser() -> _Parsers:
         "-n",
         "--newton",
         action="store_true",
-        help="Newton polytope: vertices, whether scaleless, normalised volume, Smith invariants",
+        help=(
+            "Newton polytope: vertices, whether scaleless, normalised volume, Smith invariants, "
+            "lattice invariants"
+        ),
     )
     shown.add_argument(
         "-S", "--symmetries", action="store_true", help="polytope automorphisms and symmetry pairs"

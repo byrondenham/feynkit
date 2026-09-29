@@ -43,6 +43,10 @@ SUMMARY_LABELS = (
     "Scaleless",
     "Polytope vertices",
     "Normalised volume",
+    "Lattice points",
+    "Interior lattice points",
+    "Gorenstein index",
+    "Normal configuration",
     "Polytope automorphisms",
     "Toric generators",
     "Landau surfaces",
@@ -570,6 +574,26 @@ class TestSummary:
         assert triangle_report.landau is not None
         assert rows["Landau surfaces"] == str(len(triangle_report.landau.analysis.landau_surfaces))
 
+    def test_lattice_rows_come_from_the_invariants(
+        self, triangle_report: AnalysisReport, triangle: FeynmanIntegral
+    ) -> None:
+        assert triangle_report.polytope is not None
+        invariants = triangle_report.polytope.invariants
+        assert invariants == triangle.lattice_invariants()
+        rows = dict(triangle_report.summary())
+        assert rows["Lattice points"] == str(invariants.lattice_points)
+        assert rows["Interior lattice points"] == str(invariants.interior_points)
+        index = invariants.gorenstein_index
+        assert rows["Gorenstein index"] == ("none" if index is None else str(index))
+        assert rows["Normal configuration"] == ("yes" if invariants.normal else "no")
+        none = dataclasses.replace(invariants, gorenstein_index=None, normal=False)
+        report = dataclasses.replace(
+            triangle_report,
+            polytope=dataclasses.replace(triangle_report.polytope, invariants=none),
+        )
+        rows = dict(report.summary())
+        assert (rows["Gorenstein index"], rows["Normal configuration"]) == ("none", "no")
+
     def test_labels_are_in_the_documented_order(self, triangle_report: AnalysisReport) -> None:
         assert tuple(label for label, _ in triangle_report.summary()) == SUMMARY_LABELS
 
@@ -577,6 +601,8 @@ class TestSummary:
         rows = dict(AnalysisReport.from_integral(triangle, ["gkz"]).summary())
         assert "Toric generators" in rows
         assert "Normalised volume" not in rows
+        assert "Lattice points" not in rows
+        assert "Normal configuration" not in rows
         assert "Polytope vertices" not in rows
         assert "Polytope automorphisms" not in rows
         assert "Landau surfaces" not in rows

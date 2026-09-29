@@ -172,7 +172,7 @@ class LatticeInvariants:
     width_direction: tuple[int, ...]    # in the coordinates of invariant_chart
     idp: bool
     support_is_saturated: bool          # the support holds every lattice point of P
-    normal: bool                        # N A normal; always in the support lattice
+    normal: bool                        # NA normal; always in the support lattice
 
 def invariant_chart(points, *, lattice="support") -> LatticeChart
 def lattice_points(points, k=1, *, interior=False, lattice="support") -> list[tuple[int, ...]]
@@ -190,8 +190,39 @@ def lattice_invariants(points, *, lattice="support", backend="auto") -> LatticeI
 A point ($d = 0$) has one lattice point in every dilate, Ehrhart polynomial 1, $h^* = (1)$, is
 reflexive with dual $\{()\}$, has width 0 in the empty direction, and has IDP.
 
-`FeynmanIntegral.lattice_invariants(lattice="support")` calls `lattice_invariants` on the points
-of the Newton polytope.
+`FeynmanIntegral.lattice_invariants(lattice="support", backend="auto")` calls
+`lattice_invariants` on the points of the Newton polytope.
+
+## Report and CLI
+
+The report's `Polytope` gains `invariants`, last and None by default, filled with
+`fi.lattice_invariants()` in the support lattice. The Newton polytope section gives the lattice
+points, the $h^*$-vector, the lattice width and the Gorenstein index, and ends with the
+certificate: "$\mathbb{N}A$ is normal, $\mathbb{C}[\mathbb{N}A]$ is Cohen-Macaulay and there are
+no rank jumps", with the rank clause only in full dimension, or with the reasons $\mathbb{N}A$ is
+not normal and the remark that this decides nothing. The summary gains `Lattice points`,
+`Interior lattice points`, `Gorenstein index` and `Normal configuration`, and so does the JSON of
+`fk analyse --json`; `fk analyse -n` prints the same with the $h^*$-vector, the width and IDP.
+Every invariant is computed by default: all of them take under 0.2 s on the kite, the pentagon and
+the hexagon, so none needs a flag.
+
+## Timings
+
+`lattice_invariants` in pure Python and with Normaliz, the least of five runs:
+
+| Integral | CNickel | $d$ | Lattice points | Python | Normaliz | IDP in Python |
+|---|---|---|---|---|---|---|
+| Kite | `12e\|23\|3\|e\|:nnnnn` | 5 | 34 | 0.16 s | 0.10 s | 0.11 s |
+| Massless pentagon | `12e\|3e\|4e\|4e\|e\|:zzzzz` | 5 | 15 | 0.04 s | 0.06 s | 0.02 s |
+| Massless hexagon | `12e\|3e\|4e\|5e\|5e\|e\|:zzzzzz` | 6 | 21 | 0.15 s | 0.11 s | 0.09 s |
+| Three loops | `123\|24\|e\|45\|5\|e\|:znzzzzzz` | 8 | 90 | 194 s | 4.4 s | 90 to 220 s |
+
+Without the IDP check every invariant takes under 0.02 s for the first three and 1.3 s for the
+last, and the width 0.2 ms for the kite, whose coordinate directions all have width 2 but whose
+facet normal $(1, \ldots, 1)$ has width 1; before the facet normals were tried it took 0.9 s. The
+IDP check lists the dilates up to $(d - 1)P$, whose size grows like $(d - 1)^d$; Normaliz computes
+the Hilbert basis of the cone over $P$ instead. `fk analyse` on the three-loop graph takes 11 s in
+all without the invariants.
 
 ## Testing
 

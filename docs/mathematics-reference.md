@@ -617,6 +617,73 @@ them the lifted inequalities cut out $P$.
 Accessed as `Facet.lattice_index`, `Facet.lattice_form`, `PolytopeData.relative_facets`,
 `PolytopeData.affine_hull` and `PolytopeData.chart`.
 
+### 5.6 Lattice Invariants and Normality
+
+*Ref:* Beck and Robins (2015); Bruns, Gubeladze and Trung (1997); Hochster (1972);
+Batyrev (1994); MMW (2005).
+
+`feynkit.lattice_invariants` measures $P$ of dimension $d$ in one of two affine lattices: the
+support lattice $\alpha_1 + L$ of section 5.3 (`lattice="support"`, the default), which is also
+that of $\mathbb{Z}A$, or the ambient lattice $\operatorname{aff}(P) \cap \mathbb{Z}^n$
+(`lattice="ambient"`). They agree when `sublattice_index` is 1. In either, $P$ is written in a
+chart $x = o + Sc$ (`invariant_chart`) in which it is a full-dimensional polytope of $\mathbb{Z}^d$,
+and $kP$ has the lattice $ko + S\mathbb{Z}^d$. Everything is computed in integers and fractions.
+
+**Lattice points.** Let $P_j$ be the projection of $P$ to the first $j$ chart coordinates, with
+certified facets. A point lies in $kP$ exactly when each prefix $(c_1, \ldots, c_j)$ lies in
+$kP_j$; the facets of $P_{j+1}$ that involve $c_{j+1}$ bound it, by integer floor division, and
+those that do not are facets of $P_j$. Interior points take every inequality strictly at every
+level, since the projection maps interiors onto interiors.
+
+**Ehrhart polynomial and $h^*$-vector.** $L_P(k)$, the number of lattice points of $kP$, is a
+polynomial of degree $d$ with $L_P(0) = 1$ and leading coefficient $\mathrm{vol}(P)/d!$, and
+$L_P(-k) = (-1)^d L_{P^\circ}(k)$, the number of interior points (Ehrhart-Macdonald reciprocity).
+feynkit counts $kP$ and its interior for $k \le \lceil d/2 \rceil$, interpolates, and checks the
+values left over. The $h^*$-vector is given by
+$$\sum_{k \ge 0} L_P(k)\, t^k = \frac{h^*_0 + h^*_1 t + \cdots + h^*_d t^d}{(1 - t)^{d+1}},$$
+with non-negative integer entries, $h^*_0 = 1$, $h^*_d = L_{P^\circ}(1)$ and
+$\sum_i h^*_i = \mathrm{vol}(P)$.
+
+**Gorenstein index.** With facets $m_F \cdot c \le b_F$, $m_F$ primitive, $P$ is Gorenstein of
+index $r$ when $r b_F - m_F \cdot p = 1$ for every $F$ and some lattice point $p$: then $rP$ has a
+lattice point at lattice distance 1 from every facet. The homogenised forms span
+$\mathbb{Q}^{d+1}$, so there is at most one rational solution $(r, p)$, and $P$ is Gorenstein
+exactly when it is integral. $P$ is reflexive when $r = 1$; its polar dual
+$P^* = \{y : y \cdot (c - p) \ge -1\}$ has the vertices $-m_F$, is reflexive, and has dual
+$P - p$ (Batyrev 1994).
+
+**Lattice width.** $\min_{u \ne 0} (\max_P u \cdot c - \min_P u \cdot c)$ over integer $u$. With
+$w_0$ the least width over the coordinate directions and the facet normals, every direction of
+width at most $w_0$ lies in $w_0 (P - P)^\circ$, whose lattice points feynkit lists.
+
+**Normality.** $P$ has the integer decomposition property (IDP) when every lattice point of $kP$ is
+a sum of $k$ lattice points of $P$. Since the lattice points of $(k+1)P$ are sums of those of $kP$
+and $P$ for every $k \ge d - 1$ (Bruns, Gubeladze and Trung 1997), feynkit checks
+$k = 1, \ldots, d - 2$, or asks Normaliz for the Hilbert basis of the cone over $P$ when it is
+installed. At degree $k$ the elements of $\operatorname{cone}(A) \cap \mathbb{Z}A$ are the lattice
+points of $kP$ in the support lattice, and those of $\mathbb{N}A$ the sums of $k$ columns, so
+$$\mathbb{N}A \text{ is normal} \iff \text{the support holds every lattice point of } P
+\text{ and } P \text{ has IDP},$$
+both in the support lattice. Then $\mathbb{C}[\mathbb{N}A]$ is Cohen-Macaulay (Hochster 1972), and
+when $P$ is full-dimensional the holonomic rank is $\mathrm{vol}_0(P)$ for every $\beta$
+(Matusevich, Miller and Walther 2005; section 4.5). Below full dimension the GKZ system has no
+non-zero solutions for generic $\beta$, and only the Cohen-Macaulay statement is made. The
+converse fails: a Cohen-Macaulay $\mathbb{C}[\mathbb{N}A]$ need not be normal, so a negative
+answer settles nothing. The check applies to any configuration, where Klausen's theorem of
+section 4.5 covers a class of graphs at generic kinematics.
+
+For $A = \begin{pmatrix} 1 & 1 & 1 & 1 \\ 0 & 1 & 3 & 4 \end{pmatrix}$, the example of a rank jump,
+$P = [0, 4]$ has IDP but the support misses 2, so $\mathbb{N}A$ is not normal. The Reeve
+tetrahedron on $(0,0,0)$, $(1,0,0)$, $(0,1,0)$, $(1,1,r)$ has $L_P(k) = \frac{r}{6} k^3 + k^2 +
+(2 - \frac{r}{6}) k + 1$ and $h^* = (1, 0, r - 1, 0)$ in $\mathbb{Z}^3$ and lacks IDP there for
+$r > 1$, but its vertices span $\mathbb{Z}^2 \times r\mathbb{Z}$, in which it is a unimodular
+simplex: its $\mathbb{N}A$ is normal.
+
+Accessed as `fi.lattice_invariants(lattice="support")`, a `LatticeInvariants`, or through the
+functions `lattice_points`, `count_lattice_points`, `ehrhart_polynomial`, `h_star_vector`,
+`gorenstein_index`, `polar_dual`, `lattice_width`, `is_idp` and `lattice_invariants` of
+`feynkit.lattice_invariants`.
+
 ---
 
 ## 6. Toric Ideal
@@ -1387,3 +1454,19 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 34. **Lee (2013).** R.N. Lee.
     *LiteRed 1.4: a powerful tool for the reduction of the multiloop integrals.*
     J.\ Phys.\ Conf.\ Ser.\ **523** (2014) 012059.  arXiv:1310.1145.
+
+35. **Beck-Robins (2015).** Beck, Robins.
+    *Computing the Continuous Discretely.* 2nd ed., Undergraduate Texts in Mathematics,
+    Springer, 2015.  doi:10.1007/978-1-4939-2969-6.
+
+36. **Bruns-Gubeladze-Trung (1997).** Bruns, Gubeladze, Trung.
+    *Normal polytopes, triangulations, and Koszul algebras.*
+    J.\ reine angew.\ Math.\ **485** (1997) 123-160.  doi:10.1515/crll.1997.485.123.
+
+37. **Hochster (1972).** Hochster.
+    *Rings of invariants of tori, Cohen-Macaulay rings generated by monomials, and polytopes.*
+    Ann.\ of Math.\ **96** (1972) 318-337.  doi:10.2307/1970791.
+
+38. **Batyrev (1994).** Batyrev.
+    *Dual polyhedra and mirror symmetry for Calabi-Yau hypersurfaces in toric varieties.*
+    J.\ Algebraic Geom.\ **3** (1994) 493-545.  arXiv:alg-geom/9310003.

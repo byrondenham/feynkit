@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from pathlib import Path
 
@@ -181,6 +182,54 @@ class TestSingleDiagram:
         assert "Normalised volume            4  (the holonomic rank for generic beta)" in out
         assert f"  {'Scaleless':<28} no\n" in out
         assert "Lattice base point           (1, 1, 0)" in out
+
+
+class TestLatticeInvariants:
+    def test_newton_section_gives_them(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        found = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz").lattice_invariants()
+        assert found.normal and found.gorenstein_index not in (None, 1)
+        out = _run(capsys, tmp_path, "12e|2e|e|:zzz", "-n")
+        interior = f"{found.lattice_points}  ({found.interior_points} interior)"
+        assert f"  {'Lattice points':<28} {interior}\n" in out
+        assert f"  {'h*-vector':<28} {found.h_star}\n" in out
+        assert f"  {'Gorenstein index':<28} {found.gorenstein_index}\n" in out
+        assert f"  {'Lattice width':<28} {found.lattice_width}\n" in out
+        assert f"  {'Integer decomposition (IDP)':<28} yes\n" in out
+        assert f"  {'Normal configuration':<28} yes\n" in out
+        assert (
+            "  NA is normal, so C[NA] is Cohen-Macaulay (Hochster 1972)\n"
+            "  and there are no rank jumps (Matusevich, Miller and Walther 2005).\n"
+        ) in out
+
+    def test_below_full_dimension_only_cohen_macaulay_is_claimed(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        out = _run(capsys, tmp_path, "012e|2e|e|:zzzz", "-n")
+        assert "  NA is normal, so C[NA] is Cohen-Macaulay (Hochster 1972).\n" in out
+        assert "rank jumps" not in out
+
+    def test_a_configuration_that_is_not_normal(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        found = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz").lattice_invariants()
+        changed = dataclasses.replace(
+            found,
+            lattice_points=found.lattice_points + 1,
+            gorenstein_index=1,
+            reflexive=True,
+            idp=False,
+            support_is_saturated=False,
+            normal=False,
+        )
+        monkeypatch.setattr(FeynmanIntegral, "lattice_invariants", lambda self, *a, **k: changed)
+        out = _run(capsys, tmp_path, "12e|2e|e|:zzz", "-n")
+        assert f"  {'Gorenstein index':<28} 1  (reflexive)\n" in out
+        assert f"  {'Integer decomposition (IDP)':<28} no\n" in out
+        reasons = "no  (P is not IDP; the support misses 1 lattice point of P)"
+        assert f"  {'Normal configuration':<28} {reasons}\n" in out
+        assert "Cohen-Macaulay" not in out
 
 
 def test_every_key_fits_its_column() -> None:

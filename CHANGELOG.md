@@ -99,6 +99,12 @@
   `External legs`, which moves every later row down by one, and the JSON
   summary of `fk analyse --json` gains the key `kinematic_class`.
   `FeynkitDatabase.summary()` gains a column `classes` before `label`.
+- `AnalysisReport.summary()` gains the rows `Lattice points`,
+  `Interior lattice points`, `Gorenstein index` and `Normal configuration`
+  after `Normalised volume` and the candidate master count, which moves every
+  later row down by four, and the JSON summary of `fk analyse --json` gains
+  the keys `lattice_points`, `interior_lattice_points`, `gorenstein_index`
+  (null when the polytope is not Gorenstein) and `normal_configuration`.
 
 ### Added
 
@@ -183,6 +189,42 @@
   against a second computation, from the volumes of the Newton polytopes of U
   and F, which span the two hyperplanes of a Cayley polytope. The
   mathematics reference gives the argument.
+- `feynkit.lattice_invariants` computes the lattice invariants of a lattice
+  polytope exactly, in integers and fractions: `lattice_points` and
+  `count_lattice_points` list and count the lattice points of kP and of its
+  interior, `ehrhart_polynomial` and `h_star_vector` give the Ehrhart
+  polynomial and the h*-vector, `gorenstein_index` and `polar_dual` the
+  Gorenstein index and the dual of a reflexive polytope, `lattice_width` the
+  width with a direction that attains it, and `is_idp` the integer
+  decomposition property. `lattice_invariants` gathers them in a
+  `LatticeInvariants`, which also says whether the monoid NA of the
+  configuration is normal: whether the points are all the lattice points of P
+  and P has IDP. Each function measures P in the lattice its points generate,
+  that of the normalised volume, or with `lattice="ambient"` in
+  aff(P) cap Z^n; `invariant_chart` gives the chart that widths and duals
+  refer to. The lattice points come from the projections of P with certified
+  facets, the Ehrhart polynomial from the dilates up to d/2 by reciprocity,
+  and IDP from the dilates up to (d - 1)P (Bruns, Gubeladze and Trung 1997).
+  The tests check them against brute force, and against Normaliz and Sage at
+  test time, when installed, on the Newton polytopes of generated graphs.
+- `is_idp` and `lattice_invariants` take `backend`: `"python"`, `"normaliz"`,
+  the Normaliz binary, or `"auto"`, the default, which uses Normaliz when it
+  is on the path and Python otherwise or when Normaliz fails. In Python the
+  invariants of the kite `12e|23|3|e|:nnnnn` take 0.16 s together, those of
+  the massless pentagon 0.04 s and of the massless hexagon 0.15 s; for the
+  three-loop `123|24|e|45|5|e|:znzzzzzz`, of dimension 8, the IDP check takes
+  minutes in Python and 0.05 s in Normaliz.
+- `FeynmanIntegral.lattice_invariants(lattice="support", backend="auto")`.
+  When NA is normal, C[NA] is Cohen-Macaulay (Hochster 1972), and for a
+  full-dimensional Newton polytope there are then no rank jumps: the
+  holonomic rank is the normalised volume for every beta (Matusevich, Miller
+  and Walther 2005). A monoid that is not normal can still be Cohen-Macaulay.
+- The report's Newton polytope section and `fk analyse -n` give the lattice
+  points, the h*-vector, the lattice width, the Gorenstein index and whether
+  NA is normal, with the Cohen-Macaulay certificate when it is. `Polytope` of
+  `feynkit.io.report` gains the field `invariants`, last and None by default.
+  The report cites Beck and Robins, Bruns, Gubeladze and Trung, Hochster and
+  Batyrev, which the mathematics reference and the guide list too.
 
 ### Changed
 

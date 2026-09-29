@@ -44,6 +44,7 @@ from ..landau import (
     one_loop_bridge_poles,
     one_loop_landau_surfaces_by_type,
 )
+from ..lattice_invariants import LatticeInvariants
 from ..normal_forms.polytope_automorphisms import coefficient_preserving_indices
 from ..parametrisations.base import ParametrisationResult
 from ..point_count import TorusCount
@@ -247,7 +248,7 @@ class Representations:
 
 @dataclass(frozen=True)
 class Polytope:
-    """The Newton polytope of G and its figure.
+    """The Newton polytope of G, its figure and its lattice invariants.
 
     Attributes
     ----------
@@ -256,6 +257,9 @@ class Polytope:
     figure
         TikZ source, or None when the polytope has too many vertices to
         draw legibly.
+    invariants
+        The lattice invariants of FeynmanIntegral.lattice_invariants, in the
+        lattice the points generate; None only for a Polytope built by hand.
 
     Point indices in ``data`` (``vertex_indices``, ``faces``, each facet's
     ``point_indices``) follow the order of ``newton_polytope.points``, which
@@ -265,6 +269,7 @@ class Polytope:
 
     data: PolytopeData
     figure: str | None
+    invariants: LatticeInvariants | None = None
 
 
 @dataclass(frozen=True)
@@ -480,7 +485,11 @@ def _representations(fi: FeynmanIntegral, data: PolytopeData) -> Representations
 
 def _polytope(fi: FeynmanIntegral, data: PolytopeData, figure_max_vertices: int) -> Polytope:
     draw = len(data.vertex_indices) <= figure_max_vertices
-    return Polytope(data=data, figure=fi.visualise_polytope() if draw else None)
+    return Polytope(
+        data=data,
+        figure=fi.visualise_polytope() if draw else None,
+        invariants=fi.lattice_invariants(),
+    )
 
 
 def _gkz(fi: FeynmanIntegral) -> GKZ:
@@ -716,6 +725,13 @@ class AnalysisReport:
         if self.torus is not None:
             master = self.torus.candidate_master_count
             rows.append(("Candidate master count", "none" if master is None else str(master)))
+        if self.polytope is not None and self.polytope.invariants is not None:
+            found = self.polytope.invariants
+            index = found.gorenstein_index
+            rows.append(("Lattice points", str(found.lattice_points)))
+            rows.append(("Interior lattice points", str(found.interior_points)))
+            rows.append(("Gorenstein index", "none" if index is None else str(index)))
+            rows.append(("Normal configuration", "yes" if found.normal else "no"))
         if self.symmetries is not None:
             rows.append(("Polytope automorphisms", str(self.symmetries.automorphism_order)))
         if self.gkz is not None:

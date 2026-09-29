@@ -197,6 +197,7 @@ same CNickel string, the canonical form minimises the mass colouring lexicograph
 | `feynkit.algebra` | Toric ideal generators (SymPy or 4ti2 backend), Gröbner bases, ideal quotients and intersections, syzygies |
 | `feynkit.normal_forms` | Unimodular equivalence (Liu-Cai), affine equivalence, polytope automorphism groups |
 | `feynkit.polytope` | Face lattice, facet inequalities and normalised volume of a lattice polytope (`polytope_data`) |
+| `feynkit.lattice_invariants` | Lattice points, Ehrhart polynomial, h*-vector, Gorenstein index, lattice width, integer decomposition property and normality of NA, exactly |
 | `feynkit.a_configuration` | Arbitrary GKZ A-configurations: equivalence, finite-index maps, Smith invariants, symmetry pairs |
 | `feynkit.landau` | Principal A-determinant over all polytope faces; one-loop closed form |
 | `feynkit.point_count` | Finite-field point counts of G = 0 in the torus: a candidate Euler characteristic and master count |

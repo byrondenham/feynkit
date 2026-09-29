@@ -18,9 +18,9 @@ jobs:
       - uses: astral-sh/setup-uv@v10.1.0
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install 4ti2 (toric ideal backend), Singular (elimination backend) and TeX Live (report compile test)
+      - name: Install 4ti2 (toric ideal backend), Singular (elimination backend), Normaliz (lattice invariant cross-checks) and TeX Live (report compile test)
         run: >-
-          sudo apt-get update && sudo apt-get install -y 4ti2 singular
+          sudo apt-get update && sudo apt-get install -y 4ti2 singular normaliz-bin
           texlive-latex-base texlive-latex-recommended texlive-pictures
           texlive-fonts-recommended lmodern
       - run: uv sync --locked

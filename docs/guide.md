@@ -89,6 +89,8 @@ The `backends` extra installs two Python packages, which `uv sync` also installs
   `polytope_data(backend="normaliz")` takes facet candidates from it.
 - python-flint. `count_torus_points(backend="flint")` counts the points of $G = 0$ with it, point
   by point: slower than the default numpy backend, it is an independent cross-check of the counts.
+  Installing it also makes SymPy use FLINT for its integers and polynomials everywhere, which is
+  faster; set `SYMPY_GROUND_TYPES=python` to keep SymPy's own. The test suite runs both ways.
 
 feynkit detects both at run time; without them the pure-Python paths, the reference, are used.
 

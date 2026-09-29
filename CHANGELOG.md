@@ -114,8 +114,10 @@
   dependencies now include. PyNormaliz decides IDP and gives the Ehrhart
   polynomial of large Newton polytopes and offers facet candidates to
   `polytope_data(backend="normaliz")`; python-flint is the `flint` backend of
-  the torus point counts, an independent cross-check. The tests of both
-  backends, which skipped before, now run.
+  the torus point counts, an independent cross-check. Installing python-flint
+  also makes SymPy use FLINT integers throughout, unless
+  `SYMPY_GROUND_TYPES=python` is set; continuous integration runs one job each
+  way. The tests of both backends, which skipped before, now run.
 - `feynkit.generate`, with `generate_graphs` (also exported from `feynkit`) and
   `mass_colourings`. `generate_graphs` yields the connected, bridgeless graphs
   with given loops, legs and propagators in which every vertex has degree at

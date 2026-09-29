@@ -14,7 +14,7 @@ Three graphs show the defects.
   edges and gives wrong factors without an error.
 - The massless hexagon `12e|3e|4e|5e|5e|e|:zzzzzz` fails with a `RecursionError` after about six
   minutes, and the massless pentagon `12e|3e|4e|4e|e|:zzzzz` had not finished after forty. One
-  face of the hexagon takes Singular over four minutes and returns a generator of 13 730 terms,
+  face of the hexagon takes Singular over four minutes and returns a generator of 13,730 terms,
   which SymPy's parser cannot read.
 - On the massive kite of the principal Landau determinant database the face computation reports
   factors that are not components of the principal Landau determinant.
@@ -40,7 +40,12 @@ The closed form follows the factorisation.
 - The cycle is found by removing, again and again, a vertex on a single internal edge and carrying
   its legs to its neighbour. What is left is the cycle, each of its vertices holding the legs of
   its tree, and the edges removed are the bridges, each with the legs on its far side. A self-loop
-  counts twice at its vertex. The modified Cayley matrix is built for $C'$ as before.
+  counts twice at its vertex. The modified Cayley matrix is built for $C'$ as before. A graph that
+  counts as one loop by $E - V + 1$ but is not connected, such as two bubbles or a sunrise with a
+  separate tree, raises `ValueError` before any vertex is removed.
+- Each $q^2$, in $Y$ and in the poles, comes from the momentum products, as $F$'s coefficients do:
+  $q_S^2 = -\sum_{a \in S,\, c \notin S} p_a \cdot p_c$, with each product read under either order
+  of its legs. The closed form then follows products the user has changed, such as $p_3^2 = 0$.
 - `one_loop_bridge_poles(integral)`, a new public function, returns the distinct irreducible factors
   of the $m_b^2 - q_b^2$. `one_loop_landau_surfaces_by_type` keeps its two lists, which describe the
   cycle, and `one_loop_landau_surfaces`, with `one_loop_principal_a_determinant`, appends the bridge
@@ -55,24 +60,28 @@ A face of dimension two or more that is not a simplex contributes the eliminatio
 $\{f = 0,\ t_i \partial_i f = 0\}$ in the torus, with $f$ the restriction of $G$ to the face in
 lattice coordinates. Three things change.
 
-**The energy scale is set to 1.** The coefficients of $G$ are 1 on the monomials of $U$ and
-$K/\mu^2$ on those of $F$, with $K$ free of $\mu$. Kept as a variable, $\mu$ adds a component at
-$\mu = 0$, where only the monomials of $F$ survive once denominators are cleared; on the hexagon's
-face it produced the 13 730-term generator. On a face the degree in the Lee-Pomeransky parameters,
-less $L$, is an affine function of the exponents that takes the value 0 on $U$ and 1 on $F$, so
-rescaling $\mu$ multiplies the coefficients by a character of the torus: $f$ at $\lambda\mu$ is a
-constant times $f$ at $\mu$ taken at a rescaled point of the torus. The singular locus is therefore
-a cone in $\mu$, and away from $\mu = 0$ it is determined by its slice at $\mu = 1$: eliminating at
-$\mu = 1$ gives the same factors, except $\mu$ itself.
+**The energy scale is set to 1 where that is exact.** When the kinematics are free of $\mu$, the
+coefficients of $G$ are 1 on the monomials of $U$ and $K/\mu^2$ on those of $F$, with $K$ free of
+$\mu$. Kept as a variable, $\mu$ adds a component at $\mu = 0$, where only the monomials of $F$
+survive once denominators are cleared; on the hexagon's face it produced the 13,730-term
+generator. The analysis sets $\mu = 1$ when every coefficient of $G$ is $\mu^{k(\alpha)}$ times a
+factor free of $\mu$, with $k$ an affine function of the exponent $\alpha$; for kinematics free of
+$\mu$, $k$ is 0 on $U$ and $-2$ on $F$. Rescaling $\mu$ then multiplies the coefficients by a
+character of the torus: $f$ at $\lambda\mu$ is a constant times $f$ at $\mu$ taken at a rescaled
+point of the torus. The singular locus is therefore a cone in $\mu$, and away from $\mu = 0$ it is
+determined by its slice at $\mu = 1$: eliminating at $\mu = 1$ gives the same factors, except $\mu$
+itself. The test is made once, on the whole of $G$. When it fails, as when a momentum product is
+set to $\mu^2$, $\mu$ stays a variable, as before.
 
 Faces with both $U$ and $F$ monomials whose extra generators came from $\mu = 0$ become principal,
 and their discriminants lose the factors those generators added: the massive bubble's polygon
 gives $s$, where it gave $\mu\, s\, (s - (m_1 + m_2)^2)(s - (m_1 - m_2)^2)$. The Landau surfaces
 are unchanged on every graph tried. Vertex and edge discriminants are computed as before and keep
 $\mu$. The point count's square test takes the factors of principal faces. To keep the faces it
-took before, it leaves out a principal face with both kinds of monomial whose monomials of $F$ are
-not affinely independent; on every graph tried these are exactly the faces that were not principal
-with $\mu$ kept.
+took before, it leaves out, when the analysis ran at $\mu = 1$, a principal face with both kinds of
+monomial whose monomials of $F$, those of the largest degree $L + 1$, are not affinely independent;
+on every graph tried these are exactly the faces that were not principal with $\mu$ kept. Where
+$\mu$ stays a variable, the square test takes every principal face, as before.
 
 **Independent coefficients are renamed.** Let the distinct coefficients of the face that are not
 constant be $L_1(y), \dots, L_r(y)$, linear forms with rational coefficients in atoms
@@ -102,8 +111,27 @@ SymPy's `parse_expr` compiles the line as one nested sum and recurses once per t
 split into its terms and read into `Poly.from_dict`. A failure of Singular, output that is not a
 polynomial in the kinematic variables and a run past an optional `timeout`, None by default, raise
 `ComputationError`, naming the size of the face and of the output, which `fk` reports in one line.
-The factors of each face are passed on to the reduction as they are found, so that none is factored
-twice.
+The factors of each face are passed on to the reduction, so that none is factored twice.
+
+## Factorisation
+
+SymPy factors a multivariate polynomial by Wang's algorithm, which draws evaluation points from a
+random generator the whole process shares. Its factors never depend on that state, but its time
+does, and from some states it runs for over ten minutes on a polynomial it otherwise factors in a
+fraction of a second: a Gram minor of the massless hexagon, a Cayley minor of the massive box
+without Mandelstam variables, a generator of the massive box with $p_1^2 = p_2^2 = 0$. Seeding the
+generator only makes such a stall certain for some inputs, as seed 0 did for the massive box.
+
+With Singular installed, its `factorize` does the factoring instead, one run for each batch: the
+closed form's minors and then the images that need it, each eliminated face's greatest common
+divisor and its images, and the discriminants of all vertices and edges at once. The preprocessing
+is SymPy's own, and each factor is written and ordered as `sp.factor_list` writes and orders it:
+primitive over the integers, with a positive leading coefficient in SymPy's order of the symbols.
+Factorisation over $\mathbb{Q}$ is unique up to units, so the results do not depend on who
+factors. The factors are multiplied back, with their multiplicities, and compared with the input up
+to a constant; when anything fails, SymPy factors the batch. Without Singular, SymPy factors from
+whatever state its generator is in, as before. SymPy still writes each edge's discriminant in
+factored form for display; on the graphs tried it has at most 36 terms.
 
 ## Several generators
 

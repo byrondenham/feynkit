@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import sympy as sp
 import sympy.core.random as sympy_random
+from sympy.polys.rings import PolyRing
 
 from feynkit import Edge, FeynmanIntegral, Graph, landau_analysis, landau_analysis_from_polynomial
 from feynkit import landau as landau_module
@@ -32,8 +33,10 @@ from feynkit.landau import (
     _factor_list,
     _factor_lists,
     _factorize_singular,
+    _images,
     _modified_cayley_matrix,
     _normalised,
+    _normalised_poly,
     _one_loop_cycle,
     _read_singular_polynomial,
     _renaming,
@@ -1042,6 +1045,43 @@ class TestFactorLists:
 
         monkeypatch.setattr(landau_module, "_factor_list", fail)
         assert _factor_lists(expressions, symbols) == expected
+
+    @requires_singular
+    @pytest.mark.parametrize("seed", range(2))
+    def test_ring_elements_factor_as_their_expressions(
+        self, seed: int, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The closed form's images are ring elements, whose bases are read off the polynomial
+        # rather than from together; the factors, their forms and their order are the same.
+        a, b = sp.symbols("a b", real=True)
+        monomials = [1, a, a**2 * b, a * b, 3 * b**2]
+        products = [
+            sp.expand(e * monomials[k % len(monomials)])
+            for k, e in enumerate(random_expressions(seed))
+        ]
+        expressions = [e for e in products if e.free_symbols]
+        symbols = set().union(*(e.free_symbols for e in expressions))
+        ring = PolyRing(sp.Poly(sp.Add(*symbols)).gens, sp.QQ)
+        polys = [ring.from_expr(e) for e in expressions]
+        assert [poly.as_expr() for poly in polys] == expressions
+        expected = _factor_lists(expressions, symbols)
+        assert [_normalised_poly(poly) for poly in polys] == [_normalised(e) for e in expressions]
+
+        def fail(*args: object) -> list[sp.Expr]:
+            raise AssertionError("factored by SymPy")
+
+        monkeypatch.setattr(landau_module, "_factor_list", fail)
+        assert _factor_lists(polys, symbols) == expected
+
+    def test_images_are_the_substituted_expansions(self) -> None:
+        m1, m2, s, t = sp.symbols("m_1 m_2 s t", positive=True)
+        y1, y2, y3 = sp.Dummy("y1"), sp.Dummy("y2"), sp.Dummy("y3")
+        back = {y1: m1**2 + m2**2 - s, y2: 2 * m1**2, y3: s / 2 - t}
+        factors = dict.fromkeys([y1 * y2 - y3**2, y1**3 + 2 * y2 * y3 - 5, 7 * y3])
+        images = _images(factors, back)
+        assert [sp.srepr(images[f].as_expr()) for f in factors] == [
+            sp.srepr(sp.expand(f.xreplace(back))) for f in factors
+        ]
 
     @requires_singular
     def test_a_minor_that_stalled_sympy(self, monkeypatch: pytest.MonkeyPatch) -> None:

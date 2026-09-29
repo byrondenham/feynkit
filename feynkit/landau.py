@@ -63,6 +63,7 @@ import numpy as np
 import sympy as sp
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.polyerrors import BasePolynomialError
+from sympy.polys.rings import PolyElement, PolyRing
 
 from ._exact import affine_rank
 from .core.exceptions import ComputationError, ValidationError
@@ -198,6 +199,17 @@ def _normalised(irreducible: sp.Expr) -> sp.Expr:
     _, poly = sp.Poly(irreducible).clear_denoms(convert=True)
     _, poly = poly.primitive()
     return (-poly if poly.LC() < 0 else poly).as_expr()
+
+
+def _normalised_poly(irreducible: PolyElement) -> sp.Expr:
+    """:func:`_normalised` of an element of a ring whose symbols are in SymPy's order.
+
+    The leading term in all the ring's symbols is the leading term in those
+    that occur, so the sign is the one :func:`_normalised` gives.
+    """
+    _, poly = irreducible.clear_denoms()
+    _, poly = poly.primitive()
+    return (-poly if poly.LC < 0 else poly).as_expr()
 
 
 # --- public API --------------------------------------------------------------
@@ -392,6 +404,37 @@ def _factor_bases(expr: sp.Expr) -> list[tuple[sp.Poly, int]] | None:
     return bases
 
 
+def _ring_bases(poly: PolyElement) -> list[tuple[sp.Poly, int]]:
+    """:func:`_factor_bases` of poly.as_expr(), read off the polynomial.
+
+    For a polynomial, ``together`` pulls out the numbers and the gcd of the
+    monomials, so the bases are the symbols of that gcd, in the order Mul
+    gives them, and then the rest, a sum, over the integers. The rest may
+    differ from SymPy's by a constant, which does not change its factors.
+    Reading them off spares ``together`` on polynomials of thousands of
+    terms.
+    """
+    ring = poly.ring
+    monomials = list(poly.keys())
+    if not monomials:
+        return []
+    gcd = [min(m[k] for m in monomials) for k in range(ring.ngens)]
+    powers = sp.Mul(*(g**e for g, e in zip(ring.symbols, gcd, strict=True) if e))
+    bases = [
+        (sp.Poly(base), int(exp))
+        for base, exp in (arg.as_base_exp() for arg in sp.Mul.make_args(powers))
+        if not base.is_Number
+    ]
+    rest = {tuple(a - b for a, b in zip(m, gcd, strict=True)): c for m, c in poly.items()}
+    if len(rest) > 1:
+        used = [k for k in range(ring.ngens) if any(m[k] for m in rest)]
+        terms = {tuple(m[k] for k in used): ring.domain.to_sympy(c) for m, c in rest.items()}
+        gens = [ring.symbols[k] for k in used]
+        _, integral = sp.Poly.from_dict(terms, *gens, domain=sp.QQ).clear_denoms(convert=True)
+        bases.append((integral, 1))
+    return bases
+
+
 def _factorize_singular(
     polys: list[sp.Poly], binary: str
 ) -> dict[sp.Poly, list[tuple[sp.Poly, int]]] | None:
@@ -503,10 +546,15 @@ def _factor_lists(exprs: list[sp.Expr], kinematic_syms: set[sp.Symbol]) -> list[
     factors are written and ordered as sp.factor_list writes and orders
     them, so the result is the same either way. An expression that is not a
     polynomial over the integers or the rationals goes to SymPy, and so does
-    every expression when Singular fails.
+    every expression when Singular fails. An element of a polynomial ring
+    over the rationals, whose symbols are in SymPy's order, stands for its
+    expression.
     """
     binary = _singular_binary()
-    plans = [_factor_bases(expr) for expr in exprs] if binary is not None else []
+    plans = [
+        _ring_bases(expr) if isinstance(expr, PolyElement) else _factor_bases(expr)
+        for expr in (exprs if binary is not None else [])
+    ]
     distinct = list(dict.fromkeys(poly for plan in plans if plan for poly, _ in plan))
     factored = _factorize_singular(distinct, binary) if binary is not None and distinct else {}
     if factored is None:
@@ -515,6 +563,8 @@ def _factor_lists(exprs: list[sp.Expr], kinematic_syms: set[sp.Symbol]) -> list[
     for k, expr in enumerate(exprs):
         plan = plans[k] if plans else None
         if plan is None:
+            if isinstance(expr, PolyElement):
+                expr = expr.as_expr()
             result.append(_factor_list(expr, kinematic_syms))
             continue
         merged: dict[sp.Poly, int] = {}
@@ -987,6 +1037,41 @@ def _modified_cayley_matrix(integral: FeynmanIntegral) -> sp.Matrix:
     return y
 
 
+def _images(
+    factors: dict[sp.Expr, None], back: dict[sp.Symbol, sp.Expr]
+) -> dict[sp.Expr, PolyElement]:
+    """Each factor with the symbols of ``back`` replaced by their values.
+
+    The images are computed in the ring of the values' symbols over the
+    rationals, in SymPy's order, with the powers of each value kept, much
+    faster than substituting into expressions and expanding them.
+    """
+    if not factors:
+        return {}
+    symbols = set().union(*(sp.sympify(value).free_symbols for value in back.values()))
+    ring = PolyRing(sp.Poly(sp.Add(*symbols)).gens, sp.QQ)
+    names = list(back)
+    values = [ring.from_expr(back[name]) for name in names]
+    powers: dict[tuple[int, int], PolyElement] = {}
+
+    def power(k: int, e: int) -> PolyElement:
+        if (k, e) not in powers:
+            powers[k, e] = values[k] if e == 1 else power(k, e - 1) * values[k]
+        return powers[k, e]
+
+    images: dict[sp.Expr, PolyElement] = {}
+    for factor in factors:
+        image = ring.zero
+        for monomial, c in sp.Poly(factor, *names).terms():
+            term = ring(c)
+            for k, e in enumerate(monomial):
+                if e:
+                    term *= power(k, e)
+            image += term
+        images[factor] = image
+    return images
+
+
 def one_loop_landau_surfaces_by_type(
     integral: FeynmanIntegral,
 ) -> tuple[tuple[sp.Expr, ...], tuple[sp.Expr, ...]]:
@@ -1045,16 +1130,16 @@ def one_loop_landau_surfaces_by_type(
             if minor != 0:
                 minors.append((0 in subset, minor))
     # The minors are factored together, and then the images that need it.
-    kept: list[tuple[bool, list[sp.Expr]]] = []
-    for (gram, _minor), factors in zip(
-        minors, _factor_lists([minor for _, minor in minors], set(back)), strict=True
-    ):
-        images = [sp.expand(f.xreplace(back)) for f in factors]
-        if not any(image == 0 for image in images):
+    factor_lists = _factor_lists([minor for _, minor in minors], set(back))
+    image_of = _images(dict.fromkeys(f for factors in factor_lists for f in factors), back)
+    kept: list[tuple[bool, list[PolyElement]]] = []
+    for (gram, _minor), factors in zip(minors, factor_lists, strict=True):
+        images = [image_of[f] for f in factors]
+        if all(images):
             kept.append((gram, images))
     unique = list(dict.fromkeys(image for _, images in kept for image in images))
     if exact:
-        pieces = {image: [_normalised(image)] for image in unique}
+        pieces = {image: [_normalised_poly(image)] for image in unique}
     else:
         pieces = dict(zip(unique, _factor_lists(unique, kinematic_syms), strict=True))
     first: dict[sp.Expr, None] = {}

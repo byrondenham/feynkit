@@ -344,14 +344,15 @@
 - The report's one-loop closed form expanded every principal minor of the
   modified Cayley matrix in the invariants: about 40 s for the massless
   pentagon, and unfinished after 47 minutes for the hexagon. It takes the
-  minors in a symbol per entry and factors them before substituting back:
-  about 1 s for the pentagon and 45 s for the hexagon. With Singular installed
-  it factors them there, in one run. SymPy's factorisation draws evaluation
-  points from a random generator the whole process shares, and from some of
-  its states it runs for minutes on a polynomial it otherwise factors in a
-  fraction of a second, as on a Gram minor of the hexagon and a Cayley minor of
-  the massive box `12e|3e|3e|e|:nnnn` without Mandelstam variables. Without
-  Singular, SymPy factors them and can still take that long.
+  minors in a symbol per entry, factors them, and substitutes the entries back
+  in the polynomial ring of the invariants: under a second for the pentagon,
+  about 7 s for the hexagon and 80 s for the all-massive hexagon. With Singular
+  installed it factors them there, in one run. SymPy's factorisation draws
+  evaluation points from a random generator the whole process shares, and from
+  some of its states it runs for minutes on a polynomial it otherwise factors
+  in a fraction of a second, as on a Gram minor of the hexagon and a Cayley
+  minor of the massive box `12e|3e|3e|e|:nnnn` without Mandelstam variables.
+  Without Singular, SymPy factors them and can still take that long.
 - The Landau analysis could stall on massive boxes: from some states of its
   random generator, SymPy's factorisation of a face's generator ran for over
   ten minutes on `12e|3e|3e|e|:nnnn` with p_1^2 = p_2^2 = 0, and now and then

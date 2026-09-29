@@ -171,8 +171,10 @@ eleven invariants, and expanding the minors took about 40 s for the massless pen
 
 The minors are now computed with a fresh symbol for each distinct entry that is not constant,
 as determinants in the polynomial ring of those symbols, and factored there; each factor is then
-substituted back. Substitution is a ring homomorphism, so a minor is the product of the images of
-its factors and its irreducible factors are theirs; a minor vanishes identically when an image
-does. When the entries are linearly independent forms in atoms that are not squared, as for
-massless graphs, each image is already irreducible and is only normalised; otherwise it is
-factored again. The pentagon's closed form then takes a few seconds.
+substituted back, evaluated at the entries in the polynomial ring of the kinematic symbols rather
+than substituted into an expression and expanded. Substitution is a ring homomorphism, so a minor
+is the product of the images of its factors and its irreducible factors are theirs; a minor
+vanishes identically when an image does. When the entries are linearly independent forms in atoms
+that are not squared, as for massless graphs, each image is already irreducible and is only
+normalised; otherwise it is factored again. The massless pentagon's closed form then takes under a
+second, the hexagon's about 7 s and the all-massive hexagon's about 80 s.

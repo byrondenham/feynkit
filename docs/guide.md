@@ -1436,11 +1436,11 @@ kinematics and when no face is skipped, from the principal minors of the modifie
 faces miss (see [Backends](#backends)), and it keeps those of skipped faces: at the default
 `max_face_points` the faces miss 1 of the 32 factors of the massless pentagon and 8 of the
 hexagon's 79. It is fast, needs no Gröbner basis, and is what the test-suite checks the face
-computation against. The massless pentagon takes about 1 s and the hexagon about 45 s. With
-Singular on the path the minors are factored there, in one run. Without it SymPy factors them,
-which usually takes about as long but now and then far longer: SymPy's factorisation draws
-evaluation points from a random generator the whole process shares, and from some of its states a
-single minor takes minutes.
+computation against. The massless pentagon takes about half a second, the massless hexagon about
+7 s and the all-massive hexagon about 80 s. With Singular on the path the minors are factored
+there, in one run. Without it SymPy factors them, which usually takes about as long but now and
+then far longer: SymPy's factorisation draws evaluation points from a random generator the whole
+process shares, and from some of its states a single minor takes minutes.
 
 `one_loop_landau_surfaces_by_type(fi)` splits the same factors by kind of minor. Principal minors
 that leave out the bordering first row and column of the modified Cayley matrix give first-type
@@ -1983,9 +1983,9 @@ kinematic constraints.
 latex = fi.to_latex(["polytope", "gkz"], title="Massive triangle")
 ```
 
-The Landau section dominates the build time: the kite `12e|23|3|e|:zzzzz` takes about 6 s in all,
-over 4 s of it in the Landau analysis, and the massive box `12e|3e|3e|e|:nnnn` about 4.5 s, 2.6 s
-of it in the analysis. A survey over many graphs can leave it out and keep everything else:
+The Landau section dominates the build time: the kite `12e|23|3|e|:zzzzz` takes about 5 s in all,
+3.4 s of it in the Landau analysis, and the massive box `12e|3e|3e|e|:nnnn` about 4 s, 2 s of it
+in the analysis. A survey over many graphs can leave it out and keep everything else:
 
 ```python
 from feynkit.io.report import DEFAULT_SECTIONS

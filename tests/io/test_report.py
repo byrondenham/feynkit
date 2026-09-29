@@ -558,6 +558,42 @@ class TestSections:
             AnalysisReport.from_integral(triangle, ["gkz", "thermodynamics"])
 
 
+def _triangle_with_massless_leg() -> FeynmanIntegral:
+    fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+    p1 = sp.Symbol("p1^2", real=True)
+    products = {k: sp.expand(sp.sympify(v).subs(p1, 0)) for k, v in fi.momentum_products.items()}
+    return fi.with_(momentum_products=products)
+
+
+class TestLimitSurfaces:
+    def test_the_report_carries_them(self) -> None:
+        report = AnalysisReport.from_integral(_triangle_with_massless_leg(), ["landau"])
+        assert report.landau is not None
+        (limit,) = report.landau.analysis.limit_surfaces
+        assert str(limit.surface) == "p2^2 - p3^2"
+        rows = report.summary()
+        labels = [label for label, _ in rows]
+        assert labels[labels.index("Landau surfaces") + 1 :] == [
+            "Limit surfaces",
+            "Limit candidates",
+        ]
+        assert dict(rows)["Limit surfaces"] == "1"
+        assert dict(rows)["Limit candidates"] == "0"
+
+    def test_generic_kinematics_have_no_rows(self, triangle_report: AnalysisReport) -> None:
+        assert "Limit surfaces" not in dict(triangle_report.summary())
+
+    def test_the_torus_section_alone_leaves_the_parent_out(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def refuse(*args: object) -> None:
+            raise AssertionError("the report analysed the parent family")
+
+        monkeypatch.setattr(landau_module, "_generic_parent", refuse)
+        report = AnalysisReport.from_integral(_triangle_with_massless_leg(), ["torus"])
+        assert report.torus is not None
+
+
 class TestSummary:
     def test_summary_numbers_match_sections(
         self, triangle_report: AnalysisReport, triangle: FeynmanIntegral

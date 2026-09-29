@@ -674,7 +674,7 @@ class FeynmanIntegral:
         sections: Collection[str] | None = None,
         *,
         title: str | None = None,
-        max_face_points: int = 12,
+        max_face_points: int = 14,
     ) -> str:
         """
         The analysis report of the integral as a LaTeX document.
@@ -718,7 +718,7 @@ class FeynmanIntegral:
         sections: Collection[str] | None = None,
         *,
         title: str | None = None,
-        max_face_points: int = 12,
+        max_face_points: int = 14,
     ) -> str:
         """
         The analysis report of the integral as plain text.
@@ -749,7 +749,7 @@ class FeynmanIntegral:
         on_shell: Mapping[sp.Symbol, sp.Expr] | None = None,
         landau: LandauAnalysis | None = None,
         verification: int = 4,
-        max_face_points: int = 12,
+        max_face_points: int = 14,
         max_evaluations: int = 2 * 10**9,
         backend: str = "numpy",
     ) -> TorusCount:
@@ -789,7 +789,8 @@ class FeynmanIntegral:
             already computed; it keeps the energy scale symbolic.
         max_face_points
             Passed to :func:`~feynkit.landau.landau_analysis` when ``landau`` is
-            not given.
+            not given; the analysis then leaves out the limit surfaces, which
+            the count does not use.
 
         Raises
         ------
@@ -872,7 +873,7 @@ class FeynmanIntegral:
                 }
             )
         if landau is None:
-            landau = landau_analysis(integral, max_face_points=max_face_points)
+            landau = landau_analysis(integral, max_face_points=max_face_points, limits=False)
         symanzik = integral.symanzik
         count = count_torus_points(
             symanzik.g,

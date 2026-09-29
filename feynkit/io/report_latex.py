@@ -39,6 +39,8 @@ from ._report_shared import (
     kinematic_class_sentence,
     landau_factors,
     lattice_normality,
+    limit_factors,
+    limit_sentences,
     not_computed,
     primes_left_out,
     render_sections,
@@ -932,7 +934,38 @@ def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
     skipped = skipped_faces(landau)
     if skipped is not None:
         parts.append(skipped)
+    parts += _limits(landau, doc)
     return "\n".join(parts)
+
+
+def _limits(landau: Landau, doc: _Document) -> list[str]:
+    """The paragraphs on the limit surfaces and candidates, none without a parent family."""
+    limits = limit_factors(landau)
+    if limits is None:
+        return []
+    maths = {
+        "cite": doc.cite("fmt2024"),
+        "function": "$\\sum_e \\nu_e \\log u_e - (D/2) \\log G$",
+        "complement": "the complement of $\\{G = 0\\}$ in the torus",
+        "chi": "$|\\chi|$",
+    }
+    sentences = limit_sentences(limits)
+    parts = ["", sentences.intro.format(**maths)]
+    if sentences.surfaces is not None:
+        parts += [
+            sentences.surfaces.format(**maths),
+            _factor_lines([record.surface for record in limits.surfaces]),
+            sentences.counts or "",
+        ]
+    if sentences.candidates is not None:
+        parts += [
+            sentences.candidates,
+            _factor_lines([record.surface for record in limits.candidates]),
+            _escape(sentences.reasons or ""),
+        ]
+    if sentences.closing is not None:
+        parts.append(sentences.closing)
+    return parts
 
 
 def _schwinger(report: AnalysisReport, schwinger: Schwinger, doc: _Document) -> str:

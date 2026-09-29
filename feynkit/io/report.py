@@ -641,7 +641,7 @@ class AnalysisReport:
         integral: FeynmanIntegral,
         sections: Collection[str] | None = None,
         *,
-        max_face_points: int = 12,
+        max_face_points: int = 14,
         figure_max_vertices: int = 12,
         torus_seed: int = 0,
         torus_budget: int = 2 * 10**9,
@@ -705,7 +705,10 @@ class AnalysisReport:
 
         analysis: LandauAnalysis | None = None
         if wanted & {"landau", "torus"}:
-            analysis = landau_analysis(integral, max_face_points=max_face_points)
+            # The point counts use the principal Landau determinant, not the limit surfaces.
+            analysis = landau_analysis(
+                integral, max_face_points=max_face_points, limits="landau" in wanted
+            )
         torus: TorusCount | None = None
         if "torus" in wanted:
             torus = integral.torus_count(
@@ -759,5 +762,9 @@ class AnalysisReport:
         if self.gkz is not None:
             rows.append(("Toric generators", str(len(self.gkz.toric_generators))))
         if self.landau is not None:
-            rows.append(("Landau surfaces", str(len(self.landau.analysis.landau_surfaces))))
+            analysis = self.landau.analysis
+            rows.append(("Landau surfaces", str(len(analysis.landau_surfaces))))
+            if analysis.parent is not None:
+                rows.append(("Limit surfaces", str(len(analysis.limit_surfaces))))
+                rows.append(("Limit candidates", str(len(analysis.limit_candidates))))
         return tuple(rows)

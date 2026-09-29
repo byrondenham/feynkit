@@ -243,6 +243,11 @@ $ fk analyse "12e|2e|e|:nzz" --json --sections gkz --no-db
 }
 ```
 
+With the `landau` section and a kinematic class that specialises the legs, as `massless_on_shell`
+does, the summary also has `limit_surfaces` and `limit_candidates` (see
+[Specialised kinematics](#specialised-kinematics)), and the report lists them apart from the Landau
+surfaces.
+
 `--json` still writes the files of `--latex` and `--text` and stores the integral in the
 database, but does not report either on stdout. It cannot be combined with section flags, and
 `--sections` needs `--latex`, `--text` or `--json`.
@@ -2272,7 +2277,7 @@ Both methods take the same arguments:
 |----------|---------|-------------|
 | `sections` | all but `torus` | Names of the sections to build, from `SECTION_NAMES` |
 | `title` | "Feynman integral" and the CNickel string | Document title; `to_latex` escapes it |
-| `max_face_points` | 12 | Faces of the Newton polytope with more monomials are left out of the Landau analysis and listed as skipped |
+| `max_face_points` | 14 | Faces of the Newton polytope with more monomials are left out of the Landau analysis and listed as skipped |
 
 The section names, in `feynkit.io.report.SECTION_NAMES`, are `identity`, `conventions`,
 `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `symmetries`, `landau` and
@@ -2288,9 +2293,11 @@ kinematic constraints.
 latex = fi.to_latex(["polytope", "gkz"], title="Massive triangle")
 ```
 
-The Landau section dominates the build time: the kite `12e|23|3|e|:zzzzz` takes about 5 s in all,
-3.4 s of it in the Landau analysis, and the massive box `12e|3e|3e|e|:nnnn` about 4 s, 2 s of it
-in the analysis. A survey over many graphs can leave it out and keep everything else:
+The Landau section dominates the build time: the kite `12e|23|3|e|:zzzzz` takes about 7 s in all,
+6 s of it in the Landau analysis, and the massive box `12e|3e|3e|e|:nnnn` about 7 s, 5 s of it in
+the analysis. At kinematics that specialise the generic ones the analysis of the parent family and
+the counts of the limit surfaces come on top (see [Specialised kinematics](#specialised-kinematics)).
+A survey over many graphs can leave the section out and keep everything else:
 
 ```python
 from feynkit.io.report import DEFAULT_SECTIONS
@@ -2350,7 +2357,10 @@ The document has up to thirteen parts:
     trivially.
 11. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
     into first and second type for one-loop graphs, with the skipped faces, each named by its
-    dimension and number of points, and the caveats.
+    dimension and number of points, and the caveats. At kinematics that specialise the generic
+    ones, the limit surfaces follow apart, labelled as confirmed by a drop of the count of
+    critical points at random points, with the counts, and then the candidates with the reason
+    each is not confirmed.
 12. The Schwinger-representation system (section 10), its equivalence to the Lee-Pomeransky
     configuration and its reduction to the $\tilde F$ block.
 13. References, the works cited in order of first citation.

@@ -697,6 +697,55 @@ def test_an_empty_factor_list_ends_its_sentence(tadpole: FeynmanIntegral) -> Non
         assert "and there are no second-type (Gram) factors." in " ".join(document.split())
 
 
+def test_limit_surfaces_are_listed_apart() -> None:
+    fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+    p1 = sp.Symbol("p1^2", real=True)
+    fi = fi.with_(
+        momentum_products={
+            k: sp.expand(sp.sympify(v).subs(p1, 0)) for k, v in fi.momentum_products.items()
+        }
+    )
+    report = AnalysisReport.from_integral(fi, ["landau"])
+    text, latex = _flat(render_text(report)), _flat(render_latex(report))
+    for document in (text, latex):
+        assert "These kinematics restrict those of the same graph and masses" in document
+        assert "each is a limit surface" in document
+        assert "evidence that the Euler characteristic drops there, not a proof" in document
+        assert (
+            "The counts at the two points of each, in the order listed, are 5 and 5, against 6."
+            in document
+        )
+    assert "each is a limit surface: " in text
+    assert "p2^2 - p3^2" in text.split("each is a limit surface")[1]
+    assert "p^{2}_{2} - p^{2}_{3}" in latex.split("each is a limit surface")[1]
+
+
+def test_limit_candidates_give_their_reasons() -> None:
+    fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+    p1 = sp.Symbol("p1^2", real=True)
+    fi = fi.with_(
+        momentum_products={
+            k: sp.expand(sp.sympify(v).subs(p1, 0)) for k, v in fi.momentum_products.items()
+        }
+    )
+    report = AnalysisReport.from_integral(fi, ["landau"])
+    assert report.landau is not None
+    analysis = report.landau.analysis
+    (limit,) = analysis.limit_surfaces
+    candidate = dataclasses.replace(limit, reason="no rational point found on it")
+    unconfirmed = dataclasses.replace(analysis, limit_surfaces=(), limit_candidates=(candidate,))
+    report = dataclasses.replace(
+        report, landau=dataclasses.replace(report.landau, analysis=unconfirmed)
+    )
+    for document in (_flat(render_text(report)), _flat(render_latex(report))):
+        assert "each is only a candidate" in document
+        assert (
+            "Why each is not confirmed, in the order listed: no rational point found on it."
+            in document
+        )
+        assert "each is a limit surface" not in document
+
+
 def test_skipped_faces_are_named() -> None:
     sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
     for document in (

@@ -51,6 +51,17 @@ def test_json_and_the_database(capsys: pytest.CaptureFixture[str], tmp_path: Pat
         assert record.kinematics[0].internal_axis == "equal"
 
 
+def test_json_counts_the_limit_surfaces_on_shell(capsys: pytest.CaptureFixture[str]) -> None:
+    # The legs of the on-shell box specialise the generic ones, whose surfaces are restricted.
+    argv = ["analyse", BOX + ":zzzz", "--kinematics", "massless_on_shell", "--json", "--no-db"]
+    main([*argv, "--sections", "landau"])
+    summary = json.loads(capsys.readouterr().out)["summary"]
+    assert (summary["landau_surfaces"], summary["limit_surfaces"]) == (3, 0)
+    assert summary["limit_candidates"] == 0
+    main(["analyse", BOX + ":zzzz", "--json", "--no-db", "--sections", "landau"])
+    assert "limit_surfaces" not in json.loads(capsys.readouterr().out)["summary"]
+
+
 @pytest.mark.parametrize("name", ["on_shell", "other"])
 def test_an_unknown_class_is_a_usage_error(name: str, capsys: pytest.CaptureFixture[str]) -> None:
     assert _exit_code(["analyse", BOX + ":zzzz", "--kinematics", name, "--no-db"]) == 2

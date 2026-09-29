@@ -98,9 +98,11 @@
   `max_face_points` is 14, where it was 12, which covers every one-loop box: a
   box with three or four massive propagators, whose polytope has 13 or 14
   points, now gets its own factor, and `12e|3e|3e|e|:nnnn` takes about 6 s
-  where it took 2 s. `count_torus_points` runs its Landau analysis at the new
-  default. The massless pentagon's polytope, of 15 points, is still skipped:
-  Singular had not eliminated it after 20 minutes.
+  where it took 2 s. `count_torus_points`, `FeynmanIntegral.torus_count`,
+  `to_latex` and `to_text`, `AnalysisReport.from_integral` and `fk analyse`
+  run their Landau analysis at the new default. The massless pentagon's
+  polytope, of 15 points, is still skipped: Singular had not eliminated it
+  after 20 minutes.
 - `Conventions` of `feynkit.io.report` gains `kinematic_axes` and
   `kinematic_class`, without defaults, so code that builds it by hand must pass
   them. `AnalysisReport.summary()` gains the row `Kinematic class` after
@@ -273,7 +275,14 @@
   checked, the Landau surfaces and the limit surfaces together give the
   one-loop closed form. `landau_analysis` takes `limits`, `confirm`,
   `confirm_timeout` and `seed`; `landau_analysis_from_polynomial` has a
-  parent only when given one, as `parent` and `restriction`.
+  parent only when given one, as `parent` and `restriction`. The report's
+  Landau section lists the limit surfaces apart from the Landau surfaces,
+  labelled as confirmed by a drop of the count at random points, with the
+  counts, and the candidates with their reasons; `AnalysisReport.summary()`
+  gains the rows `Limit surfaces` and `Limit candidates` after
+  `Landau surfaces`, and `fk analyse --json` the keys `limit_surfaces` and
+  `limit_candidates`, when the kinematics specialise the generic ones. The
+  point counts leave the parent out.
 
 ### Changed
 

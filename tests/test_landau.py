@@ -1665,10 +1665,10 @@ class TestPolygonClosedForms:
 
     @requires_singular
     def test_a_box_skips_its_own_face_and_says_so(self) -> None:
-        # With three massive lines the box's polytope has 13 points, one more than the default
-        # limit, so even at generic kinematics its own factor is missing from the faces.
+        # With three massive lines the box's polytope has 13 points, one more than a limit of
+        # 12, so even at generic kinematics its own factor is missing from the faces.
         fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:nnnz")
-        report = AnalysisReport.from_integral(fi, ["landau"])
+        report = AnalysisReport.from_integral(fi, ["landau"], max_face_points=12)
         assert report.landau is not None
         analysis = report.landau.analysis
         assert [len(face) for face in analysis.skipped_faces] == [13]

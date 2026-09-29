@@ -20,6 +20,7 @@ from typing import NamedTuple
 
 import sympy as sp
 
+from ..landau import LimitSurface
 from ..point_count import TorusCount
 from .latex import factor_energy_scale
 from .report import (
@@ -40,6 +41,7 @@ __all__ = [
     "TORUS_HEADING",
     "Citations",
     "LandauFactors",
+    "LimitFactors",
     "Templates",
     "append_signed",
     "count_noun",
@@ -52,6 +54,8 @@ __all__ = [
     "kinematic_class_sentence",
     "landau_factors",
     "lattice_normality",
+    "limit_factors",
+    "limit_sentences",
     "not_computed",
     "primes_left_out",
     "render_sections",
@@ -437,6 +441,100 @@ def landau_factors(landau: Landau, scale: sp.Symbol) -> LandauFactors:
         in_both=len(set(first) & set(second)),
         bridge_poles=factors(landau.bridge_poles),
     )
+
+
+class LimitFactors(NamedTuple):
+    """The factors of the parent family's surfaces, restricted, that the Landau section
+    lists apart from the principal Landau determinant.
+
+    Attributes
+    ----------
+    surfaces, candidates
+        The limit surfaces and the candidates, each sorted by its factor.
+    parent_skipped
+        How many faces the analysis of the parent family skipped.
+    """
+
+    surfaces: list[LimitSurface]
+    candidates: list[LimitSurface]
+    parent_skipped: int
+
+
+def limit_factors(landau: Landau) -> LimitFactors | None:
+    """The limit surfaces and candidates of the section, or None without a parent family."""
+    analysis = landau.analysis
+    if analysis.parent is None:
+        return None
+
+    def ordered(records: Sequence[LimitSurface]) -> list[LimitSurface]:
+        return sorted(records, key=lambda record: sp.default_sort_key(record.surface))
+
+    return LimitFactors(
+        surfaces=ordered(analysis.limit_surfaces),
+        candidates=ordered(analysis.limit_candidates),
+        parent_skipped=len(analysis.parent.skipped_faces),
+    )
+
+
+class LimitSentences(NamedTuple):
+    """The prose around the lists of limit surfaces and candidates, with ``{chi}`` and
+    ``{function}`` and ``{complement}`` for the renderer's maths, and ``{cite}``."""
+
+    intro: str
+    surfaces: str | None
+    counts: str | None
+    candidates: str | None
+    reasons: str | None
+    closing: str | None
+
+
+def limit_sentences(limits: LimitFactors) -> LimitSentences:
+    """The sentences of the limit-surface paragraphs, with placeholders for the maths."""
+    intro = (
+        "These kinematics restrict those of the same graph and masses with generic external "
+        "momenta. The factors above form the principal Landau determinant of the family as "
+        "given{cite}, which can leave out a component whose singular points leave the torus as the "
+        "kinematics specialise; the surfaces of the generic family, restricted here, keep such "
+        "limits."
+    )
+    surfaces = counts = candidates = reasons = closing = None
+    if limits.surfaces:
+        surfaces = (
+            "The following factors of those restrictions are not among the factors above, and "
+            "each is a limit surface: the number of critical points of {function} on {complement}, "
+            "which is {chi} for generic exponents, is lower at two random rational points of it "
+            "than at a random point of the family. That is evidence that the Euler characteristic "
+            "drops there, not a proof: the points are random, and the counts are taken modulo two "
+            "primes."
+        )
+        generic = limits.surfaces[0].generic_count
+        pairs = ", ".join(" and ".join(str(c) for c in record.counts) for record in limits.surfaces)
+        counts = f"The counts at the two points of each, in the order listed, are {pairs}, against {generic}."
+    if limits.candidates:
+        either = " either" if limits.surfaces else ""
+        candidates = (
+            f"The following factors of those restrictions are not among the factors above{either}, "
+            "and each is only a candidate:"
+        )
+        reasons = (
+            "Why each is not confirmed, in the order listed: "
+            + "; ".join(record.reason or "" for record in limits.candidates)
+            + "."
+        )
+    if not limits.surfaces and not limits.candidates:
+        closing = (
+            "Every factor of those restrictions is among the factors above, or the restriction "
+            "vanishes identically."
+        )
+    if limits.parent_skipped:
+        n = limits.parent_skipped
+        skipped = (
+            f"The analysis of the generic family skipped {count_noun(n, 'face')} as too large to "
+            f"eliminate, and factors of {'its' if n == 1 else 'their'} discriminants would be "
+            "missing from these lists."
+        )
+        closing = skipped if closing is None else f"{closing} {skipped}"
+    return LimitSentences(intro, surfaces, counts, candidates, reasons, closing)
 
 
 def skipped_faces(landau: Landau) -> str | None:

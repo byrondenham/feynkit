@@ -944,6 +944,16 @@ class TestFeynmanIntegralTorusCount:
         assert count.on_shell == tuple(legs.items())
         assert count.candidate_master_count == 3
 
+    def test_the_landau_analysis_has_no_parent(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The count needs the principal Landau determinant only, not the limit surfaces.
+        def refuse(*args: object) -> None:
+            raise AssertionError("torus_count analysed the parent family")
+
+        monkeypatch.setattr(landau_module, "_generic_parent", refuse)
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+        legs = {sp.Symbol(f"p{i}^2", real=True): 0 for i in range(1, 5)}
+        assert fi.torus_count(on_shell=legs).candidate_master_count == 3
+
     def test_on_shell_names_symbols_of_the_momentum_products(self) -> None:
         fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
         # The invariants are real symbols; a symbol without that assumption is another symbol.

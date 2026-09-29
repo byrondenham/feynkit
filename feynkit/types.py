@@ -122,9 +122,10 @@ class PolytopeAutomorphisms:
         All automorphisms as ``(U, t)`` pairs where ``U`` is an
         ``ImmutableMatrix`` in ``GL_n(Z)`` and ``t`` is an integer column
         vector (also an ``ImmutableMatrix``). Below full dimension each pair
-        extends one element of Aut(P) to Z^n and acts as the identity on a
-        complement of the affine hull; other extensions differ from it only
-        off the affine hull.
+        extends one element of Aut(P) to Z^n, and ``U`` fixes a complement of
+        the direction space of the affine hull, the span of the differences
+        of the vertices; other extensions differ from it only off the affine
+        hull.
     order
         ``|Aut(P)|``, equal to ``len(maps)``, the number of vertex
         permutations.

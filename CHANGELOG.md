@@ -99,10 +99,11 @@
 - Below full dimension `polytope_automorphisms` is the group of the Newton
   polytope as a lattice polytope in its affine hull: the affine maps of the
   affine hull that preserve its integer points and the polytope. `maps` holds
-  one extension of each to Z^n, which fixes a complement of the affine hull, and
-  `order` counts them; the unimodular maps of Z^n that take the polytope to
-  itself form an infinite group there. The witnesses of the equivalence tests
-  are such extensions. In full dimension nothing changes.
+  one extension (U, t) of each to Z^n, whose linear part U fixes a complement
+  of the direction space of the affine hull, and `order` counts them; the
+  unimodular maps of Z^n that take the polytope to itself form an infinite
+  group there. The witnesses of the equivalence tests are such extensions. In
+  full dimension nothing changes.
 
 ### Fixed
 
@@ -173,7 +174,23 @@
   `012e|2e|e|:znnn`, the massive triangle with a massless self-loop, gets the 6
   automorphisms of the triangle and is unimodularly equivalent to
   `12e|12e|e|:nnzn`, and two segments are unimodularly equivalent exactly when
-  their lattice lengths agree.
+  their lattice lengths agree. A single point repeated, compared with another,
+  gets the translation between them, with M the identity.
+- `is_affinely_equivalent` read SymPy rationals as their integer parts, so a
+  triangle with rational vertices was not equivalent to the unit triangle. It
+  now scales each configuration by the least common denominator of its
+  coordinates and scales the witness back, and `is_point_config_equivalent`
+  does the same below full dimension, so both accept rational points in every
+  dimension. `is_unimodular_equivalent` and `compute_polytope_automorphisms`
+  raise `ValidationError` on a coordinate that is not an integer: they
+  truncated SymPy rationals, and raised `ValueError` on other floats.
+- The basis searches of `compute_polytope_automorphisms`,
+  `is_unimodular_equivalent` and `symmetry_pairs` tested linear independence
+  with a floating rank, which fails for large coordinates. For the triangle
+  with a point on an edge (0, 0), (1, 0), (2, 0), (k, 1), whose group has
+  order 2, `polytope_automorphisms` found the identity alone from k = 8 * 10^7,
+  and `symmetry_pairs` found no pairs or recursed without end. They now use an
+  exact integer rank.
 - `symmetry_pairs` returned no pairs, not even the identity, for a
   configuration that is not full-dimensional. It now finds them in the
   lattice chart of the points and extends each to Z^n as

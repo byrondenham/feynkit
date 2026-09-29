@@ -95,8 +95,10 @@ def lift_linear(
 
     Returns Q' diag(I, H'^T m H^-T) Q^-1, which maps B c to B' m c, or None
     when integral is true and H'^T m H^-T is not an integer matrix, that is
-    when m does not map sat(L) onto sat(L'). With integral false m may be any
-    invertible rational matrix, and so is the lift.
+    when m does not map sat(L) into sat(L'). For m in GL_d(Z) the image is
+    all of sat(L') exactly when the indices [sat(L) : L] and [sat(L') : L']
+    agree, which the callers check or, with one frame, have. With integral
+    false m may be any invertible rational matrix, and so is the lift.
     """
     n = source.frame.rows
     d = source.dimension

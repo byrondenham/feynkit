@@ -1,8 +1,9 @@
 """Tests for the polytope-equivalence verbs."""
 
-from sympy import Matrix
+import pytest
+from sympy import Matrix, Rational, eye
 
-from feynkit import FeynmanIntegral, PolytopeEquivalence
+from feynkit import FeynmanIntegral, PolytopeEquivalence, ValidationError
 from feynkit.normal_forms import is_affinely_equivalent, is_point_config_equivalent
 
 
@@ -61,3 +62,57 @@ class TestBelowFullDimension:
             result = test(Matrix(points), Matrix(image))
             assert result.equivalent
             assert abs(result.determinant) == 1
+
+    def test_a_repeated_point(self) -> None:
+        # The free parameters set to 0 gave a singular witness for a point repeated.
+        a, b = Matrix([[1, 1], [1, 1]]), Matrix([[2, 3], [2, 3]])
+        for test in (is_affinely_equivalent, is_point_config_equivalent):
+            result = test(a, b)
+            assert result.equivalent
+            assert result.witness_map == eye(2)
+            assert result.translation == Matrix([1, 2])
+            assert result.determinant == 1
+
+
+def _maps_onto(result: PolytopeEquivalence, points_a: Matrix, points_b: Matrix) -> bool:
+    """Whether the witness maps the rows of points_a onto those of points_b, as multisets."""
+    M, t = result.witness_map, result.translation
+    image = sorted(tuple(M * points_a.row(i).T + t) for i in range(points_a.rows))
+    return image == sorted(tuple(points_b.row(i)) for i in range(points_b.rows))
+
+
+R = Rational
+
+
+class TestRationalPoints:
+    """Each configuration is scaled to integers, and the witness scaled back."""
+
+    @pytest.mark.parametrize(
+        ("points_a", "points_b"),
+        [
+            # A triangle in full dimension, whose coordinates were read as their integer parts.
+            ([[0, 0], [R(1, 2), 0], [0, R(1, 3)]], [[0, 0], [1, 0], [0, 1]]),
+            # A segment with its midpoint, and a triangle, below full dimension.
+            ([[0, 0], [R(1, 2), R(1, 2)], [1, 1]], [[0, 0], [1, 1], [2, 2]]),
+            ([[0, 0, 0], [R(1, 3), 0, 1], [0, R(2, 3), 1]], [[1, 1, 0], [2, 1, 0], [1, 2, 0]]),
+        ],
+    )
+    def test_both_affine_tests(self, points_a: list, points_b: list) -> None:
+        a, b = Matrix(points_a), Matrix(points_b)
+        for test in (is_affinely_equivalent, is_point_config_equivalent):
+            result = test(a, b)
+            assert result.equivalent
+            assert result.determinant != 0
+            assert _maps_onto(result, a, b)
+            reverse = test(b, a)
+            assert reverse.equivalent
+            assert _maps_onto(reverse, b, a)
+
+    def test_floats_that_are_not_integers(self) -> None:
+        # They are rejected, not rounded; integral floats count as integers.
+        unit = Matrix([[0, 0], [1, 0], [0, 1]])
+        with pytest.raises(ValidationError, match="not an exact rational"):
+            is_affinely_equivalent(Matrix([[0, 0], [0.5, 0], [0, 1]]), unit)
+        with pytest.raises(ValidationError, match="not an exact rational"):
+            is_point_config_equivalent(Matrix([[0, 0], [0.5, 0.5]]), Matrix([[0, 0], [1, 1]]))
+        assert is_affinely_equivalent(Matrix([[0.0, 0.0], [2.0, 0.0], [0.0, 1.0]]), unit).equivalent

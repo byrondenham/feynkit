@@ -16,6 +16,7 @@ witness map (when known), and a vertex correspondence (when known).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Iterator
 from itertools import combinations, permutations
 from typing import Any
@@ -23,6 +24,8 @@ from typing import Any
 import numpy as np
 import sympy as sp
 
+from .. import _exact
+from ..core.exceptions import ValidationError
 from ..polytope import PolytopeData, polytope_data
 from ..types import PolytopeEquivalence
 from . import _invariants
@@ -51,12 +54,19 @@ def is_unimodular_equivalent(
         points). Accepts numpy arrays, sympy matrices, or any iterable of
         integer-coordinate tuples. Non-vertex points (interior or on a
         face) are filtered out automatically by computing the convex hull.
+        Unlike the affine tests, this one does not scale rational points to
+        integers, since scaling changes the lattice.
 
     Returns
     -------
     PolytopeEquivalence
         ``equivalent=True`` together with a witness map ``U`` and a vertex
         correspondence on success; ``equivalent=False`` otherwise.
+
+    Raises
+    ------
+    ValidationError
+        If a coordinate is not an integer.
 
     Notes
     -----
@@ -74,10 +84,12 @@ def is_unimodular_equivalent(
     Below full dimension both polytopes must have the same dimension d, and
     the search runs in the lattice charts of their vertex sets, where they are
     full-dimensional in Z^d. A chart map is accepted only when it maps the
-    integer points of one affine hull onto those of the other, and the witness
-    is its lift to GL_n(Z), which acts as the identity on a complement of the
-    affine hull; see feynkit.normal_forms._chart. Two points are always
-    equivalent, and two segments exactly when their lattice lengths agree.
+    integer points of one affine hull onto those of the other, which needs the
+    same sublattice index for the two vertex sets, and the witness is its lift
+    U in GL_n(Z). U maps the direction space of one affine hull onto that of
+    the other, and a complement of the first onto a complement of the second;
+    see feynkit.normal_forms._chart. Two points are always equivalent, and two
+    segments exactly when their lattice lengths agree.
 
     See Also
     --------
@@ -196,12 +208,12 @@ def _select_basis_indices(deltas: np.ndarray, n_dim: int) -> list[int] | None:
     (delta = 0), so it is skipped.
     """
     chosen: list[int] = []
-    chosen_rows: list[np.ndarray] = []
+    chosen_rows: list[list[int]] = []
     for i in range(1, deltas.shape[0]):
-        candidate = np.array(chosen_rows + [deltas[i].astype(float)])
-        if np.linalg.matrix_rank(candidate) == len(chosen) + 1:
+        row = [int(x) for x in deltas[i]]
+        if _exact.rank([*chosen_rows, row]) == len(chosen) + 1:
             chosen.append(i)
-            chosen_rows.append(deltas[i].astype(float))
+            chosen_rows.append(row)
             if len(chosen) == n_dim:
                 return chosen
     return None
@@ -430,26 +442,46 @@ def is_affinely_equivalent(
     discarded, use :func:`is_point_config_equivalent` if you need the
     stricter all-columns GKZ check.
 
+    The coordinates may be rational. Each configuration is scaled by the
+    least common denominator of its coordinates, q_a or q_b, and a map
+    ``M', t'`` between the scaled vertex sets gives ``M = (q_a / q_b) M'`` and
+    ``t = t' / q_b``.
+
     Parameters
     ----------
     points_a, points_b
         Point configurations as ``n_pts x dim`` arrays (rows = points).
-        Accepts numpy arrays, sympy matrices, or nested lists.
+        Accepts numpy arrays, sympy matrices, or nested lists, with
+        coordinates that are integers, integral floats, fractions or SymPy
+        rationals.
 
     Returns
     -------
     PolytopeEquivalence
         ``relation="affine_polytope"``.  On success: ``witness_map=M``,
         ``translation=t``, ``determinant=det(M)``.  On failure: all ``None``.
+        Below full dimension the vertices do not determine M; it is one
+        invertible extension of the map between the affine hulls, and its
+        determinant depends on that extension.
+
+    Raises
+    ------
+    ValidationError
+        If a coordinate is not a rational number given exactly; floats that
+        are not integers are rejected, not rounded.
     """
-    pts_a_np = _invariants.to_integer_points(points_a)
-    pts_b_np = _invariants.to_integer_points(points_b)
+    pts_a, q_a = _clear_denominators(_coerce_sympy_points(points_a))
+    pts_b, q_b = _clear_denominators(_coerce_sympy_points(points_b))
+    pts_a_np = _invariants.to_integer_points(pts_a)
+    pts_b_np = _invariants.to_integer_points(pts_b)
     V_a = pts_a_np[_invariants.hull_vertex_indices(pts_a_np)]
     V_b = pts_b_np[_invariants.hull_vertex_indices(pts_b_np)]
 
-    pts_a = _coerce_sympy_points(V_a.tolist())
-    pts_b = _coerce_sympy_points(V_b.tolist())
-    witness = _affine_witness(pts_a, pts_b)
+    witness = _rescaled(
+        _affine_witness(_coerce_sympy_points(V_a.tolist()), _coerce_sympy_points(V_b.tolist())),
+        q_a,
+        q_b,
+    )
     if witness is None:
         return PolytopeEquivalence(equivalent=False, relation="affine_polytope")
     M, t, det = witness
@@ -476,6 +508,13 @@ def is_point_config_equivalent(
      equivalence, where the full monomial support, not just the Newton polytope
     , determines the hypergeometric system.
 
+     Below full dimension the map is found between the lattice charts of
+     the two configurations, where it is unique for a correspondence of
+     affine bases. Rational points are first scaled to integers, each
+     configuration by the least common denominator q_a or q_b of its
+     coordinates, and a map ``M', t'`` between the scaled points gives
+     ``M = (q_a / q_b) M'`` and ``t = t' / q_b``.
+
      Parameters
      ----------
      points_a, points_b
@@ -486,6 +525,15 @@ def is_point_config_equivalent(
      PolytopeEquivalence
          ``relation="affine_point_config"``.  On success: ``witness_map=M``,
          ``translation=t``, ``determinant=det(M)``.  On failure: all ``None``.
+         Below full dimension M is one invertible extension of the map
+         between the affine hulls, and its determinant depends on that
+         extension.
+
+     Raises
+     ------
+     ValidationError
+         Below full dimension, if a coordinate is not a rational number given
+         exactly; floats that are not integers are rejected, not rounded.
     """
     pts_a = _coerce_sympy_points(points_a)
     pts_b = _coerce_sympy_points(points_b)
@@ -588,14 +636,18 @@ def _affine_witness(
     parameters to 0, which can leave it singular. In the charts, where both
     configurations are full-dimensional, the map is unique for each
     correspondence of affine bases, and its lift is invertible. Its
-    determinant then depends on the complement the lift fixes. The points
-    must be integers below full dimension.
+    determinant then depends on the complements of the two direction spaces
+    that the lift maps onto each other. Below full dimension the points are
+    first scaled to integers, each configuration by the least common
+    denominator of its coordinates, and the witness is scaled back.
     """
     if points_a.shape != points_b.shape:
         return None
     rank = _affine_rank(points_a)
     if rank in (0, points_a.cols) or rank != _affine_rank(points_b):
         return _find_affine_witness(points_a, points_b)
+    points_a, q_a = _clear_denominators(points_a)
+    points_b, q_b = _clear_denominators(points_b)
     frame_a = chart_frame(points_a.tolist())
     frame_b = chart_frame(points_b.tolist())
     found = _find_affine_witness(
@@ -609,7 +661,40 @@ def _affine_witness(
         return None
     image = frame_b.chart.to_ambient(list(m * sp.Matrix(frame_a.chart.coordinates[0]) + s))
     t = sp.Matrix(image) - M * points_a.row(0).T
-    return M, t, M.det()
+    return _rescaled((M, t, M.det()), q_a, q_b)
+
+
+def _clear_denominators(points: sp.Matrix) -> tuple[sp.Matrix, int]:
+    """
+    The points times q, and q, the least positive integer that makes them integers.
+
+    Integral floats count as integers. Raises ValidationError on any other
+    coordinate that is not a rational number, a float that is not an integer
+    included: it is rejected, not rounded.
+    """
+    values: list[Any] = []
+    for i in range(points.rows):
+        for x in points.row(i):
+            if x.is_Float and math.isfinite(float(x)) and float(x).is_integer():
+                x = sp.Integer(int(x))
+            if not x.is_Rational:
+                raise ValidationError(
+                    f"point {i} has the coordinate {x}, which is not an exact rational number"
+                )
+            values.append(x)
+    q = math.lcm(*(int(x.q) for x in values))
+    return sp.Matrix(points.rows, points.cols, [x * q for x in values]), q
+
+
+def _rescaled(
+    witness: tuple[sp.Matrix, sp.Matrix, sp.Expr] | None, q_a: int, q_b: int
+) -> tuple[sp.Matrix, sp.Matrix, sp.Expr] | None:
+    """A witness from q_a A onto q_b B as one from A onto B: (q_a / q_b) M and t / q_b."""
+    if witness is None or q_a == q_b == 1:
+        return witness
+    M, t, _ = witness
+    M = M * sp.Rational(q_a, q_b)
+    return M, t / q_b, M.det()
 
 
 def _find_affine_witness(
@@ -626,17 +711,17 @@ def _find_affine_witness(
     if points_a.shape != points_b.shape:
         return None
 
-    n_points, dim = points_a.shape
-    if n_points == 1:
-        # Any translation works; recover t = b - a.
-        M = sp.eye(dim)
-        t = (points_b.row(0) - points_a.row(0)).T
-        return M, t, sp.Integer(1)
-
+    dim = points_a.cols
     rank_a = _affine_rank(points_a)
     rank_b = _affine_rank(points_b)
     if rank_a != rank_b:
         return None
+    if rank_a == 0:
+        # Each configuration is one point, perhaps repeated: the translation
+        # t = b - a maps one onto the other.
+        M = sp.eye(dim)
+        t = (points_b.row(0) - points_a.row(0)).T
+        return M, t, sp.Integer(1)
 
     source_bases = _affine_basis_indices(points_a, rank_a)
     if not source_bases:

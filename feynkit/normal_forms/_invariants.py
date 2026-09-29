@@ -18,6 +18,7 @@ import networkx as nx
 import numpy as np
 import sympy as sp
 
+from .. import _exact
 from ..polytope import PolytopeData, polytope_data
 
 # ------------------------------------------------------------------------------
@@ -30,8 +31,10 @@ def to_integer_points(points: object) -> np.ndarray:
     Coerce a point configuration to a ``d x n`` integer numpy array.
 
     Accepts numpy arrays, sympy matrices, lists of tuples, and similar.
-    Raises :class:`ValueError` on non-integer entries, Liu-Cai is defined
-    only for lattice polytopes.
+    Liu-Cai is defined only for lattice polytopes, so a coordinate that is
+    not an integer raises :class:`~feynkit.core.exceptions.ValidationError`
+    and is never rounded; integral floats are accepted. Raises
+    :class:`ValueError` when the points do not form a two-dimensional array.
     """
     if isinstance(points, np.ndarray):
         arr = points
@@ -43,18 +46,8 @@ def to_integer_points(points: object) -> np.ndarray:
     if arr.ndim != 2:
         raise ValueError(f"Point configuration must be 2-dimensional; got shape {arr.shape}")
 
-    try:
-        out = np.array(arr.tolist(), dtype=np.int64)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"Liu-Cai requires integer points: {exc}") from exc
-
-    # Re-coerce via Python int to detect non-integer floats that np accepted.
-    for row in arr.tolist():
-        for v in row:
-            if isinstance(v, float) and v != int(v):
-                raise ValueError(f"Liu-Cai requires integer points; got float {v}")
-
-    return out
+    rows = [[_exact._as_int(v, f"point {i}") for v in row] for i, row in enumerate(arr.tolist())]
+    return np.array(rows, dtype=np.int64).reshape(arr.shape)
 
 
 def hull_vertex_indices(points: np.ndarray) -> np.ndarray:

@@ -675,7 +675,8 @@ hull pointwise already form an infinite group. $\mathrm{Aut}(\Delta_G)$ is then 
 $\Delta_G$ as a lattice polytope in the affine lattice $\mathrm{aff}(\Delta_G) \cap \mathbb{Z}^n$:
 the affine bijections of the affine hull that map its integer points onto themselves and
 $\Delta_G$ onto itself. Each extends to a pair $(U, t)$ as above, and feynkit returns one
-extension of each, which acts as the identity on a complement of the affine hull (section 7.3).
+extension of each, whose linear part $U$ fixes a complement of the direction space of the affine
+hull, the span of the differences of the vertices (section 7.3).
 The group does not depend on the embedding: the triangle $(0,0), (2,0), (0,1)$ has order 2 in
 $\mathbb{Z}^2$, and so has its copy in $\mathbb{Z}^3$, although all six permutations of its
 vertices preserve the lattice spanned by their differences.
@@ -706,7 +707,7 @@ $O(|\mathrm{Aut}| \cdot n!)$ in typical cases.
 1. Compute the vertices and the edges of $\Delta_G$ from the certified face lattice of
    `polytope_data` (section 5.5), and the Liu-Cai labels on that 1-skeleton.
 2. Select a **label-diverse basis**: $n$ vertices, choosing rarest labels first, whose differences
-   from the anchor vertex $\alpha_0$ form an invertible matrix.
+   from the anchor vertex $\alpha_0$ form an invertible matrix, tested by an exact integer rank.
 3. For each vertex $w$ with the same label as the anchor $\alpha_0$, attempt it as the image
    anchor.
 4. For each label-preserving ordered $n$-tuple of remaining vertices (generated via
@@ -846,9 +847,11 @@ Accessed via `fi.is_unimodular_equivalent_to(other)`, which returns a `PolytopeE
 fields `.equivalent` (bool), `.witness_map` ($U$), `.translation` ($t$), `.determinant`, `.vertex_correspondence`.
 
 The algorithm is the Liu-Cai basis-search (same as automorphism computation, but between two
-configurations): build labelled polytope graphs, enumerate MST isomorphisms, solve for $U$.
-Below full dimension the two polytopes must have the same affine dimension and the same
-sublattice index, and the search runs in the lattice charts of their vertex sets. A chart map is
+configurations): build the labelled polytope graphs, fix an affine basis of the first polytope,
+map it to each label-preserving choice of vertices of the second, solve for $U$ and verify it on
+every vertex. Below full dimension the two polytopes must have the same affine dimension and
+their vertex sets the same sublattice index, and the search runs in the lattice charts of those
+vertex sets. A chart map is
 accepted when it maps the integer points of one affine hull onto those of the other, and the
 witness is its extension to $GL_n(\mathbb{Z})$, as in section 7.3. Two points are always
 equivalent, and two segments exactly when their lattice lengths agree.
@@ -868,8 +871,10 @@ $\mathbb{Z}^n$, so the Smith invariants of the two configurations can differ (se
 
 Below full dimension the points do not determine the linear part of such a map. feynkit finds the
 map between the lattice charts, where it is unique for a given correspondence of affine bases,
-and returns its extension, which is invertible; its determinant depends on the complement the
-extension fixes, and is not an invariant of the two configurations.
+and returns its extension, which is invertible; its determinant depends on the complements of the
+two direction spaces that the extension maps onto each other, and is not an invariant of the two
+configurations. Rational points are first scaled to integers, each configuration by the least
+common denominator of its coordinates, and the witness is scaled back.
 
 ### 9.3 Point-Configuration Equivalence
 

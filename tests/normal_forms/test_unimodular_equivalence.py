@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import sympy as sp
 
-from feynkit import Edge, FeynmanIntegral, Graph, PolytopeEquivalence
+from feynkit import Edge, FeynmanIntegral, Graph, PolytopeEquivalence, ValidationError
 from feynkit.normal_forms import is_unimodular_equivalent
 from feynkit.polytope import polytope_data
 
@@ -340,3 +340,62 @@ def test_scaleless_triangles() -> None:
     assert is_unimodular_equivalent(znnn, znnn).equivalent
     assert is_unimodular_equivalent(znnn, _support("12e|12e|e|:nnzn")).equivalent
     assert not is_unimodular_equivalent(znnn, _support("012e|2e|e|:zzzz")).equivalent
+
+
+def _check_witness(points: np.ndarray, image: np.ndarray, result: PolytopeEquivalence) -> None:
+    """The witness is in GL_n(Z) and maps each vertex of points to its image."""
+    assert result.equivalent
+    assert result.witness_map is not None
+    W = sp.Matrix(result.witness_map)
+    assert abs(W.det()) == 1
+    assert all(x.is_Integer for x in W)
+    vertices = [points[i] for i in polytope_data(points).vertex_indices]
+    targets = [image[j] for j in result.vertex_correspondence]
+    t = sp.Matrix(targets[0]) - W * sp.Matrix(vertices[0])
+    for v, w in zip(vertices, targets, strict=True):
+        assert W * sp.Matrix(v) + t == sp.Matrix(w)
+
+
+def test_two_embeddings_that_only_the_lattice_separates() -> None:
+    # The quadrilateral C has only the identity as a lattice automorphism. Its embeddings
+    # (2 c_1, c_2, 0) and (c_1, 2 c_2, 0) have the same chart and the same index 2, but no
+    # chart map takes the integer points of one plane onto those of the other.
+    polygon = [(0, 0), (1, 0), (3, 2), (0, 1)]
+    wide = [(2 * a, b, 0) for a, b in polygon]
+    tall = [(a, 2 * b, 0) for a, b in polygon]
+    assert polytope_data(wide).sublattice_index == polytope_data(tall).sublattice_index == 2
+    assert not is_unimodular_equivalent(wide, tall).equivalent
+    assert is_unimodular_equivalent(wide, wide).equivalent
+
+
+INDEX_TWO = {
+    "triangle": [(0, 0, 0), (2, 0, 0), (0, 1, 0)],
+    "rectangle": [(0, 0, 0), (2, 0, 0), (0, 1, 0), (2, 1, 0)],
+}
+
+
+@pytest.mark.parametrize("seed", range(4))
+@pytest.mark.parametrize("name", sorted(INDEX_TWO))
+def test_unimodular_images_of_index_two(name: str, seed: int) -> None:
+    # Some chart maps between the two vertex sets do not lift to Z^3; the search goes on
+    # past them to one that does.
+    points = np.array(INDEX_TWO[name], dtype=np.int64)
+    rng = np.random.default_rng(seed)
+    image = apply_unimodular(points, random_unimodular_map(3, rng), rng.integers(-3, 4, size=3))
+    rng.shuffle(image)
+    _check_witness(points, image, is_unimodular_equivalent(points, image))
+
+
+@pytest.mark.parametrize("shear", [8 * 10**7, 10**9])
+def test_a_sheared_triangle(shear: int) -> None:
+    # (0, 0), (2, 0) and (shear, 1) have differences of floating rank 1.
+    small = np.array([(0, 0), (1, 0), (2, 0), (0, 1)], dtype=np.int64)
+    sheared = np.array([(x + shear * y, y) for x, y in small], dtype=np.int64)
+    _check_witness(small, sheared, is_unimodular_equivalent(small, sheared))
+    _check_witness(sheared, small, is_unimodular_equivalent(sheared, small))
+
+
+def test_rational_points_are_not_scaled() -> None:
+    # Scaling would change the lattice. The coordinate 1/2 was read as 0.
+    with pytest.raises(ValidationError, match="non-integer"):
+        is_unimodular_equivalent([(0, 0), (sp.Rational(1, 2), 0), (0, 1)], unit_simplex(2))

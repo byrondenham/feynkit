@@ -306,6 +306,20 @@ class TestExactVertices:
         assert sorted(auts.vertex_permutations) == [[0, 1], [1, 0]]
         assert len(symmetry_pairs([(1,), (2,)])) == 2
 
+    @pytest.mark.parametrize("shear", [8 * 10**7, 10**9])
+    def test_a_sheared_triangle(self, shear: int) -> None:
+        # The triangle (0, 0), (2, 0), (0, 1), with (1, 0) on an edge, sheared by
+        # (x, y) -> (x + shear y, y). The differences (2, 0) and (shear, 1) of its vertices
+        # have floating rank 1, and the floating choice of a basis found none: order 1.
+        small = [(0, 0), (1, 0), (2, 0), (0, 1)]
+        sheared = [(x + shear * y, y) for x, y in small]
+        auts = compute_polytope_automorphisms(sheared)
+        assert auts.order == 2
+        vertices = polytope_data(sheared).vertices
+        for (U, t), perm in zip(auts.maps, auts.vertex_permutations, strict=True):
+            for i, v in enumerate(vertices):
+                assert tuple(U * sp.Matrix(v) + t) == vertices[perm[i]]
+
 
 # -- Below full dimension ------------------------------------------------------
 

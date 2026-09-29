@@ -51,6 +51,7 @@ import networkx as nx
 import numpy as np
 import sympy as sp
 
+from .. import _exact
 from ..polytope import polytope_data
 from ..types import PolytopeAutomorphisms
 from . import _invariants
@@ -97,11 +98,12 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
     A polytope of dimension d < n is searched in the lattice chart of its
     vertices, where it is full-dimensional in Z^d and its labels are d x d
     determinants. A chart map is kept when it maps the integer points of the
-    affine hull onto themselves, and ``maps`` holds its lift to GL_n(Z), which
-    acts as the identity on a complement of the affine hull; see
-    feynkit.normal_forms._chart. ``order`` counts the chart maps, that is the
-    vertex permutations; the unimodular maps of Z^n taking P to itself form
-    an infinite group when d < n and n >= 2.
+    affine hull onto themselves, and ``maps`` holds its lift (U, t), whose
+    linear part U in GL_n(Z) fixes a complement of the direction space of the
+    affine hull, the span of the differences of the vertices; see
+    feynkit.normal_forms._chart. ``order`` counts the chart maps kept, that is
+    the vertex permutations; the unimodular maps of Z^n taking P to itself
+    form an infinite group when d < n and n >= 2.
     """
     pts = _invariants.to_integer_points(points)
     n_dim = pts.shape[1]
@@ -398,12 +400,12 @@ def coefficient_preserving_indices(
 def _select_basis_indices(deltas: np.ndarray, n_dim: int) -> list[int] | None:
     """Greedy basis selection by index order (fallback)."""
     chosen: list[int] = []
-    chosen_rows: list[np.ndarray] = []
+    chosen_rows: list[list[int]] = []
     for i in range(1, deltas.shape[0]):
-        candidate = np.array(chosen_rows + [deltas[i].astype(float)])
-        if np.linalg.matrix_rank(candidate) == len(chosen) + 1:
+        row = [int(x) for x in deltas[i]]
+        if _exact.rank([*chosen_rows, row]) == len(chosen) + 1:
             chosen.append(i)
-            chosen_rows.append(deltas[i].astype(float))
+            chosen_rows.append(row)
             if len(chosen) == n_dim:
                 return chosen
     return None
@@ -429,12 +431,12 @@ def _select_basis_indices_by_label(
         key=lambda i: (label_count[labels[i]], i),
     )
     chosen: list[int] = []
-    chosen_rows: list[np.ndarray] = []
+    chosen_rows: list[list[int]] = []
     for i in sorted_indices:
-        candidate = np.array(chosen_rows + [deltas[i].astype(float)])
-        if np.linalg.matrix_rank(candidate) == len(chosen) + 1:
+        row = [int(x) for x in deltas[i]]
+        if _exact.rank([*chosen_rows, row]) == len(chosen) + 1:
             chosen.append(i)
-            chosen_rows.append(deltas[i].astype(float))
+            chosen_rows.append(row)
             if len(chosen) == n_dim:
                 return chosen
     return None

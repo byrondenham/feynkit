@@ -1161,10 +1161,13 @@ print(result.witness_map)       # permutation matrix in GL_3(Z)
 ```
 
 Below full dimension the two Newton polytopes must have the same dimension, and the tests run in
-their lattice charts. The unimodular witness is a unimodular map of $\mathbb{Z}^N$ that fixes a
-complement of the affine hull; the affine witness is invertible, and its determinant depends on
-that complement. `012e|2e|e|:znnn` and `12e|12e|e|:nnzn`, one graph with its massless self-loop on
-two different vertices, are unimodularly equivalent.
+their lattice charts. The unimodular witness $U \in GL_N(\mathbb{Z})$ maps the direction space of
+one affine hull onto that of the other, and a complement of the first onto a complement of the
+second; the affine witness is invertible, and its determinant depends on those complements. The
+affine tests accept rational points in every dimension: each configuration is scaled by the least
+common denominator of its coordinates, and the witness is scaled back. The unimodular test needs
+integers. `012e|2e|e|:znnn` and `12e|12e|e|:nnzn`, one graph with its massless self-loop on two
+different vertices, are unimodularly equivalent.
 
 ### Calling the equivalence functions directly
 
@@ -1256,8 +1259,8 @@ The vertices and edges come from the certified face lattice of `polytope_data`. 
 that is not full-dimensional, such as that of a graph with a massless self-loop, is searched in
 the lattice chart of its vertices, where it is full-dimensional. Its group is that of the polytope
 in its affine hull: the affine maps of the affine hull that preserve the integer points on it and
-the polytope. Each is returned as one unimodular map of $\mathbb{Z}^N$ that extends it and fixes a
-complement of the affine hull:
+the polytope. Each is returned as one unimodular map $(U, t)$ of $\mathbb{Z}^N$ that extends it,
+whose linear part $U$ fixes a complement of the direction space of the affine hull:
 
 ```python
 znnn = FeynmanIntegral.from_cnickel("012e|2e|e|:znnn")   # massive triangle, massless self-loop

@@ -1432,7 +1432,11 @@ la = landau_analysis_from_polynomial(G, [u1, u2, u3])
 
 For one-loop graphs `one_loop_landau_surfaces(fi)` returns the same factors from the principal
 minors of the modified Cayley matrix (Dlapa, Helmer, Papathanasiou, Tellander 2023). It is fast,
-needs no Gröbner basis, and is what the test-suite checks the face computation against.
+needs no Gröbner basis, and is what the test-suite checks the face computation against. The
+massless pentagon takes about 1 s and the hexagon about 45 s. With Singular on the path the minors
+are factored there, in one run. Without it SymPy factors them, which usually takes about as long
+but now and then far longer: SymPy's factorisation draws evaluation points from a random generator
+the whole process shares, and from some of its states a single minor takes minutes.
 
 `one_loop_landau_surfaces_by_type(fi)` splits the same factors by kind of minor. Principal minors
 that leave out the bordering first row and column of the modified Cayley matrix give first-type

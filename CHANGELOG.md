@@ -334,10 +334,13 @@
   modified Cayley matrix in the invariants: about 40 s for the massless
   pentagon, and unfinished after 47 minutes for the hexagon. It takes the
   minors in a symbol per entry and factors them before substituting back:
-  about 1 s for the pentagon and 40 s for the hexagon. Each factorisation draws
-  SymPy's random evaluation points from a fixed seed, so that its time does not
-  depend on what ran before: from one state a Gram minor of the hexagon, which
-  factors in a fifth of a second, had not factored after seven minutes.
+  about 1 s for the pentagon and 45 s for the hexagon. With Singular installed
+  it factors them there, in one run. SymPy's factorisation draws evaluation
+  points from a random generator the whole process shares, and from some of
+  its states it runs for minutes on a polynomial it otherwise factors in a
+  fraction of a second, as on a Gram minor of the hexagon and a Cayley minor of
+  the massive box `12e|3e|3e|e|:nnnn` without Mandelstam variables. Without
+  Singular, SymPy factors them and can still take that long.
 - The one-loop closed form took each p_a^2 from the standard invariants, not
   from the momentum products that F uses, so a change to the products such as
   p_3^2 = 0 did not reach it: for `12e|2e|3|e|:nnnn` the bridge pole stayed

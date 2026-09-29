@@ -9,9 +9,11 @@ modified Cayley matrix. Face-by-face computation must reproduce it.
 from __future__ import annotations
 
 import itertools
+import random
 import re
 import signal
 import subprocess
+import time
 from pathlib import Path
 
 import numpy as np
@@ -28,7 +30,10 @@ from feynkit.landau import (
     _eliminate_singular,
     _elimination_discriminant,
     _factor_list,
+    _factor_lists,
+    _factorize_singular,
     _modified_cayley_matrix,
+    _normalised,
     _one_loop_cycle,
     _read_singular_polynomial,
     _renaming,
@@ -911,11 +916,17 @@ class TestClosedForm:
     """The minors of the modified Cayley matrix are taken with a symbol per distinct entry and
     factored before the entries are substituted back."""
 
+    @pytest.mark.parametrize("backend", backends())
     @pytest.mark.parametrize(
         "cnickel", ["11e|e|:nn", "12e|2e|e|:aaa", "12e|3e|3e|e|:nzzz", "12e|3e|3e|e|:zzzz"]
     )
-    def test_the_factors_of_the_expanded_minors(self, cnickel: str) -> None:
-        # The oracle is the old computation: every minor expanded in the invariants.
+    def test_the_factors_of_the_expanded_minors(
+        self, cnickel: str, backend: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The oracle is the old computation: every minor expanded in the invariants and
+        # factored by SymPy. The closed form factors with Singular, or with SymPy without it.
+        if backend == "sympy":
+            monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
         fi = FeynmanIntegral.from_cnickel(cnickel)
         y = _modified_cayley_matrix(fi)
         first: dict[sp.Expr, None] = {}
@@ -928,14 +939,106 @@ class TestClosedForm:
                     target.setdefault(factor, None)
         assert one_loop_landau_surfaces_by_type(fi) == (tuple(first), tuple(second))
 
+    @requires_singular
     def test_sympys_random_state_is_left_alone(self) -> None:
-        # The minors are factored with SymPy's generator seeded, and the generator is restored;
-        # with equal masses the substituted factors are factored again, the same way.
+        # Singular factors the minors and, with equal masses, the substituted factors, so
+        # nothing is drawn from SymPy's generator.
         fi = FeynmanIntegral.from_cnickel("12e|2e|e|:aaa")
         sympy_random.seed(7)
         state = sympy_random.rng.getstate()
         one_loop_landau_surfaces_by_type(fi)
         assert sympy_random.rng.getstate() == state
+
+
+def random_expressions(seed: int) -> list[sp.Expr]:
+    """Products of powers of random polynomials, some irreducible, with rational
+    coefficients and leading terms of either sign, some expanded and some not."""
+    rng = random.Random(seed)
+    symbols = [*sp.symbols("a b c", real=True), sp.Symbol("m_1", positive=True), sp.Dummy("d")]
+
+    def polynomial() -> sp.Expr:
+        chosen = rng.sample(symbols, rng.randint(1, 3))
+        return sp.Add(
+            *(
+                sp.Rational(rng.choice([-1, 1]) * rng.randint(1, 9), rng.choice([1, 1, 2, 3]))
+                * sp.prod(s ** rng.randint(0, 2) for s in chosen)
+                for _ in range(rng.randint(1, 4))
+            )
+        )
+
+    expressions = []
+    for _ in range(40):
+        product = sp.Rational(rng.choice([-3, -1, 1, 2]), rng.choice([1, 5])) * sp.prod(
+            polynomial() ** rng.randint(1, 3) for _ in range(rng.randint(1, 3))
+        )
+        expressions.append(sp.expand(product) if rng.random() < 0.5 else product)
+    return expressions
+
+
+class TestFactorLists:
+    """Singular factors a batch of polynomials in one run, and each factor is written and
+    ordered as sp.factor_list writes and orders it."""
+
+    @requires_singular
+    @pytest.mark.parametrize("seed", range(4))
+    def test_the_factors_are_sympys(self, seed: int, monkeypatch: pytest.MonkeyPatch) -> None:
+        expressions = random_expressions(seed)
+        symbols = set().union(*(e.free_symbols for e in expressions))
+        expected = [_factor_list(e, symbols) for e in expressions]
+        polys = [sp.Poly(e) for e in expressions if e.free_symbols]
+        assert _factorize_singular(polys, "Singular") == {p: p.factor_list()[1] for p in polys}
+
+        def fail(*args: object) -> list[sp.Expr]:
+            raise AssertionError("factored by SymPy")
+
+        monkeypatch.setattr(landau_module, "_factor_list", fail)
+        assert _factor_lists(expressions, symbols) == expected
+
+    @requires_singular
+    def test_a_minor_that_stalled_sympy(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # A Cayley minor of the massive box without Mandelstam variables, 57 terms in eight
+        # symbols. From a generator seeded with 0, SymPy's factorisation ran for hours.
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:nnnn", use_mandelstam=False)
+        y = _modified_cayley_matrix(fi)
+        minor = sp.expand(y.extract([2, 3, 4], [2, 3, 4]).det())
+        assert len(minor.args) == 57
+
+        def fail(*args: object) -> list[sp.Expr]:
+            raise AssertionError("factored by SymPy")
+
+        monkeypatch.setattr(landau_module, "_factor_list", fail)
+        sympy_random.seed(0)
+        start = time.perf_counter()
+        assert _factor_lists([minor], y.free_symbols) == [[_normalised(minor)]]
+        assert time.perf_counter() - start < 5
+
+    def test_without_singular(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
+        expressions = random_expressions(0)
+        symbols = set().union(*(e.free_symbols for e in expressions))
+        expected = [_factor_list(e, symbols) for e in expressions]
+        assert _factor_lists(expressions, symbols) == expected
+
+    @pytest.mark.parametrize(
+        ("stdout", "returncode"),
+        [
+            ("", 1),
+            ("   ? error occurred in or before STDIN line 3\n", 0),
+            ("@2\n1:1\n", 0),
+            ("@2\n1:1\n1:v0^2\n", 0),
+            ("@2\n1:v0-v1\n1:v0+2*v1\n@1\n1:v0\n", 0),
+        ],
+        ids=["status", "error", "short", "degrees", "extra"],
+    )
+    def test_a_failure_of_singular_leaves_it_to_sympy(
+        self, stdout: str, returncode: int, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        a, b = sp.symbols("a b")
+        expression = sp.expand((a - b) * (a + 2 * b))
+        expected = _factor_list(expression, {a, b})
+        seen = fake_singular(monkeypatch, stdout, returncode=returncode)
+        assert _factor_lists([expression], {a, b}) == [expected]
+        assert "factorize" in str(seen["script"])
 
 
 @pytest.mark.slow
@@ -954,10 +1057,11 @@ class TestPolygonClosedForms:
         assert len(closed - faces) == 1
         assert not (closed - faces) & set(first)
 
+    @requires_singular
     def test_hexagon_whatever_sympys_random_state(self) -> None:
-        # SymPy's factorisation draws evaluation points from a generator the process shares.
-        # Factoring each minor as it came, from this state a Gram minor of 130 terms that
-        # factors in a fifth of a second had not factored after seven minutes.
+        # SymPy's factorisation draws evaluation points from a generator the process shares:
+        # from this state it had not factored a Gram minor of 130 terms, which factors in a
+        # fifth of a second, after seven minutes. Singular's does not depend on it.
         if not hasattr(signal, "SIGALRM"):
             pytest.skip("stopping a stalled factorisation needs SIGALRM")
 

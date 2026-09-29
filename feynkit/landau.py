@@ -58,8 +58,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import sympy as sp
-import sympy.core.random as sympy_random
 from sympy.polys.matrices import DomainMatrix
+from sympy.polys.polyerrors import BasePolynomialError
 
 from ._exact import affine_rank
 from .core.exceptions import ComputationError, ValidationError
@@ -355,6 +355,173 @@ def _eliminate_singular(
         if polynomial:
             out.append(sp.Poly.from_dict(polynomial, *kin))
     return out
+
+
+def _factor_order(item: tuple[sp.Poly, int]) -> tuple[object, ...]:
+    """The order of sp.factor_list: by the length of the dense representation, the
+    number of generators, the multiplicity, the domain and the representation."""
+    poly, multiplicity = item
+    rep = poly.rep.to_list()
+    return (len(rep), len(poly.gens), multiplicity, str(poly.domain), rep)
+
+
+def _factor_bases(expr: sp.Expr) -> list[tuple[sp.Poly, int]] | None:
+    """The polynomials sp.factor_list factors one at a time in :func:`_factor_list`, with
+    their exponents: the factors of the numerator that are not numbers, as SymPy's
+    ``together`` writes it. None when one is not a polynomial in symbols over the
+    integers or the rationals."""
+    num, _den = sp.fraction(sp.together(expr))
+    numerator, _denominator = sp.together(num).as_numer_denom()
+    bases: list[tuple[sp.Poly, int]] = []
+    for arg in sp.Mul.make_args(numerator):
+        if arg.is_Number:
+            continue
+        base, exp = arg.args if arg.is_Pow else (arg, sp.Integer(1))
+        if hasattr(arg, "_eval_factor") or base.is_Number or not (exp.is_Integer and exp > 0):
+            return None
+        try:
+            poly = sp.Poly(base)
+        except BasePolynomialError:
+            return None
+        if poly.domain not in (sp.ZZ, sp.QQ) or not all(g.is_Symbol for g in poly.gens):
+            return None
+        bases.append((poly, int(exp)))
+    return bases
+
+
+def _factorize_singular(
+    polys: list[sp.Poly], binary: str
+) -> dict[sp.Poly, list[tuple[sp.Poly, int]]] | None:
+    """Poly.factor_list without the constant, for each polynomial, by Singular's
+    ``factorize`` in one run.
+
+    Each factor is written in the polynomial's generators and domain,
+    primitive over the integers with a positive leading coefficient, and
+    the factors are in SymPy's order, so the result is the one SymPy gives.
+    None if Singular fails, prints anything else, or gives factors whose
+    degrees do not add up.
+    """
+    gens = list(dict.fromkeys(g for poly in polys for g in poly.gens))
+    index = {g: k for k, g in enumerate(gens)}
+
+    def render(poly: sp.Poly) -> str:
+        _, integral = poly.clear_denoms(convert=True)
+        return "+".join(
+            "*".join(
+                [str(c)] + [f"v{index[g]}^{e}" for g, e in zip(poly.gens, powers, strict=True) if e]
+            )
+            for powers, c in integral.terms()
+        )
+
+    script = "\n".join(
+        [
+            f"ring r = 0, ({','.join(f'v{k}' for k in range(len(gens)))}), dp;",
+            "proc show(poly p) { list L = factorize(p); int i;",
+            '  print("@" + string(ncols(L[1])));',
+            "  for (i = 1; i <= ncols(L[1]); i++) {",
+            '    print(string(L[2][i]) + ":" + string(L[1][i]));',
+            "  }",
+            "}",
+            *(f"show({render(poly)});" for poly in polys),
+            "quit;\n",
+        ]
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "factorize.sing"
+        path.write_text(script)
+        try:
+            result = subprocess.run(
+                [binary, "-q", "--no-warn", str(path)],
+                capture_output=True,
+                text=True,
+                errors="replace",
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+    if result.returncode != 0:
+        return None
+    lines = [line.replace(" ", "") for line in result.stdout.splitlines() if line.strip()]
+    out: dict[sp.Poly, list[tuple[sp.Poly, int]]] = {}
+    position = 0
+    for poly in polys:
+        head = lines[position] if position < len(lines) else ""
+        if not (head.startswith("@") and head[1:].isdigit()):
+            return None
+        count = int(head[1:])
+        body = lines[position + 1 : position + 1 + count]
+        position += 1 + count
+        if len(body) != count:
+            return None
+        places = [index[g] for g in poly.gens]
+        factors: dict[sp.Poly, int] = {}
+        for line in body:
+            multiplicity, colon, text = line.partition(":")
+            terms = _read_singular_polynomial(text, 0, len(gens)) if colon else None
+            if terms is None or not multiplicity.isdigit():
+                return None
+            local = {}
+            for exponents, c in terms.items():
+                if sum(exponents) != sum(exponents[k] for k in places):
+                    return None
+                if c:
+                    local[tuple(exponents[k] for k in places)] = sp.Rational(
+                        c.numerator, c.denominator
+                    )
+            if not any(sum(powers) for powers in local):
+                continue
+            factor = sp.Poly.from_dict(local, *poly.gens, domain=sp.QQ)
+            _, factor = factor.clear_denoms(convert=True)
+            _, factor = factor.primitive()
+            factor = (-factor if factor.LC() < 0 else factor).set_domain(poly.domain)
+            factors[factor] = factors.get(factor, 0) + int(multiplicity)
+        degrees = [
+            sum(k * factor.degree_list()[i] for factor, k in factors.items())
+            for i in range(len(places))
+        ]
+        if degrees != list(poly.degree_list()):
+            return None
+        out[poly] = sorted(factors.items(), key=_factor_order)
+    if position != len(lines):
+        return None
+    return out
+
+
+def _factor_lists(exprs: list[sp.Expr], kinematic_syms: set[sp.Symbol]) -> list[list[sp.Expr]]:
+    """:func:`_factor_list` of each expression, factored by Singular in one run when it is
+    installed.
+
+    SymPy factors a multivariate polynomial by Wang's algorithm, which draws
+    evaluation points from a generator the whole process shares. Its time
+    depends on what ran before, though its factors do not, and some points
+    make it run on for hours: from some states a Gram minor of the massless
+    hexagon, 130 terms that factor in a fifth of a second, had not factored
+    after seven minutes. Singular's ``factorize`` does not depend on that
+    state. Factorisation over the rationals is unique up to units, and the
+    factors are written and ordered as sp.factor_list writes and orders
+    them, so the result is the same either way. An expression that is not a
+    polynomial over the integers or the rationals goes to SymPy, and so does
+    every expression when Singular fails.
+    """
+    binary = _singular_binary()
+    plans = [_factor_bases(expr) for expr in exprs] if binary is not None else []
+    distinct = list(dict.fromkeys(poly for plan in plans if plan for poly, _ in plan))
+    factored = _factorize_singular(distinct, binary) if binary is not None and distinct else {}
+    if factored is None:
+        plans, factored = [], {}
+    result: list[list[sp.Expr]] = []
+    for k, expr in enumerate(exprs):
+        plan = plans[k] if plans else None
+        if plan is None:
+            result.append(_factor_list(expr, kinematic_syms))
+            continue
+        merged: dict[sp.Poly, int] = {}
+        for base, exp in plan:
+            for factor, multiplicity in factored[base]:
+                merged[factor] = merged.get(factor, 0) + multiplicity * exp
+        ordered = [factor.as_expr() for factor, _ in sorted(merged.items(), key=_factor_order)]
+        result.append([factor for factor in ordered if factor.free_symbols & kinematic_syms])
+    return result
 
 
 def _renaming(coeffs: list[sp.Expr]) -> tuple[dict[sp.Expr, sp.Symbol], bool]:
@@ -775,24 +942,6 @@ def one_loop_principal_a_determinant(integral: FeynmanIntegral) -> sp.Expr:
     return sp.Mul(*surfaces) if surfaces else sp.Integer(1)
 
 
-def _factor_list_reproducibly(expr: sp.Expr, kinematic_syms: set[sp.Symbol]) -> list[sp.Expr]:
-    """:func:`_factor_list`, with SymPy's random choices drawn from a fixed seed.
-
-    SymPy factors a multivariate polynomial by Wang's algorithm, which draws
-    evaluation points from a generator the whole process shares, so the time
-    it takes depends on what ran before, though the factors do not. After some
-    histories a Gram minor of the massless hexagon, 130 terms that factor in a
-    fifth of a second, had not factored after seven minutes. The generator is
-    seeded for each call and its state restored afterwards.
-    """
-    state = sympy_random.rng.getstate()
-    sympy_random.rng.seed(0)
-    try:
-        return _factor_list(expr, kinematic_syms)
-    finally:
-        sympy_random.rng.setstate(state)
-
-
 def _modified_cayley_matrix(integral: FeynmanIntegral) -> sp.Matrix:
     """The modified Cayley matrix of the cycle of a one-loop integral.
 
@@ -866,26 +1015,33 @@ def one_loop_landau_surfaces_by_type(
     symbolic = DomainMatrix.from_Matrix(
         y.applyfunc(lambda entry: names.get(sp.expand(entry), entry))
     )
-    first: dict[sp.Expr, None] = {}
-    second: dict[sp.Expr, None] = {}
+    minors: list[tuple[bool, sp.Expr]] = []
     for size in range(1, n + 2):
         for subset in combinations(range(n + 1), size):
             minor = symbolic.domain.to_sympy(symbolic.extract(list(subset), list(subset)).det())
-            if minor == 0:
-                continue
-            factors = _factor_list_reproducibly(minor, set(back))
-            images = [sp.expand(f.xreplace(back)) for f in factors]
-            if any(image == 0 for image in images):
-                continue
-            target = second if 0 in subset else first
-            for image in images:
-                if exact:
-                    pieces = [_normalised(image)]
-                else:
-                    pieces = _factor_list_reproducibly(image, kinematic_syms)
-                for fac in pieces:
-                    if fac.free_symbols & kinematic_syms:
-                        target.setdefault(fac, None)
+            if minor != 0:
+                minors.append((0 in subset, minor))
+    # The minors are factored together, and then the images that need it.
+    kept: list[tuple[bool, list[sp.Expr]]] = []
+    for (gram, _minor), factors in zip(
+        minors, _factor_lists([minor for _, minor in minors], set(back)), strict=True
+    ):
+        images = [sp.expand(f.xreplace(back)) for f in factors]
+        if not any(image == 0 for image in images):
+            kept.append((gram, images))
+    unique = list(dict.fromkeys(image for _, images in kept for image in images))
+    if exact:
+        pieces = {image: [_normalised(image)] for image in unique}
+    else:
+        pieces = dict(zip(unique, _factor_lists(unique, kinematic_syms), strict=True))
+    first: dict[sp.Expr, None] = {}
+    second: dict[sp.Expr, None] = {}
+    for gram, images in kept:
+        target = second if gram else first
+        for image in images:
+            for fac in pieces[image]:
+                if fac.free_symbols & kinematic_syms:
+                    target.setdefault(fac, None)
     return tuple(first), tuple(second)
 
 

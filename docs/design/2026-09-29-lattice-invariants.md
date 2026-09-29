@@ -112,15 +112,18 @@ $P^*$ are to be computed with `lattice="ambient"`.
 
 The width of $P$ in the direction $u \in \mathbb{Z}^d \setminus \{0\}$ is
 $w_u = \max_P u \cdot c - \min_P u \cdot c$, and the lattice width is the least $w_u$. Let $w_0$
-be the least width over the coordinate directions. Every $u$ with $w_u \le w_0$ satisfies
+be the least width over the coordinate directions and the facet normals; when $w_0 = 1$, the least
+possible, the search stops at once. For $G = U + F$ the monomials of $U$ lie on
+$\sum_e x_e = L$ and those of $F$ on $\sum_e x_e = L + 1$, so when those of $U$ span a facet, its
+normal has width 1. Every $u$ with $w_u \le w_0$ satisfies
 $|u \cdot (v - v')| \le w_0$ for all vertices $v, v'$, so it lies in $w_0 (P - P)^\circ$, the
 dilate of the polar of the difference body $P - P$. With the facets $g_G \cdot x \le h_G$ of
 $P - P$ (integral, $h_G > 0$), that polar is $\operatorname{conv}(g_G / h_G)$. Scaling by the least
 common multiple $D$ of the $h_G$ gives the integer polytope $Q = \operatorname{conv}(D g_G / h_G)$,
 and the candidates are the non-zero lattice points of $(w_0/D) Q$, which the enumerator lists
 with a rational factor. The search is complete, and returns the least width with the first
-direction attaining it: the coordinate directions first, then the candidates in lexicographic
-order, each with its first non-zero entry positive. When $w_0 = 1$ the search stops at once.
+direction attaining it: the coordinate directions first, then the facet normals and then the
+candidates, each in lexicographic order and with its first non-zero entry positive.
 
 ### IDP and normality
 

@@ -717,22 +717,30 @@ def _spread(vertices: Sequence[Sequence[int]], u: Sequence[int]) -> int:
     return max(heights) - min(heights)
 
 
+def _sign_normalised(u: Sequence[int]) -> tuple[int, ...]:
+    """u or -u, whichever has its first non-zero entry positive."""
+    return tuple(u) if next(x for x in u if x) > 0 else tuple(-x for x in u)
+
+
 def _width(polytope: _Polytope) -> tuple[int, tuple[int, ...]]:
     """The lattice width of P and the first direction that attains it.
 
-    w0 is the least width over the coordinate directions. A direction u of
-    width at most w0 has |u . (v - v')| <= w0 for all vertices, so it lies in
-    w0 (P - P)^o, the dilate of the polar of the difference body. With the
-    facets g . x <= h of P - P, h > 0, that polar is conv(g / h); scaled by
-    D = lcm(h) it is the integer polytope Q = conv(D g / h), and the
-    candidates are the non-zero lattice points of (w0 / D) Q.
+    The coordinate directions and then the facet normals are tried first,
+    and w0 is the least width among them; width 1, the least possible, ends
+    the search. A direction u of width at most w0 has |u . (v - v')| <= w0 for
+    all vertices, so it lies in w0 (P - P)^o, the dilate of the polar of the
+    difference body. With the facets g . x <= h of P - P, h > 0, that polar
+    is conv(g / h); scaled by D = lcm(h) it is the integer polytope
+    Q = conv(D g / h), and the candidates are the non-zero lattice points of
+    (w0 / D) Q.
     """
     d = polytope.dimension
     if d == 0:
         return 0, ()
     vertices = polytope.vertices
     axes = [tuple(int(i == j) for j in range(d)) for i in range(d)]
-    best = min(((_spread(vertices, u), u) for u in axes), key=lambda pair: pair[0])
+    normals = sorted({_sign_normalised(m) for m, _ in polytope.facets} - set(axes))
+    best = min(((_spread(vertices, u), u) for u in axes + normals), key=lambda pair: pair[0])
     if best[0] == 1 or d == 1:
         return best
     differences = sorted(
@@ -758,9 +766,9 @@ def lattice_width(
     coordinates of invariant_chart, is max u . c - min u . c over P; the
     lattice width is the least of these. The search is complete, and the
     direction returned is the first that attains the width among the
-    coordinate directions and then the other candidates in lexicographic
-    order, each with its first non-zero entry positive. A point has width 0
-    in the direction ().
+    coordinate directions, then the facet normals in lexicographic order,
+    then the other candidates in lexicographic order, each with its first
+    non-zero entry positive. A point has width 0 in the direction ().
 
     Raises
     ------

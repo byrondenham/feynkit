@@ -20,6 +20,7 @@ import sympy as sp
 from sympy.matrices.normalforms import hermite_normal_form
 
 from feynkit import _exact
+from feynkit import lattice_invariants as li
 from feynkit.core.exceptions import ValidationError
 from feynkit.lattice_invariants import (
     count_lattice_points,
@@ -417,6 +418,21 @@ class TestWidth:
         points = [(0, 0), (4, 4), (1, 0), (5, 4), (1, 1)]
         assert lattice_width(points) == (1, (1, -1))
         assert brute_force_width(points) == 1
+
+    def test_facet_normals_are_tried_before_the_search(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Between the facets x + y + z >= 2 and x + y + z <= 3, as G = U + F lies for two
+        # loops; every coordinate direction has width 3.
+        points = [(2, 0, 0), (0, 2, 0), (0, 0, 2), (3, 0, 0), (0, 3, 0), (0, 0, 3)]
+
+        polytope = li._prepare(points, "support")
+
+        def no_search(*args: object, **kwargs: object) -> None:
+            raise AssertionError("the width search ran")
+
+        monkeypatch.setattr(li, "_body", no_search)
+        assert li._width(polytope) == (1, (1, 1, 1))
 
     @pytest.mark.parametrize("seed", range(30))
     def test_brute_force(self, seed: int) -> None:

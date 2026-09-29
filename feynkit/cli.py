@@ -39,7 +39,6 @@ from pathlib import Path
 from typing import NamedTuple, NoReturn
 
 import sympy as sp
-from sympy.matrices import NonSquareMatrixError
 
 from feynkit.a_configuration import AConfiguration, FiniteIndexResult, finite_index_map
 from feynkit.core.constants import __version__
@@ -756,24 +755,10 @@ def _compare(
                 f"  {'finite_index':<22} n/a  (different monomial counts: {cfg1.n_points} vs {cfg2.n_points})"
             )
         else:
-            try:
-                fi_res = finite_index_map(cfg1, cfg2)
-            except NonSquareMatrixError:
-                # finite_index_map fails when the polytope of A is not full-dimensional.
-                print(
-                    f"  {'finite_index':<22} n/a  (the Newton polytope of A is not full-dimensional)"
-                )
-            else:
-                if fi_res.found and fi_res.determinant == 0:
-                    # finite_index_map returns the first map it finds, even a
-                    # singular one, which gives no identity. It does not search
-                    # on for a map that is not singular, so the check says no.
-                    print(f"  {'finite_index':<22} no  (only a singular map found, det = 0)")
-                    fi_res = FiniteIndexResult(found=False)
-                else:
-                    status = "YES" if fi_res.found else "no"
-                    det_str = f"  (det = {fi_res.determinant})" if fi_res.found else ""
-                    print(f"  {'finite_index':<22} {status}{det_str}")
+            fi_res = finite_index_map(cfg1, cfg2)
+            status = "YES" if fi_res.found else "no"
+            det_str = f"  (det = {fi_res.determinant})" if fi_res.found else ""
+            print(f"  {'finite_index':<22} {status}{det_str}")
 
         # -- witness maps and the identities they give --------------------------
         any_found = any(r.equivalent for _, r in results) or fi_res.found
@@ -819,15 +804,18 @@ def _compare(
             print(f"    beta    =  {beta1}")
             print(f"    T beta  =  {t_beta}")
 
+        def _trivial() -> None:
+            if trivial:
+                print("  The Newton polytopes are not full-dimensional: the identity holds")
+                print("  only trivially.")
+
         for relation, res in results:
             if not res.equivalent or res.witness_map is None:
                 continue
             _witness(relation, res.witness_map, res.translation)
             if relation == "point_config":
                 _identity(res.witness_map, res.translation)
-                if trivial:
-                    print("  The Newton polytopes are not full-dimensional: the identity holds")
-                    print("  only trivially.")
+                _trivial()
             elif all_vertices:
                 print("  Relates the Newton polytopes only; every column is a vertex, so")
                 print("  point_config gives the identity.")
@@ -838,6 +826,7 @@ def _compare(
         if fi_res.found and fi_res.witness_matrix is not None:
             _witness("finite_index", fi_res.witness_matrix, fi_res.translation)
             _identity(fi_res.witness_matrix, fi_res.translation, fi_res.column_permutation)
+            _trivial()
     return True
 
 

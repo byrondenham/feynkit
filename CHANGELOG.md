@@ -244,10 +244,10 @@
   Newton polytope of dimension below 2 or below full dimension, which they
   left out. Below full dimension the order is that of the group in the affine
   hull, and the symmetry pairs are counted but not listed, since the
-  identities they give hold only trivially. `fk compare` runs its `unimodular`
-  and `affine_polytope` checks in every dimension, where it printed n/a below
-  dimension 2 and below full dimension, and so exits with 0 for more pairs of
-  diagrams; `finite_index` still prints n/a below full dimension.
+  identities they give hold only trivially. `fk compare` runs its `unimodular`,
+  `affine_polytope` and `finite_index` checks in every dimension, where it
+  printed n/a below dimension 2 and, for all three, below full dimension, and
+  so exits with 0 for more pairs of diagrams.
 - The Landau analysis reads Singular's output term by term. SymPy's parser,
   which it used, recursed once per term and raised `RecursionError` on a
   generator of 13,730 terms, with a message of hundreds of kilobytes. A failure
@@ -300,9 +300,24 @@
 - `fk analyse -S` printed `|Aut(P)|  (polytope automorphisms)` as a key wider
   than the column of the others, which pushed its value out of line. The key
   is now `|Aut(P)|`, and the note follows the number.
-- `fk compare` reported `finite_index` as YES, with det = 0, when the search
-  found only a singular map, which gives no identity. It now reports `no` with
-  the note `only a singular map found, det = 0`, and prints no witness map.
+- `finite_index_map` returned the first map it met, which could be singular or
+  send two columns to one: det M = 0 for the sunrise `111e|e|:nnn` and for the
+  massive kite `12e|23|3|e|:nnnnn`, each against itself, and `fk compare`
+  printed such a map as `finite_index YES (det = 0)`. It tried the images of
+  its affine basis only in increasing index order, so it missed the map of
+  (0, 0), (1, 0), (0, 2) onto (0, 0), (0, 2), (1, 0), and it tested candidates
+  with a floating inverse, rounding and a tolerance. It now returns only
+  integral maps with det M != 0 that send the source columns injectively to
+  target columns, a bijection when there are as many on both sides, and
+  searches in integer arithmetic until it finds one: with as many columns,
+  among the maps of `is_point_config_equivalent`, and otherwise over every
+  ordering of each basis image with a determinant filter. Below full
+  dimension, where it raised `NonSquareMatrixError`, it searches in the
+  lattice charts and returns the extension that maps a complement of one
+  direction space onto a complement of the other, which has the least
+  |det M|; with fewer source than target points it raises
+  `NotImplementedError` there. `fk compare "12e|2e|e|:znn" "12e|2e|e|:nzn"`
+  now finds a `finite_index` map, with det 1 and its identity.
 - `Graph.from_cnickel` parses strings with an empty last entry, which
   `cnickel()` returns for the sunrise with one leg (`111e||:zzz`), the vacuum
   sunrise (`111||`) and three chains of two propagators (`123|4e|4e|4e||`), and

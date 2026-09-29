@@ -7,13 +7,10 @@ import sys
 from pathlib import Path
 
 import pytest
-import sympy as sp
 
 import feynkit.cli as cli
 from feynkit import FeynkitDatabase, FeynmanIntegral, ValidationError
-from feynkit.a_configuration import AConfiguration, FiniteIndexResult
 from feynkit.cli import main
-from feynkit.types import PolytopeEquivalence
 
 EXAMPLE = 'fk analyse "12e|2e|e|:nzz"'
 
@@ -194,70 +191,33 @@ def test_compare_exits_3_when_no_check_finds_an_equivalence(
 
 
 @pytest.mark.parametrize(
-    ("pair", "finite_index"),
-    [
-        pytest.param(
-            ["12e|2e|e|:zzz", "e111|e|:nzz"],
-            "no  (only a singular map found, det = 0)",
-            id="singular-map",
-            marks=pytest.mark.slow,
-        ),
-        pytest.param(["e111|e|:nzz", "12e|2e|e|:zzz"], "no", id="reversed", marks=pytest.mark.slow),
-    ],
+    "pair",
+    [["12e|2e|e|:zzz", "e111|e|:nzz"], ["e111|e|:nzz", "12e|2e|e|:zzz"]],
+    ids=["forward", "reversed"],
 )
-def test_singular_finite_index_map_is_no_equivalence(
-    pair: list[str], finite_index: str, capsys: pytest.CaptureFixture[str]
+def test_no_finite_index_map_is_no_equivalence(
+    pair: list[str], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # The only map the finite_index search finds from the massless triangle to
-    # the one-mass sunrise is singular, and it finds none the other way. No
-    # other check finds a map in either order.
+    # The finite_index search returned a singular map from the massless triangle to the
+    # one-mass sunrise. No map with det M != 0 exists either way, and no check finds one.
     assert _exit_code(["compare", *pair, "--no-db"]) == 3
     out = capsys.readouterr().out
-    assert f"  finite_index           {finite_index}\n" in out
+    assert "  finite_index           no\n" in out
     assert "YES" not in out
     assert "Witness map" not in out
     assert "No equivalence found between A and B." in out
 
 
-def test_a_singular_map_alone_gives_status_3(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    # The pair above takes half a minute; here every other check is made to
-    # say no and the finite_index search to return a singular map.
-    def no_map(self: AConfiguration, other: AConfiguration) -> PolytopeEquivalence:
-        return PolytopeEquivalence(equivalent=False, relation="unimodular")
-
-    for method in (
-        "is_unimodular_equivalent_to",
-        "is_affinely_equivalent_to",
-        "is_point_config_equivalent_to",
-    ):
-        monkeypatch.setattr(AConfiguration, method, no_map)
-    singular = FiniteIndexResult(
-        found=True,
-        witness_matrix=sp.ImmutableMatrix([[1, 0], [0, 0]]),
-        translation=sp.ImmutableMatrix([0, 0]),
-        determinant=0,
-    )
-    monkeypatch.setattr(cli, "finite_index_map", lambda a, b: singular)
-    assert _exit_code(["compare", "12e|2e|e|:znn", "12e|2e|e|:nzn", "--no-db"]) == 3
-    out = capsys.readouterr().out
-    assert "  finite_index           no  (only a singular map found, det = 0)\n" in out
-    assert "Witness map" not in out
-    assert "No equivalence found between A and B." in out
-
-
-def test_singular_finite_index_map_leaves_the_other_maps(
+def test_finite_index_finds_the_map_point_config_finds(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    # The finite_index search stops at a singular map, but point_config finds
-    # a map, so main returns with status 0 and prints its identity.
+    # The finite_index search stopped at a singular map; point_config's map is integral.
     main(["compare", "12e|2e|e|:znn", "12e|2e|e|:nzn", "--no-db"])
     out = capsys.readouterr().out
-    assert "  finite_index           no  (only a singular map found, det = 0)\n" in out
+    assert "  finite_index           YES  (det = 1)\n" in out
     assert "  point_config           YES  (det = -1)\n" in out
-    assert "Witness map  [finite_index]" not in out
-    assert "GKZ identity I_A(beta, z_P) = |det M| I_B(T beta, z)" in out
+    witness = out.split("Witness map  [finite_index]")[1]
+    assert "GKZ identity I_A(beta, z_P) = |det M| I_B(T beta, z)" in witness
 
 
 def test_nonsingular_finite_index_map_gives_status_0_and_its_identity(

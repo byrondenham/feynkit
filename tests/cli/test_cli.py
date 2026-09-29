@@ -243,12 +243,13 @@ class TestPairwise:
             "  only trivially.\n"
         ) in out
 
-    def test_finite_index_is_skipped_when_a_is_not_full_dimensional(
+    def test_finite_index_below_full_dimension(
         self, capsys: pytest.CaptureFixture[str], tmp_path: Path
     ) -> None:
         out = _run(capsys, tmp_path, "01e|e|:zn", "00|:nz")
-        # The witness extends the map between the lattice charts of the two segments.
+        # Both witnesses extend a map between the lattice charts of the two segments; the
+        # finite_index search printed n/a here.
         assert "point_config           YES  (det = 1)" in out
-        assert (
-            "finite_index           n/a  (the Newton polytope of A is not full-dimensional)" in out
-        )
+        assert "finite_index           YES  (det = 1)" in out
+        assert "Witness map  [finite_index]" in out
+        assert out.count("the identity holds\n  only trivially.") == 2

@@ -242,17 +242,17 @@ fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"    # the mass on two different propag
    `point_config` and `finite_index`. When the ambient dimensions differ, as for the triangle and
    the bubble, it reports the mismatch and stops. Below full dimension, as for `011e|e|:znn`, the
    `unimodular` and `affine_polytope` checks work in the lattice charts of the two vertex sets and
-   `point_config` in those of all the points, `finite_index` is skipped, and the identity of a
-   `point_config` map holds only trivially, since for generic $\beta$ the GKZ systems have no
-   non-zero solutions;
+   `point_config` and `finite_index` in those of all the points, and the identity of a
+   `point_config` or `finite_index` map holds only trivially, since for generic $\beta$ the GKZ
+   systems have no non-zero solutions;
 3. prints each map it finds. A `point_config` or `finite_index` map sends every column of one
    A-matrix to a column of the other, and for such a map it also prints the column permutation
    $P$, the substitution $u_i = \prod_k v_k^{M_{ki}}$ and the identity
    $I_A(\beta, z_P) = |\det M|\, I_B(T\beta, z)$ between the two integrals without Gamma
    prefactors. A `unimodular` or `affine_polytope` map relates only the hull vertices and gives
-   no identity. The `finite_index` search stops at the first map it finds, and when that map is
-   singular, with $\det M = 0$, the check reports `no`, although a map with $\det M \neq 0$ may
-   exist.
+   no identity. A `finite_index` map is an integer matrix $M$ with $\det M \neq 0$ and an integer
+   translation that together send the columns of one A-matrix bijectively onto those of the
+   other.
 
 `fk compare` exits with status 0 when a check finds a map and with 3 when none does, including
 after an ambient dimension mismatch, so a script can test the verdict. Status 0 does not mean that

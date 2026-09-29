@@ -247,6 +247,123 @@ class TestFiniteIndexMap:
             assert tuple(int(x) for x in img) in tgt_set
 
 
+def _check_finite_index(result: FiniteIndexResult, source: object, target: object) -> None:
+    """The witness is integral and non-singular and maps the columns injectively as it says."""
+    src = [tuple(int(x) for x in p) for p in np.asarray(source).tolist()]
+    tgt = [tuple(int(x) for x in p) for p in np.asarray(target).tolist()]
+    assert result.found
+    M, t, perm = result.witness_matrix, result.translation, result.column_permutation
+    assert M is not None and t is not None and perm is not None
+    assert all(x.is_Integer for x in M) and all(x.is_Integer for x in t)
+    assert result.determinant == abs(M.det()) != 0
+    assert result.is_unimodular == (result.determinant == 1)
+    assert len(perm) == len(src) == len(set(perm))
+    for i, p in enumerate(src):
+        assert tuple(M * sp.Matrix(p) + t) == tgt[perm[i]]
+
+
+def _columns(cnickel: str) -> np.ndarray:
+    """The columns of the A-matrix of a diagram, without the homogenising row."""
+    fi = FeynmanIntegral.from_cnickel(cnickel, use_mandelstam=cnickel.count("e") >= 2)
+    return AConfiguration(fi.gkz.a_matrix, is_homogenized=True).affine_points
+
+
+class TestFiniteIndexMapIsExact:
+    """The search returned singular maps and maps that were not injective."""
+
+    @pytest.mark.parametrize("cnickel", ["111e|e|:nnn", "12e|23|3|e|:nnnnn"])
+    def test_itself_by_a_bijection(self, cnickel: str) -> None:
+        # Both gave det M = 0: the sunrise M = [[1, 0, 0], [0, 1, 0], [-1, -1, 0]], and
+        # the kite a map that sent 34 columns to 26.
+        points = _columns(cnickel)
+        result = finite_index_map(points, points)
+        _check_finite_index(result, points, points)
+        assert result.determinant == 1
+
+    def test_the_kite_and_a_relabelling(self) -> None:
+        a, b = _columns("12e|23|3|e|:nnnnn"), _columns("123|2e|3|e|:nnnnn")
+        result = finite_index_map(a, b)
+        _check_finite_index(result, a, b)
+        assert result.determinant == 1
+
+    def test_a_basis_image_out_of_index_order(self) -> None:
+        # Only the images of the basis in increasing index order were tried.
+        source, target = [(0, 0), (1, 0), (0, 2)], [(0, 0), (0, 2), (1, 0)]
+        _check_finite_index(finite_index_map(source, target), source, target)
+
+    @pytest.mark.parametrize("seed", range(6))
+    def test_images_under_integer_matrices(self, seed: int) -> None:
+        rng = random.Random(seed)
+        points = _columns(rng.choice(["12e|2e|e|:nnn", "12e|3e|3e|e|:nzzz", "111e|e|:nnn"]))
+        n = points.shape[1]
+        while True:
+            M = sp.Matrix(n, n, lambda i, j: rng.randint(-1, 2))
+            if 1 <= abs(M.det()) <= 3:
+                break
+        t = sp.Matrix([rng.randint(-3, 3) for _ in range(n)])
+        image = [list(M * sp.Matrix(p) + t) for p in points.tolist()]
+        rng.shuffle(image)
+        target = np.array(image, dtype=np.int64)
+        result = finite_index_map(points, target)
+        _check_finite_index(result, points, target)
+        assert result.determinant == abs(M.det())
+
+    def test_no_map_to_fewer_points_or_a_rational_image(self) -> None:
+        triangle = [(0, 0), (1, 0), (0, 1)]
+        assert not finite_index_map(triangle, [(0, 0), (1, 0)]).found
+        # (0, 0), (2, 0), (0, 1) is the image of the triangle under diag(2, 1), not
+        # conversely: its inverse is not integral.
+        assert finite_index_map(triangle, [(0, 0), (2, 0), (0, 1)]).determinant == 2
+        assert not finite_index_map([(0, 0), (2, 0), (0, 1)], triangle).found
+
+    def test_into_more_points(self) -> None:
+        # An injective map into a larger configuration: the triangle with a point on an
+        # edge goes to a doubled copy inside the square [0, 2]^2.
+        source = [(0, 0), (1, 0), (2, 0), (0, 1)]
+        target = [(0, 0), (1, 1), (2, 2), (0, 2), (2, 0), (1, 0)]
+        result = finite_index_map(source, target)
+        _check_finite_index(result, source, target)
+        # No three of these points are collinear and equally spaced.
+        assert not finite_index_map(source, [(0, 0), (1, 1), (3, 3), (0, 2), (3, 0)]).found
+
+    def test_below_full_dimension(self) -> None:
+        # The search ran into a non-square inverse. It now runs in the lattice charts.
+        a, b = _columns("01e|e|:zn"), _columns("00|:nz")
+        for source, target in ((a, b), (b, a), (a, a)):
+            result = finite_index_map(source, target)
+            _check_finite_index(result, source, target)
+            assert result.determinant == 1
+        segment, double = [(0, 0), (1, 1), (2, 2)], [(0, 0), (2, 2), (4, 4)]
+        result = finite_index_map(segment, double)
+        _check_finite_index(result, segment, double)
+        assert result.determinant == 2
+        assert not finite_index_map(double, segment).found
+        with pytest.raises(NotImplementedError):
+            finite_index_map(segment, [*double, (1, 0)])
+
+    def test_charts_that_only_the_lattice_separates(self) -> None:
+        # (2 c_1, c_2, 0) and (c_1, 2 c_2, 0) over a quadrilateral with only the identity
+        # as an affine symmetry: the chart maps diag(1/2, 2) and diag(2, 1/2) are not
+        # integral on the integer points of the plane.
+        polygon = [(0, 0), (1, 0), (3, 2), (0, 1)]
+        wide = [(2 * a, b, 0) for a, b in polygon]
+        tall = [(a, 2 * b, 0) for a, b in polygon]
+        assert not finite_index_map(wide, tall).found
+        assert not finite_index_map(tall, wide).found
+        _check_finite_index(finite_index_map(wide, wide), wide, wide)
+
+    def test_repeated_points(self) -> None:
+        source = [(0, 0), (0, 0), (1, 0), (0, 1)]
+        _check_finite_index(finite_index_map(source, source), source, source)
+        assert not finite_index_map(source, [(0, 0), (1, 1), (1, 0), (0, 1)]).found
+        single = [(1, 1), (1, 1)]
+        target = [(2, 2), (3, 3), (3, 3)]
+        result = finite_index_map(single, target)
+        _check_finite_index(result, single, target)
+        assert result.column_permutation == [1, 2]
+        assert not finite_index_map(single, [(2, 2), (3, 3)]).found
+
+
 # ------------------------------------------------------------------------------
 # intrinsic_lattice_model
 # ------------------------------------------------------------------------------

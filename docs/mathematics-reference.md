@@ -942,6 +942,15 @@ with $\det M = 2$.  Both have 6 monomials and $B_3$ automorphism group, but they
 equivalent.
 
 Accessed via `AConfiguration.finite_index_map_to(other)`, returning a `FiniteIndexResult`.
+feynkit searches in integer arithmetic. With as many columns on both sides a finite-index map is an
+affine bijection of the two Newton polytopes, so it is one of the maps of section 9.3 with $M$
+integral, and every such map has $|\det M| = \mathrm{vol}(\mathcal{B}) / \mathrm{vol}(\mathcal{A})$.
+Below full dimension the maps are found between the lattice charts, and a chart map with linear
+part $m$ is kept when its lift $Q' \operatorname{diag}(I_{n-d}, H'^T m H^{-T}) Q^{-1}$ is integral,
+with $Q, H$ and $Q', H'$ the frames of section 7.3 for the two configurations. The lift maps the
+first $n - d$ columns of $Q$, a complement of one direction space, onto those of $Q'$, a complement
+of the other, and has the least $|\det M|$ of all integral extensions, $|\det(H'^T m H^{-T})|$. `finite_index_map` also takes fewer source
+than target columns in full dimension, and then asks $M$ to send the columns injectively.
 
 ---
 

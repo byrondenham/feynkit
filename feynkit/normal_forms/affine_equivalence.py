@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import numpy as np
@@ -466,29 +466,42 @@ def _rescaled(
 def _find_affine_witness(
     pts_a: np.ndarray, pts_b: np.ndarray
 ) -> tuple[sp.Matrix, sp.Matrix, sp.Expr] | None:
-    """
-    (M, t, det M) of the first affine map x -> M x + t sending the rows of pts_a onto those of pts_b.
+    """(M, t, det M) of the first map of affine_maps, or None when there is none."""
+    for linear, shift, q in affine_maps(pts_a, pts_b):
+        M = sp.Matrix(linear) / q
+        return M, sp.Matrix(shift) / q, M.det()
+    return None
 
-    Both are full-dimensional integer configurations, compared as multisets
-    of rows; None when there is no such map. M and t may be rational. Such a
-    map is an affine bijection of the two polytopes, so it sends the vertices
-    of one onto those of the other and keeps the labels of affine_labels. The
-    candidates are the maps that vertex_maps finds with those labels, the
-    translation first, each checked on every row.
+
+def affine_maps(
+    pts_a: np.ndarray, pts_b: np.ndarray
+) -> Iterator[tuple[list[list[int]], list[int], int]]:
     """
+    The affine maps x -> M x + t that send the rows of pts_a onto those of pts_b, as (N, s, q).
+
+    Here M = N / q and t = s / q, in integers. pts_a is a full-dimensional
+    integer configuration, and the rows are compared as multisets. Such a map
+    is an affine bijection of the two polytopes, so it sends the vertices of
+    one onto those of the other and keeps the labels of affine_labels. The
+    candidates are the maps that vertex_maps finds with those labels, each
+    checked on every row in integer arithmetic. Every such map is yielded,
+    some more than once, and the translation, when it is one, first.
+    """
+    if pts_a.shape != pts_b.shape:
+        return
     data_a, data_b = polytope_data(pts_a), polytope_data(pts_b)
     V_a = np.array(data_a.vertices, dtype=np.int64)
     V_b = np.array(data_b.vertices, dtype=np.int64)
     if V_a.shape != V_b.shape or data_b.dimension != pts_b.shape[1]:
-        return None
+        return
     skeleton_a = _invariants.polytope_skeleton(data_a)
     skeleton_b = _invariants.polytope_skeleton(data_b)
     if skeleton_a.number_of_edges() != skeleton_b.number_of_edges():
-        return None
+        return
     labels_a, _ = _invariants.affine_labels(V_a, skeleton_a)
     labels_b, _ = _invariants.affine_labels(V_b, skeleton_b)
     if sorted(labels_a) != sorted(labels_b):
-        return None
+        return
 
     rows_a = [[int(x) for x in row] for row in pts_a.tolist()]
     rows_b = Counter(tuple(int(x) for x in row) for row in pts_b.tolist())
@@ -514,6 +527,4 @@ def _find_affine_witness(
             images[tuple(y // q for y in scaled)] += 1
         else:
             if images == rows_b:
-                M = sp.Matrix(linear) / q
-                return M, sp.Matrix(shift) / q, M.det()
-    return None
+                yield linear, shift, q

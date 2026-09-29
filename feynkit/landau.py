@@ -1039,19 +1039,30 @@ def _modified_cayley_matrix(integral: FeynmanIntegral) -> sp.Matrix:
 
 def _images(
     factors: dict[sp.Expr, None], back: dict[sp.Symbol, sp.Expr]
-) -> dict[sp.Expr, PolyElement]:
+) -> dict[sp.Expr, PolyElement | sp.Expr]:
     """Each factor with the symbols of ``back`` replaced by their values.
 
     The images are computed in the ring of the values' symbols over the
     rationals, in SymPy's order, with the powers of each value kept, much
-    faster than substituting into expressions and expanding them.
+    faster than substituting into expressions and expanding them. A value
+    that is not a polynomial over the rationals, such as m_1 / mu, a
+    Landau variable's s = -m^2 (1 - x)^2 / x or one holding sqrt(2), and one
+    holding a Float, which the ring would turn into a fraction, leave the
+    images expanded expressions.
     """
     if not factors:
         return {}
-    symbols = set().union(*(sp.sympify(value).free_symbols for value in back.values()))
-    ring = PolyRing(sp.Poly(sp.Add(*symbols)).gens, sp.QQ)
     names = list(back)
-    values = [ring.from_expr(back[name]) for name in names]
+    symbols = set().union(*(sp.sympify(value).free_symbols for value in back.values()))
+    values = None
+    if symbols and not any(sp.sympify(value).has(sp.Float) for value in back.values()):
+        ring = PolyRing(sp.Poly(sp.Add(*symbols)).gens, sp.QQ)
+        try:
+            values = [ring.from_expr(back[name]) for name in names]
+        except ValueError:
+            values = None
+    if values is None:
+        return {factor: sp.expand(factor.xreplace(back)) for factor in factors}
     powers: dict[tuple[int, int], PolyElement] = {}
 
     def power(k: int, e: int) -> PolyElement:
@@ -1059,7 +1070,7 @@ def _images(
             powers[k, e] = values[k] if e == 1 else power(k, e - 1) * values[k]
         return powers[k, e]
 
-    images: dict[sp.Expr, PolyElement] = {}
+    images: dict[sp.Expr, PolyElement | sp.Expr] = {}
     for factor in factors:
         image = ring.zero
         for monomial, c in sp.Poly(factor, *names).terms():
@@ -1132,14 +1143,19 @@ def one_loop_landau_surfaces_by_type(
     # The minors are factored together, and then the images that need it.
     factor_lists = _factor_lists([minor for _, minor in minors], set(back))
     image_of = _images(dict.fromkeys(f for factors in factor_lists for f in factors), back)
-    kept: list[tuple[bool, list[PolyElement]]] = []
+    kept: list[tuple[bool, list[PolyElement | sp.Expr]]] = []
     for (gram, _minor), factors in zip(minors, factor_lists, strict=True):
         images = [image_of[f] for f in factors]
-        if all(images):
+        if not any(image == 0 for image in images):
             kept.append((gram, images))
     unique = list(dict.fromkeys(image for _, images in kept for image in images))
     if exact:
-        pieces = {image: [_normalised_poly(image)] for image in unique}
+        pieces = {
+            image: [
+                _normalised_poly(image) if isinstance(image, PolyElement) else _normalised(image)
+            ]
+            for image in unique
+        }
     else:
         pieces = dict(zip(unique, _factor_lists(unique, kinematic_syms), strict=True))
     first: dict[sp.Expr, None] = {}

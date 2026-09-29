@@ -1480,7 +1480,7 @@ its locus. A component that arises only as a limit under special kinematics can 
 while the one-loop closed form keeps it: with $p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn`
 loses $p_2^2 - p_3^2$, since the locus of its top face is $p_2^2 = p_3^2 = 0$, of codimension two.
 The massless pentagon and hexagon take about 3 s and 15 s. feynkit eliminates and factors with
-Singular when the `Singular` binary is on the path, but for the discriminants of edges, small
+Singular when the `Singular` binary is on the path, except for the discriminants of edges, small
 polynomials that SymPy factors to write them, and falls back to SymPy otherwise, which is much
 slower and whose factorisation now and then takes minutes. Faces with more monomials than
 `max_face_points` (default 12) are skipped and listed in `la.skipped_faces`.

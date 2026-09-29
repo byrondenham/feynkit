@@ -8,6 +8,7 @@ modified Cayley matrix. Face-by-face computation must reproduce it.
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 import random
 import re
@@ -990,6 +991,60 @@ class TestClosedForm:
             for factor in factors:
                 target.setdefault(factor, None)
         assert one_loop_landau_surfaces_by_type(fi) == (tuple(first), tuple(second))
+
+    def test_a_landau_variable(self) -> None:
+        # The equal-mass bubble in the Landau variable, s = -m^2 (1 - x)^2 / x: the entries are
+        # not polynomials, and the images are expanded expressions, as the ring cannot hold them.
+        x = sp.Symbol("x", positive=True)
+        fi = FeynmanIntegral.from_cnickel("11e|e|:aa")
+        m = fi.graph.get_internal_edges()[0].get_mass()
+        bubble = fi.with_(
+            momentum_products={
+                pair: sp.sympify(value).subs(S, -(m**2) * (1 - x) ** 2 / x)
+                for pair, value in fi.momentum_products.items()
+            }
+        )
+        assert one_loop_landau_surfaces(bubble) == (m, x - 1, x + 1)
+        landau = AnalysisReport.from_integral(bubble, ["landau"]).landau
+        assert landau is not None
+        assert landau.first_type == (m, x - 1, x + 1)
+
+    @staticmethod
+    def bubble_with_mass(mass: sp.Expr) -> FeynmanIntegral:
+        """The two-mass bubble with its first mass replaced."""
+        graph = FeynmanIntegral.from_cnickel("11e|e|:nn").graph
+        first = graph.get_internal_edges()[0].idx
+        edges = [
+            dataclasses.replace(edge, mass=mass) if edge.idx == first else edge
+            for edge in graph.edges
+        ]
+        return FeynmanIntegral(
+            Graph(graph.internal_vertices, graph.external_legs, edges, graph.energy_scale)
+        )
+
+    def test_a_mass_over_mu(self) -> None:
+        graph = FeynmanIntegral.from_cnickel("11e|e|:nn").graph
+        mu = graph.energy_scale
+        m1, m2 = (edge.get_mass() for edge in graph.get_internal_edges())
+        first, second = one_loop_landau_surfaces_by_type(self.bubble_with_mass(m1 / mu))
+        assert first == (
+            m1,
+            m2,
+            sp.expand(mu**2 * S - (m1 + m2 * mu) ** 2),
+            sp.expand(mu**2 * S - (m1 - m2 * mu) ** 2),
+        )
+        assert second == (S,)
+
+    def test_a_float_mass_stays_a_float(self) -> None:
+        # The ring over the rationals would turn 0.1 into 1/10; the images keep the Float, and
+        # the factors are those the expanded expressions always gave.
+        surfaces = one_loop_landau_surfaces(self.bubble_with_mass(sp.Float(0.1)))
+        assert [str(f) for f in surfaces] == [
+            "m_2",
+            "-1.0*m_2**2 - 0.2*m_2 + 1.0*s - 0.01",
+            "-1.0*m_2**2 + 0.2*m_2 + 1.0*s - 0.01",
+            "1.0*s - 1.73472347597681e-18",
+        ]
 
     @requires_singular
     def test_sympys_random_state_is_left_alone(self) -> None:

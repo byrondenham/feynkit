@@ -171,7 +171,7 @@ class FeynkitDatabase:
             except sqlite3.OperationalError:
                 pass  # column already present
 
-        repairs = [self._repair_gkz_columns]
+        repairs = [self._repair_gkz_columns, self._repair_automorphisms]
         while 0 <= self._conn.execute("PRAGMA user_version").fetchone()[0] < len(repairs):
             try:
                 try:
@@ -228,6 +228,23 @@ class FeynkitDatabase:
                    WHERE id=?""",
                 (self._ser_matrix(matrix), matrix.rows, matrix.cols, row["id"]),
             )
+
+    def _repair_automorphisms(self) -> None:
+        """
+        Repair 1 -> 2: drop what the floating-point normal forms computed.
+
+        Releases up to 0.4.0 took the vertices and edges of a Newton polytope
+        from a floating convex hull, which could give too small a group and
+        a wrong verdict in full dimension, and found only the identity below
+        it. The cached equivalences, positive and negative, are deleted, to
+        be recomputed on the next search, and the automorphism columns are
+        set to NULL, to be filled by the next store with
+        compute_automorphisms=True.
+        """
+        self._conn.execute("DELETE FROM equivalences")
+        self._conn.execute("""UPDATE integrals
+               SET poly_aut_order = NULL, graph_aut_order = NULL,
+                   coeff_pres_order = NULL, vertex_orbits = NULL""")
 
     # -- serialisation helpers ---------------------------------------------
 

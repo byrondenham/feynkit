@@ -227,6 +227,14 @@
   lattice chart of the points and extends each to Z^n as
   `polytope_automorphisms` does: 6 for `012e|2e|e|:znnn`, as for the massive
   triangle.
+- Database files keep the automorphism orders, vertex orbits and equivalence
+  verdicts that releases up to 0.4.0 computed, and `find_equivalent` never
+  recomputed a cached verdict: `012e|2e|e|:znnn` stayed not equivalent to
+  `12e|12e|e|:nnzn`. A file is repaired when first opened for writing, after
+  the repair of its GKZ matrices: every cached verdict is deleted, and the
+  automorphism columns are set to NULL until the next store with
+  `compute_automorphisms=True`. Those releases, writing to a repaired file,
+  cache their own verdicts again.
 
 ## 0.4.0 (2026-09-27)
 

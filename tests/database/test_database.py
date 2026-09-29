@@ -298,11 +298,12 @@ def rows(path: Path) -> tuple[int, list[tuple[Any, ...]], list[tuple[Any, ...]]]
 
 
 class TestRepair:
-    """_migrate repairs the rows of an old file once, as the step from user_version 0 to 1."""
+    """_migrate repairs an old file once: the GKZ columns from user_version 0 to 1, the
+    cached normal forms from 1 to 2."""
 
-    def test_a_new_file_starts_at_version_1(self, tmp_path: Path) -> None:
+    def test_a_new_file_starts_at_version_2(self, tmp_path: Path) -> None:
         FeynkitDatabase(tmp_path / "new.db").close()
-        assert rows(tmp_path / "new.db")[0] == 1
+        assert rows(tmp_path / "new.db")[0] == 2
 
     def test_an_old_file_is_repaired_when_opened(self, tmp_path: Path) -> None:
         path = tmp_path / "old.db"
@@ -317,13 +318,14 @@ class TestRepair:
             assert record.n_toric_gens is None
             assert record.toric_generators is None
             assert record.is_binomial is None
-            assert (record.label, record.poly_aut_order) == ("on-shell box", 72)
+            assert (record.label, record.poly_aut_order) == ("on-shell box", None)
             assert record.newton_points == box.newton_polytope.points
             assert len(on_shell_box(db).toric_ideal.generators) == 1
         version, after, _ = rows(path)
-        assert version == 1
+        assert version == 2
         assert after[0] == before[0]  # the triangle's row
-        assert rows(path)[2] == equivalences
+        assert equivalences
+        assert rows(path)[2] == []
 
     def test_the_repair_runs_once(self, tmp_path: Path) -> None:
         path = tmp_path / "old.db"
@@ -338,7 +340,7 @@ class TestRepair:
             assert record is not None
             assert record.n_cols == 10
             assert db._lookup_toric(on_shell_box().newton_polytope.points) is None
-        assert rows(path)[0] == 1
+        assert rows(path)[0] == 2
 
     def test_a_failed_repair_leaves_the_file_as_it_was(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -400,7 +402,7 @@ class TestRepair:
         monkeypatch.undo()
         assert rows(path) == before
         FeynkitDatabase(path).close()
-        assert rows(path)[0] == 1
+        assert rows(path)[0] == 2
 
     def test_a_file_from_a_later_release_is_left_as_it_is(self, tmp_path: Path) -> None:
         path = tmp_path / "old.db"
@@ -443,3 +445,110 @@ class TestOpen:
         assert len(opened) == 1
         with pytest.raises(sqlite3.ProgrammingError):
             opened[0].execute("SELECT 1")
+
+
+def file_at_version_1(path: Path) -> tuple[str, str]:
+    """A file as this release's first repair leaves one written by 0.4.0: one graph with its
+    massless self-loop on two different vertices, with the automorphism order 1 and the
+    negative verdict that 0.4.0 computed for them. Returns the two fingerprints."""
+    znnn = FeynmanIntegral.from_cnickel("012e|2e|e|:znnn")
+    nnzn = FeynmanIntegral.from_cnickel("12e|12e|e|:nnzn")
+    with FeynkitDatabase(path) as database:
+        database.store(znnn, label="znnn")
+        database.store(nnzn, label="nnzn")
+    fingerprints = tuple(
+        FeynkitDatabase._fingerprint(fi.newton_polytope.points) for fi in (znnn, nnzn)
+    )
+    connection = sqlite3.connect(path)
+    connection.execute("""UPDATE integrals SET poly_aut_order = 1, graph_aut_order = 2,
+           coeff_pres_order = 1, vertex_orbits = '[[0], [1], [2], [3], [4], [5]]'""")
+    for a, b in (fingerprints, fingerprints[::-1]):
+        connection.execute(
+            """INSERT INTO equivalences
+               (fingerprint_a, fingerprint_b, relation, equivalent, witness_map, checked_at)
+               VALUES (?,?,'unimodular',0,NULL,'2026-09-27T00:00:00+00:00')""",
+            (a, b),
+        )
+    connection.execute("PRAGMA user_version = 1")
+    connection.commit()
+    connection.close()
+    return fingerprints[0], fingerprints[1]
+
+
+class TestNormalFormRepair:
+    """The step from user_version 1 to 2 drops what the floating-point normal forms computed."""
+
+    def test_the_cache_and_the_automorphism_columns_are_dropped(self, tmp_path: Path) -> None:
+        path = tmp_path / "old.db"
+        file_at_version_1(path)
+        _, before, equivalences = rows(path)
+        assert len(equivalences) == 2
+        FeynkitDatabase(path).close()
+        version, after, equivalences = rows(path)
+        assert (version, equivalences) == (2, [])
+        with FeynkitDatabase(path) as db:
+            for record in db.all_integrals():
+                assert record.poly_aut_order is None
+                assert record.graph_aut_order is None
+                assert record.coeff_pres_order is None
+                assert record.vertex_orbits is None
+        # Everything else is kept.
+        columns = [c[1] for c in sqlite3.connect(path).execute("PRAGMA table_info(integrals)")]
+        kept = [
+            i
+            for i, c in enumerate(columns)
+            if c not in {"poly_aut_order", "graph_aut_order", "coeff_pres_order", "vertex_orbits"}
+        ]
+        assert [[row[i] for i in kept] for row in after] == [
+            [row[i] for i in kept] for row in before
+        ]
+
+    def test_the_verdict_is_recomputed(self, tmp_path: Path) -> None:
+        path = tmp_path / "old.db"
+        znnn_fp, nnzn_fp = file_at_version_1(path)
+        with FeynkitDatabase(path) as db:
+            found = db.find_equivalent(FeynmanIntegral.from_cnickel("012e|2e|e|:znnn"))
+            assert [record.label for record in found] == ["nnzn"]
+            record = db.store(
+                FeynmanIntegral.from_cnickel("012e|2e|e|:znnn"), compute_automorphisms=True
+            )
+            assert (record.poly_aut_order, record.graph_aut_order) == (6, 2)
+            assert record.vertex_orbits == [[0, 1, 2], [3, 4, 5]]
+        cached = rows(path)[2]
+        assert {(row[1], row[2], row[4]) for row in cached} == {
+            (znnn_fp, nnzn_fp, 1),
+            (nnzn_fp, znnn_fp, 1),
+        }
+
+    def test_the_steps_run_in_separate_transactions(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A file at version 0 gets both steps; when the second fails, the first stays done.
+        path = tmp_path / "old.db"
+        old_file(path)
+
+        def fail(self: FeynkitDatabase) -> None:
+            raise RuntimeError("interrupted")
+
+        monkeypatch.setattr(FeynkitDatabase, "_repair_automorphisms", fail)
+        with pytest.raises(RuntimeError, match="interrupted"):
+            FeynkitDatabase(path)
+        version, _, equivalences = rows(path)
+        assert version == 1
+        assert len(equivalences) == 1
+        monkeypatch.undo()
+        FeynkitDatabase(path).close()
+        assert rows(path)[0::2] == (2, [])
+        with FeynkitDatabase(path) as db:
+            assert [record.poly_aut_order for record in db.all_integrals()] == [None, None]
+
+    def test_a_file_at_version_2_is_not_repaired_again(self, tmp_path: Path) -> None:
+        path = tmp_path / "new.db"
+        with FeynkitDatabase(path) as db:
+            db.store(FeynmanIntegral.from_cnickel("12e|2e|e|:nzz"), compute_automorphisms=True)
+            db.find_equivalent(FeynmanIntegral.from_cnickel("12e|2e|e|:znz"))
+        before = rows(path)
+        with FeynkitDatabase(path) as db:
+            assert db.all_integrals()[0].poly_aut_order == 6
+        assert rows(path) == before
+        assert len(before[2]) == 2

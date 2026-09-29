@@ -1829,7 +1829,9 @@ A file written by feynkit 0.4.0 or earlier is repaired when it is first opened f
 read-only or locked file opens as it is and is repaired at a later open. Those releases kept
 monomials of G whose coefficients cancel, so a row can have more A-matrix columns than Newton
 points; it gets the matrix of its points, and `n_toric_gens` is `None` until the toric ideal is
-next computed.
+next computed. They also took the vertices of each Newton polytope from a floating convex hull, so
+the repair deletes every cached equivalence verdict, to be recomputed by the next search, and sets
+the automorphism fields to `None` until the next `store(..., compute_automorphisms=True)`.
 
 ### Finding equivalent integrals
 

@@ -676,10 +676,19 @@ def symmetry_pairs(
     if basis_idx is None:
         return []
 
-    W_src_np = deltas[basis_idx].T.astype(float)
-    W_src_inv_np = np.linalg.inv(W_src_np)
     W_src_sp = sp.Matrix(deltas[basis_idx].T.tolist())
     W_src_inv_sp = W_src_sp.inv()
+    # W_src^-1 = adj / det_src with adj an integer matrix, so each candidate
+    # M = W_tgt W_src^-1 is found exactly, in integers. The entries of M and of
+    # its images of the points are below n^2 size^2 max|adj|; Python integers
+    # replace int64 when that bound could overflow.
+    det_src = int(W_src_sp.det())
+    adj_rows = [[int(x) for x in row] for row in (W_src_inv_sp * det_src).tolist()]
+    size = 2 * int(np.abs(pts).max()) + 1
+    largest = max(abs(x) for row in adj_rows for x in row)
+    exact: type = np.int64 if n_dim**2 * size**2 * largest < 2**62 else object
+    adj_src: np.ndarray = np.array(adj_rows, dtype=exact)
+    deltas_exact = deltas.astype(exact)
 
     basis_label_multiset = sorted(labels[k] for k in basis_idx)
     basis_label_seq = [labels[k] for k in basis_idx]
@@ -700,6 +709,7 @@ def symmetry_pairs(
         delta_to_idx: dict[tuple, int] = {
             tuple(int(x) for x in row): i for i, row in enumerate(deltas_from.tolist())
         }
+        deltas_from_exact = deltas_from.astype(exact)
 
         others = [j for j in range(N) if j != anchor_idx]
 
@@ -723,17 +733,16 @@ def symmetry_pairs(
             combo = tuple(v for sub in sub_combos for v in sub)
 
             for perm in _label_preserving_orderings(combo, labels, basis_label_seq):
-                W_tgt_np = deltas_from[list(perm)].T.astype(float)
-                M_np = W_tgt_np @ W_src_inv_np
-                M_int = np.round(M_np).astype(np.int64)
-                if not np.allclose(M_np, M_int.astype(float), atol=1e-6):
+                # M = W_tgt adj / det_src, kept only when every entry is an integer.
+                scaled = deltas_from_exact[list(perm)].T @ adj_src
+                if (scaled % det_src != 0).any():
                     continue
+                M_int = scaled // det_src
 
-                if abs(np.linalg.det(M_int.astype(float))) < 0.5:
-                    continue
-
-                # Verify all N source deltas map to target deltas (bijection).
-                mapped = M_int @ deltas.T  # n_dim x N
+                # Verify all N source deltas map to target deltas (bijection). A
+                # singular M fails here: it maps the points into a hyperplane,
+                # which cannot hold all of them.
+                mapped = M_int @ deltas_exact.T  # n_dim x N
                 col_perm: list[int] = [-1] * N
                 seen_tgts: set[int] = set()
                 valid = True
@@ -749,7 +758,7 @@ def symmetry_pairs(
                     continue
 
                 # Exact integer t (no floating point: all operands are integers).
-                t_int = v0.astype(np.int64) - M_int @ pts[0].astype(np.int64)
+                t_int = v0.astype(exact) - M_int @ pts[0].astype(exact)
                 dedup_key = tuple(M_int.flatten()) + tuple(int(x) for x in t_int)
                 if dedup_key in seen:
                     continue

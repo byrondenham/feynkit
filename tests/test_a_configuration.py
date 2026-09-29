@@ -735,6 +735,28 @@ class TestSymmetryPairs:
             assert pair.linear_map == S * old.linear_map * S.inv()
             assert pair.translation == S * old.translation
 
+    @pytest.mark.parametrize("k", [700, 10**4])
+    @pytest.mark.parametrize(
+        "small", [[(0, 0), (1, 0), (0, 1)], [(0, 0), (1, 0), (0, 1), (1, 1)]], ids=["3", "4"]
+    )
+    def test_images_with_large_entries(self, small: list[tuple[int, int]], k: int) -> None:
+        # The unit triangle and square mapped by S = [[1, k], [k, k^2 + 1]] in GL_2(Z). The
+        # candidates W_tgt W_src^-1 were computed in floating point and rounded: at k = 700
+        # the triangle kept 2 of its 6 pairs and the square 4 of 8, and at k = 10^4 none, the
+        # identity included. Now they are exact, in int64 at k = 700 and in Python integers
+        # at k = 10^4, where int64 could overflow.
+        S = sp.Matrix([[1, k], [k, k * k + 1]])
+        big = [tuple(int(x) for x in S * sp.Matrix(p)) for p in small]
+        expected = {pair.column_permutation: pair for pair in symmetry_pairs(small)}
+        pairs = symmetry_pairs(big)
+        assert sorted(pair.column_permutation for pair in pairs) == sorted(expected)
+        assert len(pairs) == len(expected)
+        for pair in pairs:
+            old = expected[pair.column_permutation]
+            assert pair.linear_map == S * old.linear_map * S.inv()
+            assert pair.translation == S * old.translation
+            assert pair.determinant == 1
+
 
 class TestSymmetryPairsBelowFullDimension:
     """Below full dimension the pairs come from the lattice chart of the points."""

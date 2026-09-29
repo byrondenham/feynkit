@@ -136,6 +136,21 @@
   `compute_graph_automorphisms` tries all V! vertex permutations; both now
   describe what the code does. The `nickel_index` docstring gave the box as
   `13e|2e|3e|e|`, which is not canonical; it is `12e|3e|3e|e|`.
+- `polytope_automorphisms`, `symmetry_pairs` and the equivalence tests took the
+  vertices and edges of a Newton polytope from a floating convex hull, which
+  could take points that are not vertices for vertices and diagonals of facets
+  for edges. The groups then came out too small, and depended on the order of
+  the points: `112|3|4e|5e|5e|e|:nnnnnzz`, `:nnnnzzz` and `:zznnnzz` got 4, 12
+  and 12 automorphisms instead of 24, 24 and 72, and a relabelled support or a
+  relabelled massive double box was not unimodularly equivalent to the original.
+  `hull_vertex_indices` and `vertex_edge_graph` now take the vertices and edges
+  from the certified face lattice of `polytope_data`, and `vertex_permutations`
+  and `vertex_orbits` index `polytope_data(points).vertices`, the list the
+  report numbers v_1, v_2, .... The massive tadpole's segment gets its
+  reflection, where `polytope_automorphisms` and `symmetry_pairs` raised
+  `ValueError`. The exact labels separate the vertices of some polytopes less
+  well than the floating ones did: `symmetry_pairs` on the columns of A of
+  `112|3|4e|5e|5e|e|:nnnnzzz` takes about 35 s, where it took under a second.
 
 ## 0.4.0 (2026-09-27)
 

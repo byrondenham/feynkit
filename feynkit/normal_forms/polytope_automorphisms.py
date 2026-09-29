@@ -12,12 +12,14 @@ The algorithm extends the Liu-Cai basis-search used for equivalence testing
 first valid witness, every valid (U, t) is collected and deduplicated via the
 induced vertex permutation.
 
+The vertices, and the edges on which the Liu-Cai labels are computed, come from
+the certified face lattice of feynkit.polytope.polytope_data.
+
 Basis selection is done with a label-diversity strategy: vertices from smaller
 Liu-Cai label classes are chosen as basis vectors first.  For highly-symmetric
-polytopes (e.g. K_4 Newton polytope: 31 hull vertices with label classes of
-sizes 24, 4, 3) this reduces the number of candidate basis combinations per
-anchor from C(30,6) ~ 594 000 to a few hundred, giving a ~700 x  speedup over
-the naive greedy-index basis choice.
+polytopes (e.g. K_4 Newton polytope: 31 vertices with label classes of sizes
+12, 12, 4 and 3) this reduces the number of candidate basis combinations per
+anchor from C(30,6) ~ 594 000 to a few hundred.
 
 Public API
 ----------
@@ -41,9 +43,11 @@ from itertools import combinations, permutations
 from itertools import product as _prod
 from typing import TYPE_CHECKING
 
+import networkx as nx
 import numpy as np
 import sympy as sp
 
+from ..polytope import polytope_data
 from ..types import PolytopeAutomorphisms
 from . import _invariants
 
@@ -71,25 +75,23 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
     -------
     PolytopeAutomorphisms
         Contains all (U, t) pairs, the group order, induced vertex
-        permutations, and vertex orbits.
+        permutations, and vertex orbits. The vertices are indexed in the
+        order of ``polytope_data(points).vertices``.
 
     Notes
     -----
-    The algorithm is the Liu-Cai basis-search: for each candidate image of a
+    The vertices and the edges that the Liu-Cai labels are built on come from
+    the certified face lattice of :func:`feynkit.polytope.polytope_data`. The
+    algorithm is the Liu-Cai basis-search: for each candidate image of a
     fixed anchor vertex, enumerate all possible images of a fixed basis and
-    verify that the implied affine map sends the full polytope to itself.  The
-    basis is chosen to maximise Liu-Cai label diversity (rarest-label vertices
-    first), which for polytopes with a few large label orbits dramatically
-    reduces the number of candidate basis combinations.
+    verify that the implied affine map sends the vertices onto themselves.
+    The basis is chosen to maximise Liu-Cai label diversity (rarest-label
+    vertices first), which for polytopes with a few large label orbits
+    dramatically reduces the number of candidate basis combinations.
     """
     pts = _invariants.to_integer_points(points)
-    idx = _invariants.hull_vertex_indices(pts)
-    V_arr = pts[idx]
-
-    n_vert = V_arr.shape[0]
-    n_dim = V_arr.shape[1]
-
-    if n_vert == 0:
+    n_dim = pts.shape[1]
+    if pts.shape[0] == 0:
         return PolytopeAutomorphisms(
             maps=[(sp.ImmutableMatrix(sp.eye(n_dim)), sp.ImmutableMatrix(sp.zeros(n_dim, 1)))],
             order=1,
@@ -97,15 +99,35 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
             vertex_orbits=[],
         )
 
-    if n_vert == 1:
-        return PolytopeAutomorphisms(
-            maps=[(sp.ImmutableMatrix(sp.eye(n_dim)), sp.ImmutableMatrix(sp.zeros(n_dim, 1)))],
-            order=1,
-            vertex_permutations=[[0]],
-            vertex_orbits=[[0]],
-        )
+    data = polytope_data(pts)
+    V_arr = np.array(data.vertices, dtype=np.int64).reshape(len(data.vertices), n_dim)
+    if V_arr.shape[0] == 1:
+        return _identity_only(V_arr, n_dim)
 
-    GW = _invariants.labelled_polytope_graph(V_arr)
+    GW = _invariants.label_skeleton(V_arr, _invariants.polytope_skeleton(data))
+    found_maps, found_vperms = _basis_search(V_arr, GW)
+    if not found_maps:
+        return _identity_only(V_arr, n_dim)
+
+    return PolytopeAutomorphisms(
+        maps=found_maps,
+        order=len(found_maps),
+        vertex_permutations=found_vperms,
+        vertex_orbits=_compute_orbits(V_arr.shape[0], found_vperms),
+    )
+
+
+def _basis_search(
+    V_arr: np.ndarray, GW: nx.Graph
+) -> tuple[list[tuple[sp.ImmutableMatrix, sp.ImmutableMatrix]], list[list[int]]]:
+    """
+    Every unimodular affine map permuting the rows of ``V_arr``, with its permutation.
+
+    ``V_arr`` holds the vertices of a full-dimensional lattice polytope and
+    ``GW`` its labelled 1-skeleton, whose node i is row i. Returns no maps
+    when the vertices do not span their ambient space.
+    """
+    n_vert, n_dim = V_arr.shape
     labels = [GW.nodes[i]["label"] for i in range(n_vert)]
     label_a0 = labels[0]
     label_count = Counter(labels)
@@ -116,13 +138,12 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
     v_0 = V_arr[0]
     deltas_a = (V_arr - v_0).astype(np.int64)
     basis_indices = _select_basis_indices_by_label(deltas_a, n_dim, labels, label_count)
-
     if basis_indices is None:
-        return _identity_only(V_arr, n_dim)
+        return [], []
 
     W_a = sp.Matrix(deltas_a[basis_indices].T.tolist())
     if W_a.det() == 0:
-        return _identity_only(V_arr, n_dim)
+        return [], []
 
     basis_label_multiset = sorted(labels[k] for k in basis_indices)
     basis_label_seq = [labels[k] for k in basis_indices]
@@ -209,17 +230,7 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
                     )
                 )
                 found_vperms.append(list(vperm))
-
-    if not found_maps:
-        return _identity_only(V_arr, n_dim)
-
-    orbits = _compute_orbits(n_vert, found_vperms)
-    return PolytopeAutomorphisms(
-        maps=found_maps,
-        order=len(found_maps),
-        vertex_permutations=found_vperms,
-        vertex_orbits=orbits,
-    )
+    return found_maps, found_vperms
 
 
 # ------------------------------------------------------------------------------

@@ -215,12 +215,8 @@ def test_relabelled_integrals_are_unimodularly_equivalent(r: Relabelling) -> Non
     assert integral(graph).is_unimodular_equivalent_to(integral(relabelled)).equivalent
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the floating hull finds 53 and 55 vertices, not 52; "
-    "passes once the normal forms use the exact vertices",
-)
 def test_the_massive_non_planar_double_box_is_equivalent_to_a_relabelling() -> None:
+    # Both polytopes have 52 vertices, where a floating hull found 53 and 55.
     r = Relabelling("123|4e|4e|5e|5|e|:nnnnnnz", (4, 2, 1, 0, 5, 3), (1, 0, 4, 5, 6, 2, 3), 1)
     graph, relabelled = relabel(r)
     assert integral(graph).is_unimodular_equivalent_to(integral(relabelled)).equivalent

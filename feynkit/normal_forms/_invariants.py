@@ -17,7 +17,8 @@ from typing import Any, cast
 import networkx as nx
 import numpy as np
 import sympy as sp
-from scipy.spatial import ConvexHull, QhullError
+
+from ..polytope import PolytopeData, polytope_data
 
 # ------------------------------------------------------------------------------
 # Coercion / hull
@@ -60,45 +61,13 @@ def hull_vertex_indices(points: np.ndarray) -> np.ndarray:
     """
     Return indices into ``points`` that are extreme points of conv(points).
 
-    For full-dimensional input this is :attr:`scipy.spatial.ConvexHull.vertices`.
-    For collinear / lower-dimensional input we project to the affine hull,
-    run scipy there, and lift the result back. Returns the input indices in
-    sorted order.
+    The vertices are those of :func:`feynkit.polytope.polytope_data`, found in
+    integer arithmetic in every dimension. Returns the input indices in sorted
+    order; of repeated points, the first.
     """
-    n_pts = points.shape[0]
-    if n_pts <= 1:
-        return np.arange(n_pts)
-
-    centroid = points.mean(axis=0)
-    deltas = points - centroid
-    rank = int(np.linalg.matrix_rank(deltas.astype(float)))
-
-    if rank == 0:
-        # All points coincide.
-        return np.array([0])
-
-    if rank == points.shape[1]:
-        try:
-            hull = ConvexHull(points.astype(float))
-        except QhullError as exc:  # pragma: no cover - defensive
-            raise ValueError(f"Could not compute convex hull: {exc}") from exc
-        return np.sort(hull.vertices)
-
-    # Degenerate: project to affine hull, run hull there, lift back.
-    # Right singular vectors span the row space of deltas (= affine hull).
-    _u, _s, vt = np.linalg.svd(deltas.astype(float), full_matrices=False)
-    basis = vt[:rank, :].T  # n_dim x rank
-    coords = deltas.astype(float) @ basis  # n_pts x rank
-    if rank == 1:
-        # Convex hull of a 1-d set: just min and max.
-        idx_min = int(np.argmin(coords[:, 0]))
-        idx_max = int(np.argmax(coords[:, 0]))
-        return np.array(sorted({idx_min, idx_max}))
-    try:
-        hull = ConvexHull(coords)
-    except QhullError as exc:  # pragma: no cover
-        raise ValueError(f"Could not compute convex hull: {exc}") from exc
-    return np.sort(hull.vertices)
+    if points.shape[0] == 0:
+        return np.arange(0)
+    return np.array(polytope_data(points).vertex_indices, dtype=np.int64)
 
 
 # ------------------------------------------------------------------------------
@@ -106,19 +75,21 @@ def hull_vertex_indices(points: np.ndarray) -> np.ndarray:
 # ------------------------------------------------------------------------------
 
 
-def _facet_incidence(vertices: np.ndarray, hull: ConvexHull, tol: float = 1e-9) -> list[set[int]]:
-    """For each vertex i, return the set of facet indices containing it."""
-    n_vert = vertices.shape[0]
-    incidence: list[set[int]] = [set() for _ in range(n_vert)]
-    verts_f = vertices.astype(float)
-    for j, eq in enumerate(hull.equations):
-        a = eq[:-1]
-        b = eq[-1]
-        residuals = verts_f @ a + b
-        for i in range(n_vert):
-            if abs(residuals[i]) < tol:
-                incidence[i].add(j)
-    return incidence
+def polytope_skeleton(data: PolytopeData) -> nx.Graph:
+    """
+    The 1-skeleton of the polytope ``data`` describes.
+
+    Node ``i`` is the vertex ``data.vertices[i]``, and two nodes are joined
+    when they are the vertices of a face of dimension 1 of the certified face
+    lattice. A segment is its own edge; a point has none.
+    """
+    position = {v: i for i, v in enumerate(data.vertex_indices)}
+    G = nx.Graph()
+    G.add_nodes_from(range(len(position)))
+    for dimension, indices in data.faces:
+        if dimension == 1:
+            G.add_edge(*(position[i] for i in indices if i in position))
+    return G
 
 
 def vertex_edge_graph(vertices: np.ndarray) -> nx.Graph:
@@ -127,66 +98,13 @@ def vertex_edge_graph(vertices: np.ndarray) -> nx.Graph:
 
     All input rows must be extreme points of conv(vertices); use
     :func:`hull_vertex_indices` to filter first if necessary. The returned
-    graph's nodes are ``0..d-1`` indexing into ``vertices``, and edges are
-    the 1-faces of the polytope.
-
-    Two extreme vertices ``u, v`` form an edge iff at least ``n - 1``
-    facets pass through both (``n`` is the ambient dimension).
+    graph's nodes are ``0..d-1`` indexing into ``vertices``, and its edges are
+    the faces of dimension 1 of :func:`feynkit.polytope.polytope_data`, in
+    every dimension.
     """
-    n_dim = vertices.shape[1]
-    n_vert = vertices.shape[0]
-
-    G = nx.Graph()
-    G.add_nodes_from(range(n_vert))
-
-    if n_vert <= 1:
-        return G
-
-    if n_dim == 1 or n_vert == 2:
-        # Trivial cases: line segment or two-vertex degenerate.
-        for i in range(n_vert):
-            for k in range(i + 1, n_vert):
-                G.add_edge(i, k)
-        return G
-
-    # Standard case: full-dim polytope in R^n.
-    centroid = vertices.mean(axis=0).astype(float)
-    deltas = vertices.astype(float) - centroid
-    rank = int(np.linalg.matrix_rank(deltas))
-
-    if rank < n_dim:
-        # Lower-dimensional polytope embedded in higher-dim ambient space.
-        # Build the 1-skeleton in the affine hull and lift back.
-        _u, _s, vt = np.linalg.svd(deltas, full_matrices=False)
-        basis = vt[:rank, :].T  # n_dim x rank
-        coords = deltas @ basis
-        if rank == 1:
-            order = np.argsort(coords[:, 0])
-            for a, b in zip(order, order[1:], strict=True):
-                G.add_edge(int(a), int(b))
-            return G
-        try:
-            hull = ConvexHull(coords)
-        except QhullError as exc:  # pragma: no cover
-            raise ValueError(f"Could not compute convex hull: {exc}") from exc
-        incidence = _facet_incidence(coords, hull)
-        for i in range(n_vert):
-            for k in range(i + 1, n_vert):
-                if len(incidence[i] & incidence[k]) >= rank - 1:
-                    G.add_edge(i, k)
-        return G
-
-    try:
-        hull = ConvexHull(vertices.astype(float))
-    except QhullError as exc:  # pragma: no cover
-        raise ValueError(f"Could not compute convex hull: {exc}") from exc
-
-    incidence = _facet_incidence(vertices, hull)
-    for i in range(n_vert):
-        for k in range(i + 1, n_vert):
-            if len(incidence[i] & incidence[k]) >= n_dim - 1:
-                G.add_edge(i, k)
-    return G
+    if vertices.shape[0] == 0:
+        return nx.Graph()
+    return polytope_skeleton(polytope_data(vertices))
 
 
 def vertex_label(v: np.ndarray, neighbours: np.ndarray) -> int:
@@ -204,6 +122,28 @@ def vertex_label(v: np.ndarray, neighbours: np.ndarray) -> int:
     return int(sp.Matrix(A_v.tolist()).det())
 
 
+def label_skeleton(coordinates: np.ndarray, skeleton: nx.Graph) -> nx.Graph:
+    """
+    A copy of ``skeleton`` with the Liu-Cai labels of the vertices at ``coordinates``.
+
+    Node ``i`` of ``skeleton`` is the vertex ``coordinates[i]``. The node
+    attribute ``"label"`` is its label, 0 when it has no neighbour, and the edge
+    attribute ``"weight"`` the sum of the labels of the two ends. The
+    coordinates may be those of a lattice chart, in which a polytope that is
+    not full-dimensional is full-dimensional; in the ambient coordinates every
+    label of such a polytope is 0.
+    """
+    G = skeleton.copy()
+    labels: dict[int, int] = {}
+    for i in G.nodes():
+        nbrs = list(G.neighbors(i))
+        labels[i] = vertex_label(coordinates[i], coordinates[np.array(nbrs)]) if nbrs else 0
+    nx.set_node_attributes(G, labels, "label")
+    for u, v in G.edges():
+        G[u][v]["weight"] = labels[u] + labels[v]
+    return G
+
+
 def labelled_polytope_graph(vertices: np.ndarray) -> nx.Graph:
     """
     Build the Liu-Cai labelled vertex-edge graph $\\mathcal{GW}(P)$:
@@ -212,20 +152,7 @@ def labelled_polytope_graph(vertices: np.ndarray) -> nx.Graph:
     - node attribute ``"label"`` is the Liu-Cai vertex label ``det(A_v)``,
     - edge attribute ``"weight"`` is the sum of endpoint labels.
     """
-    G = vertex_edge_graph(vertices)
-
-    labels: dict[int, int] = {}
-    for i in G.nodes():
-        nbrs = list(G.neighbors(i))
-        if not nbrs:
-            labels[i] = 0
-            continue
-        labels[i] = vertex_label(vertices[i], vertices[np.array(nbrs)])
-    nx.set_node_attributes(G, labels, "label")
-
-    for u, v in G.edges():
-        G[u][v]["weight"] = labels[u] + labels[v]
-    return G
+    return label_skeleton(vertices, vertex_edge_graph(vertices))
 
 
 # ------------------------------------------------------------------------------

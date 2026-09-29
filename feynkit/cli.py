@@ -336,16 +336,10 @@ def _print_toric(fi: FeynmanIntegral) -> None:
 def _vertices_and_volume(cfg: AConfiguration) -> tuple[int, int]:
     """The number of vertices and the normalised volume of the Newton polytope of cfg.
 
-    AConfiguration finds the vertices from a floating convex hull built for a
-    full-dimensional polytope of dimension 2 and above, which fails on a
-    segment, such as the polytope of the massive tadpole 0|:n, and on a
-    polytope that is not full-dimensional, such as that of 011e|e|:znn. As in
-    the report, polytope_data gives both numbers in those cases.
+    Both come from one polytope_data, as in the report, in every dimension.
     """
-    if cfg.affine_dim < max(2, cfg.ambient_dim):
-        data = polytope_data(cfg.affine_points.tolist())
-        return len(data.vertex_indices), data.normalized_volume
-    return len(cfg.newton_polytope_points), cfg.normalized_volume
+    data = polytope_data(cfg.affine_points.tolist())
+    return len(data.vertex_indices), data.normalized_volume
 
 
 def _print_newton(fi: FeynmanIntegral) -> None:

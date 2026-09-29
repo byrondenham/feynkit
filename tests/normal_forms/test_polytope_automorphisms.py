@@ -19,14 +19,18 @@ Graph automorphisms (vertex permutations only, edge permutations not counted):
 
 from __future__ import annotations
 
+import numpy as np
+import pytest
 import sympy as sp
 
-from feynkit import FeynmanIntegral, PolytopeAutomorphisms
+from feynkit import FeynmanIntegral, PolytopeAutomorphisms, symmetry_pairs
+from feynkit.normal_forms import is_unimodular_equivalent
 from feynkit.normal_forms.polytope_automorphisms import (
     coefficient_preserving_indices,
     compute_graph_automorphisms,
     compute_polytope_automorphisms,
 )
+from feynkit.polytope import polytope_data
 
 # -- helpers ------------------------------------------------------------------
 
@@ -229,3 +233,75 @@ class TestCoefficientPreserving:
         auts = fi.polytope_automorphisms
         idx = coefficient_preserving_indices(fi, auts)
         assert len(idx) < auts.order
+
+
+# -- Exact vertices and edges --------------------------------------------------
+
+# The support of 123e|4e|4e|4e||:nzznnn with its coordinates and points permuted, one point
+# per word. A floating hull took the point (1, 1, 0, 0, 1, 0), which is not a vertex, for one,
+# and found order 1.
+_RELABELLED_WORDS = (
+    "010101 001101 101000 021000 010020 100200 001100 000110 101100 001001 110010 100110 "
+    "100100 010110 011000 110001 000120 011010 010011 000102 000210 120000 000201 001002 "
+    "100011 020001 020010 000021 101010 010001 000111 001200 001011 110100 011001 100101 "
+    "000011 100010 101001 010002 001110 111000 010010 000012 000101 110000 011100 100020"
+)
+RELABELLED = [tuple(int(c) for c in word) for word in _RELABELLED_WORDS.split()]
+
+
+class TestExactVertices:
+    """The vertices and the 1-skeleton come from the certified face lattice."""
+
+    @pytest.mark.parametrize(
+        ("cnickel", "order"),
+        [
+            # A floating hull found 46, 49 and 38 vertices where there are 43, 45 and 36,
+            # and orders 4, 12 and 12.
+            ("112|3|4e|5e|5e|e|:nnnnnzz", 24),
+            ("112|3|4e|5e|5e|e|:nnnnzzz", 24),
+            ("112|3|4e|5e|5e|e|:zznnnzz", 72),
+        ],
+    )
+    def test_two_loop_orders(self, cnickel: str, order: int) -> None:
+        fi = _fi(cnickel)
+        assert fi.polytope_automorphisms.order == order
+        # symmetry_pairs on the Newton points gave 4, 12 and 12.
+        assert len(symmetry_pairs(np.array(fi.newton_polytope.points))) == order
+
+    @pytest.mark.parametrize(
+        ("cnickel", "order"),
+        [
+            ("112|3|4e|5e|5e|e|:nnnnnzz", 24),
+            pytest.param("112|3|4e|5e|5e|e|:nnnnzzz", 24, marks=pytest.mark.slow),
+            ("112|3|4e|5e|5e|e|:zznnnzz", 72),
+        ],
+    )
+    def test_two_loop_pairs_from_the_columns_of_a(self, cnickel: str, order: int) -> None:
+        # The columns of A come in graded order; the second graph takes about 35 s.
+        assert len(_fi(cnickel).symmetry_pairs) == order
+
+    def test_permutations_index_the_vertices_of_polytope_data(self) -> None:
+        points = _points("112|3|4e|5e|5e|e|:nnnnnzz")
+        vertices = polytope_data(points).vertices
+        auts = compute_polytope_automorphisms(points)
+        assert sorted(v for orbit in auts.vertex_orbits for v in orbit) == list(
+            range(len(vertices))
+        )
+        for (U, t), perm in zip(auts.maps, auts.vertex_permutations, strict=True):
+            for i, v in enumerate(vertices):
+                assert tuple(U * sp.Matrix(v) + t) == vertices[perm[i]]
+
+    def test_relabelled_support(self) -> None:
+        original = _points("123e|4e|4e|4e||:nzznnn")
+        assert sorted(RELABELLED) == sorted((p[1], p[0], p[2], p[3], p[5], p[4]) for p in original)
+        assert compute_polytope_automorphisms(original).order == 4
+        assert compute_polytope_automorphisms(RELABELLED).order == 4
+        assert len(symmetry_pairs(np.array(RELABELLED))) == 4
+        assert is_unimodular_equivalent(original, RELABELLED).equivalent
+
+    def test_massive_tadpole(self) -> None:
+        # A segment in R^1: the identity and the reflection.
+        auts = compute_polytope_automorphisms([(1,), (2,)])
+        assert auts.order == 2
+        assert sorted(auts.vertex_permutations) == [[0, 1], [1, 0]]
+        assert len(symmetry_pairs([(1,), (2,)])) == 2

@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from .landau import LandauAnalysis
     from .point_count import TorusCount
 
+from . import _exact
 from .algebra.toric import compute_toric_ideal_generators
 from .core.constants import LEE_POMERANSKY_PARAM_PREFIX
 from .core.exceptions import ValidationError
@@ -345,6 +346,33 @@ class FeynmanIntegral:
         )
 
     @cached_property
+    def is_scaleless(self) -> bool:
+        """
+        Whether the integral is scaleless by Lee's criterion of a zero sector.
+
+        Lee (R. N. Lee, arXiv:1310.1145, section 3) calls a sector zero when
+        sum_e k_e u_e dG/du_e = G has a solution k independent of u. That is
+        k . alpha = 1 for every exponent alpha of G, so the criterion holds
+        exactly when some equation h_0 + h . x = 0 of the affine hull of the
+        Newton polytope has h_0 != 0, that is when the origin does not lie in
+        that affine hull. Substituting lambda^(h_e) u_e for u_e then multiplies
+        the Lee-Pomeransky integral by lambda^(h_0 D/2 + h . nu), whose
+        exponent involves D, and dimensional regularisation sets the integral
+        to zero.
+
+        A scaleless integral has a Newton polytope that is not
+        full-dimensional; the converse fails. For 1ee|1|:zn, a massive tadpole
+        joined to its external vertex by a massless line that carries no
+        momentum, every equation has h_0 = 0: the integral converges for no D
+        and nu, but it is not scaleless, and dimensional regularisation does
+        not regulate it. The flag depends on the monomials of G only, not on D
+        or nu.
+        """
+        points = [tuple(int(x) for x in p) for p in self.newton_polytope.points]
+        origin = (0,) * len(self.newton_polytope.parameters)
+        return _exact.affine_rank([*points, origin]) > _exact.affine_rank(points)
+
+    @cached_property
     def schwinger_gkz(self) -> CayleyGKZSystem:
         """GKZ system of the Schwinger representation (two-block Cayley form).
 
@@ -368,14 +396,20 @@ class FeynmanIntegral:
     @cached_property
     def polytope_automorphisms(self) -> PolytopeAutomorphisms:
         """
-        Unimodular automorphism group of the Newton polytope of G.
+        Automorphism group of the Newton polytope P of G.
 
-        Computes Aut(P) = {(U, t) : U in GL_n(Z), |det U|=1, t in Z ^n,
-        {Up + t : p in P} = P}.  The identity is always included; for generic
-        polytopes it is the only element.
+        Aut(P) is the group of P as a lattice polytope in the affine lattice
+        aff(P) cap Z^n: the affine bijections of the affine hull of P that map
+        its integer points onto themselves and P onto itself. When P is
+        full-dimensional this is {(U, t) : U in GL_n(Z), |det U| = 1,
+        t in Z^n, {Uv + t : v in V} = V} for the vertex set V of P. Below full
+        dimension each element is returned as one such (U, t) that extends it
+        and fixes a complement of the affine hull. The identity is always
+        included; for generic polytopes it is the only element.
 
-        For highly symmetric diagrams (massless triangle -> S_3, massless box
-        -> D_4, bananas -> S_n) the group is non-trivial and reflects the
+        For highly symmetric diagrams (the massless triangle has 48
+        automorphisms, the massless box 120, the massless banana with n
+        propagators (n + 1)!) the group is non-trivial and reflects the
         symmetry of the GKZ system.
 
         See Also
@@ -403,8 +437,13 @@ class FeynmanIntegral:
         integral without its prefactor (de la Cruz 2024).
 
         Every pair is unimodular (``pair.is_unimodular``): P has finite
-        order k, so M^k = I and det M = +/-1.  The pairs coincide with the
-        polytope automorphism group from :attr:`polytope_automorphisms`.
+        order k, so M^k = I and det M = +/-1.  On the affine hull of the
+        points the pairs are the elements of :attr:`polytope_automorphisms`
+        that permute every column of A, not only the vertices, and so all of
+        them when every column is a vertex.  Below full dimension each is one
+        extension of such an element to Z^n, and the identities hold only
+        trivially: T beta depends on the extension, and for generic D and nu
+        the GKZ system has no non-zero solutions.
         Maps with |det M| > 1 relate two different configurations; see
         :func:`feynkit.a_configuration.finite_index_map`.
 
@@ -499,7 +538,7 @@ class FeynmanIntegral:
         Exposed as a method rather than a property because the relevant
         pairing matrix depends on which downstream object the user wishes
         to canonicalise (e.g. the GKZ A-matrix, or a vertex-facet pairing
-        matrix once the face lattice is wired up in Part B).
+        matrix built from the facets of polytope_data).
         """
         return maximal_pairing_matrix(matrix)
 

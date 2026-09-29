@@ -79,6 +79,12 @@
   runs a larger random search than the default, derandomised profile. Running
   the tests needs the development dependencies (`uv sync`), since
   `tests/conftest.py` imports `hypothesis`.
+- `FeynmanIntegral.is_scaleless`: whether G satisfies Lee's criterion of a
+  zero sector (R. N. Lee, arXiv:1310.1145, section 3), that is whether the
+  origin lies outside the affine hull of the Newton polytope. Dimensional
+  regularisation sets such an integral to zero. A scaleless integral's Newton
+  polytope is not full-dimensional, but not every such integral is scaleless:
+  `1ee|1|:zn`, whose massless line carries no momentum, is not.
 
 ### Changed
 

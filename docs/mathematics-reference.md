@@ -504,6 +504,19 @@ When $\Delta_G$ is full-dimensional, $\mathrm{vol}_0(\Delta_G)$ equals the GKZ h
 generic $\beta$ (section 4.5). Below full dimension the rows of the homogenised $A$ are linearly
 dependent, and for generic $\beta$ the system has no non-zero solutions.
 
+**Scaleless integrals.** Below full dimension the exponents satisfy an equation
+$h_0 + h \cdot \alpha_j = 0$ with $h \neq 0$. Substituting $u_e = \lambda^{h_e} v_e$ in the
+Lee-Pomeransky integral $I = \int_{\mathbb{R}_+^n} u^{\nu - 1} G^{-D/2}\, du$ gives
+$I = \lambda^{h_0 D/2 + h \cdot \nu} I$ for every $\lambda > 0$, so the integral converges
+absolutely for no $D$ and $\nu$. When some such equation has $h_0 \neq 0$, that is when the origin
+does not lie in the affine hull of $\Delta_G$, $k = -h/h_0$ solves
+$\sum_e k_e u_e\, \partial G / \partial u_e = G$: this is Lee's criterion of a zero sector
+(R. N. Lee, arXiv:1310.1145, section 3). The exponent then involves $D$, and dimensional
+regularisation sets the integral to zero. `FeynmanIntegral.is_scaleless` tests it. The converse
+fails: for `1ee|1|:zn`, a massive tadpole joined to its external vertex by a massless line that
+carries no momentum, every equation has $h_0 = 0$, the factor $\lambda^{h \cdot \nu}$ does not
+involve $D$, and dimensional regularisation does not regulate the integral.
+
 Accessed as `polytope_data(points).normalized_volume` or `normalized_volume(points)`, both in
 `feynkit.polytope`, or as `AConfiguration.normalized_volume`.
 
@@ -1274,3 +1287,7 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 33. **Hausel-Rodriguez-Villegas (2008).** T. Hausel, F. Rodriguez-Villegas, with an appendix by
     N.M. Katz.  *Mixed Hodge polynomials of character varieties.*
     Invent.\ Math.\ **174** (2008) 555-624.  arXiv:math/0612668.
+
+34. **Lee (2013).** R.N. Lee.
+    *LiteRed 1.4: a powerful tool for the reduction of the multiloop integrals.*
+    arXiv:1310.1145.

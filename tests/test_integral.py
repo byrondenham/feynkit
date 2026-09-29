@@ -23,6 +23,8 @@ from feynkit import (
     PolytopeEquivalence,
     SymanzikPolynomials,
     ToricIdeal,
+    generate_graphs,
+    polytope_data,
 )
 from feynkit.algebra import compute_toric_ideal_generators
 from feynkit.kinematics import create_momentum_products
@@ -299,3 +301,82 @@ class TestEquivalenceVerbs:
         assert isinstance(result, PolytopeEquivalence)
         assert result.relation == "affine_polytope"
         assert result.equivalent is True
+
+
+# -- Scaleless integrals ---------------------------------------------------------
+
+
+def _special(cnickel: str, values: dict[str, sp.Expr]) -> FeynmanIntegral:
+    """The integral of the string with the named invariants replaced by the given values."""
+    legs = cnickel.split(":")[0].count("e")
+    fi = FeynmanIntegral.from_cnickel(cnickel, use_mandelstam=legs >= 2)
+    products = fi.momentum_products
+    symbols = {s.name: s for v in products.values() for s in sp.sympify(v).free_symbols}
+    substitution = {symbols[name]: value for name, value in values.items()}
+    return fi.with_(
+        momentum_products={
+            k: sp.expand(sp.sympify(v).subs(substitution)) for k, v in products.items()
+        }
+    )
+
+
+BOX_LEGS = {"p1^2": 0, "p2^2": 0, "p3^2": 0, "p4^2": 0}
+
+
+class TestIsScaleless:
+    """Lee's criterion: the origin does not lie in the affine hull of the support of G."""
+
+    @pytest.mark.parametrize(
+        ("cnickel", "values", "scaleless", "full_dimensional"),
+        [
+            ("0|:z", {}, True, False),
+            ("01e|e|:zn", {}, True, False),
+            ("00|:nz", {}, True, False),
+            ("00|:zz", {}, True, False),
+            ("012e|2e|e|:zzzz", {}, True, False),
+            ("012e|2e|e|:znnn", {}, True, False),
+            ("11e|e|:zz", {"s": 0}, True, False),
+            ("111e|e|:zzz", {"s": 0}, True, False),
+            ("12e|2e|e|:zzz", {"p1^2": 0, "p2^2": 0, "p3^2": 0}, True, False),
+            ("12e|3e|3e|e|:zzzz", {**BOX_LEGS, "s12": 0, "s23": 0}, True, False),
+            # Every equation of the affine hull passes through the origin: the integral
+            # converges nowhere, but the rescaling does not involve D.
+            ("1ee|1|:zn", {}, False, False),
+            ("01e|e|:nz", {"s": 0}, False, False),
+            ("0|:n", {}, False, True),
+            ("01e|e|:nz", {}, False, True),
+            ("00|:nn", {}, False, True),
+            ("11e|e|:zz", {}, False, True),
+            ("11e|e|:nz", {"s": 0}, False, True),
+            ("12e|2e|e|:zzz", {"p1^2": 0, "p2^2": 0}, False, True),
+            ("12e|3e|3e|e|:zzzz", BOX_LEGS, False, True),
+        ],
+    )
+    def test_criterion(
+        self, cnickel: str, values: dict[str, sp.Expr], scaleless: bool, full_dimensional: bool
+    ) -> None:
+        fi = _special(cnickel, values)
+        data = polytope_data(fi.newton_polytope.points)
+        assert fi.is_scaleless is scaleless
+        assert data.is_full_dimensional is full_dimensional
+        assert fi.is_scaleless == any(row[0] != 0 for row in data.affine_hull)
+
+    def test_massive_bubble_on_shell(self) -> None:
+        m_1 = FeynmanIntegral.from_cnickel("11e|e|:nn").graph.get_internal_edges()[0].get_mass()
+        fi = _special("11e|e|:nn", {"s": m_1**2})
+        assert not fi.is_scaleless
+        assert polytope_data(fi.newton_polytope.points).is_full_dimensional
+
+    def test_agrees_with_the_affine_hull(self) -> None:
+        pool = [
+            *generate_graphs(1, range(1, 5), self_loops=True),
+            *generate_graphs(2, range(1, 4), edges=range(1, 6), self_loops=True),
+        ]
+        scaleless = 0
+        for cnickel in pool:
+            fi = _special(cnickel, {})
+            data = polytope_data(fi.newton_polytope.points)
+            assert fi.is_scaleless == any(row[0] != 0 for row in data.affine_hull), cnickel
+            assert not (fi.is_scaleless and data.is_full_dimensional), cnickel
+            scaleless += fi.is_scaleless
+        assert 0 < scaleless < len(pool)

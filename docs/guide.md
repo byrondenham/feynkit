@@ -631,6 +631,7 @@ fi.toric_ideal          # ToricIdeal
 fi.polytope_automorphisms   # PolytopeAutomorphisms
 fi.graph_automorphisms      # list[list[int]], vertex permutations
 fi.symmetry_pairs           # list[SymmetryPair], all integer affine maps
+fi.is_scaleless             # bool, Lee's criterion of a zero sector
 ```
 
 The polytope data, the point counts and the analysis report are built on request and not cached:
@@ -898,7 +899,12 @@ positive real part, and $\mathrm{Re}\, D > 0$, the integral converges absolutely
 $$b\, \mathrm{Re}(D/2) - m \cdot \mathrm{Re}(\nu) > 0$$
 
 for every facet, with $\nu = (\nu_1, \ldots, \nu_N)$ in the same edge order. When the polytope is
-not full-dimensional, the integral converges for no $D$ and $\nu$. The analysis report (section 21)
+not full-dimensional, the integral converges for no $D$ and $\nu$. `fi.is_scaleless` says whether
+it is also scaleless by Lee's criterion (R. N. Lee, arXiv:1310.1145, section 3): whether the origin
+lies outside the affine hull of the polytope, so that rescaling the $u_e$ multiplies the integral
+by a power of $\lambda$ that involves $D$, and dimensional regularisation sets it to zero. A
+massless self-loop makes an integral scaleless; `1ee|1|:zn`, whose massless line carries no
+momentum, is not full-dimensional but not scaleless either. The analysis report (section 21)
 lists one such expression per facet:
 
 ```python

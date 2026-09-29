@@ -26,9 +26,12 @@ Faces contribute as follows.
   symbols standing for them, a change of coordinates that keeps the
   Gröbner basis small. It contributes the factors of the generator or,
   when there are several, of their greatest common divisor, the
-  codimension-one part of their zero set. Faces with more points than
-  ``max_face_points`` are skipped and listed in
-  ``LandauAnalysis.skipped_faces``.
+  codimension-one part of their zero set. A component that arises only as
+  a limit under special kinematics can then be missing: at p_1^2 = 0 the
+  massive triangle loses p_2^2 - p_3^2, since the locus of its top face is
+  p_2^2 = p_3^2 = 0, of codimension two, while the one-loop closed form
+  keeps it. Faces with more points than ``max_face_points`` are skipped
+  and listed in ``LandauAnalysis.skipped_faces``.
 
 The factors are candidate codimension-one singular loci on all sheets of the
 integral. Membership is necessary for a singularity, not sufficient, and
@@ -40,7 +43,7 @@ closed form of Dlapa, Helmer, Papathanasiou and Tellander (2023, eq.
 1LoopEA): the product of the principal minors of the modified Cayley
 matrix of the cycle and, for a graph with bridges, the poles of the
 bridges' propagators. It is used as an independent check of the face
-computation.
+computation for generic kinematics.
 """
 
 from __future__ import annotations
@@ -606,7 +609,10 @@ def _elimination_discriminant(
     those of the generator or, when there are several, of their greatest
     common divisor: an irreducible polynomial defines a codimension-one
     component of their common zeros exactly when it divides every one of
-    them. Uses Singular when installed and ``backend`` is "auto" or
+    them. A component that arises only as a limit under special kinematics
+    can then be missing, as p_2^2 - p_3^2 is for the massive triangle at
+    p_1^2 = 0, whose top face has the locus p_2^2 = p_3^2 = 0. Uses
+    Singular when installed and ``backend`` is "auto" or
     "singular", else SymPy; ``timeout`` limits each Singular run, in
     seconds.
 

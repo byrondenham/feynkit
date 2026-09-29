@@ -972,7 +972,12 @@ of the integral (Klausen 2023, lemma "Landau variety contained in Sing"). feynki
   generators in the fresh symbols, with the forms substituted back, generate the elimination
   ideal. The face contributes the irreducible factors of its generator or, when it has several,
   of their greatest common divisor: an irreducible $h$ defines a codimension-one component of
-  $V(g_1, \ldots, g_k)$ exactly when it divides every $g_i$.
+  $V(g_1, \ldots, g_k)$ exactly when it divides every $g_i$. Each face thus gives the
+  codimension-one part of its locus, as the face computations of Fevola, Mizera and Telen do. A
+  component that arises only as a limit under special kinematics can be missing: with
+  $p_1^2 = 0$ the locus of the massive triangle's top face is $p_2^2 = p_3^2 = 0$, of codimension
+  two, and no face gives $p_2^2 - p_3^2$, which the closed form of section 10.2 keeps as the
+  factor of its Gram determinant, proportional to $\lambda(0, p_2^2, p_3^2) = (p_2^2 - p_3^2)^2$.
 
 In lattice coordinates the exponent of a point $\alpha_0 + k v$ on an edge with primitive direction
 $v$ is $k = \langle \alpha - \alpha_0, v \rangle / \langle v, v \rangle$, not $\langle \alpha, v \rangle$.
@@ -992,7 +997,8 @@ containing the index $0$ are Gram determinants, the second-type singularities. V
 singularities $m_i^2 = 0$ and, for massless propagators, the external masses $p_i^2 = 0$. Edges give
 only the normal and pseudo-normal thresholds; for massless internal lines every edge is a simplex
 and the edge part is trivial (Fevola, Mizera, Telen 2023, lemma 4.10). `one_loop_landau_surfaces`
-implements the closed form and the test-suite checks the face computation against it.
+implements the closed form and the test-suite checks the face computation against it for generic
+kinematics; with special kinematics it can keep a factor the faces miss (section 10.1).
 
 A graph with bridges, internal edges on no cycle, factorises. Each bridge $b$ carries the momentum
 $q_b$ of the legs on its side away from the cycle, so the integral is that of the cycle, with the

@@ -1430,13 +1430,15 @@ la = landau_analysis_from_polynomial(G, [u1, u2, u3])
 
 ### One-loop closed form
 
-For one-loop graphs `one_loop_landau_surfaces(fi)` returns the same factors from the principal
-minors of the modified Cayley matrix (Dlapa, Helmer, Papathanasiou, Tellander 2023). It is fast,
-needs no Gröbner basis, and is what the test-suite checks the face computation against. The
-massless pentagon takes about 1 s and the hexagon about 45 s. With Singular on the path the minors
-are factored there, in one run. Without it SymPy factors them, which usually takes about as long
-but now and then far longer: SymPy's factorisation draws evaluation points from a random generator
-the whole process shares, and from some of its states a single minor takes minutes.
+For one-loop graphs `one_loop_landau_surfaces(fi)` returns the same factors, for generic
+kinematics, from the principal minors of the modified Cayley matrix (Dlapa, Helmer, Papathanasiou,
+Tellander 2023); with special kinematics it can keep a factor the faces miss (see
+[Backends](#backends)). It is fast, needs no Gröbner basis, and is what the test-suite checks the
+face computation against. The massless pentagon takes about 1 s and the hexagon about 45 s. With
+Singular on the path the minors are factored there, in one run. Without it SymPy factors them,
+which usually takes about as long but now and then far longer: SymPy's factorisation draws
+evaluation points from a random generator the whole process shares, and from some of its states a
+single minor takes minutes.
 
 `one_loop_landau_surfaces_by_type(fi)` splits the same factors by kind of minor. Principal minors
 that leave out the bordering first row and column of the modified Cayley matrix give first-type
@@ -1470,7 +1472,12 @@ Faces of dimension two or more that are not simplices need an elimination ideal.
 $\mu = 1$ when every coefficient of $G$ is $\mu^k$ times a factor free of $\mu$, with $k$ an affine
 function of the exponent, as when the kinematics are free of $\mu$, and with $\mu$ as a variable
 otherwise. When the face's coefficients are independent linear forms in the invariants and squared
-masses, it is taken in fresh symbols for them. The massless pentagon and hexagon take about 3 s and
+masses, it is taken in fresh symbols for them. A face whose elimination ideal has several
+generators contributes the factors of their greatest common divisor, the codimension-one part of
+its locus. A component that arises only as a limit under special kinematics can then be missing,
+while the one-loop closed form keeps it: with $p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn`
+loses $p_2^2 - p_3^2$, since the locus of its top face is $p_2^2 = p_3^2 = 0$, of codimension two.
+The massless pentagon and hexagon take about 3 s and
 15 s. feynkit uses Singular when the `Singular` binary is on the path and falls back to SymPy
 otherwise, which is much slower. Faces with more monomials than `max_face_points` (default 12) are
 skipped and listed in `la.skipped_faces`. `landau_analysis(fi, timeout=60)` gives Singular at most

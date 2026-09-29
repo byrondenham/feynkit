@@ -73,17 +73,26 @@
   generators then have one: the massive bubble's polygon is principal with
   discriminant s, where it gave mu s (s - (m_1 + m_2)^2) (s - (m_1 - m_2)^2).
   The report's lists by face dimension shrink with them. The Landau surfaces
-  are unchanged on every graph tried.
+  are unchanged by that change on every graph tried.
 - When the elimination ideal of a face has several generators, the Landau
   analysis takes the factors of their greatest common divisor, the
   codimension-one part of their common zeros, where it took every factor of
-  every generator, some of which are not components. The Landau surfaces lose
-  such factors: m_1 - m_2, m_1 + m_2 and a quartic for `11e|2|e|:nnz`. On the
-  massive kite of the principal Landau determinant database of Fevola, Mizera
-  and Telen the face computation now gives exactly the ten components the
-  database computed from faces, where it gave fourteen factors. The
-  discriminants of such faces shrink, and the report's lists by face dimension
-  with them.
+  every generator, some of which are not components. Each face thus gives the
+  codimension-one part of its locus, as the face computations of the principal
+  Landau determinant database of Fevola, Mizera and Telen do. The Landau
+  surfaces lose the other factors: m_1 - m_2, m_1 + m_2 and a quartic for
+  `11e|2|e|:nnz`. With faces of up to 30 points eliminated, the database's
+  massive kite now gives exactly the ten components the database computed
+  from faces, where it gave fourteen factors; at the default `max_face_points`
+  it is unchanged. A component that arises only as a limit under special
+  kinematics can be missing, while the one-loop closed form keeps it: with
+  p_1^2 = 0 the massive triangle `12e|2e|e|:nnn` loses p_2^2 - p_3^2, which is
+  a component of no face's locus, since the locus of its top face is
+  p_2^2 = p_3^2 = 0, of codimension two. The discriminants of such faces
+  shrink, and the report's lists by face dimension with them. Where they
+  shrink, the primes `count_torus_points` excludes, and so those it fits and
+  verifies at, can change, but the candidate does not: `11e|2|e|:nnz` no
+  longer excludes 23.
 
 ### Added
 

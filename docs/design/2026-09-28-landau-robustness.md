@@ -124,10 +124,14 @@ $U + F$, eliminating faces of up to 30 points and so skipping only the polytope 
 | `A4_zero_generic` | 12 | 12 | the 12 | the 12 |
 | `kite_generic_generic` | 13 | 10 | 14 | the 10 |
 
-The kite's three other components were found only with HyperInt: the thresholds
-$\lambda(m_1^2, m_2^2, m_5^2)$ and $\lambda(m_3^2, m_4^2, m_5^2)$ of its two bubbles and a cubic.
-The old rule found the two thresholds on faces whose generators do not all vanish on them,
-together with two factors that are not components. With the new rule the face computation gives
+The kite's three other components were found only with HyperInt: $\lambda(m_1^2, m_2^2, m_5^2)$
+and $\lambda(m_3^2, m_4^2, m_5^2)$, the thresholds at zero momentum of the sunrises formed by the
+three propagators at each internal vertex, and a cubic. The old rule found the two thresholds on
+faces whose generators do not all vanish on them, together with two factors that are not
+components. No face eliminated has them as components of its locus, just as no face of the
+massive triangle at $p_1^2 = 0$ has $p_2^2 - p_3^2$, which the one-loop closed form keeps: the
+locus of the triangle's top face is $p_2^2 = p_3^2 = 0$, of codimension two.
+With the new rule the face computation gives
 exactly the database's components from faces. On feynkit's graphs the rule
 removes $m_1 \pm m_2$ and a quartic from `11e|2|e|:nnz`, a massive bubble with a massless bridge.
 

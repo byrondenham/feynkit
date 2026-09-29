@@ -64,6 +64,9 @@ def _factor_set(
 
 
 def _same_surfaces(fi: FeynmanIntegral) -> bool:
+    """The faces give the factors of the one-loop closed form and its bridge poles, as they
+    do for generic kinematics; special kinematics can keep a factor out of the faces (see
+    test_a_component_only_in_the_limit)."""
     kin = _kin(fi)
     faces = _factor_set(landau_analysis(fi).landau_surfaces, kin)
     closed = _factor_set(one_loop_landau_surfaces(fi), kin)
@@ -720,8 +723,9 @@ class TestSeveralGenerators:
 
     @requires_singular
     def test_a_kite_face(self) -> None:
-        # Every factor of every generator gave lambda(m_1, m_2, m_5), a threshold of a
-        # sub-bubble, and two factors that are not components; only s divides them all.
+        # Every factor of every generator gave lambda(m_1, m_2, m_5), the threshold at zero
+        # momentum of the sunrise formed by the three propagators at internal vertex 3, and two
+        # factors that are not components; only s divides them all.
         g, variables, _ = pld_entry("kite_generic_generic")
         support = dict(extract_monomial_support(sp.expand(g), variables))
         factors, principal = _elimination_discriminant(
@@ -746,7 +750,33 @@ class TestSeveralGenerators:
         assert face.discriminant == 1
         assert not face.principal
         m1, m2, _ = (edge.get_mass() for edge in fi.graph.get_internal_edges())
-        assert not {m1 - m2, m1 + m2} & set(analysis.landau_surfaces)
+        # Every factor of every generator added m_1 - m_2, m_1 + m_2 and the quartic
+        # 4 m_2^2 s - (m_1^2 - m_2^2)^2.
+        assert set(analysis.landau_surfaces) == {
+            m1,
+            m2,
+            S,
+            sp.expand(S - (m1 + m2) ** 2),
+            sp.expand(S - (m1 - m2) ** 2),
+        }
+
+    @requires_singular
+    def test_a_component_only_in_the_limit(self) -> None:
+        # With p_1^2 = 0 the massive triangle's Gram determinant is proportional to
+        # (p_2^2 - p_3^2)^2, but the top face's generators are p_3^2 and p_2^2 - p_3^2, whose
+        # locus has codimension two, and no face has p_2^2 = p_3^2 as a component. The closed
+        # form keeps the factor; the faces, taking the gcd, leave it out.
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+        p1, p2, p3 = standard_invariants(3).external_masses
+        products = {
+            pair: sp.expand(sp.sympify(value).subs(p1, 0))
+            for pair, value in fi.momentum_products.items()
+        }
+        on_shell = fi.with_(momentum_products=products)
+        faces = set(landau_analysis(on_shell).landau_surfaces)
+        closed = set(one_loop_landau_surfaces(on_shell))
+        assert faces < closed
+        assert closed - faces == {p2 - p3}
 
     @requires_singular
     @pytest.mark.parametrize(

@@ -2,9 +2,10 @@
 Lattice invariants of a lattice polytope, computed exactly.
 
 For P = conv(points) this module counts and lists the lattice points of the
-dilates kP, and gives the Ehrhart polynomial and the h*-vector. Everything is
-done in integers and Fractions, from facets certified complete by the exact
-hull of feynkit._exact.
+dilates kP, and gives the Ehrhart polynomial, the h*-vector, the Gorenstein
+index with the polar dual of a reflexive P, and the lattice width.
+Everything is done in integers and Fractions, from facets certified
+complete by the exact hull of feynkit._exact.
 
 The lattice
 -----------
@@ -52,9 +53,12 @@ __all__ = [
     "Lattice",
     "count_lattice_points",
     "ehrhart_polynomial",
+    "gorenstein_index",
     "h_star_vector",
     "invariant_chart",
     "lattice_points",
+    "lattice_width",
+    "polar_dual",
 ]
 
 Lattice = Literal["support", "ambient"]
@@ -203,9 +207,67 @@ def _level(forms: Sequence[tuple[Sequence[int], int]]) -> tuple[_Bound, ...]:
     return tuple((tuple(a[:-1]), a[-1], b) for a, b in forms if a[-1])
 
 
+_Forms = tuple[tuple[tuple[int, ...], int], ...]
+
+
+@dataclass(frozen=True)
+class _Body:
+    """A full-dimensional lattice polytope of Z^d, d >= 1, with its projections.
+
+    Attributes
+    ----------
+    vertices
+        The vertices, sorted.
+    facets
+        (m, b) with m . c <= b, m primitive in Z^d.
+    volume
+        The normalised volume, d! times the Euclidean volume, or 0 when not
+        asked for.
+    levels
+        levels[j - 1] bounds c_j from the facets of P_j, the projection to
+        the first j coordinates.
+    """
+
+    vertices: tuple[tuple[int, ...], ...]
+    facets: _Forms
+    volume: int
+    levels: tuple[tuple[_Bound, ...], ...]
+
+
+def _body(coordinates: Sequence[tuple[int, ...]], *, volume: bool = True) -> _Body:
+    """The body of the distinct, sorted, full-dimensional points of Z^d, d >= 1.
+
+    Raises
+    ------
+    ComputationError
+        If a facet list fails its certificate or a volume check fails, which
+        would be a bug.
+    """
+    d = len(coordinates[0])
+    low, high = coordinates[0][0], coordinates[-1][0]
+    first: _Forms = (((-1,), -low), ((1,), high))
+    if d == 1:
+        return _Body(((low,), (high,)), first, high - low, (_level(first),))
+    points = list(coordinates)
+    halfspaces, face_lattice = _certified_facets(points)
+    vertices = sorted(
+        points[_exact.mask_indices(mask)[0]] for mask, k in face_lattice.dims.items() if k == 0
+    )
+    size = 0
+    if volume:
+        size = _exact.simplex_volume(points, _exact.pulling_simplices(face_lattice, points), 1)
+    facets = tuple((h.normal, h.offset) for h in halfspaces)
+    levels = [_level(first)]
+    for j in range(2, d):
+        projection, _ = _certified_facets(sorted({v[:j] for v in vertices}))
+        levels.append(_level([(h.normal, h.offset) for h in projection]))
+    levels.append(_level(facets))
+    return _Body(tuple(vertices), facets, size, tuple(levels))
+
+
 @dataclass(frozen=True)
 class _Polytope:
-    """P in the chart of its lattice, with what the invariants need.
+    """P in the chart of its lattice.
 
     Attributes
     ----------
@@ -213,27 +275,33 @@ class _Polytope:
         The chart of the chosen lattice.
     points
         The distinct chart points, sorted.
-    vertices
-        The vertices in chart coordinates, sorted.
-    facets
-        (m, b) with m . c <= b, m primitive in Z^d; empty below dimension 1.
-    volume
-        The normalised volume in Z^d: d! times the Euclidean volume in the
-        chart.
-    levels
-        levels[j - 1] bounds the coordinate c_j from the facets of P_j.
+    body
+        P in chart coordinates; None for a point.
     """
 
     chart: LatticeChart
     points: tuple[tuple[int, ...], ...]
-    vertices: tuple[tuple[int, ...], ...]
-    facets: tuple[tuple[tuple[int, ...], int], ...]
-    volume: int
-    levels: tuple[tuple[_Bound, ...], ...]
+    body: _Body | None
 
     @property
     def dimension(self) -> int:
         return len(self.chart.basis)
+
+    @property
+    def vertices(self) -> tuple[tuple[int, ...], ...]:
+        return self.points if self.body is None else self.body.vertices
+
+    @property
+    def facets(self) -> _Forms:
+        return () if self.body is None else self.body.facets
+
+    @property
+    def volume(self) -> int:
+        return 1 if self.body is None else self.body.volume
+
+    @property
+    def levels(self) -> tuple[tuple[_Bound, ...], ...]:
+        return () if self.body is None else self.body.levels
 
 
 def _prepare(points: PointsLike, lattice: str) -> _Polytope:
@@ -252,38 +320,9 @@ def _prepare(points: PointsLike, lattice: str) -> _Polytope:
     if not pts:
         raise ValidationError("the lattice invariants need at least one point")
     chart = _chart(pts, lattice)
-    coordinates = sorted(set(chart.coordinates))
-    d = len(chart.basis)
-    if d == 0:
-        return _Polytope(chart, tuple(coordinates), tuple(coordinates), (), 1, ())
-    if d == 1:
-        low, high = coordinates[0][0], coordinates[-1][0]
-        facets: list[tuple[tuple[int, ...], int]] = [((-1,), -low), ((1,), high)]
-        return _Polytope(
-            chart,
-            tuple(coordinates),
-            ((low,), (high,)),
-            tuple(facets),
-            high - low,
-            (_level(facets),),
-        )
-    halfspaces, face_lattice = _certified_facets(coordinates)
-    vertices = sorted(
-        coordinates[_exact.mask_indices(mask)[0]] for mask, k in face_lattice.dims.items() if k == 0
-    )
-    simplices = _exact.pulling_simplices(face_lattice, coordinates)
-    volume = _exact.simplex_volume(coordinates, simplices, 1)
-    facets = [(h.normal, h.offset) for h in halfspaces]
-    low, high = vertices[0][0], vertices[-1][0]
-    levels = [_level([((-1,), -low), ((1,), high)])]
-    for j in range(2, d):
-        projected = sorted({v[:j] for v in vertices})
-        projection, _ = _certified_facets(projected)
-        levels.append(_level([(h.normal, h.offset) for h in projection]))
-    levels.append(_level(facets))
-    return _Polytope(
-        chart, tuple(coordinates), tuple(vertices), tuple(facets), volume, tuple(levels)
-    )
+    coordinates = tuple(sorted(set(chart.coordinates)))
+    body = _body(coordinates) if chart.basis else None
+    return _Polytope(chart, coordinates, body)
 
 
 # --- the enumerator ----------------------------------------------------------
@@ -322,9 +361,11 @@ def _range(
     return low, high, strict_low, strict_high
 
 
-def _count(polytope: _Polytope, num: int, den: int = 1) -> tuple[int, int]:
-    """The numbers of lattice points and of interior lattice points of (num/den) P."""
-    levels = polytope.levels
+def _count(levels: Sequence[tuple[_Bound, ...]], num: int, den: int = 1) -> tuple[int, int]:
+    """The numbers of lattice points and of interior lattice points of (num/den) P.
+
+    levels are those of P; with none, P is a point, its own interior.
+    """
     if not levels:
         return 1, 1
     last = len(levels) - 1
@@ -349,10 +390,9 @@ def _count(polytope: _Polytope, num: int, den: int = 1) -> tuple[int, int]:
 
 
 def _points(
-    polytope: _Polytope, num: int, den: int = 1, *, interior: bool = False
+    levels: Sequence[tuple[_Bound, ...]], num: int, den: int = 1, *, interior: bool = False
 ) -> Iterator[tuple[int, ...]]:
-    """The lattice points of (num/den) P in chart coordinates, in lexicographic order."""
-    levels = polytope.levels
+    """The lattice points of (num/den) P, P given by its levels, in lexicographic order."""
     if not levels:
         yield ()
         return
@@ -400,7 +440,7 @@ def lattice_points(
     polytope = _prepare(points, lattice)
     chart = polytope.chart
     found = []
-    for c in _points(polytope, k, interior=interior):
+    for c in _points(polytope.levels, k, interior=interior):
         found.append(
             tuple(
                 k * o + sum(ct * b[i] for ct, b in zip(c, chart.basis, strict=True))
@@ -421,7 +461,7 @@ def count_lattice_points(
         As lattice_points.
     """
     k = _dilation(k)
-    closed, inner = _count(_prepare(points, lattice), k)
+    closed, inner = _count(_prepare(points, lattice).levels, k)
     return inner if interior else closed
 
 
@@ -473,7 +513,7 @@ def _ehrhart(polytope: _Polytope) -> tuple[Fraction, ...]:
         return (Fraction(1),)
     known = {0: 1}
     for k in range(1, math.ceil(d / 2) + 1):
-        closed, inner = _count(polytope, k)
+        closed, inner = _count(polytope.levels, k)
         known[k] = closed
         known[-k] = (-1) ** d * inner
     lead = Fraction(polytope.volume, math.factorial(d))
@@ -556,3 +596,177 @@ def h_star_vector(points: PointsLike, *, lattice: Lattice = "support") -> tuple[
     """
     polytope = _prepare(points, lattice)
     return _h_star(polytope, _ehrhart(polytope))
+
+
+# --- Gorenstein index, reflexivity and the polar dual ------------------------
+
+
+def _solve(rows: Sequence[Sequence[int]], rhs: Sequence[int]) -> list[Fraction] | None:
+    """The solution of rows @ x = rhs over Q, or None when there is none.
+
+    Raises
+    ------
+    ComputationError
+        If the solution is not unique, which for the facet forms of a
+        full-dimensional polytope would be a bug.
+    """
+    width = len(rows[0])
+    a = [[Fraction(x) for x in row] + [Fraction(y)] for row, y in zip(rows, rhs, strict=True)]
+    pivots: list[int] = []
+    r = 0
+    for c in range(width):
+        pivot = next((i for i in range(r, len(a)) if a[i][c]), None)
+        if pivot is None:
+            continue
+        a[r], a[pivot] = a[pivot], a[r]
+        a[r] = [x / a[r][c] for x in a[r]]
+        for i in range(len(a)):
+            if i != r and a[i][c]:
+                factor = a[i][c]
+                a[i] = [x - factor * y for x, y in zip(a[i], a[r], strict=True)]
+        pivots.append(c)
+        r += 1
+    if any(row[-1] for row in a[r:]):
+        return None
+    if r < width:
+        raise ComputationError("the facet forms do not determine the Gorenstein point")
+    return [a[i][-1] for i in range(width)]
+
+
+def _gorenstein(polytope: _Polytope) -> tuple[int, tuple[int, ...]] | None:
+    """(r, p) with r b_F - m_F . p = 1 for every facet, or None when P is not Gorenstein.
+
+    The homogenised facet forms (b_F, -m_F) span Q^(d+1), so the system has
+    at most one rational solution; P is Gorenstein of index r exactly when it
+    is integral. A point is reflexive, with r = 1 and p = ().
+
+    Raises
+    ------
+    ComputationError
+        If the solution is not unique or r is not positive, which would be a
+        bug.
+    """
+    if polytope.body is None:
+        return 1, ()
+    facets = polytope.facets
+    solution = _solve([(b, *(-x for x in m)) for m, b in facets], [1] * len(facets))
+    if solution is None or any(x.denominator != 1 for x in solution):
+        return None
+    r, *p = (int(x) for x in solution)
+    if r < 1:
+        raise ComputationError(f"the Gorenstein system gives r = {r}, which would be a bug")
+    return r, tuple(p)
+
+
+def gorenstein_index(points: PointsLike, *, lattice: Lattice = "support") -> int | None:
+    """The Gorenstein index of P = conv(points), or None when P is not Gorenstein.
+
+    With the facets written m_F . c <= b_F, m_F primitive, P is Gorenstein of
+    index r when rP has a lattice point p at lattice distance 1 from every
+    facet: r b_F - m_F . p = 1 for every F. That linear system has at most one
+    rational solution, and r is the index when the solution is integral. P is
+    reflexive when r = 1 (Batyrev 1994). A point has index 1.
+
+    Raises
+    ------
+    ValidationError
+        As invariant_chart.
+    ComputationError
+        If a consistency check fails, which would be a bug.
+    """
+    found = _gorenstein(_prepare(points, lattice))
+    return None if found is None else found[0]
+
+
+def _polar(polytope: _Polytope) -> tuple[tuple[int, ...], ...] | None:
+    found = _gorenstein(polytope)
+    if found is None or found[0] != 1:
+        return None
+    if polytope.body is None:
+        return ((),)
+    return tuple(sorted(tuple(-x for x in m) for m, _ in polytope.facets))
+
+
+def polar_dual(
+    points: PointsLike, *, lattice: Lattice = "support"
+) -> tuple[tuple[int, ...], ...] | None:
+    """The vertices of the polar dual of a reflexive P = conv(points), sorted; None otherwise.
+
+    With p the interior lattice point of the reflexive P, the dual
+    P* = {y : y . (c - p) >= -1 for every c in P} has the vertices -m_F, one
+    per facet m_F . c <= b_F, in the dual of the lattice of invariant_chart.
+    P* is reflexive and its dual is P - p. The vertices of P* may span a
+    proper sublattice, as those of the cube [-1, 1]^d do, so its invariants
+    are to be computed with lattice="ambient". A point has the dual {()}.
+
+    Raises
+    ------
+    ValidationError
+        As invariant_chart.
+    ComputationError
+        If a consistency check fails, which would be a bug.
+    """
+    return _polar(_prepare(points, lattice))
+
+
+# --- lattice width -----------------------------------------------------------
+
+
+def _spread(vertices: Sequence[Sequence[int]], u: Sequence[int]) -> int:
+    heights = [sum(a * b for a, b in zip(u, v, strict=True)) for v in vertices]
+    return max(heights) - min(heights)
+
+
+def _width(polytope: _Polytope) -> tuple[int, tuple[int, ...]]:
+    """The lattice width of P and the first direction that attains it.
+
+    w0 is the least width over the coordinate directions. A direction u of
+    width at most w0 has |u . (v - v')| <= w0 for all vertices, so it lies in
+    w0 (P - P)^o, the dilate of the polar of the difference body. With the
+    facets g . x <= h of P - P, h > 0, that polar is conv(g / h); scaled by
+    D = lcm(h) it is the integer polytope Q = conv(D g / h), and the
+    candidates are the non-zero lattice points of (w0 / D) Q.
+    """
+    d = polytope.dimension
+    if d == 0:
+        return 0, ()
+    vertices = polytope.vertices
+    axes = [tuple(int(i == j) for j in range(d)) for i in range(d)]
+    best = min(((_spread(vertices, u), u) for u in axes), key=lambda pair: pair[0])
+    if best[0] == 1 or d == 1:
+        return best
+    differences = sorted(
+        {tuple(a - b for a, b in zip(v, w, strict=True)) for v in vertices for w in vertices}
+    )
+    halfspaces, _ = _certified_facets(differences)
+    scale = math.lcm(*(h.offset for h in halfspaces))
+    polar = sorted({tuple(scale // h.offset * g for g in h.normal) for h in halfspaces})
+    for u in _points(_body(polar, volume=False).levels, best[0], scale):
+        if next((x for x in u if x), 0) > 0:
+            spread = _spread(vertices, u)
+            if spread < best[0]:
+                best = (spread, u)
+    return best
+
+
+def lattice_width(
+    points: PointsLike, *, lattice: Lattice = "support"
+) -> tuple[int, tuple[int, ...]]:
+    """The lattice width of P = conv(points) and a direction that attains it.
+
+    The width in the direction u, a non-zero integer vector in the
+    coordinates of invariant_chart, is max u . c - min u . c over P; the
+    lattice width is the least of these. The search is complete, and the
+    direction returned is the first that attains the width among the
+    coordinate directions and then the other candidates in lexicographic
+    order, each with its first non-zero entry positive. A point has width 0
+    in the direction ().
+
+    Raises
+    ------
+    ValidationError
+        As invariant_chart.
+    ComputationError
+        If a facet list fails its certificate, which would be a bug.
+    """
+    return _width(_prepare(points, lattice))

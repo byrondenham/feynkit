@@ -14,6 +14,7 @@ import random
 from collections.abc import Callable, Sequence
 from fractions import Fraction
 
+import numpy as np
 import pytest
 import sympy as sp
 from sympy.matrices.normalforms import hermite_normal_form
@@ -23,9 +24,12 @@ from feynkit.core.exceptions import ValidationError
 from feynkit.lattice_invariants import (
     count_lattice_points,
     ehrhart_polynomial,
+    gorenstein_index,
     h_star_vector,
     invariant_chart,
     lattice_points,
+    lattice_width,
+    polar_dual,
 )
 from feynkit.polytope import polytope_data
 
@@ -272,6 +276,164 @@ def test_ehrhart_polynomial_matches_counts_beyond_the_interpolated_dilates(seed:
         assert poly.LC() * math.factorial(d) == sum(h_star)
 
 
+# --- Gorenstein index, reflexivity and the polar dual ------------------------
+
+
+def cross_polytope(d: int) -> Points:
+    return [tuple(s * int(i == j) for j in range(d)) for i in range(d) for s in (1, -1)]
+
+
+def signs(d: int) -> Points:
+    return list(itertools.product((-1, 1), repeat=d))
+
+
+def palindromic_index(h_star: tuple[int, ...]) -> int | None:
+    """d + 1 - s when h* is palindromic of degree s, otherwise None.
+
+    P is Gorenstein of index r exactly when h* is palindromic of degree
+    d + 1 - r, which gives an independent check of gorenstein_index.
+    """
+    s = max(i for i, h in enumerate(h_star) if h)
+    top = h_star[: s + 1]
+    return len(h_star) - s if top == top[::-1] else None
+
+
+def interior_point(points: Points) -> tuple[int, ...]:
+    (p,) = lattice_points(points, interior=True, lattice="ambient")
+    return p
+
+
+class TestGorenstein:
+    @pytest.mark.parametrize("d", [1, 2, 3, 4])
+    def test_cross_polytope_and_cube(self, d: int) -> None:
+        # With the origin among the points the support lattice is Z^d; the vertices of the cube
+        # alone span 2Z^d, so the cube is reflexive in the ambient lattice only.
+        octahedron = [(0,) * d, *cross_polytope(d)]
+        assert gorenstein_index(octahedron) == 1
+        assert polar_dual(octahedron) == tuple(signs(d))
+        assert gorenstein_index(cross_polytope(d), lattice="ambient") == 1
+        assert gorenstein_index(signs(d), lattice="ambient") == 1
+        assert polar_dual(signs(d), lattice="ambient") == tuple(sorted(cross_polytope(d)))
+        assert gorenstein_index(signs(d)) == 2
+        assert polar_dual(signs(d)) is None
+
+    @pytest.mark.parametrize("d", [1, 2, 3, 4])
+    def test_unit_simplex(self, d: int) -> None:
+        assert gorenstein_index(simplex(d)) == d + 1
+        assert polar_dual(simplex(d)) is None
+
+    @pytest.mark.parametrize(("r", "index"), [(1, 4), (2, 2), (3, None), (5, None)])
+    def test_reeve_tetrahedra(self, r: int, index: int | None) -> None:
+        assert gorenstein_index(reeve(r), lattice="ambient") == index
+        assert gorenstein_index(reeve(r)) == 4
+
+    def test_a_point_and_segments(self) -> None:
+        assert gorenstein_index([(5, 5)]) == 1
+        assert polar_dual([(5, 5)]) == ((),)
+        assert gorenstein_index([(0,), (1,)]) == 2
+        assert gorenstein_index([(4,), (6,), (5,)]) == 1
+        assert polar_dual([(4,), (6,), (5,)]) == ((-1,), (1,))
+        assert gorenstein_index([(0,), (3,)], lattice="ambient") is None
+
+    @pytest.mark.parametrize("seed", range(20))
+    def test_agrees_with_the_h_star_vector(self, seed: int) -> None:
+        rng = random.Random(3000 + seed)
+        points = random_polytope(rng, 2 + seed % 2, spread=1)
+        for lattice in ("support", "ambient"):
+            index = gorenstein_index(points, lattice=lattice)
+            assert index == palindromic_index(h_star_vector(points, lattice=lattice))
+            assert (polar_dual(points, lattice=lattice) is not None) == (index == 1)
+
+
+def test_the_dual_of_the_dual_is_the_polytope() -> None:
+    rng = random.Random(4)
+    for d, spread in [(2, 2), (3, 1)]:
+        box = list(itertools.product(range(-spread, spread + 1), repeat=d))
+        found = 0
+        while found < 12:
+            points = [(0,) * d, *rng.sample(box, rng.randint(d + 1, d + 5))]
+            if _exact.affine_rank(points) < d or gorenstein_index(points, lattice="ambient") != 1:
+                continue
+            found += 1
+            dual = polar_dual(points, lattice="ambient")
+            assert dual is not None
+            assert gorenstein_index(dual, lattice="ambient") == 1
+            p = interior_point(points)
+            vertices = polytope_data(points).vertices
+            expected = sorted(tuple(a - b for a, b in zip(v, p, strict=True)) for v in vertices)
+            assert polar_dual(dual, lattice="ambient") == tuple(expected), points
+
+
+# --- lattice width ----------------------------------------------------------
+
+
+def width(points: Sequence[Sequence[int]], u: Sequence[int]) -> int:
+    heights = [_exact.dot(u, p) for p in points]
+    return max(heights) - min(heights)
+
+
+def brute_force_width(points: Points) -> int:
+    """The least width over every direction in a box that holds every candidate.
+
+    With w0 the least width over the coordinate directions and M the
+    differences from v_0 of affinely independent points v_1, ..., v_d, a
+    direction u of width at most w0 has |M u| <= w0 entrywise, so |u_i| is
+    at most w0 times the largest absolute row sum of M^-1. The box is the
+    smallest such bound over all choices of the points.
+    """
+    d = len(points[0])
+    w0 = min(width(points, [int(i == j) for j in range(d)]) for i in range(d))
+    radius = None
+    for chosen in itertools.combinations(sorted(set(points)), d + 1):
+        m = sp.Matrix([[a - b for a, b in zip(q, chosen[0], strict=True)] for q in chosen[1:]])
+        if m.det() == 0:
+            continue
+        inverse = m.inv()
+        bound = int(w0 * max(sum(abs(x) for x in inverse.row(i)) for i in range(d)))
+        radius = bound if radius is None else min(radius, bound)
+    assert radius is not None
+    axis = np.arange(-radius, radius + 1, dtype=np.int64)
+    box = np.stack(np.meshgrid(*[axis] * d, indexing="ij"), axis=-1).reshape(-1, d)
+    box = box[np.any(box != 0, axis=1)]
+    heights = box @ np.array(points, dtype=np.int64).T
+    return int((heights.max(axis=1) - heights.min(axis=1)).min())
+
+
+class TestWidth:
+    @pytest.mark.parametrize("d", [1, 2, 3, 4])
+    def test_textbook(self, d: int) -> None:
+        assert lattice_width(simplex(d)) == (1, (1,) + (0,) * (d - 1))
+        assert lattice_width(cube(d)) == (1, (1,) + (0,) * (d - 1))
+        assert lattice_width([(0,) * d, *cross_polytope(d)]) == (2, (1,) + (0,) * (d - 1))
+        assert lattice_width(signs(d), lattice="ambient")[0] == 2
+        assert lattice_width(signs(d))[0] == 1
+
+    def test_a_point_and_a_segment(self) -> None:
+        assert lattice_width([(3, 1)]) == (0, ())
+        assert lattice_width([(0,), (5,), (2,)]) == (5, (1,))
+
+    def test_a_direction_off_the_axes(self) -> None:
+        # A strip between y = x - 1 and y = x: width 5 and 4 along the axes, 1 along (1, -1).
+        points = [(0, 0), (4, 4), (1, 0), (5, 4), (1, 1)]
+        assert lattice_width(points) == (1, (1, -1))
+        assert brute_force_width(points) == 1
+
+    @pytest.mark.parametrize("seed", range(30))
+    def test_brute_force(self, seed: int) -> None:
+        rng = random.Random(5000 + seed)
+        d = 1 + seed % 3
+        points = random_polytope(rng, d, spread=3 if d < 3 else 2)
+        if seed % 4 == 0:
+            points = random_embedding(rng, points, 1)
+        for lattice in ("support", "ambient"):
+            found, direction = lattice_width(points, lattice=lattice)
+            chart = invariant_chart(points, lattice=lattice)
+            coordinates = list(chart.coordinates)
+            assert found == brute_force_width(coordinates), (points, lattice)
+            assert width(coordinates, direction) == found
+            assert next(x for x in direction if x) > 0
+
+
 # --- arguments --------------------------------------------------------------
 
 
@@ -290,7 +452,5 @@ class TestArguments:
             lattice_points(simplex(2), k)  # type: ignore[arg-type]
 
     def test_integral_floats_and_numpy_integers_are_accepted(self) -> None:
-        import numpy as np
-
         assert count_lattice_points(np.array(simplex(2)), np.int64(2)) == 6
         assert count_lattice_points(simplex(2), 2.0) == 6  # type: ignore[arg-type]

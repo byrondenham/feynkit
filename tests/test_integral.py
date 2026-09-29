@@ -10,6 +10,7 @@ be safe.
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Generator
 
 import pytest
@@ -28,6 +29,7 @@ from feynkit import (
 )
 from feynkit.algebra import compute_toric_ideal_generators
 from feynkit.kinematics import create_momentum_products
+from feynkit.lattice_invariants import lattice_invariants
 from feynkit.parametrisations.factory import _create_parametrisations
 from feynkit.polynomials.symanzik import _calculate_symanzik_polynomials
 from feynkit.systems.complete import _create_gkz_system
@@ -380,3 +382,33 @@ class TestIsScaleless:
             assert not (fi.is_scaleless and data.is_full_dimensional), cnickel
             scaleless += fi.is_scaleless
         assert 0 < scaleless < len(pool)
+
+
+# -- Lattice invariants ----------------------------------------------------------
+
+
+class TestLatticeInvariants:
+    def test_the_module_on_the_newton_points(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zznz")
+        points = [tuple(int(x) for x in p) for p in fi.newton_polytope.points]
+        for lattice in ("support", "ambient"):
+            expected = lattice_invariants(points, lattice=lattice, backend="python")
+            assert fi.lattice_invariants(lattice) == expected
+            assert fi.lattice_invariants(lattice, backend="python") == expected
+
+    def test_the_massless_triangle_is_a_cube_without_two_corners(self) -> None:
+        # U = u_1 + u_2 + u_3 and F has the three products u_i u_j: the points of {0, 1}^3
+        # other than 0 and (1, 1, 1).
+        corners = [p for p in itertools.product((0, 1), repeat=3) if 0 < sum(p) < 3]
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+        assert fi.lattice_invariants() == lattice_invariants(corners)
+
+    def test_a_massless_self_loop_lifts_the_polytope(self) -> None:
+        # G is u_0 times the G of the triangle, so P is the polytope of the triangle, lifted
+        # into one more dimension, with the same chart.
+        lifted = FeynmanIntegral.from_cnickel("012e|2e|e|:zzzz")
+        assert lifted.is_scaleless
+        assert (
+            lifted.lattice_invariants()
+            == FeynmanIntegral.from_cnickel("12e|2e|e|:zzz").lattice_invariants()
+        )

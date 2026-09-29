@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from .database import FeynkitDatabase
     from .kinematics.classes import ExternalAxis, InternalAxis, KinematicClass
     from .landau import LandauAnalysis
+    from .lattice_invariants import Lattice, LatticeInvariants
     from .point_count import TorusCount
 
 from . import _exact
@@ -441,6 +442,34 @@ class FeynmanIntegral:
         points = [tuple(int(x) for x in p) for p in self.newton_polytope.points]
         origin = (0,) * len(self.newton_polytope.parameters)
         return _exact.affine_rank([*points, origin]) > _exact.affine_rank(points)
+
+    def lattice_invariants(
+        self, lattice: Lattice = "support", *, backend: str = "auto"
+    ) -> LatticeInvariants:
+        """
+        Exact lattice invariants of the Newton polytope P of G.
+
+        The lattice points of P and of its interior, the Ehrhart polynomial,
+        the h*-vector, the Gorenstein index, the lattice width, the integer
+        decomposition property (IDP), and whether the monoid NA of the GKZ
+        configuration is normal; see
+        :func:`feynkit.lattice_invariants.lattice_invariants`. With lattice
+        "support", the default, P is measured in the lattice its points
+        generate, that of the normalised volume; with "ambient", in
+        aff(P) cap Z^N. backend is that of
+        :func:`feynkit.lattice_invariants.is_idp`: "auto" uses Normaliz when it
+        is installed.
+
+        NA is normal exactly when the monomials of G are all the lattice
+        points of P and P has IDP. Then C[NA] is Cohen-Macaulay (Hochster
+        1972), and when P is also full-dimensional the holonomic rank is the
+        normalised volume for every beta (Matusevich, Miller and Walther
+        2005). A monoid that is not normal can still be Cohen-Macaulay.
+        """
+        from .lattice_invariants import lattice_invariants
+
+        points = [tuple(int(x) for x in p) for p in self.newton_polytope.points]
+        return lattice_invariants(points, lattice=lattice, backend=backend)
 
     @cached_property
     def schwinger_gkz(self) -> CayleyGKZSystem:

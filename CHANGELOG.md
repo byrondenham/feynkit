@@ -168,6 +168,11 @@
   automorphisms of the triangle and is unimodularly equivalent to
   `12e|12e|e|:nnzn`, and two segments are unimodularly equivalent exactly when
   their lattice lengths agree.
+- `symmetry_pairs` returned no pairs, not even the identity, for a
+  configuration that is not full-dimensional. It now finds them in the
+  lattice chart of the points and extends each to Z^n as
+  `polytope_automorphisms` does: 6 for `012e|2e|e|:znnn`, as for the massive
+  triangle.
 
 ## 0.4.0 (2026-09-27)
 

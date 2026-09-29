@@ -43,6 +43,7 @@ import sympy as sp
 
 from . import _exact
 from .core.exceptions import ValidationError
+from .normal_forms._chart import chart_frame, lift_linear
 from .normal_forms._invariants import (
     hull_vertex_indices,
     labelled_polytope_graph,
@@ -414,8 +415,10 @@ class AConfiguration:
         without its prefactor (de la Cruz 2024).
 
         Every returned pair has det M = +/-1: P has finite order k, so
-        T^k A = A, and as A has full rank, M^k = I.  Maps with |det M| > 1
-        relate two different configurations; see :func:`finite_index_map`.
+        T^k A = A, and as A has full rank, M^k = I.  Below full dimension the
+        pairs are found in the lattice chart of the points and extended to
+        Z^n; see :func:`symmetry_pairs`.  Maps with |det M| > 1 relate two
+        different configurations; see :func:`finite_index_map`.
         """
         return symmetry_pairs(self)
 
@@ -586,6 +589,13 @@ def symmetry_pairs(
     |det M| > 1 relate two different configurations; see
     :func:`finite_index_map`.
 
+    Below full dimension, where A does not have full rank, the pairs are
+    those of the points in their lattice chart whose linear part maps the
+    integer points of the affine hull onto themselves, each extended to Z^n
+    as the automorphisms of :func:`compute_polytope_automorphisms` are: M
+    fixes a complement of the affine hull, and det M = +/-1. Another
+    extension differs only off the affine hull, where T beta changes with it.
+
     Each result is a :class:`SymmetryPair` encoding the linear map M,
     translation t, induced column permutation P, and determinant |det M|.
 
@@ -606,8 +616,7 @@ def symmetry_pairs(
     -------
     list[SymmetryPair]
         All valid self-maps, including the identity.  Empty only if the
-        configuration has no points or is lower-dimensional than its ambient
-        space (degenerate case).
+        configuration has no points.
 
     Algorithm
     ---------
@@ -645,9 +654,7 @@ def symmetry_pairs(
         ]
 
     if aff_dim != n_dim:
-        # Lower-dimensional configuration: M is under-determined in the ambient
-        # space.  This case is not supported (same limitation as finite_index_map).
-        return []
+        return _chart_symmetry_pairs(pts)
 
     # All self-maps of a non-degenerate configuration are unimodular:
     # |det M| = Vol(M*conv(A)) / Vol(conv(A)) = Vol(conv(A)) / Vol(conv(A)) = 1.
@@ -774,6 +781,29 @@ def symmetry_pairs(
                     )
                 )
 
+    return results
+
+
+def _chart_symmetry_pairs(pts: np.ndarray) -> list[SymmetryPair]:
+    """The symmetry pairs of points that are not full-dimensional, from their lattice chart."""
+    frame = chart_frame(pts)
+    origin = sp.Matrix(pts[0].tolist())
+    results: list[SymmetryPair] = []
+    for pair in symmetry_pairs(frame.coordinates):
+        M = lift_linear(frame, frame, pair.linear_map)
+        if M is None:
+            continue
+        t = sp.Matrix(pts[pair.column_permutation[0]].tolist()) - M * origin
+        det = int(abs(M.det()))
+        results.append(
+            SymmetryPair(
+                linear_map=M,
+                translation=sp.ImmutableMatrix(t),
+                column_permutation=pair.column_permutation,
+                determinant=det,
+                is_unimodular=(det == 1),
+            )
+        )
     return results
 
 

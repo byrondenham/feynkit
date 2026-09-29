@@ -787,6 +787,15 @@ order $k$, so $T^k A = A$, and as $A$ has full rank, $M^k = I$.
 Configurations with non-trivial Smith invariants (e.g.\ BMS simplex with $d_n = 2$) can admit
 non-unimodular **finite-index** maps between two *different* configurations (see section 9.4).
 
+Below full dimension $A$ does not have full row rank, and the points do not determine an affine
+self-map off their affine hull. feynkit finds the pairs in the lattice chart of the points, keeps
+those that map the integer points of the affine hull onto themselves, and extends each to
+$\mathbb{Z}^n$ as in section 7.3, with $|\det M| = 1$. Each still gives
+$I_A(\beta, z_P) = I_A(T\beta, z)$, but only trivially: the integral converges absolutely for no
+$D$ and $\nu$ (section 5.3), $T\beta$ depends on the extension when $\beta$ lies off the column
+span of $A$, and for such $\beta$, which include the physical one for generic $D$ and $\nu$, the
+GKZ system has no non-zero solutions.
+
 ### 8.4 Connection to Classical Hypergeometric Identities
 
 The symmetry pairs of the one-mass bubble ($N=4$ monomials, $n=2$ variables) are exactly the 8

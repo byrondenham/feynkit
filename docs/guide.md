@@ -1202,7 +1202,10 @@ Each has $|\det M| = 1$: $P$ has finite order $k$, so $M^k = I$. Maps with $|\de
 different configurations (`finite_index_map`). Each pair gives the identity
 $I_A(\beta, z_P) = I_A(T\beta, z)$ for the integral without Gamma prefactors, with
 $z_P = (z_{P(1)}, \ldots, z_{P(N)})$; section 8 of the mathematics reference states it with its
-conventions. Each `SymmetryPair` records:
+conventions. Below full dimension the pairs are found in the lattice chart of the points, and each
+is one extension of a map of the affine hull to $\mathbb{Z}^N$; their identities then hold only
+trivially, since for generic $D$ and $\nu$ the GKZ system has no non-zero solutions. Each
+`SymmetryPair` records:
 
 | Field | Type | Description |
 |-------|------|-------------|

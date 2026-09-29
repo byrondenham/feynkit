@@ -44,6 +44,7 @@ from feynkit.artifacts.dissertation import (
     triple_k_a_config,
 )
 from feynkit.core.exceptions import ValidationError
+from feynkit.normal_forms.polytope_automorphisms import compute_polytope_automorphisms
 from feynkit.polytope import lattice_chart, normalized_volume
 
 # ------------------------------------------------------------------------------
@@ -713,6 +714,54 @@ class TestSymmetryPairs:
     def test_banana3_has_identity(self, banana3):
         pairs = symmetry_pairs(banana3)
         assert any(p.is_unimodular and p.linear_map == sp.eye(3) for p in pairs)
+
+
+class TestSymmetryPairsBelowFullDimension:
+    """Below full dimension the pairs come from the lattice chart of the points."""
+
+    @pytest.mark.parametrize(
+        ("cnickel", "zero", "count"),
+        [
+            ("011e|e|:znn", (), 2),
+            ("012e|2e|e|:zzzz", (), 48),
+            ("012e|2e|e|:znnn", (), 6),
+            ("012e|2e|e|:znzz", (), 6),
+            ("111e|e|:zzz", ("s",), 6),
+            ("12e|2e|e|:zzz", ("p1^2", "p2^2", "p3^2"), 6),
+            ("11e|e|:zz", ("s",), 2),
+            ("01e|e|:zn", (), 2),
+            ("0|:n", (), 2),
+            ("0|:z", (), 1),
+        ],
+    )
+    def test_counts_and_maps(self, cnickel: str, zero: tuple[str, ...], count: int) -> None:
+        legs = cnickel.split(":")[0].count("e")
+        fi = FeynmanIntegral.from_cnickel(cnickel, use_mandelstam=legs >= 2)
+        symbols = {s for v in fi.momentum_products.values() for s in sp.sympify(v).free_symbols}
+        values = {s: 0 for s in symbols if s.name in zero}
+        fi = fi.with_(
+            momentum_products={
+                k: sp.expand(sp.sympify(v).subs(values)) for k, v in fi.momentum_products.items()
+            }
+        )
+        cfg = AConfiguration(fi.gkz.a_matrix)
+        pairs = symmetry_pairs(cfg)
+        assert len(pairs) == count == len(fi.symmetry_pairs) == fi.polytope_automorphisms.order
+        A = cfg.matrix
+        for pair in pairs:
+            assert pair.determinant == 1 and pair.is_unimodular
+            Pi = sp.zeros(cfg.n_points, cfg.n_points)
+            for j, k in enumerate(pair.column_permutation):
+                Pi[k, j] = 1
+            assert A * Pi == pair.homogenized_map * A
+
+    def test_configuration_and_polytope_groups_differ(self) -> None:
+        # The square [0, 2]^2 with the extra point (1, 0): 8 automorphisms of the square,
+        # 2 of which fix the extra point; the same on the plane z = x + y in Z^3.
+        square = [(0, 0), (2, 0), (0, 2), (2, 2), (1, 0)]
+        for points in (square, [(x, y, x + y) for x, y in square]):
+            assert compute_polytope_automorphisms(points).order == 8
+            assert len(symmetry_pairs(points)) == 2
 
 
 # ------------------------------------------------------------------------------

@@ -93,6 +93,12 @@
   shrink, the primes `count_torus_points` excludes, and so those it fits and
   verifies at, can change: `11e|2|e|:nnz` no longer excludes 23. On the graphs
   tried, the candidate did not change.
+- `Conventions` of `feynkit.io.report` gains `kinematic_axes` and
+  `kinematic_class`, without defaults, so code that builds it by hand must pass
+  them. `AnalysisReport.summary()` gains the row `Kinematic class` after
+  `External legs`, which moves every later row down by one, and the JSON
+  summary of `fk analyse --json` gains the key `kinematic_class`.
+  `FeynkitDatabase.summary()` gains a column `classes` before `label`.
 
 ### Added
 
@@ -140,6 +146,39 @@
   cycle, q_b being the momentum through bridge b. The report's `Landau` gains
   the field `bridge_poles`, last and empty by default, and its Landau section
   lists them after the closed form's first-type and second-type factors.
+- Kinematic classes. `FeynmanIntegral.kinematic_axes` gives the internal axis
+  (`zero`, `equal`, `generic` or `other`, from the masses m_e) and the external
+  axis (`off_shell`, `on_shell`, `equal` or `other`, from the momentum products
+  and any kinematic constraints), and `kinematic_class` the class they name:
+  `generic`, `massless_off_shell`, `massless_on_shell`, `equal_masses` or
+  `other`. The four named classes are the kinematics of the entries
+  `generic_generic`, `zero_generic`, `zero_zero` and `equal_generic` of the
+  principal Landau determinant database of Fevola, Mizera and Telen. Both are
+  derived from the integral as it stands and never raise.
+  `with_kinematics(name)` and the `kinematics` keyword of `from_cnickel` and
+  `from_nickel` impose a class by substitution: `massless_on_shell` sets every
+  p_i^2 to 0, and `equal_masses` gives every propagator the mass m_a of the
+  code `a`. `feynkit.kinematics` has the functions `kinematic_axes`,
+  `kinematic_class` and `impose_kinematics` and the constants
+  `KINEMATIC_CLASSES`, `IMPOSABLE_CLASSES` and `CLASS_OF_AXES`; `feynkit`
+  exports the three functions and `KINEMATIC_CLASSES`.
+- The database records, for each polytope, the CNickel string and kinematic
+  axes of every graph stored with it, in a new table `kinematic_classes`, so
+  that kinematics sharing a Newton polytope, such as the generic and the
+  equal-mass massive box, are both recorded. `IntegralRecord.kinematics` holds
+  them as `feynkit.database.StoredKinematics`, `all_integrals` takes
+  `kinematic_class`, `internal_axis` and `external_axis`, and `summary()` gains
+  a column `classes`. A file is given the table when first opened for writing;
+  its stored polytopes have no class until stored again. Releases up to 0.4.0
+  still read and write such a file, and record no class.
+- The analysis report names the kinematic class in its conventions and in its
+  summary (`Kinematic class`, and `kinematic_class` in the JSON of
+  `fk analyse --json`). `Conventions` gains `kinematic_axes` and
+  `kinematic_class`.
+- `fk analyse --kinematics CLASS` imposes `generic`, `massless_off_shell`,
+  `massless_on_shell` or `equal_masses` before the analysis; a class the
+  integral cannot take exits with status 1. The header prints the kinematic
+  class.
 
 ### Changed
 

@@ -646,6 +646,8 @@ fi.propagator_exponents # {edge_idx: nu_i}
 fi.momentum_products    # {(i,j): p_i*p_j}
 fi.nickel_index         # canonical Nickel topology string
 fi.cnickel              # canonical CNickel string (topology:mass_colors)
+fi.kinematic_axes       # (internal, external), e.g. ('zero', 'on_shell')
+fi.kinematic_class      # e.g. 'massless_on_shell'; see Kinematic classes below
 ```
 
 Computed lazy properties (expensive on first access, then cached):
@@ -677,6 +679,58 @@ AnalysisReport.from_integral(fi)           # every fact the analysis report stat
 fi.to_latex()                              # the report as a LaTeX document
 fi.to_text()                               # the report as plain text
 ```
+
+### Kinematic classes
+
+`fi.kinematic_class` names the kinematics of an integral. It is read from two axes, which
+`fi.kinematic_axes` returns. The internal axis describes the masses $m_e$ of the propagators:
+`zero` when every one is 0, `equal` when all are the same symbol, `generic` when the nonzero ones
+are distinct symbols, and `other` otherwise, as for a number, an expression or a mass that some
+propagators share but not all. The external axis describes the momentum products: `off_shell`
+when no relation among the invariants is imposed, `on_shell` when every $p_i^2 = 0$ and nothing
+else is, `equal` when every $p_i^2$ is the same nonzero expression and nothing else is, and
+`other` otherwise, as with kinematic constraints, a vanishing $s_{12}$ or products that are not
+linear in their symbols with rational coefficients. With fewer than two legs the external axis is
+`off_shell`.
+
+| Internal axis | External axis | Class |
+|---------------|---------------|-------|
+| `generic` | `off_shell` | `generic` |
+| `zero` | `off_shell` | `massless_off_shell` |
+| `zero` | `on_shell` | `massless_on_shell` |
+| `equal` | `off_shell` | `equal_masses` |
+
+Every other pair is `other`, massive propagators with on-shell legs for instance. The four classes
+are the kinematics of the entries `generic_generic`, `zero_generic`, `zero_zero` and
+`equal_generic` of the principal Landau determinant database of Fevola, Mizera and Telen, and the
+axes take its names, external `on_shell` and `off_shell` standing for its `zero` and `generic`.
+
+The class is derived from the integral as it stands, so it follows every change made with
+`with_`. `with_kinematics`, and the `kinematics` keyword of `from_cnickel` and `from_nickel`,
+impose a class by substitution:
+
+```python
+box = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+box.kinematic_class                      # 'massless_off_shell'
+on_shell = box.with_kinematics("massless_on_shell")
+on_shell.kinematic_axes                  # ('zero', 'on_shell')
+len(on_shell.newton_polytope.points)     # 6, against 10 off shell
+
+equal = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn", kinematics="equal_masses")
+equal.cnickel                            # '12e|2e|e|:aaa'
+```
+
+- `massless_on_shell` sets each $p_i^2$ to 0 in every momentum product. It needs massless
+  propagators, two or more legs, and $p_i^2$ that are symbols, as with `use_mandelstam=True`.
+- `equal_masses` gives every propagator the mass $m_a$ of the shared code `a` (see
+  [Format](#format)), so `:nnn` and `:aab` both become `:aaa`. It needs massive propagators.
+- `generic` and `massless_off_shell` make no substitution.
+
+A class never changes which propagators are massless. An integral that already has the class is
+returned as it is. A class the integral cannot take, `other` and unknown names raise
+`ValidationError`, and so does a result without the class, as when the integral has kinematic
+constraints. The functions `kinematic_axes`, `kinematic_class` and `impose_kinematics` of
+`feynkit.kinematics` do the same for any integral.
 
 ---
 
@@ -1886,6 +1940,7 @@ else:
 | `coeff_pres_order` | `int \| None` | Coefficient-preserving subgroup order |
 | `vertex_orbits` | `list[list[int]] \| None` | Vertex orbits under Aut(P) |
 | `stored_at` | `str` | ISO timestamp |
+| `kinematics` | `tuple[StoredKinematics, ...]` | The graphs stored for the polytope, with their kinematic axes and class, oldest first |
 
 Note: `n_toric_gens is None` means the toric ideal has not yet been computed for this record (it
 may have been inserted by an earlier partial run). `n_toric_gens == 0` is a valid result (trivial
@@ -1899,6 +1954,31 @@ points; it gets the matrix of its points, and `n_toric_gens` is `None` until the
 next computed. They also took the vertices of each Newton polytope from a floating convex hull, so
 the repair deletes every cached equivalence verdict, to be recomputed by the next search, and sets
 the automorphism fields to `None` until the next `store(..., compute_automorphisms=True)`.
+The same first open gives such a file the table of kinematic classes below.
+
+### Kinematic classes in the database
+
+A record is a Newton polytope, and kinematics that leave the polytope unchanged share it: the
+massive box with equal masses, or with on-shell legs, has the polytope of the generic massive
+box. `store()` therefore also records the graph's CNickel string and kinematic axes for the
+polytope, once each, and `rec.kinematics` lists them as `StoredKinematics(cnickel,
+internal_axis, external_axis, kinematic_class)`, oldest first. `all_integrals` filters on them,
+keeping the polytopes with a record that matches every filter given:
+
+```python
+with FeynkitDatabase("analysis.db") as db:
+    massive = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:nnnn")
+    db.store(massive)
+    rec = db.store(massive.with_kinematics("equal_masses"))
+    [k.kinematic_class for k in rec.kinematics]      # ['generic', 'equal_masses']
+    db.all_integrals(kinematic_class="equal_masses")
+    db.all_integrals(internal_axis="generic", external_axis="on_shell")   # in no class
+```
+
+`db.summary()` lists the classes of each polytope, or `?` when none is recorded. Polytopes stored
+by earlier versions, or by releases up to 0.4.0 writing to the file later, have none, since a
+record does not keep the momentum products the axes are read from; storing the integral again
+adds its class.
 
 ### Finding equivalent integrals
 

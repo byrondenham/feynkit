@@ -715,6 +715,26 @@ class TestSymmetryPairs:
         pairs = symmetry_pairs(banana3)
         assert any(p.is_unimodular and p.linear_map == sp.eye(3) for p in pairs)
 
+    @pytest.mark.parametrize("shear", [5 * 10**7, 8 * 10**7])
+    def test_nearly_dependent_differences(self, shear: int) -> None:
+        # A triangle with a point on one edge, sheared by (x, y) -> (x + shear y, y). The
+        # differences (1, 0) and (shear, 1) are a basis of Z^2 but have floating rank 1.
+        # From 6 * 10^7 all the differences do too, and the floating rank sent the points
+        # to their lattice chart, which is the points themselves, without end; below that
+        # no basis was found and there were no pairs.
+        small = [(0, 0), (1, 0), (2, 0), (0, 1)]
+        sheared = [(x + shear * y, y) for x, y in small]
+        assert np.linalg.matrix_rank(np.array([(1, 0), (shear, 1)], dtype=float)) == 1
+        expected = {pair.column_permutation: pair for pair in symmetry_pairs(small)}
+        pairs = symmetry_pairs(sheared)
+        assert sorted(pair.column_permutation for pair in pairs) == sorted(expected)
+        assert len(pairs) == 2
+        S = sp.Matrix([[1, shear], [0, 1]])
+        for pair in pairs:
+            old = expected[pair.column_permutation]
+            assert pair.linear_map == S * old.linear_map * S.inv()
+            assert pair.translation == S * old.translation
+
 
 class TestSymmetryPairsBelowFullDimension:
     """Below full dimension the pairs come from the lattice chart of the points."""

@@ -640,7 +640,7 @@ def symmetry_pairs(
         return []
 
     deltas = (pts - pts[0]).astype(np.int64)
-    aff_dim = int(np.linalg.matrix_rank(deltas[1:].astype(float))) if N > 1 else 0
+    aff_dim = _exact.rank(deltas[1:].tolist()) if N > 1 else 0
 
     if aff_dim == 0:
         return [
@@ -909,12 +909,12 @@ def _basis_indices(deltas: np.ndarray, aff_dim: int) -> list[int] | None:
     whose rows are linearly independent.
     """
     chosen: list[int] = []
-    chosen_rows: list[np.ndarray] = []
+    chosen_rows: list[list[int]] = []
     for i in range(1, deltas.shape[0]):
-        candidate = np.array(chosen_rows + [deltas[i].astype(float)])
-        if np.linalg.matrix_rank(candidate) == len(chosen) + 1:
+        row = [int(x) for x in deltas[i]]
+        if _exact.rank([*chosen_rows, row]) == len(chosen) + 1:
             chosen.append(i)
-            chosen_rows.append(deltas[i].astype(float))
+            chosen_rows.append(row)
             if len(chosen) == aff_dim:
                 return chosen
     return None

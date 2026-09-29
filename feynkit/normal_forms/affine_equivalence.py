@@ -16,15 +16,17 @@ witness map (when known), and a vertex correspondence (when known).
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from itertools import combinations, permutations
 from typing import Any
 
 import numpy as np
 import sympy as sp
 
+from ..polytope import PolytopeData, polytope_data
 from ..types import PolytopeEquivalence
 from . import _invariants
+from ._chart import ChartFrame, chart_frame, lift_linear
 
 # ------------------------------------------------------------------------------
 # Public API: Liu-Cai unimodular equivalence
@@ -60,15 +62,22 @@ def is_unimodular_equivalent(
     -----
     The algorithm:
 
-    1. Restrict each point set to its convex-hull vertices.
-    2. Build the labelled vertex/edge graph $\\mathcal{GW}(P)$ with
-       node label ``lab(v) = det(A_v)`` (Liu-Cai, Definition 5.2) and edge
-       weight ``lab(u) + lab(v)``.
-    3. Compute one MST of $\\mathcal{GW}(P)$ and all MSTs of
-       $\\mathcal{GW}(P')$.
-    4. For each label-preserving tree isomorphism ``phi`` and each
-       ``chi in Aut_lab(T)``, build the candidate vertex map ``phi composed with chi`` and try
-       to solve for ``U in GL_n(Z)`` and the integer translation ``Z``.
+    1. Restrict each point set to its vertices, from the certified face
+       lattice of :func:`feynkit.polytope.polytope_data`.
+    2. Build the labelled vertex/edge graph $\\mathcal{GW}(P)$ on the exact
+       1-skeleton, with node label ``lab(v) = det(A_v)`` (Liu-Cai,
+       Definition 5.2) and edge weight ``lab(u) + lab(v)``.
+    3. Fix an affine basis of the first polytope and, for each anchor and
+       label-preserving choice of basis images in the second, solve for
+       ``U`` and verify it on every vertex.
+
+    Below full dimension both polytopes must have the same dimension d, and
+    the search runs in the lattice charts of their vertex sets, where they are
+    full-dimensional in Z^d. A chart map is accepted only when it maps the
+    integer points of one affine hull onto those of the other, and the witness
+    is its lift to GL_n(Z), which acts as the identity on a complement of the
+    affine hull; see feynkit.normal_forms._chart. Two points are always
+    equivalent, and two segments exactly when their lattice lengths agree.
 
     See Also
     --------
@@ -80,8 +89,8 @@ def is_unimodular_equivalent(
     if pts_a.shape[1] != pts_b.shape[1]:
         return PolytopeEquivalence(False, "unimodular")
 
-    idx_a = _invariants.hull_vertex_indices(pts_a)
-    idx_b = _invariants.hull_vertex_indices(pts_b)
+    data_a, idx_a = _vertices(pts_a)
+    data_b, idx_b = _vertices(pts_b)
     V_a = pts_a[idx_a]
     V_b = pts_b[idx_b]
 
@@ -92,7 +101,7 @@ def is_unimodular_equivalent(
     n_vert = V_a.shape[0]
 
     # Trivial cases.
-    if n_vert == 0:
+    if data_a is None or data_b is None:
         return PolytopeEquivalence(True, "unimodular", witness_map=sp.eye(n_dim))
     if n_vert == 1:
         # Single point: any unimodular map works; pick the identity translation.
@@ -103,10 +112,27 @@ def is_unimodular_equivalent(
             witness_map=U,
             vertex_correspondence=[0],
         )
+    if data_a.dimension != data_b.dimension:
+        return PolytopeEquivalence(False, "unimodular")
+
+    frames: tuple[ChartFrame, ChartFrame] | None = None
+    accept: Callable[[sp.Matrix], bool] | None = None
+    coords_a, coords_b = V_a, V_b
+    if not data_a.is_full_dimensional:
+        frame_a, frame_b = chart_frame(V_a), chart_frame(V_b)
+        if frame_a.index != frame_b.index:
+            return PolytopeEquivalence(False, "unimodular")
+        frames = (frame_a, frame_b)
+        coords_a, coords_b = frame_a.coordinates, frame_b.coordinates
+
+        def lifts(U: sp.Matrix) -> bool:
+            return lift_linear(frame_a, frame_b, U) is not None
+
+        accept = lifts
 
     # Build labelled graphs.
-    GW_a = _invariants.labelled_polytope_graph(V_a)
-    GW_b = _invariants.labelled_polytope_graph(V_b)
+    GW_a = _invariants.label_skeleton(coords_a, _invariants.polytope_skeleton(data_a))
+    GW_b = _invariants.label_skeleton(coords_b, _invariants.polytope_skeleton(data_b))
 
     # Quick filter: vertex-label multisets must match.
     labels_a = sorted(GW_a.nodes[i]["label"] for i in GW_a.nodes())
@@ -118,10 +144,10 @@ def is_unimodular_equivalent(
     if GW_a.number_of_edges() != GW_b.number_of_edges():
         return PolytopeEquivalence(False, "unimodular")
 
-    # Select a basis in V_a.
-    v_0 = V_a[0]
-    deltas_a = (V_a - v_0).astype(np.int64)
-    basis_indices = _select_basis_indices(deltas_a, n_dim)
+    # Select a basis in the vertices of the first polytope.
+    v_0 = coords_a[0]
+    deltas_a = (coords_a - v_0).astype(np.int64)
+    basis_indices = _select_basis_indices(deltas_a, coords_a.shape[1])
     if basis_indices is None:
         return PolytopeEquivalence(False, "unimodular")
 
@@ -130,9 +156,9 @@ def is_unimodular_equivalent(
         return PolytopeEquivalence(False, "unimodular")
     W_a_inv = W_a.inv()
 
-    return _direct_basis_search(
-        V_a,
-        V_b,
+    result = _direct_basis_search(
+        coords_a,
+        coords_b,
         GW_a,
         GW_b,
         deltas_a,
@@ -141,7 +167,24 @@ def is_unimodular_equivalent(
         W_a_inv,
         idx_a,
         idx_b,
+        accept=accept,
     )
+    if frames is None or not result.equivalent:
+        return result
+    return PolytopeEquivalence(
+        equivalent=True,
+        relation="unimodular",
+        witness_map=lift_linear(*frames, result.witness_map),
+        vertex_correspondence=result.vertex_correspondence,
+    )
+
+
+def _vertices(pts: np.ndarray) -> tuple[PolytopeData | None, np.ndarray]:
+    """The polytope data of the points, None when there are none, and the indices of the vertices."""
+    if pts.shape[0] == 0:
+        return None, np.arange(0)
+    data = polytope_data(pts)
+    return data, np.array(data.vertex_indices, dtype=np.int64)
 
 
 def _select_basis_indices(deltas: np.ndarray, n_dim: int) -> list[int] | None:
@@ -224,6 +267,8 @@ def _direct_basis_search(
     W_a_inv: sp.Matrix,
     idx_a: np.ndarray,
     idx_b: np.ndarray,
+    *,
+    accept: Callable[[sp.Matrix], bool] | None = None,
 ) -> PolytopeEquivalence:
     """
     Enumerate candidate (anchor, ordered-basis) pairs in V_b and solve for U.
@@ -243,7 +288,8 @@ def _direct_basis_search(
          orderings rather than n_dim!.
 
     Candidates passing all three filters are verified with numpy integer
-    arithmetic; only survivors reach the exact SymPy step.
+    arithmetic; only survivors reach the exact SymPy step. A verified U that
+    ``accept``, when given, rejects is skipped and the search goes on.
     """
     n_vert = V_a.shape[0]
     n_dim = V_a.shape[1]
@@ -321,6 +367,8 @@ def _direct_basis_search(
                     continue
 
                 if not _verify_unimodular_witness(U, Z, V_a, V_b, vertex_map):
+                    continue
+                if accept is not None and not accept(U):
                     continue
 
                 corr = [vertex_map[i] for i in range(n_vert)]
@@ -401,7 +449,7 @@ def is_affinely_equivalent(
 
     pts_a = _coerce_sympy_points(V_a.tolist())
     pts_b = _coerce_sympy_points(V_b.tolist())
-    witness = _find_affine_witness(pts_a, pts_b)
+    witness = _affine_witness(pts_a, pts_b)
     if witness is None:
         return PolytopeEquivalence(equivalent=False, relation="affine_polytope")
     M, t, det = witness
@@ -441,7 +489,7 @@ def is_point_config_equivalent(
     """
     pts_a = _coerce_sympy_points(points_a)
     pts_b = _coerce_sympy_points(points_b)
-    witness = _find_affine_witness(pts_a, pts_b)
+    witness = _affine_witness(pts_a, pts_b)
     if witness is None:
         return PolytopeEquivalence(equivalent=False, relation="affine_point_config")
     M, t, det = witness
@@ -526,6 +574,42 @@ def _same_point_multiset(points_a: sp.Matrix, points_b: sp.Matrix) -> bool:
     keys_a = sorted(_point_key(row) for row in points_a.tolist())
     keys_b = sorted(_point_key(row) for row in points_b.tolist())
     return keys_a == keys_b
+
+
+def _affine_witness(
+    points_a: sp.Matrix,
+    points_b: sp.Matrix,
+) -> tuple[sp.Matrix, sp.Matrix, sp.Expr] | None:
+    """
+    _find_affine_witness, run in the lattice charts below full dimension.
+
+    Below full dimension the points do not determine the linear part of an
+    affine map between them, and _find_affine_witness sets its free
+    parameters to 0, which can leave it singular. In the charts, where both
+    configurations are full-dimensional, the map is unique for each
+    correspondence of affine bases, and its lift is invertible. Its
+    determinant then depends on the complement the lift fixes. The points
+    must be integers below full dimension.
+    """
+    if points_a.shape != points_b.shape:
+        return None
+    rank = _affine_rank(points_a)
+    if rank in (0, points_a.cols) or rank != _affine_rank(points_b):
+        return _find_affine_witness(points_a, points_b)
+    frame_a = chart_frame(points_a.tolist())
+    frame_b = chart_frame(points_b.tolist())
+    found = _find_affine_witness(
+        sp.Matrix(frame_a.chart.coordinates), sp.Matrix(frame_b.chart.coordinates)
+    )
+    if found is None:
+        return None
+    m, s, _ = found
+    M = lift_linear(frame_a, frame_b, m, integral=False)
+    if M is None:  # pragma: no cover - lift_linear returns None only when integral
+        return None
+    image = frame_b.chart.to_ambient(list(m * sp.Matrix(frame_a.chart.coordinates[0]) + s))
+    t = sp.Matrix(image) - M * points_a.row(0).T
+    return M, t, M.det()
 
 
 def _find_affine_witness(

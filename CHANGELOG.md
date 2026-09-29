@@ -90,6 +90,13 @@
   9-gon takes about a millisecond instead of about 6 s. The Notes of
   `Graph.nickel_index` give the slow cases, such as the complete graph with 10
   vertices, which takes minutes.
+- Below full dimension `polytope_automorphisms` is the group of the Newton
+  polytope as a lattice polytope in its affine hull: the affine maps of the
+  affine hull that preserve its integer points and the polytope. `maps` holds
+  one extension of each to Z^n, which fixes a complement of the affine hull, and
+  `order` counts them; the unimodular maps of Z^n that take the polytope to
+  itself form an infinite group there. The witnesses of the equivalence tests
+  are such extensions. In full dimension nothing changes.
 
 ### Fixed
 
@@ -151,6 +158,16 @@
   `ValueError`. The exact labels separate the vertices of some polytopes less
   well than the floating ones did: `symmetry_pairs` on the columns of A of
   `112|3|4e|5e|5e|e|:nnnnzzz` takes about 35 s, where it took under a second.
+- Below full dimension `polytope_automorphisms` found only the identity,
+  `is_unimodular_equivalent` found a Newton polytope not equivalent even to
+  itself, and `is_affinely_equivalent` and `is_point_config_equivalent`
+  returned witnesses of arbitrary determinant, singular for three points
+  compared with themselves. They now work in the lattice chart of the vertices,
+  or of all the points, where the polytope is full-dimensional:
+  `012e|2e|e|:znnn`, the massive triangle with a massless self-loop, gets the 6
+  automorphisms of the triangle and is unimodularly equivalent to
+  `12e|12e|e|:nnzn`, and two segments are unimodularly equivalent exactly when
+  their lattice lengths agree.
 
 ## 0.4.0 (2026-09-27)
 

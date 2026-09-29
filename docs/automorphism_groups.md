@@ -84,7 +84,11 @@ $$
 $$
 
 The collection of all such pairs under composition forms the unimodular
-automorphism group $\mathrm{Aut}(P)$.
+automorphism group $\mathrm{Aut}(P)$. When $P$ is not full-dimensional, as for
+a graph with a massless self-loop, the pairs that fix the affine hull of $P$
+pointwise already form an infinite group, and $\mathrm{Aut}(P)$ is taken to be
+the group of $P$ as a lattice polytope in its affine hull (section 7.1 of the
+mathematics reference); feynkit returns one pair $(U, t)$ for each element.
 
 The unimodularity condition $|\det U| = 1$ ties the map to the lattice. An
 affine map over $\mathbb{Q}$ that sends $P$ to itself need not map

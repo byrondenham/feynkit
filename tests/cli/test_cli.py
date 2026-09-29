@@ -247,7 +247,8 @@ class TestPairwise:
         self, capsys: pytest.CaptureFixture[str], tmp_path: Path
     ) -> None:
         out = _run(capsys, tmp_path, "01e|e|:zn", "00|:nz")
-        assert "point_config           YES  (det = -1)" in out
+        # The witness extends the map between the lattice charts of the two segments.
+        assert "point_config           YES  (det = 1)" in out
         assert (
             "finite_index           n/a  (the Newton polytope of A is not full-dimensional)" in out
         )

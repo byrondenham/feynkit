@@ -108,22 +108,31 @@ class ToricIdeal:
 @dataclass(frozen=True)
 class PolytopeAutomorphisms:
     """
-    Unimodular automorphism group of a convex lattice polytope.
+    Automorphism group of a convex lattice polytope.
 
-    Aut(P) = { (U, t) : U in GL_n(Z), |det U| = 1, t in Z ^n, {Up + t : p in P} = P }.
+    Aut(P) is the group of P as a lattice polytope in the affine lattice
+    aff(P) cap Z^n: the affine bijections of the affine hull of P that map its
+    integer points onto themselves and P onto itself. When P is
+    full-dimensional it is { (U, t) : U in GL_n(Z), |det U| = 1, t in Z^n,
+    {Up + t : p in P} = P }.
 
     Attributes
     ----------
     maps
         All automorphisms as ``(U, t)`` pairs where ``U`` is an
         ``ImmutableMatrix`` in ``GL_n(Z)`` and ``t`` is an integer column
-        vector (also an ``ImmutableMatrix``).
+        vector (also an ``ImmutableMatrix``). Below full dimension each pair
+        extends one element of Aut(P) to Z^n and acts as the identity on a
+        complement of the affine hull; other extensions differ from it only
+        off the affine hull.
     order
-        ``|Aut(P)|``, equal to ``len(maps)``.
+        ``|Aut(P)|``, equal to ``len(maps)``, the number of vertex
+        permutations.
     vertex_permutations
-        For each automorphism, the induced permutation on the (hull) vertex
-        list as a list of ints: ``vertex_permutations[k][i] = j`` means the
-        k-th automorphism sends vertex i to vertex j.
+        For each automorphism, the induced permutation of the vertices, in the
+        order of ``polytope_data(points).vertices``, as a list of ints:
+        ``vertex_permutations[k][i] = j`` means the k-th automorphism sends
+        vertex i to vertex j.
     vertex_orbits
         Partition of vertex indices into orbits under the full group action.
     """

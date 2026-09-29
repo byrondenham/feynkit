@@ -305,3 +305,139 @@ class TestExactVertices:
         assert auts.order == 2
         assert sorted(auts.vertex_permutations) == [[0, 1], [1, 0]]
         assert len(symmetry_pairs([(1,), (2,)])) == 2
+
+
+# -- Below full dimension ------------------------------------------------------
+
+
+def _at_zero(cnickel: str, names: tuple[str, ...] = ()) -> FeynmanIntegral:
+    """The integral of the string with the named invariants set to 0."""
+    graph_legs = cnickel.split(":")[0].count("e")
+    fi = FeynmanIntegral.from_cnickel(cnickel, use_mandelstam=graph_legs >= 2)
+    symbols = {s for v in fi.momentum_products.values() for s in sp.sympify(v).free_symbols}
+    zero = {s: 0 for s in symbols if s.name in names}
+    assert len(zero) == len(names)
+    products = {k: sp.expand(sp.sympify(v).subs(zero)) for k, v in fi.momentum_products.items()}
+    return fi.with_(momentum_products=products)
+
+
+BOX_ZERO = ("p1^2", "p2^2", "p3^2", "p4^2", "s12", "s23")
+
+
+class TestBelowFullDimension:
+    """The group of P in the affine lattice aff(P) cap Z^n, with one lift per element."""
+
+    @pytest.mark.parametrize(
+        ("cnickel", "zero", "dimension", "ambient", "order"),
+        [
+            ("011e|e|:znn", (), 2, 3, 2),
+            ("012e|2e|e|:zzzz", (), 3, 4, 48),
+            ("012e|2e|e|:znnn", (), 3, 4, 6),
+            ("012e|2e|e|:znzz", (), 3, 4, 6),
+            ("111e|e|:zzz", ("s",), 2, 3, 6),
+            ("12e|2e|e|:zzz", ("p1^2", "p2^2", "p3^2"), 2, 3, 6),
+            ("12e|3e|3e|e|:zzzz", BOX_ZERO, 3, 4, 24),
+            ("11e|e|:zz", ("s",), 1, 2, 2),
+            ("01e|e|:zn", (), 1, 2, 2),
+            ("0|:n", (), 1, 1, 2),
+            ("0|:z", (), 0, 1, 1),
+        ],
+    )
+    def test_orders_and_lifts(
+        self, cnickel: str, zero: tuple[str, ...], dimension: int, ambient: int, order: int
+    ) -> None:
+        fi = _at_zero(cnickel, zero)
+        points = [tuple(int(x) for x in p) for p in fi.newton_polytope.points]
+        data = polytope_data(points)
+        assert (data.dimension, data.ambient_dimension) == (dimension, ambient)
+        auts = fi.polytope_automorphisms
+        assert auts.order == order == len(auts.maps) == len(auts.vertex_permutations)
+        for (U, t), perm in zip(auts.maps, auts.vertex_permutations, strict=True):
+            assert abs(U.det()) == 1
+            assert all(x.is_Integer for x in [*U, *t])
+
+            def image(p: tuple[int, ...], U: sp.Matrix = U, t: sp.Matrix = t) -> tuple[int, ...]:
+                return tuple(int(x) for x in U * sp.Matrix(p) + t)
+
+            assert [image(v) for v in data.vertices] == [data.vertices[j] for j in perm]
+            assert {image(p) for p in points} == set(points)
+
+    @pytest.mark.parametrize(
+        ("with_loop", "without"),
+        [
+            ("011e|e|:znn", "11e|e|:nn"),
+            ("012e|2e|e|:zzzz", "12e|2e|e|:zzz"),
+            ("012e|2e|e|:znnn", "12e|2e|e|:nnn"),
+            ("012e|2e|e|:znzz", "12e|2e|e|:nzz"),
+        ],
+    )
+    def test_a_massless_self_loop_keeps_the_group(self, with_loop: str, without: str) -> None:
+        # G is the loop's parameter times the G of the graph without it.
+        assert (
+            _fi(with_loop).polytope_automorphisms.order == _fi(without).polytope_automorphisms.order
+        )
+
+    def test_coefficient_preserving_lifts(self) -> None:
+        # With p_1^2 = p_2^2 = p_3^2 every permutation of the three legs preserves the
+        # coefficients, with the massless self-loop and without it.
+        for cnickel in ("012e|2e|e|:zzzz", "12e|2e|e|:zzz"):
+            fi = _fi(cnickel)
+            p = [sp.Symbol(f"p{i}^2", real=True) for i in (1, 2, 3)]
+            equal = {p[1]: p[0], p[2]: p[0]}
+            fi = fi.with_(
+                momentum_products={
+                    k: sp.expand(sp.sympify(v).subs(equal)) for k, v in fi.momentum_products.items()
+                }
+            )
+            assert len(coefficient_preserving_indices(fi, fi.polytope_automorphisms)) == 6
+
+    def test_chart_labels(self) -> None:
+        # In the ambient space every label of 012e|2e|e|:znnn is 0; in the chart they separate
+        # the vertices u_1 u_i from u_1 u_i^2.
+        auts = compute_polytope_automorphisms(_points("012e|2e|e|:znnn"))
+        assert auts.vertex_orbits == [[0, 1, 2], [3, 4, 5]]
+
+
+def _random_unimodular(n: int, rng: np.random.Generator) -> np.ndarray:
+    """A product of elementary integer matrices and a permutation, in GL_n(Z)."""
+    U = np.eye(n, dtype=np.int64)
+    for _ in range(8):
+        i, j = rng.choice(n, size=2, replace=False)
+        U[i] += int(rng.choice([-1, 1])) * U[j]
+    return U[rng.permutation(n)]
+
+
+class TestEmbedding:
+    """The group of a lattice polytope does not depend on how it is embedded."""
+
+    def test_triangle_of_index_two(self) -> None:
+        # Its differences span a sublattice of index 2; only the reflection that fixes
+        # (0, 1) preserves the integer points of its plane, where Aut_L would give 6.
+        for points in (
+            [(0, 0), (2, 0), (0, 1)],
+            [(0, 0, 0), (2, 0, 0), (0, 1, 0)],
+            [(0, 0, 0), (2, 2, 0), (0, 1, 1)],
+        ):
+            assert compute_polytope_automorphisms(points).order == 2
+
+    @pytest.mark.parametrize("seed", range(4))
+    def test_random_embeddings(self, seed: int) -> None:
+        rng = np.random.default_rng(seed)
+        polytopes = [
+            [(0, 0), (2, 0), (0, 1)],
+            [(0, 0), (1, 0), (0, 1), (1, 1)],
+            _points("11e|e|:nn"),
+            _points("12e|2e|e|:zzz"),
+        ]
+        for points in polytopes:
+            n = len(points[0])
+            m = n + int(rng.integers(1, 3))
+            Q = _random_unimodular(m, rng)
+            o = rng.integers(-3, 4, size=m)
+            embedded = [
+                tuple(int(x) for x in Q @ np.array([*p, *[0] * (m - n)]) + o) for p in points
+            ]
+            assert (
+                compute_polytope_automorphisms(embedded).order
+                == compute_polytope_automorphisms(points).order
+            )

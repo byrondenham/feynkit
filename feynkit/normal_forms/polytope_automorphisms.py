@@ -1,8 +1,12 @@
 """
 Unimodular automorphism group of a convex lattice polytope.
 
-The automorphism group Aut(P) consists of all unimodular affine maps
-(U, t) with U in GL_n(Z), |det U| = 1, t in Z ^n, that send P to itself.
+The automorphism group Aut(P) is the group of P as a lattice polytope in the
+affine lattice aff(P) cap Z^n: the affine bijections of the affine hull of P
+that map its integer points onto themselves and P onto itself. When P is
+full-dimensional these are the unimodular affine maps (U, t), U in GL_n(Z),
+|det U| = 1, t in Z^n, that send P to itself. Below full dimension each
+extends to such a map of Z^n, and ``maps`` holds one extension per element.
 The identity (I, 0) is always a member; for a generic polytope it is the
 only member.  Symmetric integrals (triangles, bananas, boxes) have larger
 groups that are directly visible in their GKZ structure.
@@ -50,6 +54,7 @@ import sympy as sp
 from ..polytope import polytope_data
 from ..types import PolytopeAutomorphisms
 from . import _invariants
+from ._chart import chart_frame, lift_linear
 
 if TYPE_CHECKING:
     from ..core.graph import Graph
@@ -63,7 +68,7 @@ if TYPE_CHECKING:
 
 def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
     """
-    Compute the full unimodular automorphism group of conv(points).
+    Compute the automorphism group of conv(points) as a lattice polytope.
 
     Parameters
     ----------
@@ -88,6 +93,15 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
     The basis is chosen to maximise Liu-Cai label diversity (rarest-label
     vertices first), which for polytopes with a few large label orbits
     dramatically reduces the number of candidate basis combinations.
+
+    A polytope of dimension d < n is searched in the lattice chart of its
+    vertices, where it is full-dimensional in Z^d and its labels are d x d
+    determinants. A chart map is kept when it maps the integer points of the
+    affine hull onto themselves, and ``maps`` holds its lift to GL_n(Z), which
+    acts as the identity on a complement of the affine hull; see
+    feynkit.normal_forms._chart. ``order`` counts the chart maps, that is the
+    vertex permutations; the unimodular maps of Z^n taking P to itself form
+    an infinite group when d < n and n >= 2.
     """
     pts = _invariants.to_integer_points(points)
     n_dim = pts.shape[1]
@@ -104,8 +118,11 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
     if V_arr.shape[0] == 1:
         return _identity_only(V_arr, n_dim)
 
-    GW = _invariants.label_skeleton(V_arr, _invariants.polytope_skeleton(data))
-    found_maps, found_vperms = _basis_search(V_arr, GW)
+    skeleton = _invariants.polytope_skeleton(data)
+    if data.is_full_dimensional:
+        found_maps, found_vperms = _basis_search(V_arr, _invariants.label_skeleton(V_arr, skeleton))
+    else:
+        found_maps, found_vperms = _chart_search(V_arr, skeleton)
     if not found_maps:
         return _identity_only(V_arr, n_dim)
 
@@ -115,6 +132,33 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
         vertex_permutations=found_vperms,
         vertex_orbits=_compute_orbits(V_arr.shape[0], found_vperms),
     )
+
+
+def _chart_search(
+    V_arr: np.ndarray, skeleton: nx.Graph
+) -> tuple[list[tuple[sp.ImmutableMatrix, sp.ImmutableMatrix]], list[list[int]]]:
+    """
+    The automorphisms of vertices that are not full-dimensional, lifted from their chart.
+
+    Row i of ``V_arr`` is node i of ``skeleton``. The search runs on the chart
+    coordinates of the vertices, a chart map is kept when its lift is integral,
+    and the lift (U, t) sends every vertex where the chart map sends it.
+    """
+    frame = chart_frame(V_arr)
+    coordinates = frame.coordinates
+    chart_maps, chart_vperms = _basis_search(
+        coordinates, _invariants.label_skeleton(coordinates, skeleton)
+    )
+    found_maps: list[tuple[sp.ImmutableMatrix, sp.ImmutableMatrix]] = []
+    found_vperms: list[list[int]] = []
+    for (M, _s), vperm in zip(chart_maps, chart_vperms, strict=True):
+        U = lift_linear(frame, frame, M)
+        if U is None:
+            continue
+        t = sp.Matrix(V_arr[vperm[0]].tolist()) - U * sp.Matrix(V_arr[0].tolist())
+        found_maps.append((U, sp.ImmutableMatrix(t)))
+        found_vperms.append(vperm)
+    return found_maps, found_vperms
 
 
 def _basis_search(

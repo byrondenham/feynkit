@@ -8,6 +8,7 @@ import sympy as sp
 
 from feynkit import Edge, FeynmanIntegral, Graph, PolytopeEquivalence
 from feynkit.normal_forms import is_unimodular_equivalent
+from feynkit.polytope import polytope_data
 
 # ------------------------------------------------------------------------------
 # Polytope generators
@@ -294,3 +295,48 @@ def test_cross_validation_with_brute_force(polytope_factory, n, seed) -> None:
     # If unimodularly equivalent, certainly affinely equivalent.
     assert uni.equivalent is True
     assert aff.equivalent is True
+
+
+# ------------------------------------------------------------------------------
+# Below full dimension
+# ------------------------------------------------------------------------------
+
+
+def _support(cnickel: str) -> np.ndarray:
+    points = FeynmanIntegral.from_cnickel(cnickel).newton_polytope.points
+    return np.array([[int(x) for x in p] for p in points], dtype=np.int64)
+
+
+def test_segments_by_lattice_length() -> None:
+    segment = [(0, 0), (1, 1)]
+    # U = [[1, 0], [-2, 1]] maps (1, 1) to (1, -1).
+    assert is_unimodular_equivalent(segment, [(0, 0), (1, -1)]).equivalent
+    assert not is_unimodular_equivalent(segment, [(0, 0), (2, 2)]).equivalent
+    assert is_unimodular_equivalent([(0, 0), (2, 2)], [(3, 1), (1, 1)]).equivalent
+    assert is_unimodular_equivalent(segment, segment).equivalent
+
+
+@pytest.mark.parametrize("seed", range(4))
+def test_unimodular_image_below_full_dimension(seed: int) -> None:
+    points = _support("012e|2e|e|:znnn")
+    rng = np.random.default_rng(seed)
+    image = apply_unimodular(points, random_unimodular_map(4, rng), rng.integers(-3, 4, size=4))
+    rng.shuffle(image)
+    result = is_unimodular_equivalent(points, image)
+    assert result.equivalent
+    W = sp.Matrix(result.witness_map)
+    assert abs(W.det()) == 1
+    assert all(x.is_Integer for x in W)
+    vertices = [points[i] for i in polytope_data(points).vertex_indices]
+    targets = [image[j] for j in result.vertex_correspondence]
+    t = sp.Matrix(targets[0]) - W * sp.Matrix(vertices[0])
+    for v, w in zip(vertices, targets, strict=True):
+        assert W * sp.Matrix(v) + t == sp.Matrix(w)
+
+
+def test_scaleless_triangles() -> None:
+    # The same graph with its massless self-loop on another vertex, and another graph.
+    znnn = _support("012e|2e|e|:znnn")
+    assert is_unimodular_equivalent(znnn, znnn).equivalent
+    assert is_unimodular_equivalent(znnn, _support("12e|12e|e|:nnzn")).equivalent
+    assert not is_unimodular_equivalent(znnn, _support("012e|2e|e|:zzzz")).equivalent

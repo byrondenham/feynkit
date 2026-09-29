@@ -651,14 +651,25 @@ A **unimodular automorphism** of the Newton polytope $\Delta_G$ is a pair $(U, t
 
 $$U \in GL_n(\mathbb{Z}),\quad |\det U| = 1,\quad t \in \mathbb{Z}^n,$$
 
-such that $\{U\alpha + t : \alpha \in \mathcal{A}\} = \mathcal{A}$ (the map is a bijection on the
-support points).
+such that $\{Uv + t : v \in V\} = V$ for the set $V$ of vertices of $\Delta_G$. The map then takes
+$\Delta_G$ onto itself. It need not permute the other support points; the maps that permute all
+of them are the symmetry pairs of section 8.
 
-The set of all such pairs forms the **unimodular automorphism group** $\mathrm{Aut}(\Delta_G)$.
+When $\Delta_G$ is full-dimensional these pairs form the **unimodular automorphism group**
+$\mathrm{Aut}(\Delta_G)$, and each is determined by the permutation of the vertices it induces.
+Below full dimension, of affine dimension $d < n$ with $n \ge 2$, the pairs that fix the affine
+hull pointwise already form an infinite group. $\mathrm{Aut}(\Delta_G)$ is then the group of
+$\Delta_G$ as a lattice polytope in the affine lattice $\mathrm{aff}(\Delta_G) \cap \mathbb{Z}^n$:
+the affine bijections of the affine hull that map its integer points onto themselves and
+$\Delta_G$ onto itself. Each extends to a pair $(U, t)$ as above, and feynkit returns one
+extension of each, which acts as the identity on a complement of the affine hull (section 7.3).
+The group does not depend on the embedding: the triangle $(0,0), (2,0), (0,1)$ has order 2 in
+$\mathbb{Z}^2$, and so has its copy in $\mathbb{Z}^3$, although all six permutations of its
+vertices preserve the lattice spanned by their differences.
 
 Accessed as `fi.polytope_automorphisms`; order `fi.polytope_automorphisms.order`;
-vertex permutations `fi.polytope_automorphisms.vertex_permutations`;
-vertex orbits `fi.polytope_automorphisms.vertex_orbits`.
+vertex permutations `fi.polytope_automorphisms.vertex_permutations`, indexing
+`polytope_data(points).vertices`; vertex orbits `fi.polytope_automorphisms.vertex_orbits`.
 
 ### 7.2 Liu-Cai Vertex Labels
 
@@ -666,7 +677,10 @@ For each hull vertex $v$ of the support, define the **Liu-Cai label**
 
 $$\ell(v) \;=\; \det\!\left(\sum_{w \sim v} (w - v)(w - v)^T\right) \;\in\; \mathbb{Z},$$
 
-where the sum runs over all hull vertices $w$ adjacent to $v$ in the 1-skeleton of $\Delta_G$.
+where the sum runs over all vertices $w$ adjacent to $v$ in the 1-skeleton of $\Delta_G$, the
+edges of the certified face lattice (section 5.5). Below full dimension every such determinant
+vanishes, and the labels are taken in the lattice chart of the vertices, where they are
+$d \times d$ determinants.
 
 **Invariance:** For any unimodular map $(U,t)$, $\ell(Uv + t) = \ell(v)$.  This follows because the
 outer-product matrix transforms as $A_{Uv+t} = U A_v U^T$, so $\det A_{Uv+t} = (\det U)^2 \det A_v = \det A_v$.
@@ -676,18 +690,34 @@ $O(|\mathrm{Aut}| \cdot n!)$ in typical cases.
 
 ### 7.3 Algorithm
 
-1. Compute hull vertices and their Liu-Cai labels.
-2. Select a **label-diverse basis**: $r = \mathrm{affine\_dim}$ vertices from the hull, choosing rarest
-   labels first, such that the difference matrix is invertible.
-3. For each hull vertex $w$ with the same label as the base anchor $\alpha_0$, attempt it as the image
+1. Compute the vertices and the edges of $\Delta_G$ from the certified face lattice of
+   `polytope_data` (section 5.5), and the Liu-Cai labels on that 1-skeleton.
+2. Select a **label-diverse basis**: $n$ vertices, choosing rarest labels first, whose differences
+   from the anchor vertex $\alpha_0$ form an invertible matrix.
+3. For each vertex $w$ with the same label as the anchor $\alpha_0$, attempt it as the image
    anchor.
-4. For each label-preserving ordered $r$-tuple of remaining vertices (generated via
+4. For each label-preserving ordered $n$-tuple of remaining vertices (generated via
    `_label_preserving_orderings`), solve for $U = \Delta_{\mathrm{target}}\Delta_{\mathrm{src}}^{-1}$
-   and check integrality.
-5. Verify that $U$ is a bijection on the full support (not just hull vertices).
-6. Deduplicate by $(U, t)$.
+   and check that it is integral with $|\det U| = 1$.
+5. Verify that $U$ permutes the vertices.
+6. Deduplicate by the vertex permutation.
 
-Implemented in `feynkit/normal_forms/polytope_automorphisms.py`.
+Below full dimension the search runs in the lattice chart $x = o + Bc$ of the vertices (section
+5.3), where they are full-dimensional in $\mathbb{Z}^d$. The Hermite normal form
+$B^T W = [0 \mid H]$, with $W$ unimodular, gives the frame $Q = W^{-T}$, whose last $d$ columns
+are a basis of the integer points of the span of $B$. A chart map with linear part $M$ is kept
+when $H^T M H^{-T}$ is an integer matrix, that is when it maps the integer points of the affine
+hull onto themselves, and it is returned as
+
+$$U = Q \begin{pmatrix} I_{n-d} & 0 \\ 0 & H^T M H^{-T} \end{pmatrix} Q^{-1}, \qquad
+t = v_{\sigma(1)} - U v_1,$$
+
+with $\sigma$ its permutation of the vertices $v_i$. Two extensions of one automorphism differ
+only off the affine hull. A point has only the identity, and a segment the identity and its
+reflection.
+
+Implemented in `feynkit/normal_forms/polytope_automorphisms.py` and
+`feynkit/normal_forms/_chart.py`.
 
 ### 7.4 Known Examples
 
@@ -795,6 +825,11 @@ fields `.equivalent` (bool), `.witness_map` ($U$), `.translation` ($t$), `.deter
 
 The algorithm is the Liu-Cai basis-search (same as automorphism computation, but between two
 configurations): build labelled polytope graphs, enumerate MST isomorphisms, solve for $U$.
+Below full dimension the two polytopes must have the same affine dimension and the same
+sublattice index, and the search runs in the lattice charts of their vertex sets. A chart map is
+accepted when it maps the integer points of one affine hull onto those of the other, and the
+witness is its extension to $GL_n(\mathbb{Z})$, as in section 7.3. Two points are always
+equivalent, and two segments exactly when their lattice lengths agree.
 
 ### 9.2 Affine Equivalence
 
@@ -809,6 +844,11 @@ factor $|\det M|$ in the identity, and the generic holonomic rank, the normalise
 (section 5.3), is the same.  What a rational map need not preserve is the ambient lattice
 $\mathbb{Z}^n$, so the Smith invariants of the two configurations can differ (section 11.3).
 
+Below full dimension the points do not determine the linear part of such a map. feynkit finds the
+map between the lattice charts, where it is unique for a given correspondence of affine bases,
+and returns its extension, which is invertible; its determinant depends on the complement the
+extension fixes, and is not an invariant of the two configurations.
+
 ### 9.3 Point-Configuration Equivalence
 
 Checks for an affine map $x \mapsto Mx + t$ taking the full monomial support (all $N$ points,
@@ -819,6 +859,8 @@ different GKZ systems with the same Feynman polytope.
 
 A map of all columns, integer or not, gives the identity of section 9.4,
 $I_A(\beta, z_P) = |\det M|\, I_B(T\beta, z)$, with $T$ rational when $M$ is.
+
+Below full dimension the map is found between the lattice charts, as in section 9.2.
 
 Accessed via `AConfiguration.is_point_config_equivalent_to(other)`.
 

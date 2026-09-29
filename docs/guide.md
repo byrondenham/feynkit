@@ -1154,6 +1154,12 @@ print(result.equivalent)        # True
 print(result.witness_map)       # permutation matrix in GL_3(Z)
 ```
 
+Below full dimension the two Newton polytopes must have the same dimension, and the tests run in
+their lattice charts. The unimodular witness is a unimodular map of $\mathbb{Z}^N$ that fixes a
+complement of the affine hull; the affine witness is invertible, and its determinant depends on
+that complement. `012e|2e|e|:znnn` and `12e|12e|e|:nnzn`, one graph with its massless self-loop on
+two different vertices, are unimodularly equivalent.
+
 ### Calling the equivalence functions directly
 
 ```python
@@ -1185,7 +1191,7 @@ background, physical interpretation, and full results for standard diagrams.
 
 | Object | API | Description |
 |--------|-----|-------------|
-| `PolytopeAutomorphisms` | `fi.polytope_automorphisms` | Full Aut(P): all (U,t) with U in GL_n($\mathbb{Z}$), \|det U\|=1 |
+| `PolytopeAutomorphisms` | `fi.polytope_automorphisms` | Aut(P): all (U,t) with U in GL_n($\mathbb{Z}$), \|det U\|=1, permuting the vertices of P; below full dimension, one such map per automorphism of P in its affine hull |
 | `list[list[int]]` | `fi.graph_automorphisms` | Vertex permutations preserving topology and mass colouring |
 | `list[int]` | `coefficient_preserving_indices(fi, auts)` | Indices into auts.maps whose (U,t) also preserves G's coefficients |
 
@@ -1237,13 +1243,25 @@ cp_b = coefficient_preserving_indices(banana, auts_b)
 print(len(cp_b))               # 6  (= 3! edge permutations)
 ```
 
+The vertices and edges come from the certified face lattice of `polytope_data`. A Newton polytope
+that is not full-dimensional, such as that of a graph with a massless self-loop, is searched in
+the lattice chart of its vertices, where it is full-dimensional. Its group is that of the polytope
+in its affine hull: the affine maps of the affine hull that preserve the integer points on it and
+the polytope. Each is returned as one unimodular map of $\mathbb{Z}^N$ that extends it and fixes a
+complement of the affine hull:
+
+```python
+znnn = FeynmanIntegral.from_cnickel("012e|2e|e|:znnn")   # massive triangle, massless self-loop
+print(znnn.polytope_automorphisms.order)                   # 6, as for 12e|2e|e|:nnn
+```
+
 ### PolytopeAutomorphisms fields
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
 | `maps` | `list[tuple[ImmutableMatrix, ImmutableMatrix]]` | All (U, t) pairs |
-| `order` | `int` | Group order \|Aut(P)\| |
-| `vertex_permutations` | `list[list[int]]` | Induced permutation on hull vertices per automorphism |
+| `order` | `int` | Group order \|Aut(P)\|, the number of vertex permutations |
+| `vertex_permutations` | `list[list[int]]` | Induced permutation of the vertices per automorphism, in the order of `polytope_data(points).vertices` |
 | `vertex_orbits` | `list[list[int]]` | Partition of vertices into equivalence classes |
 
 ---

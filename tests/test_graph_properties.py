@@ -15,7 +15,6 @@ import random
 from collections.abc import Callable
 from typing import NamedTuple, TypeVar
 
-import pytest
 import sympy as sp
 from hypothesis import example, given
 from hypothesis import strategies as st
@@ -222,11 +221,6 @@ def test_the_massive_non_planar_double_box_is_equivalent_to_a_relabelling() -> N
     assert integral(graph).is_unimodular_equivalent_to(integral(relabelled)).equivalent
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the equivalence test needs a full-dimensional polytope; "
-    "passes once the normal forms work in the lattice chart",
-)
 def test_a_scaleless_graph_is_equivalent_to_itself() -> None:
     r = Relabelling("012e|3e|3e|e|:znnnn", (0, 1, 2, 3), (0, 1, 2, 3, 4), 1)
     graph, relabelled = relabel(r)

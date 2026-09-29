@@ -491,3 +491,33 @@ class TestLargeCoordinates:
             assert abs(U.det()) == 1
             for i, v in enumerate(vertices):
                 assert tuple(U * sp.Matrix(v) + t) == vertices[perm[i]]
+
+
+class TestNeighbourSearch:
+    """The search maps an anchor's neighbours to neighbours of its image."""
+
+    @pytest.mark.parametrize(
+        ("cnickel", "order"),
+        [("12e|3e|4e|4e|e|:zzzzz", 720), ("12e|3e|4e|5e|5e|e|:zzzzzz", 5040)],
+        ids=["pentagon", "hexagon"],
+    )
+    def test_massless_pentagon_and_hexagon(self, cnickel: str, order: int) -> None:
+        # Every vertex carries the same label, and the search over all vertices took about a
+        # minute for the pentagon and did not finish in 25 minutes for the hexagon.
+        auts = compute_polytope_automorphisms(_points(cnickel))
+        assert auts.order == order
+        assert len({tuple(perm) for perm in auts.vertex_permutations}) == order
+        assert len(auts.vertex_orbits) == 1
+
+    def test_the_maps_keep_their_order(self) -> None:
+        # The maps come in the order in which the search over all vertices, anchored at
+        # vertex 0 with a label-diverse basis, found them.
+        auts = compute_polytope_automorphisms(_points("12e|2e|e|:nzz"))
+        assert auts.vertex_permutations == [
+            [0, 1, 2, 3, 4, 5, 6],
+            [0, 2, 1, 3, 5, 4, 6],
+            [4, 1, 6, 3, 0, 5, 2],
+            [4, 6, 1, 3, 5, 0, 2],
+            [5, 2, 6, 3, 0, 4, 1],
+            [5, 6, 2, 3, 4, 0, 1],
+        ]

@@ -19,11 +19,12 @@ induced vertex permutation.
 The vertices, and the edges on which the Liu-Cai labels are computed, come from
 the certified face lattice of feynkit.polytope.polytope_data.
 
-Basis selection is done with a label-diversity strategy: vertices from smaller
-Liu-Cai label classes are chosen as basis vectors first.  For highly-symmetric
-polytopes (e.g. K_4 Newton polytope: 31 vertices with label classes of sizes
-12, 12, 4 and 3) this reduces the number of candidate basis combinations per
-anchor from C(30,6) ~ 594 000 to a few hundred.
+The search takes its basis among the neighbours of an anchor vertex in the
+1-skeleton and maps it only to neighbours of each candidate image, with the
+same labels and the same edges among them, since an automorphism maps the
+neighbours of a vertex onto the neighbours of its image. This prunes where
+the labels separate nothing: the massless pentagon's group, of order 720,
+takes about 0.3 s, and the hexagon's, of order 5040, about 2 s.
 
 Public API
 ----------
@@ -43,7 +44,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from collections.abc import Iterator
-from itertools import combinations, permutations
+from itertools import permutations
 from itertools import product as _prod
 from typing import TYPE_CHECKING
 
@@ -52,6 +53,7 @@ import numpy as np
 import sympy as sp
 
 from .. import _exact
+from ..core.exceptions import ComputationError
 from ..polytope import polytope_data
 from ..types import PolytopeAutomorphisms
 from . import _invariants
@@ -89,11 +91,13 @@ def compute_polytope_automorphisms(points: object) -> PolytopeAutomorphisms:
     The vertices and the edges that the Liu-Cai labels are built on come from
     the certified face lattice of :func:`feynkit.polytope.polytope_data`. The
     algorithm is the Liu-Cai basis-search: for each candidate image of a
-    fixed anchor vertex, enumerate all possible images of a fixed basis and
-    verify that the implied affine map sends the vertices onto themselves.
-    The basis is chosen to maximise Liu-Cai label diversity (rarest-label
-    vertices first), which for polytopes with a few large label orbits
-    dramatically reduces the number of candidate basis combinations.
+    fixed anchor vertex, enumerate the images of a fixed basis and verify
+    that the implied affine map sends the vertices onto themselves. The
+    anchor is taken in the rarest label class and the basis among its
+    neighbours in the 1-skeleton, whose images must be neighbours of the
+    anchor's image with the same labels and the same edges among them. The
+    maps come in the order in which a search over all vertices, anchored at
+    vertex 0 with a basis from the rarest label classes, finds them.
 
     A polytope of dimension d < n is searched in the lattice chart of its
     vertices, where it is full-dimensional in Z^d and its labels are d x d
@@ -171,109 +175,149 @@ def _basis_search(
 
     ``V_arr`` holds the vertices of a full-dimensional lattice polytope and
     ``GW`` its labelled 1-skeleton, whose node i is row i. Returns no maps
-    when the vertices do not span their ambient space. Every candidate
-    U = W_b W_a^-1 is found in integer arithmetic, as W_b adj(W_a) / det(W_a),
-    and kept only when it is integral and permutes the vertices.
+    when the vertices do not span their ambient space.
+
+    An automorphism maps each vertex to a vertex with the same label and
+    degree, and its neighbours onto the neighbours of the image, keeping their
+    labels and the edges among them. The search fixes an anchor in the rarest
+    label class and a basis among its neighbours, whose edge directions span
+    the space at a vertex of a full-dimensional polytope. For each vertex that
+    can be the anchor's image it maps the basis only to neighbours of that
+    vertex with the same labels and the same edges among them. Every
+    candidate U = W_b W_a^-1 is found in integer arithmetic, as
+    W_b adj(W_a) / det(W_a), and kept only when it is integral and permutes the
+    vertices. The maps come in the order in which a search over all vertices,
+    anchored at vertex 0 with a label-diverse basis, finds them (see
+    _search_order), so the result does not depend on how it is found.
     """
     n_vert, n_dim = V_arr.shape
     labels = [GW.nodes[i]["label"] for i in range(n_vert)]
-    label_a0 = labels[0]
     label_count = Counter(labels)
 
-    # Select a label-diverse basis from V_arr[0] as anchor: vertices from
-    # smaller label classes are chosen first so that the basis label multiset
-    # is as diverse as possible, minimising C(class_size, k) per class.
-    v_0 = V_arr[0]
-    deltas_a = (V_arr - v_0).astype(np.int64)
-    basis_indices = _select_basis_indices_by_label(deltas_a, n_dim, labels, label_count)
-    if basis_indices is None:
+    # The basis that fixes the order of the result, as the former search chose it.
+    order_basis = _select_basis_indices_by_label(
+        (V_arr - V_arr[0]).astype(np.int64), n_dim, labels, label_count
+    )
+    if order_basis is None:
         return [], []
 
-    W_a = sp.Matrix(deltas_a[basis_indices].T.tolist())
-    if W_a.det() == 0:
-        return [], []
+    neighbours = [set(GW.neighbors(i)) for i in range(n_vert)]
+    anchor = min(range(n_vert), key=lambda i: (label_count[labels[i]], i))
+    deltas_a = (V_arr - V_arr[anchor]).astype(np.int64)
+    rarest_first = sorted(neighbours[anchor], key=lambda j: (label_count[labels[j]], j))
+    basis = _independent_rows(deltas_a, rarest_first, n_dim)
+    if basis is None:  # pragma: no cover - the edges at a vertex span the space
+        raise ComputationError("the edges at a vertex of the polytope do not span its space")
 
-    basis_label_multiset = sorted(labels[k] for k in basis_indices)
-    basis_label_seq = [labels[k] for k in basis_indices]
-
+    W_a = sp.Matrix(deltas_a[basis].T.tolist())
     adj_a, det_a = _invariants.integer_inverse(W_a, 2 * int(np.abs(V_arr).max()) + 1)
     deltas_exact = deltas_a.astype(adj_a.dtype)
+    basis_labels = [labels[b] for b in basis]
+    adjacent = [[basis[m] in neighbours[b] for m in range(n_dim)] for b in basis]
 
-    found_maps: list[tuple[sp.ImmutableMatrix, sp.ImmutableMatrix]] = []
-    found_vperms: list[list[int]] = []
-    seen_vperms: set[tuple[int, ...]] = set()
-
-    # Pre-group non-anchor vertices by label for direct (non-filtering) combo gen.
-    # We sort the label classes so the ordering in _label_preserving_orderings is
-    # deterministic.
-    basis_label_needs = Counter(basis_label_multiset)
-    basis_label_classes = sorted(basis_label_needs)
-
-    for anchor_idx in range(n_vert):
-        if labels[anchor_idx] != label_a0:
+    found: dict[tuple[int, ...], tuple[sp.ImmutableMatrix, sp.ImmutableMatrix]] = {}
+    for image in range(n_vert):
+        if labels[image] != labels[anchor] or len(neighbours[image]) != len(neighbours[anchor]):
             continue
 
-        v_0_image = V_arr[anchor_idx]
-        deltas_b = (V_arr - v_0_image).astype(np.int64)
+        deltas_b = (V_arr - V_arr[image]).astype(np.int64)
         delta_to_b_idx = {tuple(int(x) for x in row): i for i, row in enumerate(deltas_b.tolist())}
-
-        others = [j for j in range(n_vert) if j != anchor_idx]
-
-        # Group others by label, build once per anchor.
-        label_to_others: dict[int, list[int]] = defaultdict(list)
-        for j in others:
-            label_to_others[labels[j]].append(j)
-
-        # Generate only label-valid combos directly (avoids C(n-1, d) filtering).
-        sub_combo_iters = [
-            combinations(label_to_others[lbl], basis_label_needs[lbl])
-            for lbl in basis_label_classes
+        options = [
+            [j for j in sorted(neighbours[image]) if labels[j] == label] for label in basis_labels
         ]
-        for sub_combos in _prod(*sub_combo_iters):
-            combo = tuple(v for sub in sub_combos for v in sub)
-
-            # A unimodular U needs |det W_b| = |det W_a|, the same for every
-            # ordering of the combination; the determinant is exact.
-            if abs(_exact.determinant(deltas_b[list(combo)].tolist())) != abs(det_a):
+        for images in _matching_neighbours(options, adjacent, neighbours):
+            U_int = _invariants.integral_candidate(deltas_b[list(images)].T, adj_a, det_a)
+            if U_int is None:
                 continue
 
-            for perm in _label_preserving_orderings(combo, labels, basis_label_seq):
-                U_int = _invariants.integral_candidate(deltas_b[list(perm)].T, adj_a, det_a)
-                if U_int is None:
-                    continue
+            mapped = U_int @ deltas_exact.T
+            vertex_map: dict[int, int] = {}
+            used: set[int] = set()
+            valid = True
+            for i in range(n_vert):
+                key = tuple(int(x) for x in mapped[:, i])
+                j_opt = delta_to_b_idx.get(key)
+                if j_opt is None or j_opt in used:
+                    valid = False
+                    break
+                vertex_map[i] = j_opt
+                used.add(j_opt)
+            if not valid:
+                continue
 
-                mapped = U_int @ deltas_exact.T
-                vertex_map: dict[int, int] = {}
-                used: set[int] = set()
-                valid = True
-                for i in range(n_vert):
-                    key = tuple(int(x) for x in mapped[:, i])
-                    j_opt = delta_to_b_idx.get(key)
-                    if j_opt is None or j_opt in used:
-                        valid = False
-                        break
-                    vertex_map[i] = j_opt
-                    used.add(j_opt)
-                if not valid:
-                    continue
+            # The integer checks above are exact; SymPy only builds the output.
+            vperm = tuple(vertex_map[i] for i in range(n_vert))
+            if vperm in found:
+                continue
 
-                # The integer checks above are exact; SymPy only builds the output.
-                vperm = tuple(vertex_map[i] for i in range(n_vert))
-                if vperm in seen_vperms:
-                    continue
+            # Compute exact integer translation: Z = image - U * anchor.
+            Z_int = V_arr[image].astype(adj_a.dtype) - U_int @ V_arr[anchor].astype(adj_a.dtype)
+            found[vperm] = (
+                sp.ImmutableMatrix(U_int.tolist()),
+                sp.ImmutableMatrix(Z_int.reshape(-1, 1).tolist()),
+            )
 
-                # Compute exact integer translation: Z = v_0_image - U * v_0.
-                Z_int = v_0_image.astype(adj_a.dtype) - U_int @ v_0.astype(adj_a.dtype)
+    order = sorted(found, key=lambda vperm: _search_order(vperm, order_basis, labels))
+    return [found[vperm] for vperm in order], [list(vperm) for vperm in order]
 
-                seen_vperms.add(vperm)
-                found_maps.append(
-                    (
-                        sp.ImmutableMatrix(U_int.tolist()),
-                        sp.ImmutableMatrix(Z_int.reshape(-1, 1).tolist()),
-                    )
-                )
-                found_vperms.append(list(vperm))
-    return found_maps, found_vperms
+
+def _matching_neighbours(
+    options: list[list[int]], adjacent: list[list[bool]], neighbours: list[set[int]]
+) -> Iterator[tuple[int, ...]]:
+    """
+    The distinct choices of one entry of each ``options[k]`` with the edges of ``adjacent``.
+
+    Entry k and entry m of a choice must be joined by an edge, in
+    ``neighbours``, exactly when ``adjacent[k][m]`` holds.
+    """
+    chosen: list[int] = []
+
+    def extend(k: int) -> Iterator[tuple[int, ...]]:
+        if k == len(options):
+            yield tuple(chosen)
+            return
+        for j in options[k]:
+            if j in chosen:
+                continue
+            if any((j in neighbours[chosen[m]]) != adjacent[k][m] for m in range(k)):
+                continue
+            chosen.append(j)
+            yield from extend(k + 1)
+            chosen.pop()
+
+    yield from extend(0)
+
+
+def _search_order(
+    perm: tuple[int, ...], basis: list[int], labels: list[int]
+) -> tuple[int, tuple[tuple[int, ...], ...], tuple[tuple[int, ...], ...]]:
+    """
+    Where a search anchored at point 0 with the given basis finds the map of ``perm``.
+
+    That search tries the images of point 0 in index order; for each, the
+    sets of basis images class by class, each class in the order of
+    itertools.combinations; and for each set the orderings of each class in
+    the order of itertools.permutations. The map with permutation ``perm``
+    sends point 0 to perm[0] and basis point b to perm[b], so its position is
+    the key returned, compared lexicographically.
+    """
+    classes = sorted({labels[b] for b in basis})
+    images = [[perm[b] for b in basis if labels[b] == label] for label in classes]
+    return perm[0], tuple(tuple(sorted(c)) for c in images), tuple(tuple(c) for c in images)
+
+
+def _independent_rows(deltas: np.ndarray, candidates: list[int], n_dim: int) -> list[int] | None:
+    """The first ``n_dim`` of ``candidates`` whose rows of ``deltas`` are independent, greedily."""
+    chosen: list[int] = []
+    chosen_rows: list[list[int]] = []
+    for i in candidates:
+        row = [int(x) for x in deltas[i]]
+        if _exact.rank([*chosen_rows, row]) == len(chosen) + 1:
+            chosen.append(i)
+            chosen_rows.append(row)
+            if len(chosen) == n_dim:
+                return chosen
+    return None
 
 
 # ------------------------------------------------------------------------------

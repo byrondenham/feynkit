@@ -59,6 +59,12 @@
   always carries them. `Polynomials` gains `scaleless` and `Symmetries` gains
   `full_dimensional`, both without defaults, so code that builds either by
   hand must pass them.
+- A database file written by 0.4.0 or earlier loses its automorphism results
+  in the repair described under Fixed: `lookup` returns `None` for
+  `poly_aut_order`, `graph_aut_order`, `coeff_pres_order` and `vertex_orbits`
+  of every stored integral until it is stored again with
+  `compute_automorphisms=True`, and `find_equivalent` recomputes every
+  verdict. Code that reads those fields must allow `None`.
 
 ### Added
 
@@ -131,6 +137,10 @@
   faster it was wrong: `polytope_automorphisms` of `123|4e|4e|5e|5|e|:nnnnnnn`
   takes about 12 s, where 0.4.0 gave order 1 in 0.3 s instead of 48. The
   massless hexagon still takes more than 20 minutes.
+- The report and `fk analyse -S` can list the same symmetry pairs in another
+  order than 0.4.0 did, since the search now takes its vertices and labels from
+  the exact face lattice: 4 of 380 generated one- and two-loop graphs checked,
+  among them `1123|e|3e|e|:zzzzz`. Where 0.4.0 listed other pairs, it was wrong.
 - The report's symmetry section and `fk analyse -S` show the symmetries of a
   Newton polytope of dimension below 2 or below full dimension, which they
   left out. Below full dimension the order is that of the group in the affine

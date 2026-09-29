@@ -402,7 +402,7 @@ def _factorize_singular(
     primitive over the integers with a positive leading coefficient, and
     the factors are in SymPy's order, so the result is the one SymPy gives.
     None if Singular fails, prints anything else, or gives factors whose
-    degrees do not add up.
+    product, with the multiplicities, is not the polynomial up to a constant.
     """
     gens = list(dict.fromkeys(g for poly in polys for g in poly.gens))
     index = {g: k for k, g in enumerate(gens)}
@@ -478,11 +478,10 @@ def _factorize_singular(
             _, factor = factor.primitive()
             factor = (-factor if factor.LC() < 0 else factor).set_domain(poly.domain)
             factors[factor] = factors.get(factor, 0) + int(multiplicity)
-        degrees = [
-            sum(k * factor.degree_list()[i] for factor, k in factors.items())
-            for i in range(len(places))
-        ]
-        if degrees != list(poly.degree_list()):
+        product = sp.Poly(1, *poly.gens, domain=sp.QQ)
+        for factor, k in factors.items():
+            product *= factor.set_domain(sp.QQ) ** k
+        if product.monic() != poly.set_domain(sp.QQ).monic():
             return None
         out[poly] = sorted(factors.items(), key=_factor_order)
     if position != len(lines):
@@ -497,9 +496,9 @@ def _factor_lists(exprs: list[sp.Expr], kinematic_syms: set[sp.Symbol]) -> list[
     SymPy factors a multivariate polynomial by Wang's algorithm, which draws
     evaluation points from a generator the whole process shares. Its time
     depends on what ran before, though its factors do not, and some points
-    make it run on for hours: from some states a Gram minor of the massless
-    hexagon, 130 terms that factor in a fifth of a second, had not factored
-    after seven minutes. Singular's ``factorize`` does not depend on that
+    make it run for over ten minutes on a polynomial it otherwise factors in
+    a fraction of a second, as on a Cayley minor of the massive box without
+    Mandelstam variables. Singular's ``factorize`` does not depend on that
     state. Factorisation over the rationals is unique up to units, and the
     factors are written and ordered as sp.factor_list writes and orders
     them, so the result is the same either way. An expression that is not a
@@ -611,10 +610,10 @@ def _elimination_discriminant(
     component of their common zeros exactly when it divides every one of
     them. A component that arises only as a limit under special kinematics
     can then be missing, as p_2^2 - p_3^2 is for the massive triangle at
-    p_1^2 = 0, whose top face has the locus p_2^2 = p_3^2 = 0. Uses
-    Singular when installed and ``backend`` is "auto" or
-    "singular", else SymPy; ``timeout`` limits each Singular run, in
-    seconds.
+    p_1^2 = 0, whose top face has the locus p_2^2 = p_3^2 = 0. Eliminates
+    and factors with Singular when it is installed and ``backend`` is
+    "auto" or "singular", else with SymPy; ``timeout`` limits each
+    elimination by Singular, in seconds.
 
     The coefficients are taken at ``scale`` = 1, which the caller passes
     only when :func:`_unit_scale_is_exact`: rescaling the scale is then a
@@ -665,15 +664,27 @@ def _elimination_discriminant(
     common = eliminated[0]
     for g in eliminated[1:]:
         common = common.gcd(g)
+    common = common.reorder(*order)
+    factored = None
+    if binary is not None and not common.is_ground:
+        factored = _factorize_singular([common], binary)
+    pairs = factored[common] if factored is not None else common.factor_list()[1]
     factors: dict[sp.Expr, None] = {}
-    for fac, _exp in common.reorder(*order).factor_list()[1]:
-        if back:
-            image = sp.expand(fac.as_expr().xreplace(back))
-            pieces = _factor_list(image, kinematic_syms) if squared else [_normalised(image)]
+    if back:
+        images = [sp.expand(fac.as_expr().xreplace(back)) for fac, _exp in pairs]
+        if not squared:
+            pieces_of = [[_normalised(image)] for image in images]
+        elif binary is not None:
+            pieces_of = _factor_lists(images, kinematic_syms)
+        else:
+            pieces_of = [_factor_list(image, kinematic_syms) for image in images]
+        for pieces in pieces_of:
             for piece in pieces:
                 factors.setdefault(piece, None)
-        elif fac.free_symbols & kinematic_syms:
-            factors.setdefault(fac.as_expr(), None)
+    else:
+        for fac, _exp in pairs:
+            if fac.free_symbols & kinematic_syms:
+                factors.setdefault(fac.as_expr(), None)
     return list(factors), len(eliminated) == 1
 
 
@@ -685,22 +696,21 @@ def _face_discriminant(
     max_face_points: int,
     scale: sp.Symbol | None = None,
     timeout: float | None = None,
-) -> tuple[sp.Expr, list[sp.Expr], bool, bool] | None:
+) -> tuple[sp.Expr, list[sp.Expr] | None, bool, bool] | None:
     """Return (discriminant, its kinematic factors, is_simplex, principal), or None if the
-    face is skipped."""
+    face is skipped. The factors of a vertex or an edge are None: they are those of the
+    discriminant, which the caller factors with the others."""
     n_pts = len(coeffs)
     is_simplex = n_pts == dimension + 1
     if dimension == 0:
-        disc = sp.together(coeffs[0])
-        return disc, _factor_list(disc, kinematic_syms), True, True
+        return sp.together(coeffs[0]), None, True, True
     if is_simplex:
         return sp.Integer(1), [], True, True
     if n_pts > max_face_points:
         return None
     lattice = _lattice_coordinates(np.array(exps_ambient, dtype=int))
     if dimension == 1:
-        disc = _univariate_discriminant(coeffs, [c[0] for c in lattice])
-        return disc, _factor_list(disc, kinematic_syms), False, True
+        return _univariate_discriminant(coeffs, [c[0] for c in lattice]), None, False, True
     factors, principal = _elimination_discriminant(
         coeffs, lattice, kinematic_syms, scale=scale, timeout=timeout
     )
@@ -787,6 +797,8 @@ def landau_analysis_from_polynomial(
     faces: list[FaceDiscriminant] = []
     factors_by_face: list[list[sp.Expr]] = []
     skipped: list[tuple[tuple[int, ...], ...]] = []
+    # The discriminants of the vertices and edges, factored together at the end.
+    pending: list[tuple[int, sp.Expr]] = []
     for dimension, idx in _faces(exps):
         face_exps = [tuple(int(x) for x in exps[i]) for i in idx]
         face_coeffs = [support[i][1] for i in idx]
@@ -797,9 +809,11 @@ def landau_analysis_from_polynomial(
             skipped.append(tuple(face_exps))
             continue
         disc, factors, is_simplex, principal = result
+        if factors is None:
+            pending.append((len(factors_by_face), disc))
         if not (disc.free_symbols & kinematic_syms):
             disc = sp.Integer(1)
-        factors_by_face.append(factors)
+        factors_by_face.append(factors or [])
         faces.append(
             FaceDiscriminant(
                 dimension=dimension,
@@ -811,6 +825,9 @@ def landau_analysis_from_polynomial(
             )
         )
 
+    discriminants = [disc for _, disc in pending]
+    for (k, _), factors in zip(pending, _factor_lists(discriminants, kinematic_syms), strict=True):
+        factors_by_face[k] = factors
     e_a, surfaces = _reduced(factors_by_face, surface_syms)
     return LandauAnalysis(tuple(faces), e_a, surfaces, tuple(skipped))
 
@@ -918,21 +935,21 @@ def _momentum_squared(integral: FeynmanIntegral) -> Callable[[list[int]], sp.Exp
 
     The momenta sum to zero, so the momentum q_S of the legs in S is minus
     that of the others, and q_S^2 = -sum over a in S and c not in S of
-    p_a . p_c. F is written in the same products, so the two agree when the
-    products have been changed, as by setting p_3^2 = 0 in them.
+    p_a . p_c. Each product is read as F reads it, under (a, c) or (c, a),
+    so the two agree when the products have been changed, as by setting
+    p_3^2 = 0 in them.
     """
     products = integral.momentum_products
     n_legs = integral.graph.external_legs
 
+    def dot(a: int, c: int) -> sp.Expr:
+        low, high = min(a, c), max(a, c)
+        return products.get((low, high), products.get((high, low), sp.Integer(0)))
+
     def q_squared(legs: list[int]) -> sp.Expr:
         inside = set(legs)
         return sp.expand(
-            -sum(
-                products.get((min(a, c), max(a, c)), sp.Integer(0))
-                for a in legs
-                for c in range(1, n_legs + 1)
-                if c not in inside
-            )
+            -sum(dot(a, c) for a in legs for c in range(1, n_legs + 1) if c not in inside)
         )
 
     return q_squared

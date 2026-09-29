@@ -908,6 +908,16 @@ class TestBridges:
                 signal.alarm(0)
                 signal.signal(signal.SIGALRM, previous)
 
+    def test_products_are_read_in_either_order(self) -> None:
+        # F reads p_a . p_c under (a, c) or (c, a); the closed form read (c, a), c > a, as 0 and
+        # lost every kinematic factor.
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+        swapped = fi.with_(
+            momentum_products={(j, i): value for (i, j), value in fi.momentum_products.items()}
+        )
+        assert swapped.symanzik.f == fi.symanzik.f
+        assert one_loop_landau_surfaces(swapped) == one_loop_landau_surfaces(fi)
+
     def test_the_momenta_come_from_the_products(self) -> None:
         # F sees p_3^2 = 0 set in the momentum products. The closed form took p_3^2 from the
         # invariants, so the bridge carrying p_3 gave the pole m_4^2 - p_3^2, not m_4^2.
@@ -1027,7 +1037,8 @@ class TestFactorLists:
     @requires_singular
     def test_a_minor_that_stalled_sympy(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # A Cayley minor of the massive box without Mandelstam variables, 57 terms in eight
-        # symbols. From a generator seeded with 0, SymPy's factorisation ran for hours.
+        # symbols. From a generator seeded with 0, SymPy's factorisation ran for over ten
+        # minutes.
         fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:nnnn", use_mandelstam=False)
         y = _modified_cayley_matrix(fi)
         minor = sp.expand(y.extract([2, 3, 4], [2, 3, 4]).det())
@@ -1041,6 +1052,34 @@ class TestFactorLists:
         start = time.perf_counter()
         assert _factor_lists([minor], y.free_symbols) == [[_normalised(minor)]]
         assert time.perf_counter() - start < 5
+
+    @requires_singular
+    def test_the_landau_analysis_factors_with_singular(self) -> None:
+        # The massive box with p_1^2 = p_2^2 = 0. From a generator seeded with 0, SymPy's
+        # factorisation of a face's generator, 92 terms in eight symbols, ran for over ten
+        # minutes; Singular factors it in a fiftieth of a second.
+        if not hasattr(signal, "SIGALRM"):
+            pytest.skip("stopping a stalled factorisation needs SIGALRM")
+
+        def expire(signum: int, frame: object) -> None:
+            raise TimeoutError("the Landau analysis took more than 60 s")
+
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:nnnn")
+        p1, p2, _, _ = standard_invariants(4).external_masses
+        products = {
+            pair: sp.expand(sp.sympify(value).subs({p1: 0, p2: 0}))
+            for pair, value in fi.momentum_products.items()
+        }
+        on_shell = fi.with_(momentum_products=products)
+        previous = signal.signal(signal.SIGALRM, expire)
+        signal.alarm(60)
+        try:
+            sympy_random.seed(0)
+            analysis = landau_analysis(on_shell)
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, previous)
+        assert len(analysis.landau_surfaces) == 26
 
     def test_without_singular(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
@@ -1056,9 +1095,10 @@ class TestFactorLists:
             ("   ? error occurred in or before STDIN line 3\n", 0),
             ("@2\n1:1\n", 0),
             ("@2\n1:1\n1:v0^2\n", 0),
+            ("@2\n1:v0-3*v1\n1:v0+2*v1\n", 0),
             ("@2\n1:v0-v1\n1:v0+2*v1\n@1\n1:v0\n", 0),
         ],
-        ids=["status", "error", "short", "degrees", "extra"],
+        ids=["status", "error", "short", "degrees", "coefficients", "extra"],
     )
     def test_a_failure_of_singular_leaves_it_to_sympy(
         self, stdout: str, returncode: int, monkeypatch: pytest.MonkeyPatch

@@ -130,9 +130,8 @@ three propagators at each internal vertex, and a cubic. The old rule found the t
 faces whose generators do not all vanish on them, together with two factors that are not
 components. No face eliminated has them as components of its locus, just as no face of the
 massive triangle at $p_1^2 = 0$ has $p_2^2 - p_3^2$, which the one-loop closed form keeps: the
-locus of the triangle's top face is $p_2^2 = p_3^2 = 0$, of codimension two.
-With the new rule the face computation gives
-exactly the database's components from faces. On feynkit's graphs the rule
+locus of the triangle's top face is $p_2^2 = p_3^2 = 0$, of codimension two. With the new rule the
+face computation gives exactly the database's components from faces. On feynkit's graphs the rule
 removes $m_1 \pm m_2$ and a quartic from `11e|2|e|:nnz`, a massive bubble with a massless bridge.
 
 ## The report's minors

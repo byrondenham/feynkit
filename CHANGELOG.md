@@ -91,8 +91,8 @@
   p_2^2 = p_3^2 = 0, of codimension two. The discriminants of such faces
   shrink, and the report's lists by face dimension with them. Where they
   shrink, the primes `count_torus_points` excludes, and so those it fits and
-  verifies at, can change, but the candidate does not: `11e|2|e|:nnz` no
-  longer excludes 23.
+  verifies at, can change: `11e|2|e|:nnz` no longer excludes 23. On the graphs
+  tried, the candidate did not change.
 
 ### Added
 
@@ -350,11 +350,18 @@
   fraction of a second, as on a Gram minor of the hexagon and a Cayley minor of
   the massive box `12e|3e|3e|e|:nnnn` without Mandelstam variables. Without
   Singular, SymPy factors them and can still take that long.
+- The Landau analysis could stall on massive boxes: from some states of its
+  random generator, SymPy's factorisation of a face's generator ran for over
+  ten minutes on `12e|3e|3e|e|:nnnn` with p_1^2 = p_2^2 = 0, and now and then
+  on `12e|3e|3e|e|:nnzz`; 0.4.0 could stall the same way. With Singular
+  installed the analysis now factors with it, as the closed form does, and
+  the results are the same.
 - The one-loop closed form took each p_a^2 from the standard invariants, not
   from the momentum products that F uses, so a change to the products such as
-  p_3^2 = 0 did not reach it: for `12e|2e|3|e|:nnnn` the bridge pole stayed
-  m_4^2 - p_3^2 where the faces give m_4. It now takes every squared momentum
-  from the products.
+  p_2^2 = 0 did not reach it: for `12e|2e|e|:nnn` its factors kept p_2^2, which
+  F no longer contains. A product given under (j, i), with j > i, which F
+  accepts, was read as 0. The closed form now takes every squared momentum
+  from the products, reading each under either order of its legs, as F does.
 
 ## 0.4.0 (2026-09-27)
 

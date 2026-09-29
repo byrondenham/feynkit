@@ -290,9 +290,9 @@ print(la.landau_surfaces)          # m_1, m_2, s, s - (m_1 + m_2)^2, s - (m_1 - 
 print(la.face_discriminants)       # one FaceDiscriminant per face, all dimensions
 ```
 
-For one-loop graphs `one_loop_landau_surfaces(fi)` gives the same factors in closed form from the
-modified Cayley matrix (Dlapa, Helmer, Papathanasiou, Tellander 2023). Faces of dimension two or
-more use a Gröbner elimination; install Singular for speed.
+For one-loop graphs `one_loop_landau_surfaces(fi)` gives the same factors, for generic kinematics,
+in closed form from the modified Cayley matrix (Dlapa, Helmer, Papathanasiou, Tellander 2023).
+Faces of dimension two or more use a Gröbner elimination; install Singular for speed.
 
 ---
 

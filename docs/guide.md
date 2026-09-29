@@ -1477,12 +1477,13 @@ generators contributes the factors of their greatest common divisor, the codimen
 its locus. A component that arises only as a limit under special kinematics can then be missing,
 while the one-loop closed form keeps it: with $p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn`
 loses $p_2^2 - p_3^2$, since the locus of its top face is $p_2^2 = p_3^2 = 0$, of codimension two.
-The massless pentagon and hexagon take about 3 s and
-15 s. feynkit uses Singular when the `Singular` binary is on the path and falls back to SymPy
-otherwise, which is much slower. Faces with more monomials than `max_face_points` (default 12) are
-skipped and listed in `la.skipped_faces`. `landau_analysis(fi, timeout=60)` gives Singular at most
-60 s for each face, with no limit by default; a face that runs past it, a failure of Singular and
-output feynkit cannot read raise `ComputationError`.
+The massless pentagon and hexagon take about 3 s and 15 s. feynkit eliminates and factors with
+Singular when the `Singular` binary is on the path, and falls back to SymPy otherwise, which is much
+slower and whose factorisation now and then takes minutes. Faces with more monomials than
+`max_face_points` (default 12) are skipped and listed in `la.skipped_faces`.
+`landau_analysis(fi, timeout=60)` gives Singular at most 60 s for each face, with no limit by
+default. An elimination that runs past it, fails or prints output feynkit cannot read raises
+`ComputationError`; a factorisation that fails is left to SymPy.
 
 ### LandauAnalysis fields
 
@@ -1979,9 +1980,9 @@ kinematic constraints.
 latex = fi.to_latex(["polytope", "gkz"], title="Massive triangle")
 ```
 
-The Landau section dominates the build time: the kite `12e|23|3|e|:zzzzz` and the massive box
-`12e|3e|3e|e|:nnnn` each take about 6 s in all, over 4 s of it in the Landau analysis. A survey
-over many graphs can leave it out and keep everything else:
+The Landau section dominates the build time: the kite `12e|23|3|e|:zzzzz` takes about 6 s in all,
+over 4 s of it in the Landau analysis, and the massive box `12e|3e|3e|e|:nnnn` about 4.5 s, 2.6 s
+of it in the analysis. A survey over many graphs can leave it out and keep everything else:
 
 ```python
 from feynkit.io.report import DEFAULT_SECTIONS

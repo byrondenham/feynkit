@@ -403,8 +403,9 @@ class FeynmanIntegral:
         its integer points onto themselves and P onto itself. When P is
         full-dimensional this is {(U, t) : U in GL_n(Z), |det U| = 1,
         t in Z^n, {Uv + t : v in V} = V} for the vertex set V of P. Below full
-        dimension each element is returned as one such (U, t) that extends it
-        and fixes a complement of the affine hull. The identity is always
+        dimension each element is returned as one such (U, t) that extends it,
+        and U fixes a complement of the direction space of the affine hull,
+        the span of the differences of the vertices. The identity is always
         included; for generic polytopes it is the only element.
 
         For highly symmetric diagrams (the massless triangle has 48

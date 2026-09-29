@@ -593,8 +593,9 @@ def symmetry_pairs(
     those of the points in their lattice chart whose linear part maps the
     integer points of the affine hull onto themselves, each extended to Z^n
     as the automorphisms of :func:`compute_polytope_automorphisms` are: M
-    fixes a complement of the affine hull, and det M = +/-1. Another
-    extension differs only off the affine hull, where T beta changes with it.
+    fixes a complement of the direction space of the affine hull, the span of
+    the differences of the points, and det M = +/-1. Another extension
+    differs only off the affine hull, where T beta changes with it.
 
     Each result is a :class:`SymmetryPair` encoding the linear map M,
     translation t, induced column permutation P, and determinant |det M|.

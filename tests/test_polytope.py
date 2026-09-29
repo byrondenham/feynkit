@@ -698,3 +698,72 @@ def test_guide_example_prints_what_the_guide_says(capsys: pytest.CaptureFixture[
         "(-1, 0) 0 2 (Fraction(0, 1), Fraction(1, 2), Fraction(0, 1))",
         "(1, 2) 2 2 (Fraction(1, 1), Fraction(-1, 2), Fraction(-1, 1))",
     ]
+
+
+def _lattice_volume(points: list[tuple[int, ...]], dimension: int) -> Fraction:
+    """Euclidean volume of Conv(points) in Z^dimension, exactly, as a multiple of 1/dimension!."""
+    points = sorted(set(points))
+    if dimension == 0:
+        return Fraction(1)
+    chart = lattice_chart(points)
+    if len(chart.basis) < dimension:
+        return Fraction(0)
+    index = abs(int(sp.Matrix([list(row) for row in chart.basis]).det()))
+    return Fraction(normalized_volume(points) * index, math.factorial(dimension))
+
+
+def _volume_from_mixed_volumes(points: list[tuple[int, ...]], loops: int) -> int:
+    """Normalised volume of Newt(G) from those of U and F.
+
+    The exponents of U lie on |a| = L and those of F on |a| = L + 1, so Newt(G) is the Cayley
+    polytope of P = Newt(U) and Q = Newt(F), after projecting each hyperplane to Z^(n-1) by
+    dropping the last coordinate. Writing vol(lam P + Q) = sum_k c_k lam^k, the Cayley polytope of
+    dimension m + 1 has normalised volume (m + 1)! int_0^1 vol((1 - t) P + t Q) dt
+    = sum_k c_k k! (m - k)!, where m is the dimension of P + Q.
+    """
+    p = [a[:-1] for a in points if sum(a) == loops]
+    q = [a[:-1] for a in points if sum(a) == loops + 1]
+    assert len(p) + len(q) == len(points)
+    chart = lattice_chart(sorted(set(p + q)))
+    m = len(chart.basis)
+    coordinates = dict(zip(sorted(set(p + q)), chart.coordinates, strict=True))
+    p_vertices = polytope_data([coordinates[a] for a in p]).vertices
+    q_vertices = polytope_data([coordinates[a] for a in q]).vertices
+    values = []
+    for lam in range(m + 1):
+        summed = {
+            tuple(lam * x + y for x, y in zip(u, v, strict=True))
+            for u in p_vertices
+            for v in q_vertices
+        }
+        values.append(_lattice_volume(list(summed), m))
+    x = sp.Symbol("x")
+    polynomial = sp.Poly(
+        sp.interpolate(
+            [(k, sp.Rational(v.numerator, v.denominator)) for k, v in enumerate(values)], x
+        ),
+        x,
+    )
+    total = sum(
+        polynomial.coeff_monomial(x**k) * math.factorial(k) * math.factorial(m - k)
+        for k in range(m + 1)
+    )
+    assert total.q == 1
+    return int(total)
+
+
+@pytest.mark.parametrize(
+    "cnickel",
+    [
+        "11e|e|:nn",
+        "12e|2e|e|:nnn",
+        "12e|3e|3e|e|:nnnn",
+        "111e|e|:nnn",
+        "12e|23|3|e|:nnnnn",
+    ],
+    ids=["bubble", "triangle", "box", "sunrise", "kite"],
+)
+def test_volume_of_newt_g_from_mixed_volumes_of_u_and_f(cnickel: str) -> None:
+    fi = FeynmanIntegral.from_cnickel(cnickel)
+    points = [tuple(int(x) for x in a) for a in fi.newton_polytope.points]
+    assert _volume_from_mixed_volumes(points, fi.loop_count) == normalized_volume(points)

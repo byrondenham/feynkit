@@ -179,6 +179,10 @@
   `massless_on_shell` or `equal_masses` before the analysis; a class the
   integral cannot take exits with status 1. The header prints the kinematic
   class.
+- The test-suite checks the normalised volume of the Newton polytope of G
+  against a second computation, from the volumes of the Newton polytopes of U
+  and F, which span the two hyperplanes of a Cayley polytope. The
+  mathematics reference gives the argument.
 
 ### Changed
 

@@ -500,6 +500,23 @@ its lattice chart $x = o + Bc$, whose basis $B$ is the Hermite normal form basis
 the points generate $\mathbb{Z}^d$ affinely; there the determinants are $d \times d$ and nothing is
 divided. A point has volume 1, and every non-empty configuration has positive volume.
 
+**Cross-check by mixed volumes.** For $\mathcal{G} = \mathcal{U} + \mathcal{F}$ the exponents of
+$\mathcal{U}$ lie on the hyperplane $|\alpha| = L$ and those of $\mathcal{F}$ on
+$|\alpha| = L + 1$, where $L$ is the loop number. Dropping the last coordinate identifies each
+hyperplane with $\mathbb{Z}^{n-1}$, so $\Delta_G$ is the Cayley polytope of $P = \mathrm{Newt}(\mathcal{U})$
+and $Q = \mathrm{Newt}(\mathcal{F})$, and its slice at height $t$ is $(1 - t)P + tQ$. Let $m$ be the
+dimension of $P + Q$, so that $\dim \Delta_G = m + 1$, and write
+$\mathrm{vol}_m(\lambda P + \mu Q) = \sum_{k=0}^{m} c_k \lambda^k \mu^{m-k}$ for the volume in the lattice
+they span. Integrating over the slices,
+
+$$\mathrm{vol}_0(\Delta_G) \;=\; (m+1)! \int_0^1 \mathrm{vol}_m\bigl((1-t)P + tQ\bigr)\,dt
+\;=\; \sum_{k=0}^{m} c_k\, k!\,(m-k)!,$$
+
+since $\int_0^1 (1-t)^k t^{m-k}\,dt = k!\,(m-k)!/(m+1)!$. The coefficients $c_k$ follow from the
+volumes of $\lambda P + Q$ at $\lambda = 0, \ldots, m$, each exact. This is independent of the
+face-lattice computation above; the test-suite checks the two against each other for the bubble,
+triangle, box, sunrise and kite.
+
 When $\Delta_G$ is full-dimensional, $\mathrm{vol}_0(\Delta_G)$ equals the GKZ holonomic rank for
 generic $\beta$ (section 4.5). Below full dimension the rows of the homogenised $A$ are linearly
 dependent, and for generic $\beta$ the system has no non-zero solutions.

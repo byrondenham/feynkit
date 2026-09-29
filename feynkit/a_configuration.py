@@ -400,7 +400,7 @@ class AConfiguration:
         return intrinsic_lattice_model(self.affine_points)
 
     def automorphisms(self) -> PolytopeAutomorphisms:
-        """Compute the unimodular automorphism group of the Newton polytope."""
+        """The automorphism group of the Newton polytope as a lattice polytope."""
         from .normal_forms.polytope_automorphisms import compute_polytope_automorphisms
 
         return compute_polytope_automorphisms(self.newton_polytope_points)
@@ -616,8 +616,10 @@ def symmetry_pairs(
     Returns
     -------
     list[SymmetryPair]
-        All valid self-maps, including the identity.  Empty only if the
-        configuration has no points.
+        All valid self-maps, including the identity.  Empty when the
+        configuration has no points, and when a point is repeated but not
+        all points are equal: the search matches points by their
+        coordinates, so it finds no bijection of the columns.
 
     Algorithm
     ---------
@@ -659,8 +661,9 @@ def symmetry_pairs(
 
     # All self-maps of a non-degenerate configuration are unimodular:
     # |det M| = Vol(M*conv(A)) / Vol(conv(A)) = Vol(conv(A)) / Vol(conv(A)) = 1.
-    # Liu-Cai labels (det-of-moment-matrix at each hull vertex) are unimodular
-    # invariants, so they can filter both anchors and basis combinations.
+    # The labels (determinants of moment matrices at each hull vertex, over its
+    # neighbours and over all the other vertices) are unimodular invariants, so
+    # they can filter both anchors and basis combinations.
     hull_idx = hull_vertex_indices(pts)
     pts_hull = pts[hull_idx]
     GW = labelled_polytope_graph(pts_hull)

@@ -1,5 +1,5 @@
 """
-Unimodular automorphism group of a convex lattice polytope.
+Automorphism group of a convex lattice polytope.
 
 The automorphism group Aut(P) is the group of P as a lattice polytope in the
 affine lattice aff(P) cap Z^n: the affine bijections of the affine hull of P
@@ -28,7 +28,7 @@ anchor from C(30,6) ~ 594 000 to a few hundred.
 Public API
 ----------
 compute_polytope_automorphisms(points) -> PolytopeAutomorphisms
-    Full unimodular automorphism group of conv(points).
+    Automorphism group of conv(points) as a lattice polytope.
 
 compute_graph_automorphisms(graph) -> list[list[int]]
     Vertex permutations of the Feynman graph (topology + masses) as a

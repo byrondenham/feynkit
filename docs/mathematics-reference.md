@@ -1040,7 +1040,10 @@ them may or may not be singular on the physical sheet, and the list is not guara
 (Fevola, Mizera, Telen 2023, section 2). Beyond one loop the principal A-determinant with generic
 coefficients can vanish identically after specialising to physical kinematics, and the face-by-face
 computation here specialises first; this is the "principal Landau determinant" of Fevola, Mizera and
-Telen rather than $E_A$ of the generic polynomial. Multiplicities are dropped.
+Telen rather than $E_A$ of the generic polynomial. Multiplicities are dropped. A face with more
+lattice points than `max_face_points` is skipped and its factors are missing from the result, at
+generic kinematics too: the polytope of a box with three or four massive propagators has 13 or 14
+points, so at the default limit of 12 the box's own factor is lost.
 
 ### 10.4 Known Results
 

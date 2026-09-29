@@ -38,7 +38,8 @@ Faces contribute as follows.
   rule never adds a factor, and at generic kinematics it loses none. Beyond
   one loop the extent of the loss is not known. Faces with more points than
   ``max_face_points`` are skipped and listed in
-  ``LandauAnalysis.skipped_faces``.
+  ``LandauAnalysis.skipped_faces``; the factors of those faces are then
+  missing from the result, at generic kinematics too.
 
 The factors are candidate codimension-one singular loci on all sheets of the
 integral. Membership is necessary for a singularity, not sufficient, and
@@ -152,7 +153,12 @@ class LandauAnalysis:
         vertex or an edge whose coefficients carry the scale in a
         numerator.
     skipped_faces
-        Exponent sets of faces that were too large to eliminate.
+        Exponent sets of faces that were too large to eliminate. Their
+        discriminants are left out, so ``landau_surfaces`` and
+        ``principal_a_determinant`` are then incomplete, whatever the
+        kinematics: a box with three or four massive propagators, whose
+        polytope has 13 or 14 points, misses its own factor at the default
+        ``max_face_points``.
     """
 
     face_discriminants: tuple[FaceDiscriminant, ...]
@@ -808,7 +814,8 @@ def landau_analysis_from_polynomial(
         Its variables; every other symbol is treated as kinematic.
     max_face_points
         Faces of dimension two or more with more monomials than this are
-        not eliminated and are reported in ``skipped_faces``.
+        not eliminated and are reported in ``skipped_faces``; the surfaces
+        and their product then lack those faces' factors.
     scale
         The energy scale mu, if ``g_poly`` carries one. When every
         coefficient of ``g_poly`` is a power of mu times an expression free

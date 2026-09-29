@@ -27,6 +27,7 @@ from feynkit import Edge, FeynmanIntegral, Graph, landau_analysis, landau_analys
 from feynkit import landau as landau_module
 from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.io.report import AnalysisReport
+from feynkit.io.report_text import render_text
 from feynkit.kinematics.mandelstam import standard_invariants
 from feynkit.landau import (
     _eliminate_singular,
@@ -1275,6 +1276,34 @@ class TestPolygonClosedForms:
             signal.alarm(0)
             signal.signal(signal.SIGALRM, previous)
         assert (len(first), len(second)) == (37, 57)
+
+    @requires_singular
+    def test_a_box_skips_its_own_face_and_says_so(self) -> None:
+        # With three massive lines the box's polytope has 13 points, one more than the default
+        # limit, so even at generic kinematics its own factor is missing from the faces.
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:nnnz")
+        report = AnalysisReport.from_integral(fi, ["landau"])
+        assert report.landau is not None
+        analysis = report.landau.analysis
+        assert [len(face) for face in analysis.skipped_faces] == [13]
+        assert report.landau.skipped == ((4, 13, True),)
+        closed = set(one_loop_landau_surfaces(fi))
+        faces = set(analysis.landau_surfaces)
+        assert faces < closed
+        assert len(closed - faces) == 1
+        text = " ".join(render_text(report).split())
+        assert (
+            "1 face was skipped as too large to eliminate, and its discriminant is missing "
+            "from the list: the whole polytope, 13 points."
+        ) in text
+
+    @requires_singular
+    @pytest.mark.slow
+    def test_a_larger_limit_recovers_the_box_factor(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:nnnz")
+        analysis = landau_analysis(fi, max_face_points=13)
+        assert not analysis.skipped_faces
+        assert set(analysis.landau_surfaces) == set(one_loop_landau_surfaces(fi))
 
     @requires_singular
     def test_hexagon_report(self) -> None:

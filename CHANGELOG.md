@@ -276,6 +276,11 @@
   massless leg and some massless propagators. No extra factor arises, and
   none is lost at generic kinematics. A test records the loss as an expected
   failure.
+- The documentation of `max_face_points` and `LandauAnalysis.skipped_faces`
+  says that the factors of a skipped face are missing from `landau_surfaces`
+  and `principal_a_determinant`, whatever the kinematics. A box with three or
+  four massive propagators skips its polytope of 13 or 14 points at the default
+  limit and loses its own factor; the report names the skipped face.
 
 ### Fixed
 

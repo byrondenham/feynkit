@@ -593,6 +593,12 @@ class TestSummary:
         )
         rows = dict(report.summary())
         assert (rows["Gorenstein index"], rows["Normal configuration"]) == ("none", "no")
+        unknown = dataclasses.replace(invariants, idp=None, normal=None)
+        report = dataclasses.replace(
+            triangle_report,
+            polytope=dataclasses.replace(triangle_report.polytope, invariants=unknown),
+        )
+        assert dict(report.summary())["Normal configuration"] == "not computed"
 
     def test_labels_are_in_the_documented_order(self, triangle_report: AnalysisReport) -> None:
         assert tuple(label for label, _ in triangle_report.summary()) == SUMMARY_LABELS

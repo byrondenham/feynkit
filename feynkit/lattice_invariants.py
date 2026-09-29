@@ -45,7 +45,7 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import sympy as sp
@@ -336,6 +336,34 @@ def _prepare(points: PointsLike, lattice: str) -> _Polytope:
 # --- the enumerator ----------------------------------------------------------
 
 
+class _OverBudget(Exception):
+    """The work budget of lattice_invariants ran out."""
+
+
+class _Budget:
+    """Steps of work left, or no limit.
+
+    A step is one term of an inequality the enumerator evaluates, so that an
+    inequality on the coordinates c_1, ..., c_j costs j steps, or one set
+    lookup of the IDP check. CPython takes about four million of either a
+    second.
+    """
+
+    def __init__(self, limit: int | None) -> None:
+        self.limit = limit
+        self.spent = 0
+
+    def spend(self, steps: int) -> None:
+        """Record steps of work; raise _OverBudget when the limit is passed."""
+        self.spent += steps
+        if self.limit is not None and self.spent > self.limit:
+            raise _OverBudget
+
+    def affords(self, steps: int) -> bool:
+        """Whether steps more of work stay within the limit."""
+        return self.limit is None or self.spent + steps <= self.limit
+
+
 def _range(
     level: tuple[_Bound, ...], prefix: Sequence[int], num: int, den: int
 ) -> tuple[int, int, int, int]:
@@ -369,10 +397,18 @@ def _range(
     return low, high, strict_low, strict_high
 
 
-def _count(levels: Sequence[tuple[_Bound, ...]], num: int, den: int = 1) -> tuple[int, int]:
+def _count(
+    levels: Sequence[tuple[_Bound, ...]], num: int, den: int = 1, budget: _Budget | None = None
+) -> tuple[int, int]:
     """The numbers of lattice points and of interior lattice points of (num/den) P.
 
-    levels are those of P; with none, P is a point, its own interior.
+    levels are those of P; with none, P is a point, its own interior. An
+    inequality on j coordinates costs j steps of budget.
+
+    Raises
+    ------
+    _OverBudget
+        If budget runs out.
     """
     if not levels:
         return 1, 1
@@ -382,6 +418,8 @@ def _count(levels: Sequence[tuple[_Bound, ...]], num: int, den: int = 1) -> tupl
 
     def walk(j: int, inside: bool) -> None:
         nonlocal closed_total, interior_total
+        if budget is not None:
+            budget.spend(len(levels[j]) * (j + 1))
         low, high, strict_low, strict_high = _range(levels[j], prefix, num, den)
         if j == last:
             closed_total += max(0, high - low + 1)
@@ -502,7 +540,7 @@ def _evaluate(coefficients: Sequence[Fraction], x: int) -> Fraction:
     return value
 
 
-def _ehrhart(polytope: _Polytope) -> tuple[Fraction, ...]:
+def _ehrhart(polytope: _Polytope, budget: _Budget | None = None) -> tuple[Fraction, ...]:
     """The coefficients c_0, ..., c_d of the Ehrhart polynomial.
 
     L(0) = 1, the leading coefficient is vol / d!, and one walk of kP gives
@@ -515,13 +553,15 @@ def _ehrhart(polytope: _Polytope) -> tuple[Fraction, ...]:
     ------
     ComputationError
         If a value left over disagrees, which would be a bug.
+    _OverBudget
+        If budget runs out.
     """
     d = polytope.dimension
     if d == 0:
         return (Fraction(1),)
     known = {0: 1}
     for k in range(1, math.ceil(d / 2) + 1):
-        closed, inner = _count(polytope.levels, k)
+        closed, inner = _count(polytope.levels, k, budget=budget)
         known[k] = closed
         known[-k] = (-1) ** d * inner
     lead = Fraction(polytope.volume, math.factorial(d))
@@ -831,30 +871,73 @@ def _idp_python(polytope: _Polytope) -> bool:
     return True
 
 
-def _idp_normaliz(polytope: _Polytope, binary: str) -> bool:
-    """IDP from the Hilbert basis Normaliz computes for the cone over P.
+def _idp_work(polytope: _Polytope, ehrhart: Sequence[Fraction]) -> int:
+    """The steps _idp_python takes at most: |P cap Z^d| (L(2) + ... + L(d - 1)) set lookups.
+
+    It holds the lattice points of at most two dilates at a time, the largest
+    L(d - 1) of them.
+    """
+    d = polytope.dimension
+    base = int(_evaluate(ehrhart, 1))
+    return base * sum(int(_evaluate(ehrhart, k)) for k in range(2, d))
+
+
+def _parse_inv(text: str) -> dict[str, Any]:
+    """The integers, booleans, vectors and matrices of a Normaliz .inv file."""
+    lines = text.splitlines()
+    values: dict[str, Any] = {}
+    i = 0
+    while i < len(lines):
+        parts = lines[i].split()
+        if len(parts) == 4 and parts[0] == "integer" and parts[2] == "=":
+            values[parts[1]] = int(parts[3])
+        elif len(parts) == 4 and parts[0] == "boolean" and parts[2] == "=":
+            values[parts[1]] = parts[3] == "true"
+        elif len(parts) >= 4 and parts[0] == "vector" and parts[3] == "=":
+            values[parts[2]] = [int(x) for x in parts[4:]]
+        elif len(parts) == 5 and parts[0] == "matrix" and parts[4] == "=":
+            count = int(parts[1])
+            values[parts[3]] = [
+                [int(x) for x in row.split()] for row in lines[i + 1 : i + 1 + count]
+            ]
+            i += count
+        i += 1
+    return values
+
+
+def _run_normaliz(
+    polytope: _Polytope, binary: str, closed: int, *, series: bool, timeout: float | None
+) -> dict[str, Any]:
+    """The .inv values Normaliz gives for the cone over P, with its Hilbert basis.
 
     The vertices go in as a Normaliz polytope, whose lattice is Z^(d+1) with
-    the grading by the last coordinate. P has IDP exactly when every element
-    of the Hilbert basis has degree 1. The number of degree-1 elements is
-    checked against the lattice points of P.
+    the grading by the last coordinate. With series, the Hilbert series and
+    quasipolynomial are asked for too. The number of degree-1 elements is
+    checked against closed, the lattice points of P.
 
     Raises
     ------
     ComputationError
-        If Normaliz fails or its output cannot be read or disagrees with the
-        count of lattice points.
+        If Normaliz fails, does not finish within timeout seconds, or gives
+        output that cannot be read or disagrees with closed.
     """
     d = polytope.dimension
     rows = "\n".join(" ".join(str(x) for x in v) for v in polytope.vertices)
-    text = f"amb_space {d + 1}\npolytope {len(polytope.vertices)}\n{rows}\nHilbertBasis\n"
+    goals = "HilbertBasis\nHilbertSeries\n" if series else "HilbertBasis\n"
+    text = f"amb_space {d + 1}\npolytope {len(polytope.vertices)}\n{rows}\n{goals}"
     with tempfile.TemporaryDirectory(prefix="feynkit-normaliz-") as folder:
         project = Path(folder) / "polytope"
         project.with_suffix(".in").write_text(text)
         try:
             run = subprocess.run(
-                [binary, "--inv", str(project)], capture_output=True, text=True, check=False
+                [binary, "--inv", str(project)],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=timeout,
             )
+        except subprocess.TimeoutExpired:
+            raise ComputationError(f"Normaliz did not finish within {timeout:g} s") from None
         except OSError as exc:
             raise ComputationError(f"Normaliz failed to start: {exc}") from exc
         invariants = project.with_suffix(".inv")
@@ -864,22 +947,91 @@ def _idp_normaliz(polytope: _Polytope, binary: str) -> bool:
                 f"Normaliz failed with status {run.returncode}"
                 + (f": {message[-1]}" if message else "")
             )
-        values = {}
-        for line in invariants.read_text().splitlines():
-            parts = line.split()
-            if len(parts) == 4 and parts[0] == "integer" and parts[2] == "=":
-                values[parts[1]] = int(parts[3])
+        values = _parse_inv(invariants.read_text())
     if "hilbert_basis_elements" not in values or "degree_1_elements" not in values:
         raise ComputationError("the Normaliz output has no Hilbert basis count")
-    closed, _ = _count(polytope.levels, 1)
     if values["degree_1_elements"] != closed:
         raise ComputationError(
             f"Normaliz finds {values['degree_1_elements']} lattice points of P, feynkit {closed}"
         )
-    return values["hilbert_basis_elements"] == closed
+    return values
 
 
-def _idp(polytope: _Polytope, backend: str) -> bool:
+class _Normaliz:
+    """The Normaliz runs for one polytope: at most one with the series, or its failure.
+
+    Without a binary it gives nothing. A failure raises when strict and is
+    otherwise remembered, so that Normaliz is not run again.
+    """
+
+    def __init__(
+        self, polytope: _Polytope, binary: str | None, *, strict: bool, timeout: float | None
+    ) -> None:
+        self.polytope = polytope
+        self.binary = binary
+        self.strict = strict
+        self.timeout = timeout
+        self.failed = False
+        self.found: dict[str, Any] | None = None
+        self.with_series = False
+
+    def values(self, closed: int, *, series: bool) -> dict[str, Any] | None:
+        """The values of a run, with the series when asked; None without Normaliz or on failure.
+
+        Raises
+        ------
+        ComputationError
+            If Normaliz fails and the runs are strict.
+        """
+        if self.binary is None or self.failed:
+            return None
+        if self.found is None or (series and not self.with_series):
+            try:
+                self.found = _run_normaliz(
+                    self.polytope, self.binary, closed, series=series, timeout=self.timeout
+                )
+            except ComputationError:
+                if self.strict:
+                    raise
+                self.failed = True
+                return None
+            self.with_series = series
+        return self.found
+
+
+def _normaliz_ehrhart(
+    polytope: _Polytope, values: dict[str, Any], closed: int, inner: int
+) -> tuple[Fraction, ...]:
+    """The Ehrhart polynomial from the Hilbert quasipolynomial Normaliz gives.
+
+    It must have period 1, constant term 1, leading coefficient vol / d!, and
+    give the counts closed at 1 and (-1)^d inner at -1.
+
+    Raises
+    ------
+    ComputationError
+        If any of these fails.
+    """
+    d = polytope.dimension
+    quasi = values.get("hilbert_quasipolynomial")
+    denominator = values.get("hilbert_quasipolynomial_denom")
+    if not quasi or len(quasi) != 1 or len(quasi[0]) != d + 1 or not denominator:
+        raise ComputationError("Normaliz gives no Ehrhart polynomial of period 1")
+    coefficients = tuple(Fraction(c, denominator) for c in quasi[0])
+    if (
+        coefficients[0] != 1
+        or coefficients[-1] != Fraction(polytope.volume, math.factorial(d))
+        or _evaluate(coefficients, 1) != closed
+        or _evaluate(coefficients, -1) != (-1) ** d * inner
+    ):
+        raise ComputationError(
+            f"the Ehrhart polynomial {[str(c) for c in coefficients]} from Normaliz disagrees "
+            f"with the volume {polytope.volume} or the counts {closed} and {inner}"
+        )
+    return coefficients
+
+
+def _idp(polytope: _Polytope, backend: str, timeout: float | None = None) -> bool:
     """IDP of P in its chart; every polytope of dimension at most 2 has it.
 
     With backend "auto" a failure of Normaliz falls back to Python.
@@ -892,16 +1044,21 @@ def _idp(polytope: _Polytope, backend: str) -> bool:
     binary = _resolve_backend(backend)
     if polytope.dimension <= 2:
         return True
-    if binary is not None:
-        try:
-            return _idp_normaliz(polytope, binary)
-        except ComputationError:
-            if backend == "normaliz":
-                raise
+    runs = _Normaliz(polytope, binary, strict=backend == "normaliz", timeout=timeout)
+    closed, _ = _count(polytope.levels, 1)
+    values = runs.values(closed, series=False)
+    if values is not None:
+        return bool(values["hilbert_basis_elements"] == closed)
     return _idp_python(polytope)
 
 
-def is_idp(points: PointsLike, *, lattice: Lattice = "support", backend: str = "auto") -> bool:
+def is_idp(
+    points: PointsLike,
+    *,
+    lattice: Lattice = "support",
+    backend: str = "auto",
+    timeout: float | None = None,
+) -> bool:
     """Whether P = conv(points) has the integer decomposition property.
 
     P has IDP when every lattice point of kP is a sum of k lattice points of
@@ -917,6 +1074,8 @@ def is_idp(points: PointsLike, *, lattice: Lattice = "support", backend: str = "
         Normaliz binary, which computes the Hilbert basis of the cone over
         P in exact arithmetic; or "auto", which uses Normaliz when it is
         installed and falls back to Python when it is not or fails.
+    timeout
+        The most seconds Normaliz may run, or None for no limit.
 
     Raises
     ------
@@ -924,9 +1083,10 @@ def is_idp(points: PointsLike, *, lattice: Lattice = "support", backend: str = "
         As invariant_chart.
     ComputationError
         If backend is unknown, "normaliz" is asked for and the binary is
-        missing or fails, or a consistency check fails.
+        missing, fails or does not finish within timeout, or a consistency
+        check fails.
     """
-    return _idp(_prepare(points, lattice), backend)
+    return _idp(_prepare(points, lattice), backend, timeout)
 
 
 @dataclass(frozen=True)
@@ -934,7 +1094,9 @@ class LatticeInvariants:
     """The lattice invariants of a lattice polytope P of dimension d.
 
     Every field but normal belongs to the chosen lattice, in whose chart
-    (invariant_chart) the width direction is given.
+    (invariant_chart) the width direction is given. The fields that can be
+    None are None only when lattice_invariants had a budget and could not
+    stay within it.
 
     Attributes
     ----------
@@ -945,9 +1107,10 @@ class LatticeInvariants:
     lattice_points, interior_points
         The numbers of lattice points of P and of its relative interior.
     ehrhart
-        The coefficients c_0, ..., c_d of the Ehrhart polynomial.
+        The coefficients c_0, ..., c_d of the Ehrhart polynomial, or None
+        when not computed.
     h_star
-        h*_0, ..., h*_d, trailing zeros included.
+        h*_0, ..., h*_d, trailing zeros included, or None when not computed.
     gorenstein_index
         The Gorenstein index, or None when P is not Gorenstein.
     reflexive
@@ -956,7 +1119,8 @@ class LatticeInvariants:
         The lattice width and the first direction that attains it; see
         lattice_width.
     idp
-        Whether P has the integer decomposition property.
+        Whether P has the integer decomposition property, or None when not
+        computed.
     support_is_saturated
         Whether the points given are all the lattice points of P.
     normal
@@ -965,30 +1129,120 @@ class LatticeInvariants:
         support lattice whatever the lattice chosen: NA is normal exactly
         when the support holds every lattice point of P in the support
         lattice and P has IDP there. Then C[NA] is Cohen-Macaulay (Hochster
-        1972).
+        1972). It is False when the support misses a lattice point, and
+        otherwise None when IDP was not computed.
     """
 
     lattice: Lattice
     dimension: int
     lattice_points: int
     interior_points: int
-    ehrhart: tuple[Fraction, ...]
-    h_star: tuple[int, ...]
+    ehrhart: tuple[Fraction, ...] | None
+    h_star: tuple[int, ...] | None
     gorenstein_index: int | None
     reflexive: bool
     lattice_width: int
     width_direction: tuple[int, ...]
-    idp: bool
+    idp: bool | None
     support_is_saturated: bool
-    normal: bool
+    normal: bool | None
+
+
+def _series(
+    polytope: _Polytope, work: _Budget, runs: _Normaliz, closed: int, inner: int
+) -> tuple[tuple[Fraction, ...], tuple[int, ...]] | tuple[None, None]:
+    """The Ehrhart polynomial and h*-vector, from the walk while work lasts, then from Normaliz.
+
+    Normaliz's h*-vector, when its denominator is (1 - t)^(d + 1), must agree
+    with the one computed from its Ehrhart polynomial.
+
+    Raises
+    ------
+    ComputationError
+        If a consistency check fails, or Normaliz fails and runs is strict.
+    """
+    walked: tuple[Fraction, ...] | None
+    try:
+        walked = _ehrhart(polytope, work)
+    except _OverBudget:
+        walked = None
+    if walked is not None:
+        return walked, _h_star(polytope, walked)
+    values = runs.values(closed, series=True)
+    if values is None:
+        return None, None
+    ehrhart = _normaliz_ehrhart(polytope, values, closed, inner)
+    h_star = _h_star(polytope, ehrhart)
+    numerator = values.get("hilbert_series_num", [])
+    if values.get("hilbert_series_denom") == [1] * (polytope.dimension + 1) and list(
+        h_star
+    ) != numerator + [0] * (len(h_star) - len(numerator)):
+        raise ComputationError(
+            f"Normaliz gives the h*-vector {numerator}, its Ehrhart polynomial {h_star}"
+        )
+    return ehrhart, h_star
+
+
+def _budgeted_idp(
+    polytope: _Polytope,
+    work: _Budget,
+    runs: _Normaliz,
+    ehrhart: Sequence[Fraction] | None,
+    closed: int,
+) -> bool | None:
+    """IDP from Normaliz when it runs, otherwise in Python when work affords it; else None.
+
+    Without a limit Python always runs, as in is_idp.
+
+    Raises
+    ------
+    ComputationError
+        If Normaliz fails and runs is strict, or a consistency check fails.
+    """
+    if polytope.dimension <= 2:
+        return True
+    values = runs.values(closed, series=False)
+    if values is not None:
+        return bool(values["hilbert_basis_elements"] == closed)
+    if work.limit is None:
+        return _idp_python(polytope)
+    if ehrhart is None:
+        return None
+    steps = _idp_work(polytope, ehrhart)
+    if not work.affords(steps):
+        return None
+    work.spend(steps)
+    return _idp_python(polytope)
 
 
 def lattice_invariants(
-    points: PointsLike, *, lattice: Lattice = "support", backend: str = "auto"
+    points: PointsLike,
+    *,
+    lattice: Lattice = "support",
+    backend: str = "auto",
+    budget: int | None = None,
+    timeout: float | None = None,
 ) -> LatticeInvariants:
     """Every lattice invariant of P = conv(points) in one record; see LatticeInvariants.
 
-    backend is that of is_idp.
+    Parameters
+    ----------
+    backend
+        That of is_idp. With a budget, "auto" and "normaliz" also take the
+        Ehrhart polynomial from Normaliz's Hilbert series when the walk would
+        exceed it, checked against the volume and the lattice points of P.
+    budget
+        The most steps of pure-Python work for the Ehrhart polynomial and the
+        IDP check together, or None, the default, for no limit. A step is one
+        term of an inequality the enumerator evaluates or one set lookup of
+        the IDP check, which takes |P cap Z^d| (L(2) + ... + L(d - 1)) of
+        them; CPython takes about four million a second. What neither the budget nor
+        Normaliz allows is left None, and with backend "auto" a failure of
+        Normaliz falls back to Python only within the budget. The lattice
+        points of P, its facets, volume, Gorenstein index and width are
+        always computed.
+    timeout
+        The most seconds each run of Normaliz may take, or None for no limit.
 
     Raises
     ------
@@ -997,25 +1251,44 @@ def lattice_invariants(
     ComputationError
         As is_idp, or if a consistency check fails.
     """
+    binary = _resolve_backend(backend)
+    strict = backend == "normaliz"
+    work = _Budget(budget)
     polytope = _prepare(points, lattice)
+    runs = _Normaliz(polytope, binary, strict=strict, timeout=timeout)
     closed, inner = _count(polytope.levels, 1)
-    ehrhart = _ehrhart(polytope)
+    ehrhart, h_star = _series(polytope, work, runs, closed, inner)
     found = _gorenstein(polytope)
     width, direction = _width(polytope)
-    idp = _idp(polytope, backend)
+    idp = _budgeted_idp(polytope, work, runs, ehrhart, closed)
     saturated = closed == len(polytope.points)
+    normal: bool | None
     if lattice == "support" or polytope.chart == lattice_chart(_exact.integer_points(points)):
-        normal = saturated and idp
+        normal = idp if saturated else False
     else:
         support = _prepare(points, "support")
-        normal = _count(support.levels, 1)[0] == len(support.points) and _idp(support, backend)
+        support_closed, support_inner = _count(support.levels, 1)
+        if support_closed != len(support.points):
+            normal = False
+        else:
+            support_runs = _Normaliz(support, binary, strict=strict, timeout=timeout)
+            support_ehrhart = None
+            if (
+                work.limit is not None
+                and support.dimension > 2
+                and support_runs.values(support_closed, series=False) is None
+            ):
+                support_ehrhart = _series(
+                    support, work, support_runs, support_closed, support_inner
+                )[0]
+            normal = _budgeted_idp(support, work, support_runs, support_ehrhart, support_closed)
     return LatticeInvariants(
         lattice=lattice,
         dimension=polytope.dimension,
         lattice_points=closed,
         interior_points=inner,
         ehrhart=ehrhart,
-        h_star=_h_star(polytope, ehrhart),
+        h_star=h_star,
         gorenstein_index=None if found is None else found[0],
         reflexive=found is not None and found[0] == 1,
         lattice_width=width,

@@ -368,16 +368,26 @@ def _print_newton(fi: FeynmanIntegral) -> None:
     _print_lattice_invariants(fi, full)
 
 
+def _yes_no(value: bool | None) -> str:
+    return "not computed" if value is None else "yes" if value else "no"
+
+
 def _print_lattice_invariants(fi: FeynmanIntegral, full: bool) -> None:
     """The lattice invariants of the Newton polytope and, when NA is normal, the certificate."""
     found = fi.lattice_invariants()
     index = found.gorenstein_index
     gorenstein = "none" if index is None else str(index)
     _kv("Lattice points", f"{found.lattice_points}  ({found.interior_points} interior)")
-    _kv("h*-vector", found.h_star)
+    _kv("h*-vector", "not computed" if found.h_star is None else found.h_star)
     _kv("Gorenstein index", f"{gorenstein}  (reflexive)" if index == 1 else gorenstein)
     _kv("Lattice width", found.lattice_width)
-    _kv("Integer decomposition (IDP)", "yes" if found.idp else "no")
+    _kv("Integer decomposition (IDP)", _yes_no(found.idp))
+    if found.normal is None:
+        _kv(
+            "Normal configuration",
+            "not computed  (install Normaliz, or call lattice_invariants directly)",
+        )
+        return
     if found.normal:
         _kv("Normal configuration", "yes")
         if full:
@@ -387,7 +397,7 @@ def _print_lattice_invariants(fi: FeynmanIntegral, full: bool) -> None:
             print("  NA is normal, so C[NA] is Cohen-Macaulay (Hochster 1972).")
         return
     reasons = []
-    if not found.idp:
+    if found.idp is False:
         reasons.append("P is not IDP")
     if not found.support_is_saturated:
         missing = found.lattice_points - len({tuple(p) for p in fi.newton_polytope.points})
@@ -586,7 +596,7 @@ def _write_reports(report: AnalysisReport, options: ReportOptions, *, announce: 
 def _json_value(value: str) -> bool | int | str | None:
     """A summary value as an integer when it is one, a boolean for "yes" and "no", None for
     "none", otherwise as given."""
-    if value == "none":
+    if value in ("none", "not computed"):
         return None
     if value in ("yes", "no"):
         return value == "yes"

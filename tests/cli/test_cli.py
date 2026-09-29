@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import re
 from pathlib import Path
 
@@ -230,6 +231,30 @@ class TestLatticeInvariants:
         reasons = "no  (P is not IDP; the support misses 1 lattice point of P)"
         assert f"  {'Normal configuration':<28} {reasons}\n" in out
         assert "Cohen-Macaulay" not in out
+
+
+class TestLatticeInvariantsNotComputed:
+    def test_newton_section_says_what_was_not_computed(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        found = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz").lattice_invariants()
+        unknown = dataclasses.replace(found, ehrhart=None, h_star=None, idp=None, normal=None)
+        monkeypatch.setattr(FeynmanIntegral, "lattice_invariants", lambda self, *a, **k: unknown)
+        out = _run(capsys, tmp_path, "12e|2e|e|:zzz", "-n")
+        assert f"  {'h*-vector':<28} not computed\n" in out
+        assert f"  {'Integer decomposition (IDP)':<28} not computed\n" in out
+        reason = "not computed  (install Normaliz, or call lattice_invariants directly)"
+        assert f"  {'Normal configuration':<28} {reason}\n" in out
+        assert "Cohen-Macaulay" not in out
+
+    def test_json_gives_null(
+        self, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        found = FeynmanIntegral.from_cnickel("11e|e|:zz").lattice_invariants()
+        unknown = dataclasses.replace(found, idp=None, normal=None)
+        monkeypatch.setattr(FeynmanIntegral, "lattice_invariants", lambda self, *a, **k: unknown)
+        main(["analyse", "11e|e|:zz", "--json", "--sections", "polytope", "--no-db"])
+        assert json.loads(capsys.readouterr().out)["summary"]["normal_configuration"] is None
 
 
 def test_every_key_fits_its_column() -> None:

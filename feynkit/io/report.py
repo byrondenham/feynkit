@@ -731,7 +731,8 @@ class AnalysisReport:
             rows.append(("Lattice points", str(found.lattice_points)))
             rows.append(("Interior lattice points", str(found.interior_points)))
             rows.append(("Gorenstein index", "none" if index is None else str(index)))
-            rows.append(("Normal configuration", "yes" if found.normal else "no"))
+            normal = "not computed" if found.normal is None else "yes" if found.normal else "no"
+            rows.append(("Normal configuration", normal))
         if self.symmetries is not None:
             rows.append(("Polytope automorphisms", str(self.symmetries.automorphism_order)))
         if self.gkz is not None:

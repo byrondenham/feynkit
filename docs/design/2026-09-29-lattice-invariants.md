@@ -152,6 +152,25 @@ feynkit's. Normaliz computes in exact integer arithmetic. It is found with
 `shutil.which("normaliz")`; `backend="auto"` uses it when present and falls back to Python when it
 is missing or fails, and `backend="normaliz"` raises `ComputationError` instead.
 
+### Work budget
+
+The walk for the Ehrhart polynomial and the IDP check grow fast with $d$: for the massless
+three-loop box `112|3|34|5|6e|7e|7e|e|:zzzzzzzzzz`, of dimension 10, the check would take about
+$2 \times 10^{10}$ set lookups and hold the $1.3 \times 10^8$ lattice points of $9P$, and for its
+massive version the walk alone takes 35 s. `lattice_invariants` takes `budget`, the most steps of
+pure-Python work, where a step is one term of an inequality the walk evaluates or one set lookup
+of the IDP check; CPython takes about four million of either a second. The walk counts its steps
+and stops when the budget runs out. The IDP check needs
+$|P \cap \mathbb{Z}^d| \sum_{k=2}^{d-1} L_P(k)$ lookups at most, known from the Ehrhart
+polynomial before it starts, and holds at most $L_P(d-1)$ points. Over budget, Normaliz supplies
+the Ehrhart polynomial from its Hilbert quasipolynomial, checked against the volume and against
+$L_P(1)$ and $L_{P^\circ}(1)$ from the walk, and the $h^*$-vector against its Hilbert series;
+without Normaliz the field is None, and so are `idp` and `normal`, except that `normal` is False
+whenever the support misses a lattice point. `timeout` limits each run of Normaliz, and with
+`backend="auto"` a failure falls back to Python only within the budget. Without a budget, the
+default, everything is computed as before. The report and `fk analyse` pass $2 \times 10^7$ steps,
+about five seconds, and a timeout of 60 s.
+
 ## Interfaces
 
 ```python
@@ -164,15 +183,15 @@ class LatticeInvariants:
     dimension: int
     lattice_points: int
     interior_points: int
-    ehrhart: tuple[Fraction, ...]       # c_0, ..., c_d of L_P(k)
-    h_star: tuple[int, ...]             # h*_0, ..., h*_d
+    ehrhart: tuple[Fraction, ...] | None  # c_0, ..., c_d of L_P(k); None over budget
+    h_star: tuple[int, ...] | None        # h*_0, ..., h*_d; None over budget
     gorenstein_index: int | None        # None when P is not Gorenstein
     reflexive: bool
     lattice_width: int
     width_direction: tuple[int, ...]    # in the coordinates of invariant_chart
-    idp: bool
+    idp: bool | None                    # None over budget
     support_is_saturated: bool          # the support holds every lattice point of P
-    normal: bool                        # NA normal; always in the support lattice
+    normal: bool | None                 # NA normal, in the support lattice; None over budget
 
 def invariant_chart(points, *, lattice="support") -> LatticeChart
 def lattice_points(points, k=1, *, interior=False, lattice="support") -> list[tuple[int, ...]]
@@ -182,8 +201,10 @@ def h_star_vector(points, *, lattice="support") -> tuple[int, ...]
 def gorenstein_index(points, *, lattice="support") -> int | None
 def polar_dual(points, *, lattice="support") -> tuple[tuple[int, ...], ...] | None
 def lattice_width(points, *, lattice="support") -> tuple[int, tuple[int, ...]]
-def is_idp(points, *, lattice="support", backend="auto") -> bool
-def lattice_invariants(points, *, lattice="support", backend="auto") -> LatticeInvariants
+def is_idp(points, *, lattice="support", backend="auto", timeout=None) -> bool
+def lattice_invariants(
+    points, *, lattice="support", backend="auto", budget=None, timeout=None
+) -> LatticeInvariants
 ```
 
 `points` is anything `polytope_data` accepts. `lattice_points` returns ambient coordinates, sorted.

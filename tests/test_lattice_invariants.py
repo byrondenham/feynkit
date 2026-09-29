@@ -8,11 +8,13 @@ support lattice by solving for chart coordinates with SymPy.
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 import math
 import random
 from collections.abc import Callable, Sequence
 from fractions import Fraction
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -598,6 +600,76 @@ class TestBackends:
             assert is_idp(points, lattice=lattice, backend="normaliz") == python
         assert is_idp(NOT_IDP, backend="normaliz") is False
         assert is_idp(reeve(2), lattice="ambient", backend="normaliz") is False
+
+
+# --- the work budget --------------------------------------------------------
+
+# The vertices of [0, 2]^3 and (1, 0, 0): the support lattice is Z^3, and the support misses 18 of
+# the 27 lattice points of P.
+UNSATURATED = [*(tuple(2 * x for x in v) for v in cube(3)), (1, 0, 0)]
+
+
+def sleeping_normaliz(folder: Path) -> str:
+    """The path of a stand-in for Normaliz that sleeps for ten seconds."""
+    script = folder / "normaliz"
+    script.write_text("#!/bin/sh\nsleep 10\n")
+    script.chmod(0o755)
+    return str(script)
+
+
+class TestBudget:
+    @pytest.mark.parametrize("points", [cube(4), NOT_IDP, UNSATURATED, reeve(2)])
+    def test_no_budget_computes_everything(self, points: Points) -> None:
+        exact = lattice_invariants(points, backend="python")
+        assert lattice_invariants(points, backend="python", budget=None) == exact
+        assert lattice_invariants(points, backend="python", budget=10**9) == exact
+        assert None not in (exact.ehrhart, exact.h_star, exact.idp, exact.normal)
+
+    def test_over_budget_without_normaliz_nothing_is_guessed(self) -> None:
+        exact = lattice_invariants(cube(4), backend="python")
+        found = lattice_invariants(cube(4), backend="python", budget=1)
+        assert (found.ehrhart, found.h_star, found.idp, found.normal) == (None, None, None, None)
+        assert found.support_is_saturated
+        assert found == dataclasses.replace(exact, ehrhart=None, h_star=None, idp=None, normal=None)
+
+    def test_the_idp_check_has_its_own_estimate(self) -> None:
+        # The Ehrhart walk of the 4-cube takes a few hundred steps; listing 2P and 3P and
+        # looking up differences from the 16 points of P takes 16 (81 + 256) = 5392.
+        polytope = li._prepare(cube(4), "support")
+        ehrhart = li._ehrhart(polytope, li._Budget(None))
+        assert li._idp_work(polytope, ehrhart) == 16 * (81 + 256)
+        found = lattice_invariants(cube(4), backend="python", budget=5000)
+        assert found.h_star == (1, 11, 11, 1, 0)
+        assert found.idp is None and found.normal is None
+
+    def test_an_unsaturated_support_is_not_normal_whatever_the_budget(self) -> None:
+        found = lattice_invariants(UNSATURATED, backend="python", budget=1)
+        assert found.idp is None
+        assert not found.support_is_saturated
+        assert found.normal is False
+
+    def test_auto_does_not_fall_back_past_the_budget(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(li, "_normaliz_binary", lambda: "/bin/false")
+        found = lattice_invariants(NOT_IDP, budget=1)
+        assert (found.h_star, found.idp, found.normal) == (None, None, None)
+        assert lattice_invariants(NOT_IDP).idp is False
+
+    def test_normaliz_times_out(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        monkeypatch.setattr(li, "_normaliz_binary", lambda: sleeping_normaliz(tmp_path))
+        with pytest.raises(ComputationError, match="Normaliz did not finish within 0.5 s"):
+            is_idp(cube(4), backend="normaliz", timeout=0.5)
+        found = lattice_invariants(cube(4), budget=1, timeout=0.5)
+        assert found.idp is None
+        assert lattice_invariants(cube(4), timeout=0.5).idp is True
+
+    @requires_normaliz
+    @pytest.mark.parametrize("points", [cube(4), NOT_IDP, UNSATURATED, reeve(3), simplex(5)])
+    def test_over_budget_normaliz_gives_the_series(self, points: Points) -> None:
+        exact = lattice_invariants(points, backend="python")
+        assert lattice_invariants(points, budget=1) == exact
+        assert lattice_invariants(points, lattice="ambient", budget=1) == lattice_invariants(
+            points, lattice="ambient", backend="python"
+        )
 
 
 # --- arguments --------------------------------------------------------------

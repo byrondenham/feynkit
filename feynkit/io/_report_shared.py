@@ -487,6 +487,13 @@ def lattice_normality(polytope: Polytope, cite: Callable[..., str], *, latex: bo
         p, g, beta = "$P$", "$G$", "$\\beta$"
     else:
         na, ring, p, g, beta = "NA", "C[NA]", "P", "G", "beta"
+    if found.normal is None:
+        call = "\\texttt{lattice\\_invariants}" if latex else "lattice_invariants"
+        return (
+            f"Whether {p} has the integer decomposition property{cite('bgt1997')}, and so "
+            f"whether {na} is normal, was not computed within the report's budget: install "
+            f"Normaliz, or call {call} directly."
+        )
     if found.normal:
         head = (
             f"{p} has the integer decomposition property{cite('bgt1997')} and the monomials of "
@@ -500,7 +507,7 @@ def lattice_normality(polytope: Polytope, cite: Callable[..., str], *, latex: bo
             f"{cite('mmw2005')}."
         )
     reasons = []
-    if not found.idp:
+    if found.idp is False:
         reasons.append(f"{p} lacks the integer decomposition property{cite('bgt1997')}")
     if not found.support_is_saturated:
         missing = found.lattice_points - len(set(polytope.data.points))

@@ -7,7 +7,7 @@ point-count section, with a candidate and without one. Each document is
 written to a temporary directory and compiled twice, so that the citations
 resolve on the second pass. The tests are skipped when pdflatex is not
 installed. The Landau analysis of the box is slow without Singular, so the
-box is also skipped when Singular is not installed.
+box is also skipped when Singular is not installed, and so is the three-mass box.
 """
 
 from __future__ import annotations
@@ -81,6 +81,20 @@ def test_report_without_a_candidate_compiles(kind: str, tmp_path: Path) -> None:
     assert count.candidate_master_count is None
     report = dataclasses.replace(report, torus=count)
     _compile(render_latex(report), tmp_path)
+
+
+@requires_pdflatex
+@requires_singular
+@pytest.mark.parametrize("leg", ["p4^2", "p2^2"])  # type: ignore[misc]
+def test_three_mass_box_report_compiles(leg: str, tmp_path: Path) -> None:
+    # The massless box with p_i^2 = 0 for one leg and the other three legs massive. With p_2^2 = 0
+    # the faces section lists support products, whose rows are marked "(support)".
+    box = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+    point = {sp.Symbol(leg, real=True): 0}
+    box = box.with_(
+        momentum_products={k: sp.expand(v.subs(point)) for k, v in box.momentum_products.items()}
+    )
+    _compile(box.to_latex(), tmp_path)
 
 
 def _compile(latex: str, tmp_path: Path) -> None:

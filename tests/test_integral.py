@@ -24,6 +24,7 @@ from feynkit import (
     PolytopeEquivalence,
     SymanzikPolynomials,
     ToricIdeal,
+    ValidationError,
     generate_graphs,
     polytope_data,
 )
@@ -455,3 +456,112 @@ class TestReportLimits:
         for render in (fi.to_text, fi.to_latex):
             assert marker in " ".join(render(["landau"], limits=True).split())
             assert marker not in " ".join(render(["landau"], limits=False).split())
+
+
+# -- Facet resonance ---------------------------------------------------------------
+
+RESONANCE_GRAPHS = [
+    "11e|e|:nn",
+    "11e|e|:nz",
+    "11e|e|:zz",
+    "12e|2e|e|:nnn",
+    "12e|2e|e|:zzz",
+    "12e|3e|3e|e|:nnnn",
+    "111e|e|:nnn",
+    "111e|e|:nnz",
+    "111e|e|:nzz",
+    "1111e|e|:nnnn",
+]
+
+
+def _unit(fi: FeynmanIntegral) -> dict[int, int]:
+    return dict.fromkeys(fi.propagator_exponents, 1)
+
+
+class TestFacetResonance:
+    @pytest.mark.parametrize("cnickel", RESONANCE_GRAPHS)
+    def test_gkz_and_schwinger_agree(self, cnickel: str) -> None:
+        # The Cayley facets come from the Cayley columns; T only carries beta across, and
+        # carries the Lee-Pomeransky columns to the Cayley ones.
+        from feynkit.systems.cayley import lp_to_cayley
+
+        fi = FeynmanIntegral.from_cnickel(cnickel)
+        n = len(fi.symanzik.lp_parameters)
+        a, cayley = fi.gkz.a_matrix, fi.schwinger_gkz.a_matrix
+        t = lp_to_cayley(n, fi.loop_count)
+        position = {tuple(int(x) for x in cayley[:, j]): j for j in range(cayley.cols)}
+        image = {j: position[tuple(int(x) for x in t * a[:, j])] for j in range(a.cols)}
+        for d0, powers in ((4, _unit(fi)), (3, {e: 2 - e % 2 for e in fi.propagator_exponents})):
+            gkz = fi.facet_resonance(d0, nu=powers)
+            schwinger = {
+                frozenset(r.facet.point_indices): r
+                for r in fi.facet_resonance(d0, nu=powers, system="schwinger")
+            }
+            assert len(schwinger) == len(gkz)
+            for record in gkz:
+                other = schwinger[frozenset(image[j] for j in record.facet.point_indices)]
+                assert other.form == record.form
+                assert (other.resonant, other.admissible) == (record.resonant, record.admissible)
+                assert (other.columns_off, other.reducible) == (
+                    record.columns_off,
+                    record.reducible,
+                )
+
+    def test_point_indices_are_the_gkz_columns(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("111e|e|:nnz")
+        support = [alpha for alpha, _ in fi.gkz.support]
+        for record in fi.facet_resonance(nu=_unit(fi)):
+            m, b = record.facet.normal, record.facet.offset
+            on = {j for j, alpha in enumerate(support) if sum(map(int.__mul__, m, alpha)) == b}
+            assert on == set(record.facet.point_indices)
+
+    def test_the_integral_s_own_integer_exponents(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+        powers = {e: 1 + e % 2 for e in fi.propagator_exponents}
+        fixed = fi.with_(propagator_exponents={e: sp.Integer(k) for e, k in powers.items()})
+        assert fixed.facet_resonance() == fi.facet_resonance(nu=powers)
+        assert fixed.facet_resonance(3) == fi.facet_resonance(3, nu=powers)
+
+    def test_symbolic_exponents_need_nu(self) -> None:
+        with pytest.raises(ValidationError, match="nu"):
+            FeynmanIntegral.from_cnickel("11e|e|:nn").facet_resonance()
+
+    def test_bad_arguments(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        with pytest.raises(ValidationError):
+            fi.facet_resonance(nu={1: 1})
+        with pytest.raises(ValidationError):
+            fi.facet_resonance(nu=_unit(fi), system="feynman")
+        with pytest.raises(ValidationError):
+            fi.facet_resonance(4.0, nu=_unit(fi))  # type: ignore[arg-type]
+
+    def test_f_u_is_admissible_where_the_f_block_restriction_is_silent(self) -> None:
+        # F_U, the facet x_1 + ... + x_N <= L + 1 of the monomials of F, is admissible at
+        # one eps, where nu = (L+1) D/2; restrict_to_f_block warns everywhere else.
+        import warnings
+
+        for cnickel in ("11e|e|:nn", "111e|e|:nnn", "12e|2e|e|:nnn"):
+            fi = FeynmanIntegral.from_cnickel(cnickel)
+            n = len(fi.symanzik.lp_parameters)
+            f_u = next(
+                r
+                for r in fi.facet_resonance(nu=_unit(fi))
+                if r.facet.normal == (1,) * n and r.facet.offset == fi.loop_count + 1
+            )
+            assert f_u.admissible.kind == "point" and f_u.admissible.offset is not None
+            eps = sp.Rational(f_u.admissible.offset)
+            powers = {e: sp.Integer(1) for e in fi.propagator_exponents}
+            at = fi.with_(dimension=4 - 2 * eps, propagator_exponents=powers)
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                at.schwinger_gkz.restrict_to_f_block()
+            off = fi.with_(dimension=4 - 2 * (eps + 1), propagator_exponents=powers)
+            with pytest.warns(UserWarning, match="does not lie in the span"):
+                off.schwinger_gkz.restrict_to_f_block()
+
+
+class TestReportD0:
+    def test_d0_reaches_the_report(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        for render in (fi.to_text, fi.to_latex):
+            assert "D_0 = 3" in " ".join(render(["resonance"], d0=3).split())

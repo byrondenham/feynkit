@@ -335,6 +335,14 @@
   cites Schulze and Walther (arXiv:1009.3569). `fk analyse -r` prints the
   same classification on the terminal, and `--d0 VALUE`, an integer or a
   fraction such as 7/2, sets D_0 for both.
+- `FeynmanIntegral.facet_resonance(d0=4, *, nu=None, system="gkz")`
+  classifies the facets of `fi.gkz`, with point indices into its columns, or
+  with `system="schwinger"` those of `fi.schwinger_gkz`, computed from the
+  Cayley columns with the Cayley parameter written in D and the powers. The
+  powers are the integral's, which must then be integers, or `nu`, a mapping
+  from edge index to integer. On ten graphs from the bubble to the banana the
+  two systems classify corresponding facets alike. `FeynmanIntegral.to_latex`
+  and `FeynmanIntegral.to_text` take `d0`.
 - `lp_to_cayley(n_edges, loop_count)` in `feynkit.systems.cayley`, the
   unimodular matrix T taking the Lee-Pomeransky configuration and parameter
   to the Cayley ones; it was private to the report.

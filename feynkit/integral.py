@@ -45,6 +45,7 @@ if TYPE_CHECKING:
     from .landau import LandauAnalysis
     from .lattice_invariants import Lattice, LatticeInvariants
     from .point_count import TorusCount
+    from .resonance import FacetResonance
 
 from . import _exact
 from .algebra.toric import compute_toric_ideal_generators
@@ -60,7 +61,7 @@ from .normal_forms.pairing_matrix import PairingMatrixResult, maximal_pairing_ma
 from .parametrisations.base import ParametrisationResult
 from .parametrisations.factory import AllParametrisations, _create_parametrisations
 from .polynomials.spanning_trees import gkz_exponent_vectors
-from .systems.cayley import CayleyGKZSystem, create_cayley_system
+from .systems.cayley import CayleyGKZSystem, create_cayley_system, lp_to_cayley
 from .systems.complete import GKZSystem, _create_gkz_system_direct
 from .systems.monomial import extract_monomial_support
 from .types import (
@@ -676,6 +677,7 @@ class FeynmanIntegral:
         title: str | None = None,
         max_face_points: int = 14,
         limits: bool | str | None = None,
+        d0: int | Fraction = 4,
     ) -> str:
         """
         The analysis report of the integral as a LaTeX document.
@@ -698,6 +700,9 @@ class FeynmanIntegral:
             Whether the Landau section looks for limit surfaces, as the
             ``limits`` of :func:`~feynkit.landau.landau_analysis`; None, the
             default, takes its default.
+        d0
+            D_0 of the resonance section, which takes D = D_0 - 2 eps: an
+            integer or a Fraction, 4 by default.
 
         Returns
         -------
@@ -716,7 +721,7 @@ class FeynmanIntegral:
         from .io.report_latex import render_latex
 
         report = AnalysisReport.from_integral(
-            self, sections, max_face_points=max_face_points, limits=limits
+            self, sections, max_face_points=max_face_points, limits=limits, d0=d0
         )
         return render_latex(report, title=title)
 
@@ -727,6 +732,7 @@ class FeynmanIntegral:
         title: str | None = None,
         max_face_points: int = 14,
         limits: bool | str | None = None,
+        d0: int | Fraction = 4,
     ) -> str:
         """
         The analysis report of the integral as plain text.
@@ -746,7 +752,7 @@ class FeynmanIntegral:
         from .io.report_text import render_text
 
         report = AnalysisReport.from_integral(
-            self, sections, max_face_points=max_face_points, limits=limits
+            self, sections, max_face_points=max_face_points, limits=limits, d0=d0
         )
         return render_text(report, title=title)
 
@@ -902,6 +908,81 @@ class FeynmanIntegral:
         )
 
     # -------- Comparison --------
+
+    def facet_resonance(
+        self,
+        d0: int | Fraction = 4,
+        *,
+        nu: Mapping[int, int] | None = None,
+        system: str = "gkz",
+    ) -> tuple[FacetResonance, ...]:
+        """
+        Where each facet of the GKZ configuration is resonant or admissible.
+
+        With integer powers and D = d0 - 2 eps, each facet is classified by
+        :func:`feynkit.resonance.classify_facets` or, for the Cayley system,
+        :func:`feynkit.resonance.classify_configuration`: the eps at which it
+        is resonant, beta in span(A_F) + ZA, and admissible, beta in
+        span(A_F), and whether it makes the system reducible (Britto, Grimm
+        and Hoefnagels, arXiv:2606.09978, section 3.1; Schulze and Walther,
+        arXiv:1009.3569, Theorem 4.1).
+
+        Parameters
+        ----------
+        d0
+            D_0, an integer or a Fraction; 4 by default.
+        nu
+            The power of each internal edge, a mapping from edge index to
+            integer; by default the propagator exponents of the integral,
+            which must then be integers.
+        system
+            "gkz", the facets of ``gkz.a_matrix`` with point indices into its
+            columns, or "schwinger", those of ``schwinger_gkz.a_matrix``,
+            computed from its own columns, with beta_Cayley = T beta_LP for the
+            T of :func:`feynkit.systems.cayley.lp_to_cayley`. Corresponding
+            facets of the two get the same classification, since T is
+            unimodular.
+
+        Raises
+        ------
+        ValidationError
+            If the powers are not one integer per internal edge, d0 is not an
+            integer or a Fraction, or system is unknown.
+        """
+        from .polytope import polytope_data
+        from .resonance import (
+            ParameterForm,
+            classify_configuration,
+            classify_facets,
+            lee_pomeransky_beta,
+        )
+
+        edges = self._graph.get_internal_edges()
+        source = self._propagator_exponents if nu is None else dict(nu)
+        if set(source) != {e.idx for e in edges}:
+            raise ValidationError("nu needs one power for each internal edge, keyed by its index")
+        try:
+            powers = [_exact._as_int(source[e.idx], "the powers") for e in edges]
+        except ValidationError:
+            raise ValidationError(
+                "facet_resonance needs integer powers; the exponents of the integral are not "
+                "all integers, so pass nu, as in nu={1: 1, 2: 1}"
+            ) from None
+        if system == "gkz":
+            a_matrix = self.gkz.a_matrix
+            points = [tuple(int(x) for x in a_matrix[1:, j]) for j in range(a_matrix.cols)]
+            return classify_facets(polytope_data(points), powers, d0)
+        if system == "schwinger":
+            n = len(edges)
+            t = lp_to_cayley(n, self._loop_count)
+            lp = lee_pomeransky_beta(n)
+            zero = ParameterForm(Fraction(0), (Fraction(0),) * n)
+            beta = [
+                sum((int(t[r, k]) * lp[k] for k in range(n + 1) if t[r, k]), zero)
+                for r in range(n + 1)
+            ]
+            return classify_configuration(self.schwinger_gkz.a_matrix, beta, powers, d0)
+        raise ValidationError(f"unknown system {system!r}; choose 'gkz' or 'schwinger'")
 
     def is_unimodular_equivalent_to(self, other: FeynmanIntegral) -> PolytopeEquivalence:
         """

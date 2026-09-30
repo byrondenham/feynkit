@@ -495,8 +495,9 @@ facet, $A$ is a pyramid over it and the facet decides nothing.
 $\beta_{\text{LP}}$ to $\vec\beta$, so corresponding facets of the two systems have the same
 $l_F(\beta)$ and the same classification. The $\tilde F$ block corresponds to $F_{\mathcal U}$.
 
-Accessed via `feynkit.resonance`: `classify_facets`, `classify_configuration`, `span_epsilons`
-and `admissible`.
+Accessed via `fi.facet_resonance(d0=4, nu=..., system="gkz")`, with `system="schwinger"` for the
+Cayley system, and via `feynkit.resonance`: `classify_facets`, `classify_configuration`,
+`span_epsilons` and `admissible`.
 
 ---
 

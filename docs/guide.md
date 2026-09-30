@@ -720,6 +720,7 @@ from feynkit.io import AnalysisReport
 
 polytope_data(fi.newton_polytope.points)   # PolytopeData: faces, facets, volume (section 11)
 fi.torus_count()                           # TorusCount: point counts and candidates (section 18)
+fi.facet_resonance(nu={1: 1, 2: 1, 3: 1})  # FacetResonance per facet, D = 4 - 2 eps (section 11)
 AnalysisReport.from_integral(fi)           # every fact the analysis report states (section 21)
 fi.to_latex()                              # the report as a LaTeX document
 fi.to_text()                               # the report as plain text
@@ -1167,6 +1168,27 @@ a, beta = fi.gkz.a_matrix, fi.gkz.beta_parameters   # beta = (-D/2, -nu_1, -nu_2
 print(admissible(a, range(a.cols), beta))            # True: every column
 print(admissible(a, [0], beta))                      # False: not for all D and nu
 ```
+
+`fi.facet_resonance(d0=4, nu=None, system="gkz")` classifies the facets of `fi.gkz`, with point
+indices into its columns, the $z_j$. The powers are the integral's, which must then be integers, or
+`nu`, a mapping from edge index to integer. With `system="schwinger"` it classifies the facets of
+`fi.schwinger_gkz`, computed from the Cayley columns (the $w$ then the $z$), with
+$\beta_{\text{Cayley}} = T\beta_{\text{LP}}$ written in $D$ and $\nu$; since $T$ is unimodular,
+corresponding facets get the same classification. The $\tilde F$ block is $F_{\mathcal U}$:
+
+```python
+import sympy as sp
+
+fi = FeynmanIntegral.from_cnickel("111e|e|:nnn")      # sunrise, three masses
+unit = dict.fromkeys(fi.propagator_exponents, 1)
+f_u = [r for r in fi.facet_resonance(nu=unit) if r.facet.offset == 3][0]
+print(f_u.form.expression(sp.Symbol("D"), sp.symbols("nu_1:4")))   # -3*D/2 + nu_1 + nu_2 + nu_3
+print(f_u.resonant.offset, f_u.resonant.period)       # 1 1/3: resonant for eps in 1 + Z/3
+print(len(fi.facet_resonance(nu=unit, system="schwinger")))   # 8, as for fi.gkz
+```
+
+At $\varepsilon = 1$, $D = 2$, where $\nu = (L+1)D/2$, `restrict_to_f_block` is a true subsystem
+and does not warn.
 
 The analysis report has a `resonance` section built from the same data, and `fk analyse -r` prints
 it on the terminal, both with `--d0` for $D_0$.
@@ -2390,6 +2412,7 @@ Both methods take the same arguments:
 | `sections` | all but `torus` | Names of the sections to build, from `SECTION_NAMES` |
 | `title` | "Feynman integral" and the CNickel string | Document title; `to_latex` escapes it |
 | `max_face_points` | 14 | Faces of the Newton polytope with more monomials are left out of the Landau analysis and listed as skipped |
+| `d0` | 4 | $D_0$ of the `resonance` section, which takes $D = D_0 - 2\varepsilon$: an integer or a `Fraction` |
 
 The section names, in `feynkit.io.report.SECTION_NAMES`, are `identity`, `conventions`,
 `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `symmetries`, `landau`

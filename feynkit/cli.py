@@ -49,7 +49,6 @@ from feynkit.core.graph import Graph
 from feynkit.database import FeynkitDatabase
 from feynkit.face_identification import identify_faces
 from feynkit.integral import FeynmanIntegral
-from feynkit.io._report_shared import epsilon_set, face_counts
 from feynkit.io.report import (
     DEFAULT_SECTIONS,
     FACE_CODIMENSION,
@@ -61,6 +60,8 @@ from feynkit.io.report import (
 )
 from feynkit.io.report_latex import render_latex
 from feynkit.io.report_text import render_text
+from feynkit.io.sections.faces import face_counts
+from feynkit.io.sections.resonance import epsilon_set
 from feynkit.kinematics.classes import IMPOSABLE_CLASSES, KinematicClass
 from feynkit.landau import LandauAnalysis
 from feynkit.point_count import TorusCount

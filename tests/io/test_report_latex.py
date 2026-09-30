@@ -16,11 +16,12 @@ import pytest
 import sympy as sp
 
 from feynkit import Edge, FeynmanIntegral, Graph
-from feynkit.io import report_latex
 from feynkit.io._report_shared import integrand_templates
 from feynkit.io.latex import to_latex_lines
 from feynkit.io.report import AnalysisReport
-from feynkit.io.report_latex import CITATIONS, _factor_lines, _reason, render_latex
+from feynkit.io.report_latex import CITATIONS, render_latex
+from feynkit.io.sections import landau as landau_section
+from feynkit.io.sections import torus as torus_section
 from feynkit.normal_forms._invariants import hull_vertex_indices, to_integer_points
 from feynkit.polytope import polytope_data
 
@@ -398,13 +399,13 @@ def test_self_contained_symmetry_identity_uses_one_with_clause(
 
 def test_reasons_without_a_candidate_set_their_maths() -> None:
     # point_count writes its reasons as plain text, maths included.
-    assert _reason("the polynomial through the fit counts has a q^1 term") == (
+    assert torus_section._reason("the polynomial through the fit counts has a q^1 term") == (
         "the polynomial through the fit counts has a $q^{1}$ term"
     )
-    assert _reason("the count at p = 3 is 0, where the fit predicts -1") == (
+    assert torus_section._reason("the count at p = 3 is 0, where the fit predicts -1") == (
         "the count at $p = 3$ is 0, where the fit predicts $-1$"
     )
-    assert _reason(
+    assert torus_section._reason(
         "the master count -3 given by the fit is not in [0, N! Vol(Newt G)] = [0, 12]"
     ) == (
         "the master count $-3$ given by the fit is not in "
@@ -415,8 +416,8 @@ def test_reasons_without_a_candidate_set_their_maths() -> None:
         "so the counts may depend on characters of order above 2, which the check does not "
         "cover"
     )
-    assert _reason(guard) == guard
-    assert _reason("a_1 & 50%") == "a\\_1 \\& 50\\%"
+    assert torus_section._reason(guard) == guard
+    assert torus_section._reason("a_1 & 50%") == "a\\_1 \\& 50\\%"
 
 
 def test_a_long_orbit_can_break() -> None:
@@ -433,18 +434,18 @@ def test_long_factor_lists_are_split_into_displays(monkeypatch: pytest.MonkeyPat
     x = sp.symbols("x1:50")
     long = sp.Add(*x)
     assert len(to_latex_lines(long, max_length=100)) == 5
-    short = _factor_lines([x[0], x[1]])
-    whole = _factor_lines([x[0], x[1], long, x[2]])
+    short = landau_section._factor_lines([x[0], x[1]])
+    whole = landau_section._factor_lines([x[0], x[1], long, x[2]])
     assert whole.count("\\begin{align*}") == 1
-    monkeypatch.setattr(report_latex, "_DISPLAY_LINES", 3)
+    monkeypatch.setattr(landau_section, "_DISPLAY_LINES", 3)
 
     def rows(text: str) -> list[int]:
         return [display.count("\n&") for display in text.split("\\end{align*}")[:-1]]
 
-    assert _factor_lines([x[0], x[1]]) == short
-    assert rows(_factor_lines([x[0], x[1], x[2], x[3]])) == [3, 1]
-    assert rows(_factor_lines([x[0], long, x[2]])) == [1, 3, 3]
-    split = _factor_lines([x[0], x[1], long, x[2]])
+    assert landau_section._factor_lines([x[0], x[1]]) == short
+    assert rows(landau_section._factor_lines([x[0], x[1], x[2], x[3]])) == [3, 1]
+    assert rows(landau_section._factor_lines([x[0], long, x[2]])) == [1, 3, 3]
+    split = landau_section._factor_lines([x[0], x[1], long, x[2]])
     assert split.replace("\n\\end{align*}\n\\begin{align*}\n", " \\\\\n") == whole
 
 

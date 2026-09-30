@@ -540,6 +540,14 @@
 - The documentation of `timeout` in `landau_analysis` says that it limits each
   face and is not a bound on the whole analysis: the SymPy fallback, the
   discriminants of edges and the factorisations are not limited.
+- Each section of the analysis report has a module of its own in
+  `feynkit.io.sections`, with its data type, its builder, its text and LaTeX
+  renderers and its summary rows. `feynkit.io.sections.SECTIONS` lists them in
+  document order; a new section adds a module, a line there and a field of
+  `AnalysisReport`. The reports, the JSON and the names in `feynkit.io.report`
+  are unchanged; the private helpers of `report_text`, `report_latex` and
+  `_report_shared` moved to the section modules and to `_text_kit` and
+  `_latex_kit`.
 
 ### Fixed
 

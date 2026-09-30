@@ -2873,7 +2873,7 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
 6. Bogner, C. et al. (2017). Loopedia, a database for loop integrals.
    [arXiv:1709.01266](https://arxiv.org/abs/1709.01266)
 
-7. Liu, Y. and Cai, B. (2025). Unimodular isomorphism of lattice polytopes.
+7. Liu, Q. and Cai, Z. (2025). On the unimodular isomorphism problem of convex lattice polytopes.
    [arXiv:2506.23846](https://arxiv.org/abs/2506.23846)
 
 8. Beck and Robins (2015). *Computing the Continuous Discretely.* 2nd ed., Undergraduate Texts in
@@ -2899,3 +2899,35 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
 14. Arkani-Hamed, N., Hillman, A. and Mizera, S. (2022). Feynman polytopes and the tropical
     geometry of UV and IR divergences. *Phys. Rev. D* **105**, 125013.
     [arXiv:2202.12296](https://arxiv.org/abs/2202.12296)
+
+15. Matusevich, L.F., Miller, E. and Walther, U. (2005). Homological methods for hypergeometric
+    families. *J. Amer. Math. Soc.* **18**, 919. [arXiv:math/0406383](https://arxiv.org/abs/math/0406383)
+
+16. Klausen, R.P. (2023). *Hypergeometric Feynman Integrals.* PhD thesis, Johannes Gutenberg
+    University Mainz. [arXiv:2302.13184](https://arxiv.org/abs/2302.13184)
+
+17. Bitoun, T., Bogner, C., Klausen, R.P. and Panzer, E. (2019). Feynman integral relations from
+    parametric annihilators. *Lett. Math. Phys.* **109**, 497.
+    [arXiv:1712.09215](https://arxiv.org/abs/1712.09215)
+
+18. Huh, J. (2013). The maximum likelihood degree of a very affine variety. *Compositio Math.*
+    **149**, 1245. [arXiv:1207.0553](https://arxiv.org/abs/1207.0553)
+
+19. Kouchnirenko, A.G. (1976). Polyèdres de Newton et nombres de Milnor. *Invent. Math.* **32**, 1-31.
+
+20. Hausel, T. and Rodriguez-Villegas, F. (2008), with an appendix by N.M. Katz. Mixed Hodge
+    polynomials of character varieties. *Invent. Math.* **174**, 555-624.
+    [arXiv:math/0612668](https://arxiv.org/abs/math/0612668)
+
+21. Lee, R.N. (2014). LiteRed 1.4: a powerful tool for the reduction of the multiloop integrals.
+    *J. Phys. Conf. Ser.* **523**, 012059. [arXiv:1310.1145](https://arxiv.org/abs/1310.1145)
+
+22. Fevola, C., Mizera, S. and Telen, S. (2024). Principal Landau determinants.
+    *Comput. Phys. Commun.* **303**, 109278. [arXiv:2311.16219](https://arxiv.org/abs/2311.16219)
+
+23. Dlapa, C., Helmer, M., Papathanasiou, G. and Tellander, F. (2023). Symbol alphabets from the
+    Landau singular locus. *JHEP* **10**, 161. [arXiv:2304.02629](https://arxiv.org/abs/2304.02629)
+
+24. Jimenez-Santacruz, M., Lopez-Arcos, C. and Quintero Velez, A. (2026). Canonical differential
+    equations for Feynman integrals from A-hypergeometric systems in the Schwinger
+    representation. [arXiv:2609.16107](https://arxiv.org/abs/2609.16107)

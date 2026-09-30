@@ -305,7 +305,7 @@ full-dimensional. The two agree when the exponent differences span $\mathbb{Z}^n
 
 ### 4.6 The Schwinger-Representation (Cayley) System
 
-*Ref:* Jimenez-Santacruz, Lopez-Arcos, Quintero Velez (2026), arXiv:2609.16107, section 3;
+*Ref:* Jimenez-Santacruz et al. (2026), arXiv:2609.16107, section 3;
 Klausen (2023), arXiv:2302.13184, section 3.4; Britto, Grimm, Hoefnagels (2026),
 arXiv:2606.09978, sections 2.2 and 8.1.
 
@@ -1660,3 +1660,21 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 40. **Arkani-Hamed-Hillman-Mizera (2022).** N. Arkani-Hamed, A. Hillman, S. Mizera.
     *Feynman polytopes and the tropical geometry of UV and IR divergences.*
     Phys.\ Rev.\ D **105** (2022) 125013.  arXiv:2202.12296.
+
+41. **Dlapa et al.\ (2023).** C. Dlapa, M. Helmer, G. Papathanasiou, F. Tellander.
+    *Symbol alphabets from the Landau singular locus.*
+    JHEP **10** (2023) 161.  arXiv:2304.02629.
+
+42. **Fevola-Mizera-Telen (2023).** C. Fevola, S. Mizera, S. Telen.
+    *Landau singularities revisited: computational algebraic geometry for Feynman integrals.*
+    Phys.\ Rev.\ Lett.\ **132** (2024) 101601.  arXiv:2311.14669.
+
+43. **Jimenez-Santacruz et al.\ (2026).** M. Jimenez-Santacruz, C. Lopez-Arcos,
+    A. Quintero Velez.
+    *Canonical differential equations for Feynman integrals from A-hypergeometric systems in the
+    Schwinger representation.*  arXiv:2609.16107.
+
+44. **Vanhove (2018).** P. Vanhove.
+    *Feynman integrals, toric geometry and mirror symmetry.*  arXiv:1807.11466.  Published in
+    *Elliptic Integrals, Elliptic Functions and Modular Forms in Quantum Field Theory*, Springer
+    (2019) 415-458.

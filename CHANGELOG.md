@@ -368,6 +368,25 @@
   arXiv:2606.09978, Eq. 21) and the leading term of G under
   a_gamma -> eps a_gamma against U_gamma G_{Gamma/gamma} on the massive
   parachute (Fevola, Mizera and Telen, arXiv:2311.16219, Eq. 3.13).
+- `feynkit.face_identification`, with `identify_faces(fi, *, max_codimension=2,
+  data=None)` (also exported from `feynkit`), names each face F of the Newton
+  polytope of G by a product of Symanzik polynomials of minors. The weight
+  w = -sum m over the facets containing F gives a flag of minors
+  H_j = sigma_j/sigma_(j-1), one for each value of w_e; the prediction is the
+  product of the U(H_j), with G, F or U of the last level whose F is not
+  zero as its weight is zero, negative or positive, and a face is identified
+  only when G|_F equals it exactly. Each `FaceIdentification` holds the flag
+  as `FlagLevel`s, the class (`whole`, `contraction`, `product_uv`,
+  `product_ir`, `u_layer`, `f_layer` or `unidentified`), G|_F, the
+  prediction and a `name()` such as `U({3,4}) G(Gamma/{3,4})`. The faces of a
+  polytope that is not full-dimensional are not identified. The tests check
+  the parachute's nine rays and Eq. 3.15 on its subgraph facets (Fevola,
+  Mizera and Telen), the massive sunrise's three UV bubble facets and the
+  three-mass box's IR facet with the restricted U and F of Arkani-Hamed,
+  Hillman and Mizera (arXiv:2202.12296, App. B), and the edge faces of
+  Britto, Grimm and Hoefnagels, with a massless line on the bubble and the
+  sunrise. The default takes about 0.3 s on the massless double box, and
+  every face 1.5 s.
 
 ### Changed
 

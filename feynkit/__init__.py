@@ -85,6 +85,7 @@ from feynkit.core import (
     __version__,
 )
 from feynkit.database import FeynkitDatabase
+from feynkit.face_identification import FaceIdentification, FlagLevel, identify_faces
 from feynkit.generate import generate_graphs
 from feynkit.integral import FeynmanIntegral
 from feynkit.io.report import AnalysisReport
@@ -170,4 +171,8 @@ __all__ = [
     "EpsilonSet",
     "FacetResonance",
     "classify_facets",
+    # Graphs of faces
+    "FaceIdentification",
+    "FlagLevel",
+    "identify_faces",
 ]

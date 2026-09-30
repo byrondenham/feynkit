@@ -1688,7 +1688,7 @@ otherwise. When the face's coefficients are independent linear forms in the inva
 masses, it is taken in fresh symbols for them. A face whose elimination ideal has several
 generators contributes the factors of their greatest common divisor, the codimension-one part of
 its locus. A face whose elimination ideal is zero has a component that projects onto all of
-kinematic space; Singular's `minAssGTZ` splits its ideal into minimal primes, and each prime that
+kinematic space; Singular's `minAssChar` splits its ideal into minimal primes, and each prime that
 projects onto a hypersurface contributes that hypersurface, as $bc = ad$ does in example 3.9 of
 Fevola, Mizera and Telen (2024), while the dominant ones are left out and `face.dominant` is set.
 Without Singular such a face contributes nothing. The result is, by definition, the principal

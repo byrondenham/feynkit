@@ -1080,7 +1080,7 @@ of the integral (Klausen 2023, lemma "Landau variety contained in Sing"). feynki
   $V(g_1, \ldots, g_k)$ exactly when it divides every $g_i$. When the elimination ideal is zero,
   a component of the face's incidence variety projects onto a dense subset of kinematic space.
   Such dominant components are discarded, and the ideal of each minimal prime of the face's ideal
-  (Singular's `minAssGTZ`) is eliminated in turn; each contributes the factors of its greatest
+  (Singular's `minAssChar`) is eliminated in turn; each contributes the factors of its greatest
   common divisor, which is $1$ unless the component projects onto a hypersurface, since a prime of
   height two or more has no common factor. For $(1 + u_1)(a + b u_1 + c u_2 + d u_1 u_2)$ the dense
   face has a dominant component and one over $bc = ad$ (Fevola, Mizera and Telen 2024, example

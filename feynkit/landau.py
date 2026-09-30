@@ -517,8 +517,8 @@ def _eliminate_singular(
 
     With ``decompose``, a zero elimination ideal is followed in the same run
     by the minimal associated primes of the ideal of ``system``, the ideals
-    of the irreducible components of its variety, from ``minAssGTZ`` (Gianni,
-    Trager and Zacharias's algorithm, in Singular's primdec.lib), each
+    of the irreducible components of its variety, from ``minAssChar`` in
+    Singular's primdec.lib, which works with characteristic sets, each
     eliminated in turn. A component projects onto a dense subset of the
     kinematic space exactly when its elimination ideal is zero, an empty
     list here. Singular prints ``@`` before each component's generators.
@@ -540,7 +540,7 @@ def _eliminate_singular(
         script += (
             "if (size(E) == 0) {\n"
             '  LIB "primdec.lib";\n'
-            "  list L = minAssGTZ(I); int i; ideal F;\n"
+            "  list L = minAssChar(I); int i; ideal F;\n"
             "  for (i = 1; i <= size(L); i++) {\n"
             f'    F = eliminate(L[i], {product}); print("@");\n'
             "    for (k = 1; k <= ncols(F); k++) { print(string(F[k])); }\n"
@@ -1271,7 +1271,6 @@ def landau_analysis_from_polynomial(
         that many seconds for every face eliminated, and the other steps
         are not limited, namely the SymPy fallback, the discriminants of
         edges and the factorisations, which SymPy can take minutes over.
-
     parent, restriction
         A polynomial in the same variables of which ``g_poly`` is a
         restriction, and the map from its kinematic symbols to expressions

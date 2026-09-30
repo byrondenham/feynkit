@@ -522,7 +522,7 @@
   all of kinematic space. The principal Landau determinant leaves out only that
   component (Fevola, Mizera and Telen 2024, definition 3.5). The analysis now
   eliminates each minimal prime of the face's ideal, found with Singular's
-  `minAssGTZ`, and keeps the hypersurfaces the other components project onto:
+  `minAssChar`, and keeps the hypersurfaces the other components project onto:
   their example 3.9, (1 + a_1)(a + b a_1 + c a_2 + d a_1 a_2), gains
   bc - ad. `FaceDiscriminant` gains `dominant`, set on such faces. Without
   Singular the decomposition is not made and such a face still gives nothing.

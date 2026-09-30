@@ -1159,7 +1159,7 @@ class TestDominantFaces:
         assert [[g.as_expr() for g in c] for c in result.components] == [[], [X * Y - Z]]
         # One run: the primes are sought only when the ideal is zero.
         assert "if (size(E) == 0)" in str(seen["script"])
-        assert "minAssGTZ" in str(seen["script"])
+        assert "minAssChar" in str(seen["script"])
 
     def test_a_nonzero_ideal_has_no_components(self, monkeypatch: pytest.MonkeyPatch) -> None:
         fake_singular(monkeypatch, "v2\n")

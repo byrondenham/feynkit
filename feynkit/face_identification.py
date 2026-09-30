@@ -308,10 +308,7 @@ class _Flags:
         if key not in self.minors:
             below = frozenset(self.order) - edges - above
             graph, u, f = minor_terms(self.graph, self.products, above, below, self.order)
-            # E - V + c: a minor need not be connected.
-            components = len(set(graph._components()))
-            loops = len(graph.get_internal_edges()) - graph.internal_vertices + components
-            self.minors[key] = (loops, u, f)
+            self.minors[key] = (graph.get_loop_count(), u, f)
         return self.minors[key]
 
     def predict(self, weight: Sequence[int]) -> tuple[tuple[FlagLevel, ...], Terms]:

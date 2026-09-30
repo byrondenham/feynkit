@@ -98,6 +98,16 @@ class TestGraphMethods:
 
         assert graph.get_loop_count() == 1
 
+    def test_get_loop_count_counts_each_component(self) -> None:
+        """Two bubbles with no edge between them have two loops, and a tree none."""
+        assert Graph.from_cnickel("11e|e|33e|e|").get_loop_count() == 2
+        edges = [
+            Edge(idx=1, v1=1, v2=2, is_internal=True),
+            Edge(idx=2, v1=3, v2=4, is_internal=True),
+        ]
+        graph = Graph(internal_vertices=4, external_legs=0, edges=edges)
+        assert graph.get_loop_count() == 0
+
     def test_calculate_laplacian_bubble_internal_only(self) -> None:
         """Test Laplacian calculation for bubble (internal edges only)."""
         e1 = Edge(idx=1, v1=1, v2=2, is_internal=True)

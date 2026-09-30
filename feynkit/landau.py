@@ -1574,6 +1574,18 @@ def landau_analysis(
 # --- one-loop closed form ----------------------------------------------------
 
 
+def _require_one_loop(integral: FeynmanIntegral) -> None:
+    """Raise ValueError unless the graph is connected and has exactly one loop.
+
+    Connectivity is checked first, so a disconnected graph is refused for that
+    and not for its loop count, which sums over its components.
+    """
+    if len(set(integral.graph._components())) > 1:
+        raise ValueError("The closed form applies to connected one-loop graphs only")
+    if integral.loop_count != 1:
+        raise ValueError("The closed form applies to one-loop integrals only")
+
+
 def _one_loop_cycle(
     integral: FeynmanIntegral,
 ) -> tuple[list[Edge], list[list[int]], list[tuple[Edge, list[int]]]]:
@@ -1785,8 +1797,7 @@ def one_loop_landau_surfaces_by_type(
     ValueError
         If the integral has no loop or more than one, or its graph is not connected.
     """
-    if integral.loop_count != 1:
-        raise ValueError("The closed form applies to one-loop integrals only")
+    _require_one_loop(integral)
     y = _modified_cayley_matrix(integral)
     n = y.rows - 1
     kinematic_syms = y.free_symbols
@@ -1855,8 +1866,7 @@ def one_loop_bridge_poles(integral: FeynmanIntegral) -> tuple[sp.Expr, ...]:
     ValueError
         If the integral has no loop or more than one, or its graph is not connected.
     """
-    if integral.loop_count != 1:
-        raise ValueError("The closed form applies to one-loop integrals only")
+    _require_one_loop(integral)
     _edges, _legs_at, bridges = _one_loop_cycle(integral)
     q_squared = _momentum_squared(integral)
     masses = [sp.sympify(e.get_mass()) for e in integral.graph.get_internal_edges()]

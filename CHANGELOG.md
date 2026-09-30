@@ -532,6 +532,12 @@
 
 ### Fixed
 
+- `Graph.get_loop_count` returned E - V + 1 whatever the graph, which is wrong
+  for a disconnected one. It now returns E - V + c, with c the number of
+  connected components, and so `FeynmanIntegral.loop_count` does too. Connected
+  graphs are unchanged. The one-loop closed forms in `feynkit.landau` check
+  connectivity first, so a disconnected graph is still refused as not
+  connected rather than as not one-loop.
 - `maximal_pairing_matrix` did not return the lexicographic maximum under row
   and column permutations: it placed one column per row, never branched on
   rows that tie, and kept only the last of the columns that tie. It returned a

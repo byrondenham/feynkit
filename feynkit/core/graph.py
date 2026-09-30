@@ -431,10 +431,10 @@ class Graph:
         Calculate the number of independent loops in the graph.
 
         The loop count L is given by the formula:
-            L = E - V + 1
-        where E is the number of internal edges and V is the number of internal vertices.
-        It is the loop number of a connected graph; a graph with c connected
-        components has E - V + c loops.
+            L = E - V + c
+        where E is the number of internal edges, V the number of internal vertices and
+        c the number of connected components. This is the first Betti number; for a
+        connected graph it is E - V + 1.
 
         Returns
         -------
@@ -448,7 +448,8 @@ class Graph:
         >>> graph.get_loop_count()
         1
         """
-        return len(self._internal_edges) - self.internal_vertices + 1
+        components = len(set(self._components()))
+        return len(self._internal_edges) - self.internal_vertices + components
 
     def _components(self) -> list[int]:
         """For each vertex, counting from 0, the least vertex of its connected component."""

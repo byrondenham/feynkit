@@ -1348,10 +1348,11 @@ class TestBridges:
 
     @pytest.mark.parametrize("cnickel", ["11e|e|33e|e|", "122e|3e|e|3e|e|"])
     def test_a_disconnected_graph_is_rejected(self, cnickel: str) -> None:
-        # Two bubbles with no edge between them, and a two-loop part with a vertex apart, count
-        # as one loop by E - V + 1. The second gave six factors and no error.
+        # Two bubbles with no edge between them, and a two-loop part with a vertex apart, have
+        # two loops each, and are refused for being disconnected rather than for the loop count.
+        # The second gave six factors and no error.
         fi = FeynmanIntegral.from_cnickel(cnickel)
-        assert fi.loop_count == 1
+        assert fi.loop_count == 2
         with pytest.raises(ValueError, match="connected"):
             one_loop_landau_surfaces(fi)
 
@@ -1370,8 +1371,8 @@ class TestBridges:
     def test_a_hand_built_disconnected_graph_is_rejected(
         self, internal: list[tuple[int, int]], vertices: int, legs: list[int]
     ) -> None:
-        # Each counts as one loop by E - V + 1. A walk that does not stop would fill the
-        # memory, so an alarm stops it where the platform has one.
+        # Each has two loops and is refused for being disconnected. A walk that does not stop
+        # would fill the memory, so an alarm stops it where the platform has one.
         edges = [
             Edge(idx=k, v1=a, v2=b, is_internal=True) for k, (a, b) in enumerate(internal, start=1)
         ]
@@ -1381,7 +1382,7 @@ class TestBridges:
         ]
         graph = Graph(internal_vertices=vertices, external_legs=len(legs), edges=edges)
         fi = FeynmanIntegral(graph)
-        assert fi.loop_count == 1
+        assert fi.loop_count == 2
 
         def expire(signum: int, frame: object) -> None:
             raise TimeoutError("the closed form did not stop")

@@ -20,9 +20,11 @@ bibliography and the integrand templates, comes from ``_report_shared``.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from ._latex_kit import LatexDocument, _escape
+from ._report_shared import join_words
 from .sections import render_sections
 
 if TYPE_CHECKING:
@@ -51,7 +53,9 @@ def _summary(report: AnalysisReport) -> str:
     )
 
 
-def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
+def render_latex(
+    report: AnalysisReport, *, title: str | None = None, substitutions: Sequence[str] = ()
+) -> str:
     """Render an analysis report as a complete LaTeX ``article``.
 
     Parameters
@@ -61,6 +65,9 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
     title
         Document title, escaped for LaTeX; by default "Feynman integral"
         followed by the CNickel string.
+    substitutions
+        The kinematic substitutions applied to the integral, such as
+        ``"p4^2 = 0"``, stated in the document date; none by default.
 
     Returns
     -------
@@ -73,6 +80,9 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
     else:
         heading = _escape(title)
 
+    stated = join_words([f"\\texttt{{{_escape(text)}}}" for text in substitutions])
+    date = f"With {stated}." if substitutions else ""
+
     sections = render_sections(
         report,
         summary=lambda: _summary(report),
@@ -83,7 +93,7 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
         doc.preamble(),
         "",
         f"\\title{{{heading}}}",
-        "\\date{}",
+        f"\\date{{{date}}}",
         "",
         "\\begin{document}",
         "\\maketitle",

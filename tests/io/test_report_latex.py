@@ -483,3 +483,12 @@ def test_faces_section_marks_a_support_product() -> None:
     name = r"$\mathcal{G}_{\{2,4\}}\,\mathcal{U}_{\Gamma/\{2,4\}}$"
     assert f"{name} (support)" in latex
     assert f"with the exponents of {name}:" in latex
+
+
+def test_substitutions_are_stated_in_the_date(triangle_report: AnalysisReport) -> None:
+    latex = render_latex(triangle_report, substitutions=["p1^2 = 0", "p2^2 = p3^2"])
+    assert (
+        "\\date{With \\texttt{p1\\textasciicircum{}2 = 0} and \\texttt{p2\\textasciicircum{}2 = p3\\textasciicircum{}2}.}"
+        in latex
+    )
+    assert "\\date{}" in render_latex(triangle_report)

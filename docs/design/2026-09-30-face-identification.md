@@ -134,10 +134,38 @@ The classes follow the flag of a verified face:
 | `u_layer` | no $\mathcal G$ or $\mathcal F$ factor | $\mathcal U_\Gamma$ |
 | `f_layer` | an $\mathcal F$ factor | $\mathcal F_\Gamma$ |
 
+A face that is not verified is a `support_product` or `unidentified`, as the next subsection
+decides.
+
 A factor is 1 exactly when it is $\mathcal U$ of a minor without loops, $|E_H| - |V_H| + c_H = 0$.
 A lone $\mathcal G$ factor on a minor with deleted edges, the other factors 1, counts as
 `product_ir`. The report names a factor by its minor $\sigma_j/\sigma_{j-1}$, writing $\Gamma$ for
 all the edges and a set of edges for the subgraph they span.
+
+### Support products
+
+A face that is not verified can still have exactly the exponents of the predicted product. Let
+$A_j$ be the support of the polynomial that level $j$ contributes to the prediction. The face is a
+`support_product` when its set of exponents is
+$$A_1 + \dots + A_k = \{a_1 + \dots + a_k : a_j \in A_j\},$$
+and `unidentified` when it is not. The levels have disjoint sets of edges, so each point of the sum
+arises from one choice of the $a_j$; the sum is therefore the support of the predicted product, with
+no term cancelling, and $\mathrm{Newt}(\mathcal G|_F) = \prod_j \mathrm{Newt}(A_j)$ in the
+coordinates of the levels. What fails is only the coefficients: $\mathcal G|_F$ is not the product
+of the factors. feynkit compares the two point sets exactly, records the outcome in
+`support_verified`, true for every verified face and every support product, and keeps both
+polynomials. A face verified as a product is never a support product, so no class of section 3
+changes; the new class takes faces that were unidentified.
+
+The massless box with $p_2^2 = 0$ has four support products among its faces: the facet
+$x_1 + x_3 \le 1$ of section 4 and three faces of codimension 2 inside it. On that facet the flag
+predicts $\mathcal G_{\{2,4\}}\,\mathcal U_{\Gamma/\{2,4\}}$; $\mathcal G|_F$ has the six exponents
+of that product, but its $\mathcal F$ coefficients form a matrix of rank 2, and $\mathcal G|_F$,
+linear in $u_1, u_3$, factors only if that matrix has rank 1, so it is irreducible. The massless
+double box with $p_i^2 = 0$ has 22 support products among the 932 faces the flag does not
+identify, of codimension 5 to 7, four of them vertices whose one term has the predicted exponent
+and another coefficient; the massless box with $p_i^2 = 0$ has none. The check costs one
+set of sums per face.
 
 ## 4. The published cases
 
@@ -174,7 +202,7 @@ $\{2,4\} \subset E$, their $\gamma_{14}$, and its $\mathcal G|_F$ is their restr
 $\mathcal F$ (Eqs. B24-B25, p. 10). Its $\mathcal F$ part has the four terms $u_iu_j$ with
 $i \in \{2,4\}$, $j \in \{1,3\}$ and coefficients $-p_1^2$, $-s_{12}$, $-(p_1 + p_3)^2$ and $-p_4^2$
 over $\mu^2$, a matrix of rank 2, so it is no product of a polynomial in $u_2, u_4$ and one in
-$u_1, u_3$, and the face is unidentified.
+$u_1, u_3$. The face is a support product (section 3).
 
 ## 5. Scope
 
@@ -183,8 +211,9 @@ $u_1, u_3$, and the face is unidentified.
   this case. feynkit identifies no face there and says so in `reason`.
 - **One name per face.** Another weight least on $F$ can give another flag with the same product,
   so the name is canonical only through $w_F$.
-- **Unidentified faces.** They are recorded with $\mathcal G|_F$ and the prediction side by side,
-  so that the report can show both; no search for other factorisations is made.
+- **Faces not identified.** Support products and unidentified faces are recorded with
+  $\mathcal G|_F$ and the prediction side by side, so that the report can show both; no search for
+  other factorisations is made.
 - **Codimension.** `identify_faces` takes the faces up to codimension 2 by default and every face
   with `max_codimension=None`.
 
@@ -198,12 +227,13 @@ $u_1, u_3$, and the face is unidentified.
   by codimension, the facets in the order of `PolytopeData.facets`, with `point_indices`,
   `dimension`, `codimension`, `facet`, `weight`, `levels` (frozen `FlagLevel`s with `edges`,
   `contracted`, `deleted`, `weight`, `kind` and `loops`), `kind`, `contracted`, `verified`,
-  `polynomial`, `prediction`, `reason` and `name()`.
+  `polynomial`, `prediction`, `reason`, `support_verified` and `name()`.
 - `FeynmanIntegral.face_identification(max_codimension=2)`, cached for each argument.
-- The report section `faces`, not built by default: the facets with their inequalities and names,
-  the number of faces of each class and codimension, and up to ten unidentified faces with
-  $\mathcal G|_F$ and the prediction. `fk analyse -f` prints the facets and counts and adds the
-  section to the reports it writes.
+- The report section `faces`, built by default: the facets with their inequalities and names, a
+  support product marked, the number of faces of each class and codimension, and up to ten faces
+  that are not identified with $\mathcal G|_F$ and the prediction. `fk analyse` prints the facets and
+  counts by default, and `-f` alone; `-f` also adds the section to a report whose `--sections`
+  leave it out.
 
 ## 7. Cost
 
@@ -230,4 +260,7 @@ commute (a property test). The polynomials: $\mathcal U$ and $\mathcal F$ of the
 massive parachute, and the forest convention. The identifier: the published cases of section 4;
 every verified face equals the product of its level polynomials computed afresh; the class counts
 do not change when the edges are relabelled (a property test); and, as a regression, the massless
-box with $p_i^2 = 0$ keeps its 20 unidentified faces of dimension at least 1.
+box with $p_i^2 = 0$ keeps its 20 unidentified faces of dimension at least 1. The support products:
+the four of the box with $p_2^2 = 0$, whose exponents are checked against sums computed afresh
+from the factors, the 22 of the double box, none on the box with $p_i^2 = 0$, and, on seven graphs,
+the class of every face identified as a product unchanged from before the class existed.

@@ -414,7 +414,8 @@
   identification of faces. The note proves that the initial form of U for a
   weight w is the product of the U of the minors of its flag, and shows how
   the prediction reproduces Eqs. 3.13 and 3.15 of Fevola, Mizera and Telen
-  and Eq. 21 of Britto, Grimm and Hoefnagels.
+  and Eq. 21 of Britto, Grimm and Hoefnagels. Both, and the guide, describe
+  the support products.
 
 ### Changed
 

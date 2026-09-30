@@ -1240,8 +1240,9 @@ and the others deleted. The terms of $\mathcal U$ of least $w$-degree are
 $\prod_j \mathcal U_{H_j}$ (section 5.7 of the mathematics reference). The prediction for
 $\mathcal G|_F$ is that product with the factor of the last level whose $\mathcal F_{H_j}$ is not
 zero replaced by $\mathcal G_{H_j}$ when $t_j = 0$ and by $\mathcal F_{H_j}$ when $t_j < 0$. A face
-is identified only when $\mathcal G|_F$ equals the prediction exactly; otherwise its class is
-`unidentified`, and both polynomials are kept. `name()` writes each factor as `U`, `F` or `G` of
+is identified only when $\mathcal G|_F$ equals the prediction exactly. Otherwise its class is
+`support_product` when the exponents of $\mathcal G|_F$ are exactly the sums of one exponent of
+each factor, and `unidentified` when they are not; both polynomials are kept. `name()` writes each factor as `U`, `F` or `G` of
 its minor, `Gamma` for the whole graph, `{1,2}` for the subgraph on edges 1 and 2 and
 `{1,2,3}/{1}` for it with edge 1 contracted, and leaves out the factors equal to 1.
 
@@ -1253,7 +1254,15 @@ its minor, `Gamma` for the whole graph, `{1,2}` for the subgraph on edges 1 and 
 | `product_ir` | a product whose $\mathcal G$ factor is on a minor with edges deleted, as $\mathcal G_\gamma\,\mathcal U_{\Gamma/\gamma}$ |
 | `u_layer` | a product of $\mathcal U$'s alone, a face of $\mathrm{Newt}(\mathcal U)$ |
 | `f_layer` | a product with one $\mathcal F$ factor, a face of $\mathrm{Newt}(\mathcal F)$ |
-| `unidentified` | not the prediction |
+| `support_product` | not the prediction, but with exactly its exponents |
+| `unidentified` | not the prediction, and with other exponents |
+
+A support product is a face whose point set is the product of the supports of the flag's factors,
+the sums of one exponent from each; since the factors are in disjoint variables, these are the
+exponents of the predicted product, each once. Its Newton polytope is then the product of the
+factors' Newton polytopes, although $\mathcal G|_F$ is not the product of the factors. The point
+sets are compared exactly, and `support_verified` records the outcome: true for every identified
+face and every support product.
 
 On the bubble with $m_2 = 0$, where the edge face $F_1$ is no longer a facet, Britto, Grimm and
 Hoefnagels find the new facet $F_{2,(1,2)}$ (Eq. 105, p. 29). It is $x_2 \le 1$, of the kind
@@ -1274,8 +1283,12 @@ ultraviolet when $\mathcal F_{\Gamma/\gamma} \ne 0$ and infrared when it is zero
 (arXiv:2202.12296, Eqs. 7-8, p. 3). The massive sunrise has, besides the two layers, six facets,
 three of them the ultraviolet bubbles $\mathcal U_{\{i,j\}}\,\mathcal G_{\Gamma/\{i,j\}}$, as in
 their App. B (Eq. B14, p. 9). On their three-mass box the facet of $\gamma_{14}$ (App. B, p. 10)
-carries the restricted $\mathcal U$ and $\mathcal F$ they write down, whose $\mathcal F$ part is not a
-product of polynomials, so feynkit leaves it `unidentified` while its flag names $\gamma_{14}$.
+carries the restricted $\mathcal U$ and $\mathcal F$ they write down. Its flag names $\gamma_{14}$ and
+predicts $\mathcal G_{\gamma_{14}}\,\mathcal U_{\Gamma/\gamma_{14}}$. The $\mathcal F$ part has
+exactly the exponents of that product, but its coefficients form a matrix of rank 2, so
+$\mathcal G|_F$ is irreducible, and the face is a `support_product`. That box has four support
+products in all, the facet and three faces of codimension 2; the massless double box with
+$p_i^2 = 0$ has 22, among 932 faces that are not identified.
 
 Each `FaceIdentification` holds:
 
@@ -1287,8 +1300,9 @@ Each `FaceIdentification` holds:
 | `levels` | The flag, one `FlagLevel` per value of $w$, from the largest: `edges`, `contracted`, `deleted`, `weight` $t_j$, `kind` (`"U"`, `"F"` or `"G"`) and `loops` of $H_j$ |
 | `kind`, `contracted` | The class, and $S$ for a contraction |
 | `verified` | Whether $\mathcal G\vert_F$ equals the prediction |
+| `support_verified` | Whether the exponents of $\mathcal G\vert_F$ are exactly the sums of one exponent of each factor |
 | `polynomial`, `prediction` | $\mathcal G\vert_F$ and the product of the level polynomials, in the $u_e$ |
-| `reason` | Why the face is not identified; None when it is |
+| `reason` | Why the face is not identified as a product; None when it is |
 
 `identify_faces(fi, max_codimension=2)` takes the polytope, its facets and the faces of codimension
 2; `max_codimension=None` takes every face, vertices included. The massless double box has 154
@@ -2617,8 +2631,8 @@ The document has up to fifteen parts:
     also says where $\beta$ lies in the span of $A$.
 11. Faces as graphs: how a face is compared with a product of Symanzik
     polynomials of minors, a table of the facets with their inequalities and graphs, the number of
-    faces of each class up to codimension 2, and up to ten unidentified faces with $G|_F$ and the
-    prediction written out (see [Graphs of the faces](#graphs-of-the-faces)). Below full
+    faces of each class up to codimension 2, and up to ten faces that are not identified, support
+    products among them, with $G|_F$ and the prediction written out (see [Graphs of the faces](#graphs-of-the-faces)). Below full
     dimension it says that the faces are not identified.
 12. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
     coefficient-preserving subgroup, and the symmetry pairs with the identity each gives. For a

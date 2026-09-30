@@ -783,7 +783,8 @@ $$\prod_{j \ne j^*} \mathcal U_{H_j} \times \begin{cases}
 \mathcal G_{H_{j^*}} & t_{j^*} = 0, \\ \mathcal F_{H_{j^*}} & t_{j^*} < 0, \\
 \mathcal U_{H_{j^*}} & t_{j^*} > 0, \end{cases}$$
 or $\prod_j \mathcal U_{H_j}$ when no level has $\mathcal F_{H_j} \ne 0$, and identifies $F$ only
-when $\mathcal G|_F$ equals the prediction as a polynomial; otherwise $F$ is unidentified. The prediction is not claimed in general. It reproduces the published cases:
+when $\mathcal G|_F$ equals the prediction as a polynomial. The prediction is not claimed in
+general. It reproduces the published cases:
 
 - For a connected subgraph $\gamma \ne E$ let $w_\gamma$ be 1 on $\gamma$ and 0 elsewhere. When
   every mass is non-zero,
@@ -804,6 +805,14 @@ ultraviolet ones and $\mathcal F_{G/\gamma} = 0$ for the infrared ones (Eqs. 4, 
 `product_uv` or `product_ir` according as its $\mathcal G$ factor is on a minor without or with
 deleted edges, or lies in the $\mathcal U$ layer (a product of $\mathcal U$'s alone) or the
 $\mathcal F$ layer (a product with an $\mathcal F$ factor).
+
+**Support products.** Let $A_j$ be the support of the polynomial level $j$ contributes to the
+prediction. A face that is not verified is a `support_product` when its set of exponents is
+exactly $A_1 + \dots + A_k = \{a_1 + \dots + a_k : a_j \in A_j\}$, and `unidentified` otherwise.
+The levels have disjoint edges, so each point of the sum arises from one choice of the $a_j$, and
+the sum is the support of the predicted product; the face's Newton polytope is the product of the
+Newton polytopes of the factors, while $\mathcal G|_F$ is not the product of the factors. The
+point sets are compared exactly.
 
 **Below full dimension** the normal of a relative facet is fixed only modulo the equations of the
 affine hull (section 5.5), and so is the flag; feynkit identifies no face there.

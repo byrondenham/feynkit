@@ -357,6 +357,17 @@
   masses and exponents, and so their Schwinger parameters. A minor need not be
   connected. The tests check deletion-contraction for U, Kirchhoff's
   spanning-tree counts and the loop numbers of the minors.
+- `minor_polynomials(graph, momentum_products, *, contract=(), delete=(),
+  parameters=None)` in `feynkit.polynomials` gives U and F of the minor
+  (Gamma - D)/C in the parameters of Gamma, its legs carrying the momenta
+  they carry in Gamma. A minor that is not connected follows the forest
+  convention: U is the product over its components c and
+  F = sum_c F_c prod_{c' != c} U_{c'}. On the whole graph it gives
+  `FeynmanIntegral.symanzik`'s U and F; the tests also check the face of the
+  terms free of a_e against G of Gamma/e (Britto, Grimm and Hoefnagels,
+  arXiv:2606.09978, Eq. 21) and the leading term of G under
+  a_gamma -> eps a_gamma against U_gamma G_{Gamma/gamma} on the massive
+  parachute (Fevola, Mizera and Telen, arXiv:2311.16219, Eq. 3.13).
 
 ### Changed
 

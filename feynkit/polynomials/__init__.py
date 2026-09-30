@@ -22,8 +22,11 @@ rescale_variables
     Apply variable rescaling.
 projective_transformation
     Transform to projective coordinates.
+minor_polynomials
+    U and F of a minor (Gamma - D)/C in the parameters and kinematics of Gamma.
 """
 
+from .minors import minor_polynomials
 from .operations import extract_coefficient, homogenise_polynomial, simplify_rational_function
 from .symanzik import extract_u_from_w
 from .transforms import invert_variables, projective_transformation, rescale_variables
@@ -36,4 +39,5 @@ __all__ = [
     "invert_variables",
     "rescale_variables",
     "projective_transformation",
+    "minor_polynomials",
 ]

@@ -236,7 +236,8 @@ def test_wrapping_keeps_inline_maths_on_one_line(text: str) -> None:
         "z_sigma = (z_{sigma(1)}, ..., z_{sigma(6)})",
         "beta = (-D/2, -nu_1, ..., -nu_N)",
         "[klausen2023, tellander2023, walther2022]",
-        "nu_1 + nu_2 + nu_3 = D",
+        "nu = (L+1)D/2",
+        "l_F(beta) = (m . nu - b D/2)/g_F",
     ):
         assert any(span in line for line in lines), span
 
@@ -821,7 +822,12 @@ def test_edge_table(text: str) -> None:
 
 
 def test_schwinger_condition(text: str) -> None:
-    assert "here nu_1 + nu_2 + nu_3 = D [britto2026]" in _flat(text)
+    # D is a symbol, so beta_Cayley lies in the span of the F~ block for no generic D.
+    assert (
+        "if those columns span the hyperplane y_0 = 0, as they do when the block is a facet, "
+        "the condition reads nu = (L+1)D/2. Here beta_Cayley does not lie in that span for "
+        "generic values of its symbols"
+    ) in _flat(text)
 
 
 # --- the point counts --------------------------------------------------------
@@ -1427,7 +1433,8 @@ def test_resonance_section_of_the_bubble() -> None:
     report = AnalysisReport.from_integral(FeynmanIntegral.from_cnickel("11e|e|:nn"), ["resonance"])
     text = render_text(report)
     body = _flat(_section(text, "Resonance"))
-    assert "Let D = D_0 - 2 epsilon with D_0 = 4, and nu_e = 1 on every edge" in body
+    assert "Let D = D_0 - 2 epsilon with D_0 = 4 by default, since the dimension" in body
+    assert "and nu_e = 1 on every edge" in body
     rows = _resonance_rows(text)
     forms = {row[1]: row[2] for row in rows if len(row) == 3 and row[0].startswith("F_")}
     # F_F, F_U and the two edge facets (Britto, Grimm and Hoefnagels, Eq. 68, p. 22).
@@ -1453,7 +1460,7 @@ def test_resonance_section_with_integer_exponents_and_d0() -> None:
     report = AnalysisReport.from_integral(fi, ["resonance"], d0=sp.Rational(7, 2))
     text = render_text(report)
     body = _flat(_section(text, "Resonance"))
-    assert "with D_0 = 7/2, and the powers nu = (1, 1, 1, 1) of the integral" in body
+    assert "with D_0 = 7/2 as given, and the powers nu = (1, 1, 1, 1) of the integral" in body
     assert all(len(line) <= 79 for line in text.splitlines())
     assert _prose_diff(report, _INTENDED[:2])[1] == []
 
@@ -1468,4 +1475,57 @@ def test_resonance_below_full_dimension() -> None:
     assert {tuple(row[1:]) for row in rows if len(row) == 5 and row[0].startswith("F_")} == {
         ("epsilon = 0", "yes", "no epsilon", "-")
     }
+    assert _prose_diff(report, _INTENDED[:2])[1] == []
+
+
+def test_the_f_block_sentence_gives_the_admissibility() -> None:
+    massless = FeynmanIntegral.from_cnickel("11e|e|:zz")
+    first, second = sorted(massless.propagator_exponents)
+    fi = massless.with_(
+        dimension=sp.Integer(3), propagator_exponents={first: sp.Integer(1), second: sp.Integer(2)}
+    )
+    report = AnalysisReport.from_integral(fi, ["schwinger"])
+    text = _flat(_section(render_text(report), "Schwinger-representation system"))
+    assert "if those columns span the hyperplane y_0 = 0" in text
+    assert "Here beta_Cayley does not lie in that span, and the relation" in text
+    assert "3 = 3" not in text
+    latex = _flat(render_latex(report))
+    assert "Here $\\beta_{\\text{Cayley}}$ does not lie in that span" in latex
+    assert _prose_diff(report, _INTENDED[:2])[1] == []
+    at = massless.with_(
+        dimension=sp.Integer(2), propagator_exponents={first: sp.Integer(1), second: sp.Integer(1)}
+    )
+    text = _flat(render_text(AnalysisReport.from_integral(at, ["schwinger"])))
+    # At D = 2 and nu = (1, 1), beta_Cayley = (0, -1, -1) is a multiple of that column.
+    assert "Here beta_Cayley lies in that span" in text
+    bubble = FeynmanIntegral.from_cnickel("11e|e|:nn")
+    bubble = bubble.with_(
+        dimension=sp.Integer(2), propagator_exponents=dict.fromkeys(bubble.propagator_exponents, 1)
+    )
+    text = _flat(render_text(AnalysisReport.from_integral(bubble, ["schwinger"])))
+    assert "Here beta_Cayley lies in that span, so the restriction is a true subsystem." in text
+    symbolic = _flat(
+        render_text(
+            AnalysisReport.from_integral(FeynmanIntegral.from_cnickel("11e|e|:nn"), ["schwinger"])
+        )
+    )
+    assert "does not lie in that span for generic values of its symbols" in symbolic
+
+
+def test_resonance_states_where_d0_comes_from() -> None:
+    bubble = FeynmanIntegral.from_cnickel("11e|e|:nn")
+    eps = sp.Symbol("epsilon")
+    six = bubble.with_(dimension=6 - 2 * eps)
+    report = AnalysisReport.from_integral(six, ["resonance"])
+    body = _flat(_section(render_text(report), "Resonance"))
+    assert "with D_0 = 6, read from the dimension of the integral" in body
+    assert _prose_diff(report, _INTENDED[:2])[1] == []
+    report = AnalysisReport.from_integral(bubble, ["resonance"])
+    body = _flat(_section(render_text(report), "Resonance"))
+    assert (
+        "with D_0 = 4 by default, since the dimension of the integral is not a number minus "
+        "2 epsilon"
+    ) in body
+    report = AnalysisReport.from_integral(six, ["resonance"], d0=3)
+    assert "with D_0 = 3 as given" in _flat(_section(render_text(report), "Resonance"))
     assert _prose_diff(report, _INTENDED[:2])[1] == []

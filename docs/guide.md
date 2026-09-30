@@ -145,7 +145,7 @@ fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive 
 | | `--torus-count` | Candidate Euler characteristic from finite-field point counts; left out when no flag is given |
 
 `--d0 VALUE` sets $D_0$, an integer or a fraction such as `7/2`, for `-r` and for the report's
-`resonance` section; it is 4 by default. The powers are the integral's when they are integers, and
+`resonance` section; it is 4 by default, since `fk` builds $D$ as a symbol. The powers are the integral's when they are integers, and
 1 on every edge otherwise, which is what `fk` builds. `--d0` needs `-r`, no section flag at all,
 or a report.
 
@@ -946,8 +946,9 @@ The parameter convention is the one used for `fi.gkz`; section 4.6 of the mathem
 reference gives the derivation, the relation to the Lee-Pomeransky system and the limits of the
 reduction. In short: Britto, Grimm and Hoefnagels (arXiv:2606.09978) show that the reduced
 system's solutions solve the full one when the parameter vector lies in the span of the face's
-columns, which here means the exponent of $\tilde U$ vanishes; away from that point, and off cut
-contours, the relation between the reduced and full systems is not established.
+columns, which, when the block is a facet, means that the exponent of $\tilde U$ vanishes; away
+from that span, and off cut contours, the relation between the reduced and full systems is not
+established.
 `restrict_to_f_block` warns, with a `UserWarning`, when the parameter vector does not lie in that
 span; with $D$ a symbol that is unless $\nu - (L+1)D/2$ vanishes identically, so the call above
 warns. `lp_to_cayley(N, L)` in `feynkit.systems.cayley` gives the unimodular matrix $T$ with
@@ -1169,8 +1170,11 @@ print(admissible(a, range(a.cols), beta))            # True: every column
 print(admissible(a, [0], beta))                      # False: not for all D and nu
 ```
 
-`fi.facet_resonance(d0=4, nu=None, system="gkz")` classifies the facets of `fi.gkz`, with point
-indices into its columns, the $z_j$. The powers are the integral's, which must then be integers, or
+`fi.facet_resonance(d0=None, nu=None, system="gkz")` classifies the facets of `fi.gkz`, with point
+indices into its columns, the $z_j$. `d0=None` reads $D_0$ from the dimension of the integral when
+that is $D_0 - 2\varepsilon$, with $D_0$ a number and $\varepsilon$ the symbol named `epsilon`, as
+for `fi.with_(dimension=6 - 2 * sp.Symbol("epsilon"))`, and takes 4 otherwise;
+`feynkit.resonance.choose_d0` makes that choice. The powers are the integral's, which must then be integers, or
 `nu`, a mapping from edge index to integer. With `system="schwinger"` it classifies the facets of
 `fi.schwinger_gkz`, computed from the Cayley columns (the $w$ then the $z$), with
 $\beta_{\text{Cayley}} = T\beta_{\text{LP}}$ written in $D$ and $\nu$; since $T$ is unimodular,
@@ -2412,7 +2416,7 @@ Both methods take the same arguments:
 | `sections` | all but `torus` | Names of the sections to build, from `SECTION_NAMES` |
 | `title` | "Feynman integral" and the CNickel string | Document title; `to_latex` escapes it |
 | `max_face_points` | 14 | Faces of the Newton polytope with more monomials are left out of the Landau analysis and listed as skipped |
-| `d0` | 4 | $D_0$ of the `resonance` section, which takes $D = D_0 - 2\varepsilon$: an integer or a `Fraction` |
+| `d0` | None | $D_0$ of the `resonance` section, which takes $D = D_0 - 2\varepsilon$: an integer or a `Fraction`; None reads it from the dimension of the integral when that is $D_0 - 2\varepsilon$ with $D_0$ a number, and takes 4 otherwise |
 
 The section names, in `feynkit.io.report.SECTION_NAMES`, are `identity`, `conventions`,
 `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `symmetries`, `landau`
@@ -2485,8 +2489,8 @@ The document has up to fourteen parts:
    count, or why the counts give no candidate.
 9. The GKZ system: $A$, $\beta = (-D/2, -\nu_1, \ldots, -\nu_N)$, one Euler operator per row of $A$
    and the toric generators.
-10. Resonance: with $D = D_0 - 2\varepsilon$, $D_0$ = `d0`, and the integral's powers when they
-    are integers, 1 on every edge otherwise, one row per facet of the Newton polytope with its
+10. Resonance: with $D = D_0 - 2\varepsilon$, $D_0$ from `d0`, from the dimension of the integral
+    or 4, and where it came from, and the integral's powers when they are integers, 1 on every edge otherwise, one row per facet of the Newton polytope with its
     inequality and $l_F(\beta)$, where it is resonant, whether at $\varepsilon = 0$, where it is
     admissible and whether it makes the system reducible, then the resonant values with
     $-1 \le \varepsilon \le 1$ (see

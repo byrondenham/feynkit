@@ -34,6 +34,7 @@ from ._report_shared import (
     append_signed,
     count_noun,
     count_polynomial,
+    f_block_sentence,
     face_names,
     in_squared_masses,
     integrand_templates,
@@ -1089,12 +1090,9 @@ def _limits(landau: Landau, doc: _Document) -> list[str]:
     return blocks
 
 
-def _schwinger(report: AnalysisReport, schwinger: Schwinger, doc: _Document) -> str:
+def _schwinger(schwinger: Schwinger, doc: _Document) -> str:
     system = schwinger.system
     f_block = schwinger.f_block
-    loops = report.identity.loop_count
-    nu_total = sp.Add(*report.identity.edge_exponents)
-    value = (loops + 1) * report.conventions.dimension / 2
     check = "verified" if schwinger.columns_match else "not verified"
     return _blocks(
         _paragraph(
@@ -1117,12 +1115,7 @@ def _schwinger(report: AnalysisReport, schwinger: Schwinger, doc: _Document) -> 
         ),
         _matrix("A_F", f_block.a_matrix),
         _vector("beta_F", f_block.beta_parameters, ";"),
-        _paragraph(
-            "its solutions solve the full system when beta_Cayley lies in the span of the "
-            "face's columns, which for the F~ block means nu = (L+1)D/2, here "
-            f"{_str(nu_total)} = {_str(value)}{doc.cite('britto2026')}. Away from that "
-            "value the relation between the two systems is not established."
-        ),
+        _paragraph(f_block_sentence(schwinger, doc.cite, latex=False)),
     )
 
 
@@ -1161,7 +1154,7 @@ def render_text(report: AnalysisReport, *, title: str | None = None) -> str:
         resonance=lambda section: _resonance(report, section, doc),
         symmetries=lambda section: _symmetries(report, section, doc),
         landau=lambda section: _landau(section, report.conventions.energy_scale, doc),
-        schwinger=lambda section: _schwinger(report, section, doc),
+        schwinger=lambda section: _schwinger(section, doc),
     )
     blocks = [
         _heading(heading, "="),

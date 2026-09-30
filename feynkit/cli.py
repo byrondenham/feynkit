@@ -62,7 +62,7 @@ from feynkit.kinematics.classes import IMPOSABLE_CLASSES, KinematicClass
 from feynkit.landau import LandauAnalysis
 from feynkit.point_count import TorusCount
 from feynkit.polytope import polytope_data
-from feynkit.resonance import classify_facets, span_epsilons
+from feynkit.resonance import choose_d0, classify_facets, span_epsilons
 
 SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "resonance", "symmetries")
 # The seed and budget of the point counts when --seed and --torus-budget are not given.
@@ -417,9 +417,16 @@ def _print_lattice_invariants(fi: FeynmanIntegral, full: bool) -> None:
     _kv("Normal configuration", f"no  ({'; '.join(reasons)})")
 
 
-def _print_resonance(fi: FeynmanIntegral, d0: Fraction) -> None:
+def _print_resonance(fi: FeynmanIntegral, given: Fraction | None) -> None:
     """Each facet: its inequality, l_F(beta), and where it is resonant and admissible."""
+    d0, source = choose_d0(given, fi.dimension)
     _sec(f"Resonance  (D = {d0} - 2 epsilon)")
+    origin = {
+        "given": "given by --d0",
+        "dimension": "read from the dimension of the integral",
+        "default": "the default",
+    }
+    _kv("D_0", f"{d0}  ({origin[source]})")
     edges = fi.graph.get_internal_edges()
     try:
         powers = [_exact._as_int(fi.propagator_exponents[e.idx], "") for e in edges]
@@ -534,7 +541,7 @@ class ReportOptions:
     torus_seed: int = DEFAULT_TORUS_SEED
     torus_budget: int = DEFAULT_TORUS_BUDGET
     limits: bool = False
-    d0: Fraction = Fraction(4)
+    d0: Fraction | None = None
 
     @property
     def writes_files(self) -> bool:
@@ -1276,7 +1283,7 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         torus_seed=DEFAULT_TORUS_SEED if args.seed is None else args.seed,
         torus_budget=DEFAULT_TORUS_BUDGET if args.torus_budget is None else args.torus_budget,
         limits=args.limits,
-        d0=Fraction(4) if args.d0 is None else args.d0,
+        d0=args.d0,
     )
 
 

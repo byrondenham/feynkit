@@ -184,7 +184,11 @@ corresponds under $T$ to $F_{\mathcal U}$, the facet whose points are the monomi
 (BGH26 p. 46). When its columns span the hyperplane $y_0 = 0$, admissibility is
 $\nu = (L+1)D/2$. `restrict_to_f_block` now calls `admissible` on the Cayley matrix and parameter
 and warns when it fails; with $D$ a symbol it fails unless $\nu - (L+1)D/2$ vanishes identically.
-The report, which states the condition itself, builds the restriction without the warning.
+The report builds the restriction without the warning and states instead whether $\beta$ lies in
+the span, with $\nu = (L+1)D/2$ only as the condition for a block that spans $y_0 = 0$. A block of
+lower rank asks more: the massless bubble's $\tilde F$ block is the one column $(0, 1, 1)$, and at
+$D = 3$, $\nu = (1, 2)$ the Cayley parameter $(0, -3/2, -1)$ is not in its span although
+$\nu = (L+1)D/2$.
 
 ## Interfaces
 
@@ -204,17 +208,21 @@ The report, which states the condition itself, builds the restriction without th
 - `span_epsilons(data, nu, d0=4)` and `lee_pomeransky_beta(n)`.
 - `admissible(a_matrix, face, beta)`.
 
-`FeynmanIntegral.facet_resonance(d0=4, *, nu=None, system="gkz")` classifies the facets of
+`FeynmanIntegral.facet_resonance(d0=None, *, nu=None, system="gkz")` classifies the facets of
 `fi.gkz` (point indices are its columns, the $z_j$) or of `fi.schwinger_gkz` (its columns, $w$
-then $z$). The powers are the integral's, which must then be integers, or `nu`, a mapping from
+then $z$). `choose_d0(d0, dimension)` fixes $D_0$ for it and for the report: `d0` when given,
+otherwise the number $D_0$ when the dimension of the integral is $D_0 - 2\varepsilon$ in the symbol
+named `epsilon`, the regulator of the parametric prefactors, and otherwise 4. So an integral built
+with $D = 6 - 2\varepsilon$ is classified at its own $\varepsilon$. The powers are the integral's, which must then be integers, or `nu`, a mapping from
 edge index to integer. `lp_to_cayley(n_edges, loop_count)` becomes public in
 `feynkit.systems.cayley`.
 
 ## Report and CLI
 
 A report section `resonance`, built by default: it reuses the polytope data of the other sections
-and costs milliseconds. It states $D_0$ and the powers (the integral's when they are integers,
-otherwise 1 on every edge, which it says), gives for each facet its inequality, $l_F(\beta)$ in $D$
+and costs milliseconds. It states $D_0$ and where it comes from (given, read from the dimension of
+the integral, or the default 4), the powers (the integral's when they are integers, otherwise 1 on
+every edge, which it says), gives for each facet its inequality, $l_F(\beta)$ in $D$
 and the $\nu_e$, the resonant set, the resonant values with $-1 \le \varepsilon \le 1$, whether
 $\varepsilon = 0$ is resonant, where the facet is admissible and whether the system is reducible,
 and below full dimension the values of $\varepsilon$ at which $\beta$ lies in the span of $A$.

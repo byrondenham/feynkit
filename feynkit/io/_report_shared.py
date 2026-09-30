@@ -52,6 +52,7 @@ __all__ = [
     "count_polynomial",
     "display_factors",
     "epsilon_set",
+    "f_block_sentence",
     "face_names",
     "in_squared_masses",
     "integrand_templates",
@@ -405,6 +406,16 @@ def resonance_paragraphs(
     x = {key: m(text, tex) for key, (text, tex) in _RESONANCE_MATHS.items()}
     d0 = _number(section.d0, latex)
     d0_is = m(f"D_0 = {d0}", f"D_0 = {d0}")
+    if section.d0_source == "given":
+        d0_clause = f"{d0_is} as given"
+    elif section.d0_source == "dimension":
+        d0_clause = f"{d0_is}, read from the dimension of the integral"
+    else:
+        two_eps = m("2 epsilon", "2\\varepsilon")
+        d0_clause = (
+            f"{d0_is} by default, since the dimension of the integral is not a number minus "
+            f"{two_eps}"
+        )
     if section.unit_powers:
         powers = (
             f"{x['nu_e']} on every edge, since the exponents of the integral are not all "
@@ -415,7 +426,7 @@ def resonance_paragraphs(
         nu = m(f"nu = {vector}", r"\nu = " + vector)
         powers = f"the powers {nu} of the integral"
     opening = (
-        f"Let {x['D']} with {d0_is}, and {powers}. A face {x['F']} of {x['P']}, with columns "
+        f"Let {x['D']} with {d0_clause}, and {powers}. A face {x['F']} of {x['P']}, with columns "
         f"{x['A_F']}, is resonant when {x['beta']} lies in {x['resonant']}, and admissible when "
         f"it lies in {x['span']}; the face system {x['system']} is then a true subsystem, its "
         f"solutions solving the full system{cite('britto2026')}. For a facet {x['facet']} with "
@@ -470,6 +481,34 @@ def resonance_paragraphs(
         "resonant at:"
     )
     return paragraphs, classes, window
+
+
+def f_block_sentence(schwinger: Schwinger, cite: Callable[..., str], *, latex: bool) -> str:
+    """When the F~-block restriction is a true subsystem, and whether it is one here.
+
+    The condition is that beta_Cayley lies in the span of the block's columns;
+    it reads nu = (L+1)D/2 only when those columns span the hyperplane y_0 = 0.
+    """
+
+    def m(text: str, tex: str) -> str:
+        return f"${tex}$" if latex else text
+
+    beta = m("beta_Cayley", r"\beta_{\text{Cayley}}")
+    hyperplane = m("y_0 = 0", "y_0 = 0")
+    condition = m("nu = (L+1)D/2", r"\nu = (L+1)D/2")
+    head = (
+        f"its solutions solve the full system when {beta} lies in the span of the face's "
+        f"columns{cite('britto2026')}; if those columns span the hyperplane {hyperplane}, as "
+        f"they do when the block is a facet, the condition reads {condition}."
+    )
+    if schwinger.f_block_admissible:
+        return f"{head} Here {beta} lies in that span, so the restriction is a true subsystem."
+    symbolic = any(sp.sympify(b).free_symbols for b in schwinger.system.beta_parameters)
+    generic = " for generic values of its symbols" if symbolic else ""
+    return (
+        f"{head} Here {beta} does not lie in that span{generic}, and the relation between the "
+        "two systems is not established."
+    )
 
 
 def not_computed(report: AnalysisReport, pointer: str) -> str:

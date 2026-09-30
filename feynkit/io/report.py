@@ -51,7 +51,15 @@ from ..normal_forms.polytope_automorphisms import coefficient_preserving_indices
 from ..parametrisations.base import ParametrisationResult
 from ..point_count import TorusCount
 from ..polytope import PolytopeData, polytope_data
-from ..resonance import EpsilonSet, FacetResonance, _rational, classify_facets, span_epsilons
+from ..resonance import (
+    D0Source,
+    EpsilonSet,
+    FacetResonance,
+    admissible,
+    choose_d0,
+    classify_facets,
+    span_epsilons,
+)
 from ..systems.cayley import CayleyGKZSystem, lp_to_cayley
 from ..systems.complete import GKZSystem
 from ..systems.monomial import extract_monomial_support
@@ -320,6 +328,10 @@ class Resonance:
     ----------
     d0
         D_0.
+    d0_source
+        Where D_0 comes from: "given", "dimension", read from a dimension of
+        the integral of the form D_0 - 2 eps, or "default", 4; see
+        :func:`feynkit.resonance.choose_d0`.
     powers
         The integer power of each edge, in internal-edge order.
     unit_powers
@@ -337,6 +349,7 @@ class Resonance:
     """
 
     d0: Fraction
+    d0_source: D0Source
     powers: tuple[int, ...]
     unit_powers: bool
     span: EpsilonSet
@@ -431,12 +444,18 @@ class Schwinger:
     columns_match
         Whether the columns of ``T A_LP`` are a permutation of those of the
         Cayley matrix.
+    f_block_admissible
+        Whether beta_Cayley lies in the span of the columns of the F~ block,
+        for all values of any symbols in it, as
+        :func:`feynkit.resonance.admissible` decides: the condition under
+        which the restriction is a true subsystem.
     """
 
     system: CayleyGKZSystem
     f_block: GKZSystem
     lp_to_cayley: sp.Matrix
     columns_match: bool
+    f_block_admissible: bool
 
 
 # --- section builders --------------------------------------------------------
@@ -575,7 +594,9 @@ def _gkz(fi: FeynmanIntegral) -> GKZ:
     )
 
 
-def _resonance(fi: FeynmanIntegral, data: PolytopeData, d0: Fraction) -> Resonance:
+def _resonance(
+    fi: FeynmanIntegral, data: PolytopeData, d0: Fraction, source: D0Source
+) -> Resonance:
     exponents = [fi.propagator_exponents[e.idx] for e in fi.graph.get_internal_edges()]
     try:
         powers = tuple(_exact._as_int(x, "the exponents") for x in exponents)
@@ -584,6 +605,7 @@ def _resonance(fi: FeynmanIntegral, data: PolytopeData, d0: Fraction) -> Resonan
         powers, unit = (1,) * len(exponents), True
     return Resonance(
         d0=d0,
+        d0_source=source,
         powers=powers,
         unit_powers=unit,
         span=span_epsilons(data, powers, d0),
@@ -647,7 +669,9 @@ def _columns(matrix: sp.Matrix) -> list[tuple[int, ...]]:
 def _schwinger(fi: FeynmanIntegral) -> Schwinger:
     system = fi.schwinger_gkz
     t = lp_to_cayley(len(fi.symanzik.lp_parameters), fi.loop_count)
-    # The section states the condition under which the restriction is a true subsystem.
+    block = range(len(system.u_support), system.a_matrix.cols)
+    # The section says whether beta_Cayley lies in the span of the block, which is what the
+    # warning of restrict_to_f_block would say.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         f_block = system.restrict_to_f_block()
@@ -656,6 +680,7 @@ def _schwinger(fi: FeynmanIntegral) -> Schwinger:
         f_block=f_block,
         lp_to_cayley=t,
         columns_match=_columns(t * fi.gkz.a_matrix) == _columns(system.a_matrix),
+        f_block_admissible=admissible(system.a_matrix, block, system.beta_parameters),
     )
 
 
@@ -694,7 +719,7 @@ class AnalysisReport:
         torus_seed: int = 0,
         torus_budget: int = 2 * 10**9,
         limits: bool | str | None = None,
-        d0: int | Fraction = 4,
+        d0: int | Fraction | None = None,
     ) -> AnalysisReport:
         """Build the report for an integral.
 
@@ -723,7 +748,10 @@ class AnalysisReport:
             section never does.
         d0
             D_0 of the ``resonance`` section, which takes D = D_0 - 2 eps: an
-            integer or a Fraction, 4 by default.
+            integer or a Fraction. None, the default, reads it from the
+            dimension of the integral when that is D_0 - 2 eps with D_0 a
+            number, and takes 4 otherwise; see
+            :func:`feynkit.resonance.choose_d0`.
 
         Raises
         ------
@@ -743,7 +771,7 @@ class AnalysisReport:
                 f"expected any of {', '.join(SECTION_NAMES)}"
             )
 
-        d0_value = _rational(d0, "d0")
+        d0_value, d0_source = choose_d0(d0, integral.dimension)
         # torus_count rejects kinematic constraints; say so before the Landau analysis runs.
         if "torus" in wanted and integral.kinematic_constraints:
             raise ValidationError(
@@ -764,7 +792,7 @@ class AnalysisReport:
             if "symmetries" in wanted:
                 symmetries = _symmetries(integral, data)
             if "resonance" in wanted:
-                resonance = _resonance(integral, data, d0_value)
+                resonance = _resonance(integral, data, d0_value, d0_source)
 
         analysis: LandauAnalysis | None = None
         if wanted & {"landau", "torus"}:

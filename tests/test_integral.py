@@ -560,6 +560,32 @@ class TestFacetResonance:
                 off.schwinger_gkz.restrict_to_f_block()
 
 
+class TestD0FromTheDimension:
+    def test_six_minus_two_epsilon(self) -> None:
+        # D = 6 - 2 eps: F_F of the bubble, l_F(beta) = D/2 - nu_1 - nu_2, is admissible at
+        # eps = 1, where D = 4, and resonant on Z.
+        eps = sp.Symbol("epsilon")
+        bubble = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        powers = dict.fromkeys(bubble.propagator_exponents, sp.Integer(1))
+        fi = bubble.with_(dimension=6 - 2 * eps, propagator_exponents=powers)
+        for system in ("gkz", "schwinger"):
+            records = fi.facet_resonance(system=system)
+            assert records == fi.facet_resonance(6, system=system)
+        f_f = next(r for r in fi.facet_resonance() if r.facet.offset == -1)
+        assert f_f.admissible.offset == 1
+        assert "D_0 = 6, read from the dimension of the integral" in " ".join(
+            fi.to_text(["resonance"]).split()
+        )
+
+    def test_falls_back_to_four(self) -> None:
+        bubble = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        unit = dict.fromkeys(bubble.propagator_exponents, 1)
+        assert bubble.facet_resonance(nu=unit) == bubble.facet_resonance(4, nu=unit)
+        other = bubble.with_(dimension=4 - 2 * sp.Symbol("delta"))
+        assert other.facet_resonance(nu=unit) == bubble.facet_resonance(4, nu=unit)
+        assert "D_0 = 4 by default" in " ".join(other.to_text(["resonance"]).split())
+
+
 class TestReportD0:
     def test_d0_reaches_the_report(self) -> None:
         fi = FeynmanIntegral.from_cnickel("11e|e|:nn")

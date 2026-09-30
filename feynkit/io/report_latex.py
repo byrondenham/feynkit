@@ -32,6 +32,7 @@ from ._report_shared import (
     append_signed,
     count_noun,
     count_polynomial,
+    f_block_sentence,
     face_names,
     in_squared_masses,
     integrand_templates,
@@ -1016,15 +1017,9 @@ def _limits(landau: Landau, doc: _Document) -> list[str]:
     return parts
 
 
-def _schwinger(report: AnalysisReport, schwinger: Schwinger, doc: _Document) -> str:
+def _schwinger(schwinger: Schwinger, doc: _Document) -> str:
     system = schwinger.system
     f_block = schwinger.f_block
-    loops = report.identity.loop_count
-    condition = sp.Eq(
-        sp.Add(*report.identity.edge_exponents),
-        (loops + 1) * report.conventions.dimension / 2,
-        evaluate=False,
-    )
     check = "verified" if schwinger.columns_match else "not verified"
     return "\n".join(
         [
@@ -1051,10 +1046,7 @@ def _schwinger(report: AnalysisReport, schwinger: Schwinger, doc: _Document) -> 
             "A_F = " + doc.matrix(f_block.a_matrix) + ", \\\\",
             "\\beta_F = " + _vector(f_block.beta_parameters) + ";",
             "\\end{gather*}",
-            "its solutions solve the full system when $\\beta_{\\text{Cayley}}$ lies in the span "
-            "of the face's columns, which for the $\\tilde F$ block means $\\nu = (L+1)D/2$, "
-            f"here ${to_latex(condition)}${doc.cite('britto2026')}. Away from that value the "
-            "relation between the two systems is not established.",
+            f_block_sentence(schwinger, doc.cite, latex=True),
         ]
     )
 
@@ -1097,7 +1089,7 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
         resonance=lambda section: _resonance(report, section, doc),
         symmetries=lambda section: _symmetries(report, section, doc),
         landau=lambda section: _landau(section, report.conventions.energy_scale, doc),
-        schwinger=lambda section: _schwinger(report, section, doc),
+        schwinger=lambda section: _schwinger(section, doc),
     )
 
     document = [

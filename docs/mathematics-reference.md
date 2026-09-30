@@ -343,17 +343,21 @@ different coordinates; the Cayley form keeps the topological and kinematic coeff
 $A = (1 \cdots 1;\ A_{\tilde F})$ and $\vec\beta = (LD/2 - \nu, -\nu_1, \ldots, -\nu_{N-1})$
 (the paper's eq. 54). Britto, Grimm and Hoefnagels (arXiv:2606.09978, section 2.2, eqs. 19-20)
 show that the face subsystem is a true subsystem, its solutions solving the full system, when the
-parameter vector lies in the span of the face's columns. For the $\tilde F$ block that span has
-zero first coordinate, so the condition is $\nu = (L+1)D/2$, the same value at which the
-$\tilde U$ exponent vanishes (their section 8.1). Away from it, and off cut contours (Vanhove
-2018, section 3.2), the paper does not establish how the reduced system relates to the full one.
+parameter vector lies in the span of the face's columns. That span has zero first coordinate, and
+when the block's columns span the whole hyperplane of zero first coordinate, as they do when the
+block is a facet, the condition is $\nu = (L+1)D/2$, the same value at which the $\tilde U$
+exponent vanishes (their section 8.1). A block of lower rank asks more: the massless bubble's
+$\tilde F$ block is the one column $(0, 1, 1)$, and at $D = 3$, $\nu = (1, 2)$ the parameter
+$(0, -3/2, -1)$ is not in its span although $\nu = (L+1)D/2$. Away from the span, and off cut
+contours (Vanhove 2018, section 3.2), the paper does not establish how the reduced system relates
+to the full one.
 Rescaling the $\tilde F$ coefficients along an exponent row rescales $u$ and changes
 $\tilde U^{\nu - (L+1)D/2}$ unless that exponent vanishes, so the $\tilde F$-block Euler equations
 do not annihilate $I_\Gamma$ at generic $D$. No claim is made that its rank bounds the number of
 master integrals.
 `restrict_to_f_block` warns when $\vec\beta$ does not lie in the span of the block's columns,
 decided exactly by `feynkit.resonance.admissible` (section 4.8); with symbols, when it does not lie
-there for all their values.
+there for all their values. The report's Schwinger section states the same result.
 
 Accessed via `fi.schwinger_gkz` (a `CayleyGKZSystem`) with `.a_matrix`, `.beta_parameters`,
 `.euler_equations`, `.toric_ideal()` and `.restrict_to_f_block()`.
@@ -495,8 +499,9 @@ facet, $A$ is a pyramid over it and the facet decides nothing.
 $\beta_{\text{LP}}$ to $\vec\beta$, so corresponding facets of the two systems have the same
 $l_F(\beta)$ and the same classification. The $\tilde F$ block corresponds to $F_{\mathcal U}$.
 
-Accessed via `fi.facet_resonance(d0=4, nu=..., system="gkz")`, with `system="schwinger"` for the
-Cayley system, and via `feynkit.resonance`: `classify_facets`, `classify_configuration`,
+Accessed via `fi.facet_resonance(d0=None, nu=..., system="gkz")`, with `system="schwinger"` for
+the Cayley system; `d0=None` reads $D_0$ from a dimension $D_0 - 2\varepsilon$ of the integral and
+takes 4 otherwise, and via `feynkit.resonance`: `classify_facets`, `classify_configuration`,
 `span_epsilons` and `admissible`.
 
 ---

@@ -40,6 +40,7 @@ from typing import Literal, get_args
 import sympy as sp
 
 from . import _exact
+from .core.constants import DEFAULT_EPSILON
 from .core.exceptions import ValidationError
 from .polytope import Facet, PolytopeData, polytope_data
 
@@ -48,7 +49,9 @@ __all__ = [
     "EpsilonSet",
     "FacetResonance",
     "ParameterForm",
+    "D0Source",
     "admissible",
+    "choose_d0",
     "classify_configuration",
     "classify_facets",
     "lee_pomeransky_beta",
@@ -56,6 +59,7 @@ __all__ = [
 ]
 
 EpsilonKind = Literal["all", "progression", "point", "never"]
+D0Source = Literal["given", "dimension", "default"]
 
 
 def _rational(value: object, where: str) -> Fraction:
@@ -380,6 +384,33 @@ def _distinct(points: Sequence[Sequence[int]]) -> None:
 
 
 # --- public API --------------------------------------------------------------
+
+
+def choose_d0(d0: int | Fraction | None, dimension: object) -> tuple[Fraction, D0Source]:
+    """D_0 and where it comes from: given, read from the dimension, or the default 4.
+
+    With d0 None, D_0 is read from ``dimension`` when that is D_0 - 2 eps, with
+    D_0 a rational number and eps the regulator, the symbol named ``epsilon``
+    whatever its assumptions, as in the prefactors of the parametric
+    representations. Any other dimension, a symbol D or a number included,
+    gives the default 4.
+
+    Raises
+    ------
+    ValidationError
+        If d0 is given and is not an integer or a Fraction.
+    """
+    if d0 is not None:
+        return _rational(d0, "D_0"), "given"
+    expr = sp.sympify(dimension)
+    symbols = expr.free_symbols
+    if len(symbols) == 1:
+        (eps,) = symbols
+        if getattr(eps, "name", None) == DEFAULT_EPSILON:
+            head = sp.expand(expr.subs(eps, 0))
+            if head.is_Rational and sp.expand(expr - head + 2 * eps) == 0:
+                return Fraction(int(head.p), int(head.q)), "dimension"
+    return Fraction(4), "default"
 
 
 def classify_facets(

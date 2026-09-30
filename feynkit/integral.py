@@ -677,7 +677,7 @@ class FeynmanIntegral:
         title: str | None = None,
         max_face_points: int = 14,
         limits: bool | str | None = None,
-        d0: int | Fraction = 4,
+        d0: int | Fraction | None = None,
     ) -> str:
         """
         The analysis report of the integral as a LaTeX document.
@@ -702,7 +702,9 @@ class FeynmanIntegral:
             default, takes its default.
         d0
             D_0 of the resonance section, which takes D = D_0 - 2 eps: an
-            integer or a Fraction, 4 by default.
+            integer or a Fraction; None, the default, reads it from the
+            dimension when it can and takes 4 otherwise, as in
+            :meth:`facet_resonance`.
 
         Returns
         -------
@@ -732,7 +734,7 @@ class FeynmanIntegral:
         title: str | None = None,
         max_face_points: int = 14,
         limits: bool | str | None = None,
-        d0: int | Fraction = 4,
+        d0: int | Fraction | None = None,
     ) -> str:
         """
         The analysis report of the integral as plain text.
@@ -911,7 +913,7 @@ class FeynmanIntegral:
 
     def facet_resonance(
         self,
-        d0: int | Fraction = 4,
+        d0: int | Fraction | None = None,
         *,
         nu: Mapping[int, int] | None = None,
         system: str = "gkz",
@@ -930,7 +932,10 @@ class FeynmanIntegral:
         Parameters
         ----------
         d0
-            D_0, an integer or a Fraction; 4 by default.
+            D_0, an integer or a Fraction. None, the default, reads it from
+            the dimension of the integral when that is D_0 - 2 eps with D_0 a
+            number and eps the symbol named epsilon, and takes 4 otherwise;
+            see :func:`feynkit.resonance.choose_d0`.
         nu
             The power of each internal edge, a mapping from edge index to
             integer; by default the propagator exponents of the integral,
@@ -952,10 +957,13 @@ class FeynmanIntegral:
         from .polytope import polytope_data
         from .resonance import (
             ParameterForm,
+            choose_d0,
             classify_configuration,
             classify_facets,
             lee_pomeransky_beta,
         )
+
+        d0_value, _ = choose_d0(d0, self._dimension)
 
         edges = self._graph.get_internal_edges()
         source = self._propagator_exponents if nu is None else dict(nu)
@@ -971,7 +979,7 @@ class FeynmanIntegral:
         if system == "gkz":
             a_matrix = self.gkz.a_matrix
             points = [tuple(int(x) for x in a_matrix[1:, j]) for j in range(a_matrix.cols)]
-            return classify_facets(polytope_data(points), powers, d0)
+            return classify_facets(polytope_data(points), powers, d0_value)
         if system == "schwinger":
             n = len(edges)
             t = lp_to_cayley(n, self._loop_count)
@@ -981,7 +989,7 @@ class FeynmanIntegral:
                 sum((int(t[r, k]) * lp[k] for k in range(n + 1) if t[r, k]), zero)
                 for r in range(n + 1)
             ]
-            return classify_configuration(self.schwinger_gkz.a_matrix, beta, powers, d0)
+            return classify_configuration(self.schwinger_gkz.a_matrix, beta, powers, d0_value)
         raise ValidationError(f"unknown system {system!r}; choose 'gkz' or 'schwinger'")
 
     def is_unimodular_equivalent_to(self, other: FeynmanIntegral) -> PolytopeEquivalence:

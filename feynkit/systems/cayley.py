@@ -128,9 +128,11 @@ class CayleyGKZSystem:
         Hoefnagels (arXiv:2606.09978, section 2.2, eqs. 19-20) show that the
         face subsystem is a true subsystem, its solutions solving the full
         system, when the parameter vector lies in the span of the face's
-        columns. For the F~ block that span has zero first coordinate, so
-        the condition is nu = (L+1) D/2, the same value at which the U~
-        exponent vanishes (their section 8.1). Away from it, and off cut
+        columns. That span has zero first coordinate; when the block's
+        columns span the whole hyperplane of zero first coordinate, as when
+        the block is a facet, the condition is nu = (L+1) D/2, the same
+        value at which the U~ exponent vanishes (their section 8.1). A block
+        of lower rank asks more. Away from the span, and off cut
         contours (Vanhove, arXiv:1807.11466, section 3.2), the paper does
         not establish how the reduced system relates to the full one.
         Rescaling the F~ coefficients along an exponent row rescales u,

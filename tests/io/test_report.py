@@ -504,6 +504,28 @@ class TestLandau:
 
 
 class TestSchwinger:
+    def test_the_f_block_admissibility(self, bubble: FeynmanIntegral) -> None:
+        # The massless bubble at D = 3 and nu = (1, 2): the F~ block is the one column
+        # (0, 1, 1) and beta_Cayley = (0, -3/2, -1) is not in its span, although
+        # nu = (L+1) D/2.
+        massless = FeynmanIntegral.from_cnickel("11e|e|:zz")
+        first, second = sorted(massless.propagator_exponents)
+        fi = massless.with_(
+            dimension=sp.Integer(3),
+            propagator_exponents={first: sp.Integer(1), second: sp.Integer(2)},
+        )
+        section = AnalysisReport.from_integral(fi, ["schwinger"]).schwinger
+        assert section is not None and section.f_block_admissible is False
+        # The massive bubble at D = 2 with unit powers: the block spans y_0 = 0.
+        unit = bubble.with_(
+            dimension=sp.Integer(2),
+            propagator_exponents=dict.fromkeys(bubble.propagator_exponents, sp.Integer(1)),
+        )
+        section = AnalysisReport.from_integral(unit, ["schwinger"]).schwinger
+        assert section is not None and section.f_block_admissible is True
+        section = AnalysisReport.from_integral(bubble, ["schwinger"]).schwinger
+        assert section is not None and section.f_block_admissible is False
+
     def test_sunrise_columns_match(self, sunrise_report: AnalysisReport) -> None:
         assert sunrise_report.schwinger is not None
         assert sunrise_report.schwinger.columns_match
@@ -551,6 +573,26 @@ class TestResonance:
     def test_d0_must_be_exact(self, bubble: FeynmanIntegral) -> None:
         with pytest.raises(ValidationError):
             AnalysisReport.from_integral(bubble, ["resonance"], d0=4.0)  # type: ignore[arg-type]
+
+    def test_d0_from_the_dimension_of_the_integral(self, bubble: FeynmanIntegral) -> None:
+        # D = 6 - 2 eps: the GKZ section has beta_0 = eps - 3, and F_F, l_F(beta) = D/2 - 2,
+        # is admissible at eps = 1, not at eps = 0.
+        eps = sp.Symbol("epsilon")
+        powers = dict.fromkeys(bubble.propagator_exponents, sp.Integer(1))
+        fi = bubble.with_(dimension=6 - 2 * eps, propagator_exponents=powers)
+        report = AnalysisReport.from_integral(fi, ["gkz", "resonance"])
+        section = report.resonance
+        assert report.gkz is not None and report.gkz.beta[0] == eps - 3
+        assert section is not None and (section.d0, section.d0_source) == (6, "dimension")
+        f_f = next(r for r in section.facets if r.facet.offset == -1)
+        assert f_f.admissible == EpsilonSet("point", 1)
+        given = AnalysisReport.from_integral(fi, ["resonance"], d0=4).resonance
+        assert given is not None and (given.d0, given.d0_source) == (4, "given")
+
+    def test_d0_falls_back_to_four(self, bubble: FeynmanIntegral) -> None:
+        for fi in (bubble, bubble.with_(dimension=4 - 2 * sp.Symbol("delta"))):
+            section = AnalysisReport.from_integral(fi, ["resonance"]).resonance
+            assert section is not None and (section.d0, section.d0_source) == (4, "default")
 
     def test_below_full_dimension(self) -> None:
         fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematics="massless_on_shell")

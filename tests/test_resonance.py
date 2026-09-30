@@ -23,6 +23,7 @@ from feynkit.resonance import (
     FacetResonance,
     ParameterForm,
     admissible,
+    choose_d0,
     classify_configuration,
     classify_facets,
     lee_pomeransky_beta,
@@ -410,3 +411,42 @@ class TestAdmissible:
             admissible(self.A, [5], [0, 0, 0])
         with pytest.raises(ValidationError):
             admissible(self.A, [0], [0, 0])
+
+
+class TestChooseD0:
+    EPS = sp.Symbol("epsilon")
+
+    def test_given_wins(self) -> None:
+        assert choose_d0(3, 6 - 2 * self.EPS) == (F(3), "given")
+        assert choose_d0(F(7, 2), sp.Symbol("D")) == (F(7, 2), "given")
+
+    @pytest.mark.parametrize(
+        ("dimension", "d0"),
+        [
+            (6 - 2 * sp.Symbol("epsilon"), F(6)),
+            (4 - 2 * sp.Symbol("epsilon", real=True), F(4)),
+            (sp.Rational(7, 2) - 2 * sp.Symbol("epsilon"), F(7, 2)),
+            (3 - sp.Symbol("epsilon") - sp.Symbol("epsilon"), F(3)),
+        ],
+    )
+    def test_read_from_the_dimension(self, dimension: sp.Expr, d0: Fraction) -> None:
+        assert choose_d0(None, dimension) == (d0, "dimension")
+
+    @pytest.mark.parametrize(
+        "dimension",
+        [
+            sp.Symbol("D"),
+            sp.Integer(4),
+            4 - sp.Symbol("epsilon"),
+            4 - 2 * sp.Symbol("delta"),
+            4 - 2 * sp.Symbol("epsilon") ** 2,
+            4 - 2 * sp.Symbol("epsilon") + sp.Symbol("x"),
+            sp.sqrt(2) - 2 * sp.Symbol("epsilon"),
+        ],
+    )
+    def test_falls_back_to_four(self, dimension: sp.Expr) -> None:
+        assert choose_d0(None, dimension) == (F(4), "default")
+
+    def test_d0_must_be_exact(self) -> None:
+        with pytest.raises(ValidationError):
+            choose_d0(4.0, sp.Symbol("D"))  # type: ignore[arg-type]

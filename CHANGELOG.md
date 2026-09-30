@@ -330,19 +330,22 @@
   l_F(beta), where it is resonant, whether at eps = 0, where it is admissible
   and whether it makes the system reducible, then the resonant values with
   -1 <= eps <= 1, and below full dimension where beta lies in the span of A.
-  `AnalysisReport.from_integral` takes `d0`, 4 by default, and the report
-  holds the section as `AnalysisReport.resonance`, a `Resonance`, or None. It
+  `AnalysisReport.from_integral` takes `d0`; by default D_0 is read from the
+  dimension of the integral when that is D_0 - 2 epsilon with D_0 a number,
+  and is 4 otherwise, as `feynkit.resonance.choose_d0` decides, and the
+  section says which. The report holds the section as
+  `AnalysisReport.resonance`, a `Resonance`, or None. It
   cites Schulze and Walther (arXiv:1009.3569). `fk analyse -r` prints the
   same classification on the terminal, and `--d0 VALUE`, an integer or a
   fraction such as 7/2, sets D_0 for both.
-- `FeynmanIntegral.facet_resonance(d0=4, *, nu=None, system="gkz")`
+- `FeynmanIntegral.facet_resonance(d0=None, *, nu=None, system="gkz")`
   classifies the facets of `fi.gkz`, with point indices into its columns, or
   with `system="schwinger"` those of `fi.schwinger_gkz`, computed from the
   Cayley columns with the Cayley parameter written in D and the powers. The
   powers are the integral's, which must then be integers, or `nu`, a mapping
   from edge index to integer. On ten graphs from the bubble to the banana the
-  two systems classify corresponding facets alike. `FeynmanIntegral.to_latex`
-  and `FeynmanIntegral.to_text` take `d0`.
+  two systems classify corresponding facets alike. D_0 is chosen as in the
+  report. `FeynmanIntegral.to_latex` and `FeynmanIntegral.to_text` take `d0`.
 - `lp_to_cayley(n_edges, loop_count)` in `feynkit.systems.cayley`, the
   unimodular matrix T taking the Lee-Pomeransky configuration and parameter
   to the Cayley ones; it was private to the report.
@@ -354,8 +357,13 @@
   condition under which the restriction is a true subsystem (Britto, Grimm and
   Hoefnagels, arXiv:2606.09978); for a block of full rank it is
   nu = (L+1) D/2. With D or the exponents symbols the condition must hold for
-  all their values, so the default integral warns. The report states the
-  condition itself and builds the restriction without the warning.
+  all their values, so the default integral warns. The report builds the
+  restriction without the warning, and its Schwinger section now says whether
+  the parameter lies in that span, where it said that the condition is
+  nu = (L+1) D/2 and printed that equation. The equation is the condition only
+  for a block that spans y_0 = 0: for the massless bubble at D = 3 and
+  nu = (1, 2) it holds, but the block is the one column (0, 1, 1) and the
+  restriction is not a true subsystem.
 
 - The Landau analysis factors its polynomials with python-flint when Singular
   is not on the path and python-flint is installed (the `backends` extra),

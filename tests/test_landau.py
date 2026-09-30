@@ -447,6 +447,8 @@ class TestSingularOutput:
         # A generator in the first kinematic symbol, so that the ideal is not zero.
         seen = fake_singular(monkeypatch, "v3\n")
         landau_analysis(massive_bubble)
+        assert seen["timeout"] == landau_module.DEFAULT_FACE_TIMEOUT
+        landau_analysis(massive_bubble, timeout=None)
         assert seen["timeout"] is None
         landau_analysis(massive_bubble, timeout=7)
         assert seen["timeout"] == 7
@@ -840,9 +842,10 @@ class TestSeveralGenerators:
     )
     def test_the_database_components_from_faces(self, name: str) -> None:
         # The kite's polytope itself, 34 points, is skipped here as in the database, whose
-        # three other components come from HyperInt alone.
+        # three other components come from HyperInt alone. Its face of 26 points takes over
+        # two minutes to decompose, past the default time limit.
         g, variables, components = pld_entry(name)
-        analysis = landau_analysis_from_polynomial(g, variables, max_face_points=30)
+        analysis = landau_analysis_from_polynomial(g, variables, max_face_points=30, timeout=None)
         assert set(analysis.landau_surfaces) == components
 
 
@@ -904,6 +907,62 @@ class TestLimitSurfaces:
             landau_analysis(_massless_legs("12e|2e|e|:nnn", legs), confirm=False)
         assert analysed.count(generic) == 1
         assert len(analysed) == 4
+
+    @requires_singular
+    def test_the_parent_has_the_same_time_limit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        landau_module._parent_analysis.cache_clear()
+        timeouts: list[object] = []
+        analysis = landau_module._analysis
+
+        def spy(g: sp.Expr, *args: object) -> LandauAnalysis:
+            timeouts.append(args[-1])
+            return analysis(g, *args)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(landau_module, "_analysis", spy)
+        on_shell = _massless_legs("12e|2e|e|:nnn", (1,))
+        landau_analysis(on_shell, confirm=False)
+        assert timeouts == [landau_module.DEFAULT_FACE_TIMEOUT] * 2
+        landau_analysis(on_shell, confirm=False, timeout=30)
+        assert timeouts[2:] == [30, 30]
+
+    def test_renamed_generic_kinematics_have_no_parent(self) -> None:
+        # Invariants renamed by an invertible linear map are the generic family itself.
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+        p1, p2, p3 = standard_invariants(3).external_masses
+        a, b = sp.symbols("a b", real=True)
+        renamed = {p1: a + b, p2: a - b}
+        products = {
+            k: sp.expand(sp.sympify(v).subs(renamed)) for k, v in fi.momentum_products.items()
+        }
+        assert landau_analysis(fi.with_(momentum_products=products)).parent is None
+        # A mass among the values is a specialisation.
+        m1 = fi.graph.get_internal_edges()[0].get_mass()
+        products = {
+            k: sp.expand(sp.sympify(v).subs(p1, m1**2)) for k, v in fi.momentum_products.items()
+        }
+        assert landau_analysis(fi.with_(momentum_products=products), confirm=False).parent
+
+    def test_the_default_of_limits_is_one_switch(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The banana at s = m_1^2 has a parent, the triangle at p_1^2 = 0 too.
+        banana = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+        m1 = banana.graph.get_internal_edges()[0].get_mass()
+        s = standard_invariants(2).external_masses[0]
+        at_threshold = banana.with_(
+            momentum_products={
+                k: sp.sympify(v).subs(s, m1**2) for k, v in banana.momentum_products.items()
+            }
+        )
+        triangle = _massless_legs("12e|2e|e|:nnn", (1,))
+        monkeypatch.setattr(landau_module, "DEFAULT_LIMITS", "one-loop")
+        assert landau_analysis(at_threshold, confirm=False).parent is None
+        assert landau_analysis(triangle, confirm=False).parent is not None
+        monkeypatch.setattr(landau_module, "DEFAULT_LIMITS", False)
+        assert landau_analysis(triangle, confirm=False).parent is None
+        assert landau_analysis(triangle, confirm=False, limits=True).parent is not None
+        monkeypatch.setattr(landau_module, "DEFAULT_LIMITS", True)
+        assert landau_analysis(at_threshold, confirm=False).parent is not None
+        with pytest.raises(ValidationError, match="limits must be True, False or 'one-loop'"):
+            landau_analysis(triangle, limits="two-loop")  # type: ignore[arg-type]
 
     def test_limits_can_be_left_out(self) -> None:
         analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), limits=False)
@@ -1624,6 +1683,15 @@ class TestFactorLists:
 
 class TestFaceLimit:
     """The default max_face_points covers every one-loop box."""
+
+    @requires_singular
+    @pytest.mark.slow
+    def test_the_massive_parachute_skips_a_face_past_the_time_limit(self) -> None:
+        # Singular had not eliminated the face of 14 points after 400 s; the others take
+        # seconds.
+        fi = FeynmanIntegral.from_cnickel("12ee|22e|e|:nnnn")
+        analysis = landau_analysis(fi)
+        assert sorted(len(face) for face in analysis.skipped_faces) == [14, 19]
 
     @requires_singular
     def test_the_default_limit_covers_the_box(self) -> None:

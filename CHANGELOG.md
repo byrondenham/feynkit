@@ -93,9 +93,16 @@
   `count_torus_points` excludes, and so those it fits and verifies at, can
   change: `11e|2|e|:nnz` no longer excludes 23. On the graphs tried, the
   candidate did not change.
-- `landau_analysis` and `landau_analysis_from_polynomial` skip a face whose
-  elimination runs past `timeout` and list it in `skipped_faces`, where they
-  raised `ComputationError`; a failure of Singular still raises. Their default
+- `landau_analysis` and `landau_analysis_from_polynomial` give Singular at
+  most `timeout` seconds for each face by default, `DEFAULT_FACE_TIMEOUT` of
+  `feynkit.landau`, 60 s, where they set no limit, and skip a face that runs
+  past it, listing it in `skipped_faces`, where they raised
+  `ComputationError`. `timeout=None` sets no limit, and a failure of Singular
+  still raises. No face of the graphs the tests and the report exercise at the
+  default `max_face_points` has taken more than about 8 s. Faces past the
+  time limit are skipped: the generic massive parachute `12ee|22e|e|:nnnn`
+  skips a face of 14 points, which Singular had not eliminated after 400 s,
+  and its analysis takes about a minute where it did not finish. Their default
   `max_face_points` is 14, where it was 12, which covers every one-loop box: a
   box with three or four massive propagators, whose polytope has 13 or 14
   points, now gets its own factor, and `12e|3e|3e|e|:nnnn` takes about 6 s
@@ -282,8 +289,13 @@
   gains the rows `Limit surfaces` and `Limit candidates` after
   `Landau surfaces`, and `fk analyse --json` the keys `limit_surfaces` and
   `limit_candidates`, when the kinematics specialise the generic ones. The
-  point counts leave the parent out. The parent's analysis is kept for the
-  next integral of the same family.
+  point counts leave the parent out. The parent is analysed with the same
+  `max_face_points` and `timeout`, and when it skips faces the limit surfaces
+  may be incomplete. Its analysis is kept for the next integral of the same
+  family. Kinematics that are the generic ones in renamed invariants have no
+  parent. `DEFAULT_LIMITS` of `feynkit.landau` sets whether `landau_analysis`
+  looks for limit surfaces when `limits` is not given: True, False or
+  "one-loop"; it is True.
 
 ### Changed
 

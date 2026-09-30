@@ -109,6 +109,8 @@ if TYPE_CHECKING:
     from .integral import FeynmanIntegral
 
 __all__ = [
+    "DEFAULT_FACE_TIMEOUT",
+    "DEFAULT_LIMITS",
     "FaceDiscriminant",
     "LandauAnalysis",
     "LimitSurface",
@@ -259,7 +261,8 @@ class LandauAnalysis:
         its time, or the test was not asked for.
     parent
         The analysis of the parent family, the same graph and masses with
-        generic external kinematics, or None when there is no parent.
+        generic external kinematics, or None when there is no parent. When
+        it skipped faces the limit surfaces may be incomplete.
     """
 
     face_discriminants: tuple[FaceDiscriminant, ...]
@@ -341,6 +344,15 @@ def _singular_binary() -> str | None:
 
 # subprocess.run waits through a C int of milliseconds, which holds about 2.1e6 s.
 _MAX_TIMEOUT = 2_000_000
+
+# The seconds Singular gets for each face by default, several times the longest a face has
+# taken on the graphs the tests and the report exercise at the default max_face_points; a face
+# past it is skipped.
+DEFAULT_FACE_TIMEOUT = 60
+
+# Whether landau_analysis looks for limit surfaces when not told: True, False, or "one-loop"
+# for one-loop integrals only.
+DEFAULT_LIMITS: bool | str = True
 
 
 def _check_timeout(timeout: object, *, optional: bool = True, name: str = "timeout") -> None:
@@ -1212,9 +1224,24 @@ def _generic_parent(
         return None
     solution = matrix.LUsolve(rhs)
     restriction = {x: sp.expand(solution[k]) for k, x in enumerate(invariants)}
-    if all(value == x for x, value in restriction.items()):
+    if _renames(restriction, parent):
         return None
     return parent, restriction
+
+
+def _renames(restriction: dict[sp.Symbol, sp.Expr], parent: FeynmanIntegral) -> bool:
+    """Whether the restriction only renames the invariants: its values are linearly
+    independent linear forms, without constant terms, in symbols that are neither masses
+    nor the energy scale. The family is then the parent family in new coordinates."""
+    used = sorted(set().union(*(v.free_symbols for v in restriction.values())), key=str)
+    own = parent.symanzik.g.free_symbols - set(parent.symanzik.lp_parameters) - set(restriction)
+    if not used or set(used) & own:
+        return False
+    try:
+        matrix, constants = sp.linear_eq_to_matrix(list(restriction.values()), used)
+    except (ValueError, sp.PolynomialError):
+        return False
+    return all(c == 0 for c in constants) and matrix.rank() == len(restriction)
 
 
 # --- public API --------------------------------------------------------------
@@ -1226,7 +1253,7 @@ def landau_analysis_from_polynomial(
     *,
     max_face_points: int = 14,
     scale: sp.Symbol | None = None,
-    timeout: float | None = None,
+    timeout: float | None = DEFAULT_FACE_TIMEOUT,
     parent: sp.Expr | None = None,
     restriction: Mapping[sp.Symbol, sp.Expr] | None = None,
     confirm: bool = True,
@@ -1265,9 +1292,13 @@ def landau_analysis_from_polynomial(
         still that coefficient.
     timeout
         The most seconds to give Singular for each face it eliminates, at
-        most 2,000,000; None, the default, sets no limit. A face that runs
-        past it is skipped and listed in ``skipped_faces``, as a face with
-        too many points is. It limits each face, its decomposition into
+        most 2,000,000, :data:`DEFAULT_FACE_TIMEOUT` (60) by default; None
+        sets no limit. A face that runs past it is skipped and listed in
+        ``skipped_faces``, as a face with too many points is. No face of the
+        graphs the tests and the report exercise at the default
+        ``max_face_points`` has taken more than about 8 s, while one of 14
+        points of the generic massive parachute had not finished after
+        400 s. It limits each face, its decomposition into
         minimal primes included, not the analysis: the total can reach
         that many seconds for every face eliminated, and the other steps
         are not limited, namely the SymPy fallback, the discriminants of
@@ -1434,8 +1465,8 @@ def landau_analysis(
     integral: FeynmanIntegral,
     *,
     max_face_points: int = 14,
-    timeout: float | None = None,
-    limits: bool = True,
+    timeout: float | None = DEFAULT_FACE_TIMEOUT,
+    limits: bool | str | None = None,
     confirm: bool = True,
     confirm_timeout: float = 60,
     seed: int = 0,
@@ -1450,12 +1481,24 @@ def landau_analysis(
     generic momentum products, those the integral would have been given by
     default, when its own differ. Its invariants are found from the
     integral's products, which they determine uniquely, and give the
-    restriction. With ``limits`` False, or when the products are the
-    generic ones, there is no parent, and ``limit_surfaces`` and
-    ``limit_candidates`` are empty.
+    restriction. When the products are the generic ones, or the generic
+    ones in invariants renamed by an invertible linear map, there is no
+    parent, and ``limit_surfaces`` and ``limit_candidates`` are empty. The
+    parent is analysed with the same ``max_face_points`` and ``timeout``;
+    when it skips faces, listed in ``parent.skipped_faces``, the limit
+    surfaces may be incomplete.
+
+    ``limits`` is True to look for limit surfaces, False not to, and
+    "one-loop" to look for them only at one loop; None, the default, takes
+    :data:`DEFAULT_LIMITS`, which is True.
     """
+    if limits is None:
+        limits = DEFAULT_LIMITS
+    if not (isinstance(limits, bool) or limits == "one-loop"):
+        raise ValidationError(f"limits must be True, False or 'one-loop'; got {limits!r:.60}")
+    wanted = limits is True or (limits == "one-loop" and integral.loop_count == 1)
     sym = integral.symanzik
-    found = _generic_parent(integral) if limits else None
+    found = _generic_parent(integral) if wanted else None
     return landau_analysis_from_polynomial(
         sym.g,
         list(sym.lp_parameters),

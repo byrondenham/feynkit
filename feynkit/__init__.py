@@ -108,6 +108,7 @@ from feynkit.landau import (
 from feynkit.normal_forms import PairingMatrixResult
 from feynkit.parametrisations import ParametrisationResult
 from feynkit.polytope import Facet, PolytopeData, polytope_data
+from feynkit.resonance import EpsilonSet, FacetResonance, classify_facets
 from feynkit.systems import CayleyGKZSystem, GKZSystem
 from feynkit.types import (
     NewtonPolytope,
@@ -165,4 +166,8 @@ __all__ = [
     "Facet",
     "PolytopeData",
     "polytope_data",
+    # Resonance
+    "EpsilonSet",
+    "FacetResonance",
+    "classify_facets",
 ]

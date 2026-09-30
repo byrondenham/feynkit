@@ -307,6 +307,23 @@
   False or "one-loop"; it is False. `fk analyse --limits` switches them on for
   the report, and `AnalysisReport.from_integral`, `FeynmanIntegral.to_latex`
   and `FeynmanIntegral.to_text` take `limits`.
+- `feynkit.resonance` says, for each facet of a GKZ configuration, at which
+  eps it is resonant or admissible when D = D_0 - 2 eps and the powers are
+  integers, and whether the system is then reducible. `classify_facets(data,
+  nu, d0=4)` reads the facets of a `PolytopeData` for the Lee-Pomeransky
+  parameter; `classify_configuration` takes any homogeneous A with a parameter
+  linear in D and the powers. Each `FacetResonance` holds the functional l_F,
+  primitive on ZA, the form l_F(beta) in D and the powers, the resonant eps as
+  an `EpsilonSet` (every eps, a progression offset + period Z, one value or
+  none), where the facet is admissible, the number of columns off it, and
+  `reducible`, True when Theorem 4.1 of Schulze and Walther (arXiv:1009.3569)
+  applies and None when the facet does not decide it. `span_epsilons` gives
+  the eps at which beta lies in the span of A below full dimension, and
+  `admissible(a_matrix, face, beta)` whether beta lies in the span of any set
+  of columns, with numbers or symbols. `EpsilonSet`, `FacetResonance` and
+  `classify_facets` are also exported from `feynkit`. The design note
+  `docs/design/2026-09-30-resonance.md` proves the criteria for any lattice
+  ZA of full rank.
 
 ### Changed
 

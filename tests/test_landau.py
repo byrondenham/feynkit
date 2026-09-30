@@ -32,6 +32,7 @@ from feynkit.io.report import AnalysisReport
 from feynkit.io.report_text import render_text
 from feynkit.kinematics.mandelstam import standard_invariants
 from feynkit.landau import (
+    LandauAnalysis,
     _eliminate_singular,
     _elimination_discriminant,
     _factor_list,
@@ -883,6 +884,26 @@ class TestLimitSurfaces:
         assert candidate.reason == "not tested, since confirm is False"
         assert not candidate.confirmed
         assert analysis.limit_surfaces == ()
+
+    @requires_singular
+    def test_the_parent_is_analysed_once_for_its_restrictions(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Two sets of massless legs of the same triangle share the parent family.
+        landau_module._parent_analysis.cache_clear()
+        analysed: list[sp.Expr] = []
+        analysis = landau_module._analysis
+
+        def spy(g: sp.Expr, *args: object) -> LandauAnalysis:
+            analysed.append(g)
+            return analysis(g, *args)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(landau_module, "_analysis", spy)
+        generic = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn").symanzik.g
+        for legs in [(1,), (2,), (1, 2)]:
+            landau_analysis(_massless_legs("12e|2e|e|:nnn", legs), confirm=False)
+        assert analysed.count(generic) == 1
+        assert len(analysed) == 4
 
     def test_limits_can_be_left_out(self) -> None:
         analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), limits=False)

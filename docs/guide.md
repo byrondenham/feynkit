@@ -1644,8 +1644,8 @@ For one-loop graphs `one_loop_landau_surfaces(fi)` returns the same factors, for
 kinematics and when no face is skipped, from the principal minors of the modified Cayley matrix
 (Dlapa, Helmer, Papathanasiou, Tellander 2023). With special kinematics it can keep a factor the
 faces miss, which the limit surfaces then give (see
-[Specialised kinematics](#specialised-kinematics)), and it keeps those of skipped faces: at the default
-`max_face_points` the faces miss 1 of the 32 factors of the massless pentagon and 8 of the
+[Specialised kinematics](#specialised-kinematics)), and it keeps those of skipped faces: at the
+default `max_face_points` the faces miss 1 of the 32 factors of the massless pentagon and 8 of the
 hexagon's 79. It is fast, needs no Gröbner basis, and is what the test-suite checks the face
 computation against. The massless pentagon takes about half a second, the massless hexagon about
 7 s and the all-massive hexagon about 80 s. With Singular on the path the minors are factored
@@ -1703,14 +1703,17 @@ missing from `la.landau_surfaces` and `la.principal_a_determinant`, which are th
 whatever the kinematics, and the report names each skipped face. The default covers every
 one-loop box, whose polytope has at most 14 points: the all-massive box `12e|3e|3e|e|:nnnn` takes
 about 6 s, against 2 s without its polytope. The massless pentagon's polytope has 15 points and is
-skipped; Singular had not eliminated it after 20 minutes. `landau_analysis(fi, timeout=60)` gives
-Singular at most 60 s for each face, with no limit by default, and a face that runs past it is
-skipped and listed in `la.skipped_faces` as a face with too many points is. An elimination that fails or prints output
-feynkit cannot read raises `ComputationError`; a factorisation that fails is left to SymPy. The
-limit applies to each face, its decomposition into minimal primes included, and is not a bound
-on the whole analysis, whose time can reach it for every face eliminated. The SymPy fallback, the
-discriminants of edges and the factorisations are not limited, and SymPy's factorisation of a
-large polynomial can take minutes on its own.
+skipped; Singular had not eliminated it after 20 minutes. A large face whose elimination ideal is
+zero can take far longer to decompose than to eliminate: with `max_face_points=30` one of 26
+points of the massive kite takes 18 s to eliminate and about 3 minutes to decompose.
+`landau_analysis(fi, timeout=60)` gives Singular at most 60 s for each face, with no limit by
+default, and a face that runs past it is skipped and listed in `la.skipped_faces` as a face with
+too many points is. An elimination that fails or prints output feynkit cannot read raises
+`ComputationError`; a factorisation that fails is left to SymPy. The limit applies to each face,
+its decomposition into minimal primes included, and is not a bound on the whole analysis, whose
+time can reach it for every face eliminated. The SymPy fallback, the discriminants of edges and the
+factorisations are not limited, and SymPy's factorisation of a large polynomial can take minutes
+on its own.
 
 ### Specialised kinematics
 
@@ -1753,7 +1756,9 @@ the exponents. `limits=False` leaves the parent out. `landau_analysis_from_polyn
 unless one is passed, as `parent=` a polynomial in the same variables and `restriction=` the map
 from its kinematic symbols to expressions in the polynomial's, under which it must restrict to the
 polynomial. A restricted surface that vanishes identically gives nothing, and a skipped face of the
-parent, listed in `la.parent.skipped_faces`, gives nothing either.
+parent, listed in `la.parent.skipped_faces`, gives nothing either. The parent's analysis is kept
+for the next integral of the same family, so that a sweep over the sets of massless legs of one
+graph analyses its generic family once.
 
 On the one-loop bubbles, triangles and boxes, with every set of massless legs, the Landau surfaces
 lie within the one-loop closed form and, with the limit surfaces, equal it; every factor tested

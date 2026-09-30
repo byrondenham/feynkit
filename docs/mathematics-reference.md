@@ -1130,10 +1130,9 @@ boundary of the torus, so no face sees it, while $|\chi|$ drops from 4 to 3.
 
 At special kinematics this already happens at one loop. Take the massive triangle on
 $\mathcal E = \{p_1^2 = 0\}$. The top face has the singular point $u = -H^{-1} \mathbf 1$, $H$
-the Hessian of $G$, on the Gram locus; as $p_1^2 \to 0$ along it the
-point tends to the facet $u_3 = 0$, where $G = (u_1 + u_2)(1 + m_1^2 u_1 + m_2^2 u_2)$ is singular
-along a curve for every $z$, a dominant component. Over $p_2^2 = p_3^2$ no singular point is left
-in the torus, so $p_2^2 - p_3^2$ is not in $\mathrm{PLD}(\mathcal E)$, yet $|\chi|$ drops from 6
+the Hessian of $G$, on the Gram locus; as $p_1^2 \to 0$ along it the point tends to the facet
+$u_3 = 0$, where $G = (u_1 + u_2)(1 + m_1^2 u_1 + m_2^2 u_2)$ is singular along a curve for every
+$z$, a dominant component. Over $p_2^2 = p_3^2$ no singular point is left in the torus, so $p_2^2 - p_3^2$ is not in $\mathrm{PLD}(\mathcal E)$, yet $|\chi|$ drops from 6
 to 5 there, and the closed form of section 10.2 keeps it: its Gram determinant restricts to
 $\lambda(0, p_2^2, p_3^2) = (p_2^2 - p_3^2)^2$.
 

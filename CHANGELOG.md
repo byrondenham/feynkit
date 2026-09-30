@@ -89,9 +89,10 @@
   keeps, such as p_2^2 - p_3^2 for the massive triangle `12e|2e|e|:nnn` at
   p_1^2 = 0; such components are now reported as limit surfaces (see Added).
   The discriminants of faces with several generators shrink, and the report's
-  lists by face dimension with them. Where they shrink, the primes `count_torus_points` excludes, and so those it fits and
-  verifies at, can change: `11e|2|e|:nnz` no longer excludes 23. On the graphs
-  tried, the candidate did not change.
+  lists by face dimension with them. Where they shrink, the primes
+  `count_torus_points` excludes, and so those it fits and verifies at, can
+  change: `11e|2|e|:nnz` no longer excludes 23. On the graphs tried, the
+  candidate did not change.
 - `landau_analysis` and `landau_analysis_from_polynomial` skip a face whose
   elimination runs past `timeout` and list it in `skipped_faces`, where they
   raised `ComputationError`; a failure of Singular still raises. Their default
@@ -258,7 +259,6 @@
   `feynkit.io.report` gains the field `invariants`, last and None by default.
   The report cites Beck and Robins, Bruns, Gubeladze and Trung, Hochster and
   Batyrev, which the mathematics reference and the guide list too.
-
 - Limit surfaces. For a Feynman integral whose momentum products are not the
   generic ones, `landau_analysis` also analyses the parent family, the same
   graph and masses with generic external kinematics, restricts its surfaces,
@@ -282,7 +282,8 @@
   gains the rows `Limit surfaces` and `Limit candidates` after
   `Landau surfaces`, and `fk analyse --json` the keys `limit_surfaces` and
   `limit_candidates`, when the kinematics specialise the generic ones. The
-  point counts leave the parent out.
+  point counts leave the parent out. The parent's analysis is kept for the
+  next integral of the same family.
 
 ### Changed
 

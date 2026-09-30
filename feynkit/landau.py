@@ -78,6 +78,7 @@ kinematics.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import numbers
 import random
 import re
@@ -1318,7 +1319,9 @@ def landau_analysis_from_polynomial(
     analysis = _analysis(g_poly, lp_parameters, max_face_points, scale, timeout)
     if parent_g is None or restriction is None:
         return analysis
-    parent_analysis = _analysis(parent_g, lp_parameters, max_face_points, scale, timeout)
+    parent_analysis = _parent_analysis(
+        parent_g, tuple(lp_parameters), max_face_points, scale, timeout
+    )
     g_poly = sp.expand(g_poly)
     kinematic_syms = g_poly.free_symbols - set(lp_parameters)
     surface_syms = kinematic_syms - ({scale} if scale is not None else set())
@@ -1344,6 +1347,20 @@ def landau_analysis_from_polynomial(
         limit_candidates=tuple(r for r in records if not r.confirmed),
         parent=parent_analysis,
     )
+
+
+@functools.lru_cache(maxsize=16)
+def _parent_analysis(
+    parent_g: sp.Expr,
+    lp_parameters: tuple[sp.Symbol, ...],
+    max_face_points: int,
+    scale: sp.Symbol | None,
+    timeout: float | None,
+) -> LandauAnalysis:
+    """The principal Landau determinant of a parent family, kept for the next restriction
+    of the same family: analysing the kinematics of one graph in turn, each with every
+    set of massless legs, analyses its generic family once. The analysis is immutable."""
+    return _analysis(parent_g, list(lp_parameters), max_face_points, scale, timeout)
 
 
 def _analysis(

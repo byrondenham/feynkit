@@ -387,6 +387,16 @@
   Britto, Grimm and Hoefnagels, with a massless line on the bubble and the
   sunrise. The default takes about 0.3 s on the massless double box, and
   every face 1.5 s.
+- A face whose G|_F is not the prediction of its flag but whose exponents are
+  exactly the sums of one exponent of each predicted factor, the product of
+  their supports, has the class `support_product`, with
+  `FaceIdentification.support_verified` true and `verified` false. The point
+  sets are compared exactly. The massless box with p_2^2 = 0 has four such
+  faces, among them its facet x_1 + x_3 <= 1, whose G|_F is irreducible; the
+  massless double box with p_i^2 = 0 has 22 of the 932 faces that are not
+  identified. A face identified before keeps its class. The report counts
+  the class, marks such a facet "(support)" and lists it with the faces that
+  are not identified; `fk analyse` names it on the terminal.
 - `FeynmanIntegral.face_identification(max_codimension=2)` gives
   `identify_faces(fi, max_codimension=...)`, cached for each argument.
 - The analysis report has a `faces` section, built by default:

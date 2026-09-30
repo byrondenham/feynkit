@@ -360,3 +360,18 @@ def test_faces_add_the_section_to_the_report(
     report = text.read_text()
     assert "Faces as graphs" in report and "G({1}) U(Gamma/{1})" in report
     assert "\nResonance\n---" not in report
+
+
+def test_faces_name_a_support_product(capsys: pytest.CaptureFixture[str]) -> None:
+    import sympy as sp
+
+    from feynkit import FeynmanIntegral
+    from feynkit.cli import _print_faces
+
+    fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+    p2 = sp.Symbol("p2^2", real=True)
+    fi = fi.with_(momentum_products={k: v.subs(p2, 0) for k, v in fi.momentum_products.items()})
+    _print_faces(fi)
+    out = capsys.readouterr().out
+    assert "support product of G({2,4}) U(Gamma/{2,4})" in out
+    assert "support product" in out.split("Class")[1]

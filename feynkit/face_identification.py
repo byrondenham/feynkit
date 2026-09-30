@@ -21,8 +21,11 @@ vertices. The initial form of U is the product of the U(H_j). With j* the
 last level whose F(H_j) is not zero, the prediction for G|_F is that product
 with U(H_j*) replaced by G(H_j*) when t_j* = 0, by F(H_j*) when t_j* < 0,
 and kept when t_j* > 0. The prediction is compared with G|_F exactly, and
-a face is identified only when the two are equal; otherwise it is
-unidentified, and both are recorded.
+a face is identified only when the two are equal. Otherwise it is a
+support product when the exponents of G|_F are exactly the sums of one
+exponent of each factor, the product of their supports in disjoint
+variables, and unidentified when they are not; both polynomials are
+recorded.
 
 The faces of a Newton polytope that is not full-dimensional, as that of
 every scaleless integral is, are not identified: the normal of a facet
@@ -48,7 +51,14 @@ if TYPE_CHECKING:
 __all__ = ["FACE_KINDS", "FaceIdentification", "FaceKind", "FlagLevel", "identify_faces"]
 
 FaceKind = Literal[
-    "whole", "contraction", "product_uv", "product_ir", "u_layer", "f_layer", "unidentified"
+    "whole",
+    "contraction",
+    "product_uv",
+    "product_ir",
+    "u_layer",
+    "f_layer",
+    "support_product",
+    "unidentified",
 ]
 
 # The kinds in the order the report lists them.
@@ -59,10 +69,15 @@ FACE_KINDS: tuple[FaceKind, ...] = (
     "product_ir",
     "u_layer",
     "f_layer",
+    "support_product",
     "unidentified",
 )
 
 UNIDENTIFIED = "G|_F differs from the prediction of its flag"
+SUPPORT_ONLY = (
+    "G|_F has the exponents of the prediction of its flag, the sums of those of its factors, "
+    "but not its coefficients"
+)
 NOT_FULL_DIMENSIONAL = "the Newton polytope is not full-dimensional"
 
 
@@ -131,8 +146,10 @@ class FaceIdentification:
         "whole" for P itself, "contraction" for G(Gamma/S), "product_uv" for
         a product whose G factor is on a quotient Gamma/S, "product_ir" for
         one whose G factor is on a minor with edges deleted, "u_layer" for a
-        product of U's, "f_layer" for one with an F factor, "unidentified"
-        when G|_F is not the prediction.
+        product of U's, "f_layer" for one with an F factor. A face whose
+        G|_F is not the prediction is a "support_product" when its exponents
+        are exactly the sums of one exponent of each factor, the product of
+        their supports, and "unidentified" otherwise.
     contracted
         S, for a contraction.
     verified
@@ -144,6 +161,10 @@ class FaceIdentification:
         full-dimensional.
     reason
         Why F is not identified; None when it is.
+    support_verified
+        Whether the exponents of G|_F are exactly the product of the supports
+        of the factors, the sums of one exponent of each; true when
+        ``verified`` is.
     """
 
     point_indices: tuple[int, ...]
@@ -158,6 +179,7 @@ class FaceIdentification:
     polynomial: sp.Expr
     prediction: sp.Expr | None
     reason: str | None = None
+    support_verified: bool = False
 
     def name(self) -> str:
         """The prediction as a product of minors, such as U({3,4}) G(Gamma/{3,4}).
@@ -268,10 +290,15 @@ def identify_faces(
                 weight = [w - m for w, m in zip(weight, f.normal, strict=True)]
                 if members == points_on:
                     facet = f
-        levels, predicted = flags.predict(weight)
+        levels, factors = flags.predict(weight)
+        predicted = _product(factors)
         actual = restriction(idx)
         verified = _equal(predicted, actual)
-        kind = _classify(levels) if verified else "unidentified"
+        support_verified = verified or set(actual) == _sums([set(f) for f in factors])
+        if verified:
+            kind = _classify(levels)
+        else:
+            kind = "support_product" if support_verified else "unidentified"
         g_level = next((level for level in levels if level.kind == "G"), None)
         found.append(
             FaceIdentification(
@@ -288,7 +315,8 @@ def identify_faces(
                 verified=verified,
                 polynomial=_expression(actual, variables),
                 prediction=_expression(predicted, variables),
-                reason=None if verified else UNIDENTIFIED,
+                reason=(None if verified else SUPPORT_ONLY if support_verified else UNIDENTIFIED),
+                support_verified=support_verified,
             )
         )
     return tuple(found)
@@ -311,7 +339,8 @@ class _Flags:
             self.minors[key] = (graph.get_loop_count(), u, f)
         return self.minors[key]
 
-    def predict(self, weight: Sequence[int]) -> tuple[tuple[FlagLevel, ...], Terms]:
+    def predict(self, weight: Sequence[int]) -> tuple[tuple[FlagLevel, ...], list[Terms]]:
+        """The flag of the weight and the polynomial each level contributes to the prediction."""
         values = sorted(set(weight), reverse=True)
         above: frozenset[int] = frozenset()
         steps = []
@@ -324,7 +353,7 @@ class _Flags:
         star = with_f[-1] if with_f else None
 
         levels = []
-        product: Terms = {(0,) * len(self.order): sp.Integer(1)}
+        factors = []
         everything = frozenset(self.order)
         for j, (t, edges, contracted, loops, u, f) in enumerate(steps):
             kind: Literal["U", "F", "G"] = "U"
@@ -333,7 +362,7 @@ class _Flags:
                 kind, factor = "G", _add(u, f)
             elif j == star and t < 0:
                 kind, factor = "F", f
-            product = _times(product, factor)
+            factors.append(factor)
             levels.append(
                 FlagLevel(
                     edges=tuple(sorted(edges)),
@@ -344,7 +373,23 @@ class _Flags:
                     loops=loops,
                 )
             )
-        return tuple(levels), product
+        return tuple(levels), factors
+
+
+def _product(factors: Sequence[Terms]) -> Terms:
+    """The product of the level polynomials."""
+    product: Terms = {(0,) * len(next(iter(factors[0]))): sp.Integer(1)}
+    for factor in factors:
+        product = _times(product, factor)
+    return product
+
+
+def _sums(supports: Sequence[set[tuple[int, ...]]]) -> set[tuple[int, ...]]:
+    """The sums of one exponent from each support: their Minkowski sum as point sets."""
+    total = {(0,) * len(next(iter(supports[0])))}
+    for support in supports:
+        total = {tuple(a + b for a, b in zip(x, y, strict=True)) for x in total for y in support}
+    return total
 
 
 def _equal(p: Terms, q: Terms) -> bool:

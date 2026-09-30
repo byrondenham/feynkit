@@ -133,8 +133,137 @@ def test_three_mass_box_ir_facet() -> None:
     assert sp.expand(face.polynomial - expected) == 0
     assert [level.edges for level in face.levels] == [(2, 4), (1, 3)]
     # The coefficients of u_2 u_1, u_2 u_3, u_4 u_1, u_4 u_3 form a matrix of rank 2, so the
-    # F part is no product of a polynomial in u_2, u_4 and one in u_1, u_3.
-    assert face.kind == "unidentified"
+    # F part is no product of a polynomial in u_2, u_4 and one in u_1, u_3, but its exponents
+    # are those of the predicted product G({2,4}) U(Gamma/{2,4}).
+    assert face.kind == "support_product"
+    assert face.support_verified and not face.verified
+    assert face.name() == "G({2,4}) U(Gamma/{2,4})"
+
+
+def _three_mass_box() -> FeynmanIntegral:
+    fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+    p2 = sp.Symbol("p2^2", real=True)
+    return fi.with_(momentum_products={k: v.subs(p2, 0) for k, v in fi.momentum_products.items()})
+
+
+def _exponents(expr: sp.Expr, fi: FeynmanIntegral) -> set[tuple[int, ...]]:
+    return set(sp.Poly(expr, *fi.symanzik.lp_parameters).monoms())
+
+
+class TestSupportProducts:
+    """Faces whose exponents are the product of the supports of the flag's factors, while
+    G|_F is not their product."""
+
+    def test_the_three_mass_box(self) -> None:
+        fi = _three_mass_box()
+        found = [f for f in identify_faces(fi, max_codimension=None) if f.kind == "support_product"]
+        assert len(found) == 4
+        assert len([face for face in found if face.facet is not None]) == 1
+        for face in found:
+            # The exponents of G|_F are the sums of one exponent of each factor, computed afresh.
+            sums = {(0,) * 4}
+            for level in face.levels:
+                u, f = _minor(fi, contract=level.contracted, delete=level.deleted)
+                factor = {"U": u, "F": f, "G": u + f}[level.kind]
+                sums = {
+                    tuple(a + b for a, b in zip(x, y, strict=True))
+                    for x in sums
+                    for y in _exponents(factor, fi)
+                }
+            assert _exponents(face.polynomial, fi) == sums
+            assert sp.expand(face.polynomial - face.prediction) != 0
+            assert face.reason is not None
+
+    def test_the_on_shell_double_box(self) -> None:
+        fi = FeynmanIntegral.from_cnickel(
+            "15e|24|3e|4e|5|e|:zzzzzzz", kinematics="massless_on_shell"
+        )
+        counts = Counter(face.kind for face in identify_faces(fi, max_codimension=None))
+        assert (counts["support_product"], counts["unidentified"]) == (22, 910)
+
+    def test_none_on_the_on_shell_box(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz", kinematics="massless_on_shell")
+        assert all(f.kind != "support_product" for f in identify_faces(fi, max_codimension=None))
+
+    def test_support_verified_follows_the_class(self) -> None:
+        for face in identify_faces(_three_mass_box(), max_codimension=None):
+            assert face.support_verified == (face.kind != "unidentified")
+            assert face.verified == (face.kind not in ("unidentified", "support_product"))
+
+
+# The classes of every face before support products had a class of their own: a face then
+# identified keeps its class, and the support products come out of the unidentified faces.
+_BEFORE = {
+    ("12e|3e|3e|e|:zzzz", None): {
+        "contraction": 10,
+        "f_layer": 27,
+        "product_ir": 28,
+        "u_layer": 15,
+        "whole": 1,
+    },
+    ("12e|3e|3e|e|:zzzz", "massless_on_shell"): {
+        "contraction": 6,
+        "f_layer": 3,
+        "product_ir": 4,
+        "u_layer": 15,
+        "unidentified": 20,
+        "whole": 1,
+    },
+    ("three-mass box", None): {
+        "contraction": 9,
+        "f_layer": 18,
+        "product_ir": 20,
+        "u_layer": 15,
+        "unidentified": 4,
+        "whole": 1,
+    },
+    ("12e|23|3|e|:zzzzz", None): {
+        "contraction": 13,
+        "f_layer": 51,
+        "product_ir": 95,
+        "product_uv": 8,
+        "u_layer": 51,
+        "whole": 1,
+    },
+    ("12e|23|3|e|:nnnnn", None): {
+        "contraction": 23,
+        "f_layer": 81,
+        "product_uv": 57,
+        "u_layer": 51,
+        "whole": 1,
+    },
+    ("111e|e|:nnz", None): {
+        "contraction": 3,
+        "f_layer": 9,
+        "product_ir": 1,
+        "product_uv": 4,
+        "u_layer": 7,
+        "whole": 1,
+    },
+    ("12ee|22e|e|:zzzz", None): {
+        "contraction": 4,
+        "f_layer": 15,
+        "product_ir": 27,
+        "product_uv": 1,
+        "u_layer": 19,
+        "whole": 1,
+    },
+}
+
+
+@pytest.mark.parametrize(("cnickel", "kinematics"), list(_BEFORE))
+def test_identified_faces_keep_their_class(cnickel: str, kinematics: str | None) -> None:
+    if cnickel == "three-mass box":
+        fi = _three_mass_box()
+    else:
+        fi = FeynmanIntegral.from_cnickel(cnickel, kinematics=kinematics)
+    counts = Counter(face.kind for face in identify_faces(fi, max_codimension=None))
+    before = Counter(_BEFORE[(cnickel, kinematics)])
+    split = ("unidentified", "support_product")
+    assert {k: n for k, n in counts.items() if k not in split} == {
+        k: n for k, n in before.items() if k not in split
+    }
+    assert counts["unidentified"] + counts["support_product"] == before["unidentified"]
 
 
 class TestEdgeFaces:

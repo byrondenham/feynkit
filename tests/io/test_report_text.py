@@ -1567,3 +1567,16 @@ def test_faces_section_below_full_dimension() -> None:
     text = " ".join(render_text(AnalysisReport.from_integral(fi, ["faces"])).split())
     assert "P is not full-dimensional, so its faces are not identified" in text
     assert "Facet Inequality Graph" not in text
+
+
+def test_faces_section_marks_support_products() -> None:
+    fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+    p2 = sp.Symbol("p2^2", real=True)
+    fi = fi.with_(momentum_products={k: v.subs(p2, 0) for k, v in fi.momentum_products.items()})
+    text = render_text(AnalysisReport.from_integral(fi, ["faces"]))
+    section = text[text.index("Faces as graphs") : text.index("References\n---")]
+    assert "x_1 + x_3 <= 1" in section
+    rows = [line.split() for line in section.splitlines() if line.startswith("    support product")]
+    assert rows == [["support", "product", "0", "1", "3"]]
+    assert "G({2,4}) U(Gamma/{2,4}) (support)" in section
+    assert "with the exponents of G({2,4}) U(Gamma/{2,4}):" in section

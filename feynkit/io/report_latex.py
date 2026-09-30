@@ -35,9 +35,9 @@ from ._report_shared import (
     count_polynomial,
     f_block_sentence,
     face_counts,
-    face_name,
     face_names,
     face_paragraphs,
+    facet_graph,
     facet_graphs,
     in_squared_masses,
     integrand_templates,
@@ -59,6 +59,7 @@ from ._report_shared import (
     skipped_faces,
     split_g,
     torus_skipped_faces,
+    unverified_label,
 )
 from .latex import to_latex, to_latex_lines, to_latex_split
 from .report import (
@@ -851,14 +852,15 @@ def _faces(report: AnalysisReport, section: Faces, doc: _Document) -> str:
         (
             f"$F_{{{k}}}$",
             f"${to_latex(lhs)} \\le {b}$",
-            f"${face_name(face, latex=True)}$" if face.verified else "--",
+            facet_graph(face, latex=True),
         )
         for k, lhs, b, face in graphs
     ]
     counts = face_counts(section)
     header = ("Class", *(f"Codim.\\ {c}" for c in range(section.max_codimension + 1)))
     parts += [
-        "The graph of each facet, a dash marking one that is not identified:",
+        "The graph of each facet, a support product marked (support) and a facet that is not "
+        "identified by a dash:",
         _longtable("lll", ("Facet", "Inequality", "Graph"), rows),
         f"{classes}:",
         _longtable(
@@ -867,7 +869,7 @@ def _faces(report: AnalysisReport, section: Faces, doc: _Document) -> str:
             [(_escape(name), *map(str, row)) for name, row in counts],
         ),
     ]
-    unidentified = [face for face in section.faces if face.kind == "unidentified"]
+    unidentified = [face for face in section.faces if not face.verified]
     if unidentified:
         number = {id(face): k for k, _, _, face in graphs}
         parts.append(intro)
@@ -876,7 +878,7 @@ def _faces(report: AnalysisReport, section: Faces, doc: _Document) -> str:
             label = f"$F_{{{k}}}$" if k is not None else f"A face of dimension {face.dimension}"
             assert face.prediction is not None
             parts += [
-                f"{label}, predicted as ${face_name(face, latex=True)}$:",
+                unverified_label(face, label, latex=True),
                 _equation("G|_F", to_latex_lines(face.polynomial)),
                 _equation("\\text{prediction}", to_latex_lines(face.prediction)),
             ]

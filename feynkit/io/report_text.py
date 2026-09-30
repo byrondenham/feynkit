@@ -37,9 +37,9 @@ from ._report_shared import (
     count_polynomial,
     f_block_sentence,
     face_counts,
-    face_name,
     face_names,
     face_paragraphs,
+    facet_graph,
     facet_graphs,
     in_squared_masses,
     integrand_templates,
@@ -61,6 +61,7 @@ from ._report_shared import (
     skipped_faces,
     split_g,
     torus_skipped_faces,
+    unverified_label,
 )
 from .report import (
     GKZ,
@@ -930,28 +931,30 @@ def _faces(report: AnalysisReport, section: Faces, doc: _Document) -> str:
         return _blocks(*blocks)
     graphs = facet_graphs(report, section)
     rows = [
-        (f"F_{k}", f"{_str(lhs)} <= {b}", face_name(face, latex=False) if face.verified else "-")
+        (f"F_{k}", f"{_str(lhs)} <= {b}", facet_graph(face, latex=False))
         for k, lhs, b, face in graphs
     ]
     counts = face_counts(section)
     header = ("Class", *(f"Codim {c}" for c in range(section.max_codimension + 1)))
     blocks += [
-        _paragraph("The graph of each facet, a dash marking one that is not identified:"),
+        _paragraph(
+            "The graph of each facet, a support product marked (support) and a facet that is "
+            "not identified by a dash:"
+        ),
         _facet_table(rows),
         _paragraph(f"{classes}:"),
         _table(header, [(name, *map(str, row)) for name, row in counts]),
     ]
-    unidentified = [face for face in section.faces if face.kind == "unidentified"]
+    unidentified = [face for face in section.faces if not face.verified]
     if unidentified:
         number = {id(face): k for k, _, _, face in graphs}
         blocks.append(_paragraph(intro))
         for face in unidentified[:MAX_UNIDENTIFIED_SHOWN]:
             k = number.get(id(face))
             label = f"F_{k}" if k is not None else f"A face of dimension {face.dimension}"
-            flag = face_name(face, latex=False)
             assert face.prediction is not None
             blocks += [
-                _paragraph(f"{label}, predicted as {flag}:"),
+                _paragraph(unverified_label(face, label, latex=False)),
                 _equation("G|_F", _lines(face.polynomial, _room("G|_F"))),
                 _equation("prediction", _lines(face.prediction, _room("prediction"))),
             ]

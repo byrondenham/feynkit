@@ -61,6 +61,7 @@ __all__ = [
     "face_name",
     "face_names",
     "face_paragraphs",
+    "facet_graph",
     "facet_graphs",
     "in_squared_masses",
     "integrand_templates",
@@ -81,6 +82,7 @@ __all__ = [
     "signed_terms",
     "skipped_faces",
     "sorted_factors",
+    "unverified_label",
     "split_g",
     "torus_skipped_faces",
 ]
@@ -216,6 +218,7 @@ FACE_CLASSES = {
     "product_ir": "IR product",
     "u_layer": "U layer",
     "f_layer": "F layer",
+    "support_product": "support product",
     "unidentified": "unidentified",
 }
 
@@ -544,6 +547,25 @@ def facet_graphs(
     return rows
 
 
+def facet_graph(face: FaceIdentification, *, latex: bool) -> str:
+    """The graph column of a facet: its name, marked "(support)" for a support product, or a
+    dash when it is not identified."""
+    name = f"${face_name(face, latex=True)}$" if latex else face_name(face, latex=False)
+    if face.verified:
+        return name
+    if face.kind == "support_product":
+        return f"{name} (support)"
+    return "--" if latex else "-"
+
+
+def unverified_label(face: FaceIdentification, label: str, *, latex: bool) -> str:
+    """The line before G|_F and the prediction of a face that is not identified."""
+    name = f"${face_name(face, latex=True)}$" if latex else face_name(face, latex=False)
+    if face.kind == "support_product":
+        return f"{label}, with the exponents of {name}:"
+    return f"{label}, predicted as {name}:"
+
+
 def face_counts(section: Faces) -> list[tuple[str, list[int]]]:
     """Per class that occurs: its name and the number of its faces of each codimension from
     0 to the section's largest."""
@@ -640,8 +662,10 @@ def face_paragraphs(
     classes = (
         f"A contraction is the {g} of a quotient alone, a UV product has its {g} factor on a "
         f"quotient and an IR product on a minor with edges deleted; the {u} layer holds the "
-        f"products of {u}'s alone and the {f} layer those with an {f} factor. The faces of "
-        "each codimension fall into the classes"
+        f"products of {u}'s alone and the {f} layer those with an {f} factor. A support "
+        f"product is a face whose {x['G_F']} is not the prediction but has exactly its "
+        "exponents, the sums of one exponent of each factor. The faces of each codimension "
+        "fall into the classes"
     )
     unidentified = (
         f"On these faces {x['G_F']} differs from the prediction of its flag, written below it:"

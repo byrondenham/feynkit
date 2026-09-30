@@ -472,3 +472,13 @@ def test_faces_section_writes_out_an_unidentified_face() -> None:
     latex = render_latex(AnalysisReport.from_integral(fi, ["faces"]))
     assert r"\text{prediction} = " in latex
     assert "predicted as $\\mathcal{G}_{\\{3,4\\}}" in latex
+
+
+def test_faces_section_marks_a_support_product() -> None:
+    fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+    p2 = sp.Symbol("p2^2", real=True)
+    fi = fi.with_(momentum_products={k: v.subs(p2, 0) for k, v in fi.momentum_products.items()})
+    latex = render_latex(AnalysisReport.from_integral(fi, ["faces"]))
+    name = r"$\mathcal{G}_{\{2,4\}}\,\mathcal{U}_{\Gamma/\{2,4\}}$"
+    assert f"{name} (support)" in latex
+    assert f"with the exponents of {name}:" in latex

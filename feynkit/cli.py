@@ -470,14 +470,19 @@ def _print_faces(fi: FeynmanIntegral) -> None:
         assert face.facet is not None
         inequality = f"{sp.Add(*(m * v for m, v in zip(face.facet.normal, x, strict=True)))}"
         inequality += f" <= {face.facet.offset}"
-        graph = face.name() if face.verified else f"unidentified; predicted {face.name()}"
+        if face.verified:
+            graph = face.name()
+        elif face.kind == "support_product":
+            graph = f"support product of {face.name()}"
+        else:
+            graph = f"unidentified; predicted {face.name()}"
         print(f"  F_{k:<3} {inequality:<32} {graph}")
     section = Faces(faces=found, max_codimension=FACE_CODIMENSION, full_dimensional=True)
     columns = "".join(f"{f'codim {c}':>9}" for c in range(FACE_CODIMENSION + 1))
     print(f"  {'Class':<14}{columns}")
     for name, counts in face_counts(section):
         print(f"  {name:<14}{''.join(f'{n:>9}' for n in counts)}")
-    if any(face.kind == "unidentified" for face in found):
+    if not all(face.verified for face in found):
         print("  The report (--latex or --text) writes out G|_F and the prediction.")
 
 

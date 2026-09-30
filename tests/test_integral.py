@@ -440,3 +440,18 @@ class TestLatticeInvariants:
         found = fi.lattice_invariants(backend="python", budget=1, timeout=5)
         assert (found.h_star, found.idp, found.normal) == (None, None, None)
         assert found.lattice_points == fi.lattice_invariants().lattice_points
+
+
+class TestReportLimits:
+    def test_limits_reach_the_report(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+        p1 = sp.Symbol("p1^2", real=True)
+        fi = fi.with_(
+            momentum_products={
+                k: sp.expand(sp.sympify(v).subs(p1, 0)) for k, v in fi.momentum_products.items()
+            }
+        )
+        marker = "each is a limit surface"
+        for render in (fi.to_text, fi.to_latex):
+            assert marker in " ".join(render(["landau"], limits=True).split())
+            assert marker not in " ".join(render(["landau"], limits=False).split())

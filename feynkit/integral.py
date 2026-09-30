@@ -675,6 +675,7 @@ class FeynmanIntegral:
         *,
         title: str | None = None,
         max_face_points: int = 14,
+        limits: bool | str | None = None,
     ) -> str:
         """
         The analysis report of the integral as a LaTeX document.
@@ -693,6 +694,10 @@ class FeynmanIntegral:
         max_face_points
             Faces of the Newton polytope with more monomials than this are
             left out of the Landau analysis and listed as skipped.
+        limits
+            Whether the Landau section looks for limit surfaces, as the
+            ``limits`` of :func:`~feynkit.landau.landau_analysis`; None, the
+            default, takes its default.
 
         Returns
         -------
@@ -710,7 +715,9 @@ class FeynmanIntegral:
         from .io.report import AnalysisReport
         from .io.report_latex import render_latex
 
-        report = AnalysisReport.from_integral(self, sections, max_face_points=max_face_points)
+        report = AnalysisReport.from_integral(
+            self, sections, max_face_points=max_face_points, limits=limits
+        )
         return render_latex(report, title=title)
 
     def to_text(
@@ -719,6 +726,7 @@ class FeynmanIntegral:
         *,
         title: str | None = None,
         max_face_points: int = 14,
+        limits: bool | str | None = None,
     ) -> str:
         """
         The analysis report of the integral as plain text.
@@ -737,7 +745,9 @@ class FeynmanIntegral:
         from .io.report import AnalysisReport
         from .io.report_text import render_text
 
-        report = AnalysisReport.from_integral(self, sections, max_face_points=max_face_points)
+        report = AnalysisReport.from_integral(
+            self, sections, max_face_points=max_face_points, limits=limits
+        )
         return render_text(report, title=title)
 
     def torus_count(

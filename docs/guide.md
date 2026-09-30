@@ -1256,9 +1256,9 @@ its minor, `Gamma` for the whole graph, `{1,2}` for the subgraph on edges 1 and 
 | `f_layer` | a product with one $\mathcal F$ factor, a face of $\mathrm{Newt}(\mathcal F)$ |
 | `unidentified` | not the prediction |
 
-A massless line gives facets of the kind `product_ir`. On the bubble with $m_2 = 0$, where the
-edge face $F_1$ is no longer a facet, Britto, Grimm and Hoefnagels find the new facet
-$F_{2,(1,2)}$ (Eq. 105, p. 29). It is $x_2 \le 1$, and
+On the bubble with $m_2 = 0$, where the edge face $F_1$ is no longer a facet, Britto, Grimm and
+Hoefnagels find the new facet $F_{2,(1,2)}$ (Eq. 105, p. 29). It is $x_2 \le 1$, of the kind
+`product_ir`, and
 $\mathcal G|_F = \mathcal G_{\{1\}}\,\mathcal U_{\Gamma/\{1\}} = u_2(1 + (m_1^2 - s)u_1/\mu^2)$:
 
 ```python

@@ -399,6 +399,12 @@
   `fk analyse -f` (`--faces`) prints the facets and the counts on the
   terminal, is left out when no section flag is given, and adds the section
   to the reports of `--latex` and `--text`.
+- Section 5.7 of the mathematics reference and the design note
+  `docs/design/2026-09-30-face-identification.md` describe the
+  identification of faces. The note proves that the initial form of U for a
+  weight w is the product of the U of the minors of its flag, and shows how
+  the prediction reproduces Eqs. 3.13 and 3.15 of Fevola, Mizera and Telen
+  and Eq. 21 of Britto, Grimm and Hoefnagels.
 
 ### Changed
 

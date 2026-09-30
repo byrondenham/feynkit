@@ -744,6 +744,73 @@ functions `lattice_points`, `count_lattice_points`, `ehrhart_polynomial`, `h_sta
 `gorenstein_index`, `polar_dual`, `lattice_width`, `is_idp` and `lattice_invariants` of
 `feynkit.lattice_invariants`.
 
+### 5.7 Faces as Graphs
+
+*Ref:* Fevola, Mizera and Telen (2024), section 3.5; Britto, Grimm and Hoefnagels (2026),
+section 2; Arkani-Hamed, Hillman and Mizera (2022), section IV; the design note
+`docs/design/2026-09-30-face-identification.md`, which proves the statements not cited here.
+
+**Initial forms.** For $w \in \mathbb{Z}^N$ the initial form $\mathrm{in}_w(\mathcal G)$ is the sum
+of the terms $c_\alpha u^\alpha$ of $\mathcal G$ with $w \cdot \alpha$ least. Its Newton polytope is
+the face of $P$ on which $w$ is least (Fevola, Mizera and Telen 2024, p. 28), so
+$\mathcal G|_F = \mathrm{in}_w(\mathcal G)$ for every $w$ least on $F$. For a full-dimensional $P$,
+feynkit takes $w_F = -\sum m$ over the facets $m \cdot x \le b$ that contain $F$, and $w_P = 0$;
+$F$ is where $w_F$ is least, since each face of section 5.5 is the intersection of the facets
+containing it (design note, Lemma 1).
+
+**Minors.** For disjoint sets $C$ and $D$ of edges, the minor $(\Gamma - D)/C$ deletes the edges of
+$D$ and contracts those of $C$, identifying the ends of each; a set with a cycle contracts each of
+its components to a vertex. Legs move with their vertices, and a vertex left without edges is
+removed with its legs. The edges keep their indices, and so their parameters. For a minor $H$ with
+components $c$, $\mathcal U_H = \prod_c \mathcal U_c$ and
+$\mathcal F_H = \sum_c \mathcal F_c \prod_{c' \ne c} \mathcal U_{c'}$, with $\mathcal U_c$ and
+$\mathcal F_c$ as in section 2 for the legs at the vertices of $c$; $\mathcal G_H = \mathcal U_H + \mathcal F_H$.
+This is the sum over the spanning forests of $H$ with one tree per component, and with one more,
+of section 2's monomials and coefficients.
+
+**The flag.** Let $t_1 > \cdots > t_k$ be the distinct values of $w_e$, $\sigma_0 = \emptyset$,
+$\sigma_j = \{e : w_e \ge t_j\}$ and $H_j = (\Gamma - (E \setminus \sigma_j))/\sigma_{j-1}$, the
+edges of weight $t_j$ with those of greater weight contracted and the rest deleted. For a connected
+graph,
+$$\mathrm{in}_w(\mathcal U_\Gamma) = \prod_{j=1}^k \mathcal U_{H_j}$$
+(design note, Proposition 2): the spanning trees of least $w$-degree of their complement are those
+that meet every $\sigma_j$ in a spanning forest of it, and they are the unions of spanning forests
+of the $H_j$.
+
+**The prediction.** With $j^*$ the last level whose $\mathcal F_{H_j}$ is not zero, feynkit predicts
+that $\mathcal G|_F$ is
+$$\prod_{j \ne j^*} \mathcal U_{H_j} \times \begin{cases}
+\mathcal G_{H_{j^*}} & t_{j^*} = 0, \\ \mathcal F_{H_{j^*}} & t_{j^*} < 0, \\
+\mathcal U_{H_{j^*}} & t_{j^*} > 0, \end{cases}$$
+or $\prod_j \mathcal U_{H_j}$ when no level has $\mathcal F_{H_j} \ne 0$, and identifies $F$ only
+when $\mathcal G|_F$ equals the prediction as a polynomial; otherwise $F$ is unidentified. The prediction is not claimed in general. It reproduces the published cases:
+
+- For a connected subgraph $\gamma \ne E$ let $w_\gamma$ be 1 on $\gamma$ and 0 elsewhere. When
+  every mass is non-zero,
+  $\mathrm{in}_{w_\gamma}(\mathcal G_\Gamma) = \mathcal U_\gamma\,\mathcal G_{\Gamma/\gamma}$
+  (Fevola, Mizera and Telen 2024, Eqs. 3.13 and 3.15, pp. 27-28). If the face $w_\gamma$ selects
+  is a facet, $w_F = w_\gamma$, the flag is $\gamma \subset E$ with $H_1 = \gamma$ and
+  $H_2 = \Gamma/\gamma$, the masses make $\mathcal F_{\Gamma/\gamma} \ne 0$, and the prediction is
+  that product.
+- The terms free of $u_e$ form a face $F_e$ with $\mathcal G|_{F_e} = \mathcal G_{\Gamma/e}$
+  (Britto, Grimm and Hoefnagels 2026, Eq. 21, p. 11). If $F_e$ is a facet, $w_F = w_{\{e\}}$ and
+  the prediction is $\mathcal G_{\Gamma/e}$ (design note, section 4).
+
+Arkani-Hamed, Hillman and Mizera (2022) describe the facets of the Feynman polytope
+$\mathbf U_G \oplus c\,\mathbf F_G$ by subgraphs $\gamma$, with $\mathcal F_{G/\gamma} \ne 0$ for the
+ultraviolet ones and $\mathcal F_{G/\gamma} = 0$ for the infrared ones (Eqs. 4, 7 and 8, pp. 2-3).
+
+**Classes.** A verified face is `whole` ($P$ itself), a `contraction` $\mathcal G_{\Gamma/S}$, a
+`product_uv` or `product_ir` according as its $\mathcal G$ factor is on a minor without or with
+deleted edges, or lies in the $\mathcal U$ layer (a product of $\mathcal U$'s alone) or the
+$\mathcal F$ layer (a product with an $\mathcal F$ factor).
+
+**Below full dimension** the normal of a relative facet is fixed only modulo the equations of the
+affine hull (section 5.5), and so is the flag; feynkit identifies no face there.
+
+Accessed as `identify_faces(fi, max_codimension=2)` and `fi.face_identification()`, with the
+minors from `Graph.contract`, `Graph.delete` and `feynkit.polynomials.minor_polynomials`.
+
 ---
 
 ## 6. Toric Ideal
@@ -1580,3 +1647,7 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 39. **Britto-Grimm-Hoefnagels (2026).** R. Britto, T.W. Grimm, A. Hoefnagels.
     *Resonance and differential reduction of Feynman integrals.*
     JHEP **09** (2026) 018.  arXiv:2606.09978.
+
+40. **Arkani-Hamed-Hillman-Mizera (2022).** N. Arkani-Hamed, A. Hillman, S. Mizera.
+    *Feynman polytopes and the tropical geometry of UV and IR divergences.*
+    Phys.\ Rev.\ D **105** (2022) 125013.  arXiv:2202.12296.

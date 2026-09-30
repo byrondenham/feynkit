@@ -359,6 +359,10 @@ class Landau:
         The factors of the poles m_b^2 = q_b^2 of the bridges of a one-loop
         graph, from :func:`~feynkit.landau.one_loop_bridge_poles`; empty
         without bridges or for more than one loop.
+    timed_out
+        For each entry of ``skipped``, whether the face had few enough points
+        to be eliminated and was skipped because its elimination ran past the
+        time limit.
     """
 
     analysis: LandauAnalysis
@@ -367,6 +371,7 @@ class Landau:
     second_type: tuple[sp.Expr, ...]
     skipped: tuple[tuple[int, int, bool], ...] = ()
     bridge_poles: tuple[sp.Expr, ...] = ()
+    timed_out: tuple[bool, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -541,7 +546,7 @@ def _symmetries(fi: FeynmanIntegral, data: PolytopeData) -> Symmetries:
     )
 
 
-def _landau(fi: FeynmanIntegral, analysis: LandauAnalysis) -> Landau:
+def _landau(fi: FeynmanIntegral, analysis: LandauAnalysis, max_face_points: int) -> Landau:
     grouped: dict[int, list[sp.Expr]] = {}
     for face in analysis.face_discriminants:
         if face.discriminant == 1:
@@ -568,6 +573,7 @@ def _landau(fi: FeynmanIntegral, analysis: LandauAnalysis) -> Landau:
             for d, face in zip(dimensions, analysis.skipped_faces, strict=True)
         ),
         bridge_poles=poles,
+        timed_out=tuple(len(face) <= max_face_points for face in analysis.skipped_faces),
     )
 
 
@@ -707,7 +713,9 @@ class AnalysisReport:
         if wanted & {"landau", "torus"}:
             # The point counts use the principal Landau determinant, not the limit surfaces.
             analysis = landau_analysis(
-                integral, max_face_points=max_face_points, limits="landau" in wanted
+                integral,
+                max_face_points=max_face_points,
+                limits=None if "landau" in wanted else False,
             )
         torus: TorusCount | None = None
         if "torus" in wanted:
@@ -724,7 +732,9 @@ class AnalysisReport:
             gkz=_gkz(integral) if "gkz" in wanted else None,
             symmetries=symmetries,
             landau=(
-                _landau(integral, analysis) if analysis is not None and "landau" in wanted else None
+                _landau(integral, analysis, max_face_points)
+                if analysis is not None and "landau" in wanted
+                else None
             ),
             schwinger=_schwinger(integral) if "schwinger" in wanted else None,
             torus=torus,
@@ -767,4 +777,5 @@ class AnalysisReport:
             if analysis.parent is not None:
                 rows.append(("Limit surfaces", str(len(analysis.limit_surfaces))))
                 rows.append(("Limit candidates", str(len(analysis.limit_candidates))))
+                rows.append(("Parent skipped faces", str(len(analysis.parent.skipped_faces))))
         return tuple(rows)

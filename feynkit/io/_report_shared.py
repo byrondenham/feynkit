@@ -529,9 +529,8 @@ def limit_sentences(limits: LimitFactors) -> LimitSentences:
     if limits.parent_skipped:
         n = limits.parent_skipped
         skipped = (
-            f"The analysis of the generic family skipped {count_noun(n, 'face')} as too large to "
-            f"eliminate, and factors of {'its' if n == 1 else 'their'} discriminants would be "
-            "missing from these lists."
+            f"The analysis of the generic family skipped {count_noun(n, 'face')}, too large to "
+            "eliminate or past the time limit, so the limit surfaces may be incomplete."
         )
         closing = skipped if closing is None else f"{closing} {skipped}"
     return LimitSentences(intro, surfaces, counts, candidates, reasons, closing)
@@ -539,7 +538,8 @@ def limit_sentences(limits: LimitFactors) -> LimitSentences:
 
 def skipped_faces(landau: Landau) -> str | None:
     """The sentence naming the faces the Landau analysis skipped, or None if none was."""
-    skipped = sorted(landau.skipped)
+    timed_out = landau.timed_out or (False,) * len(landau.skipped)
+    skipped = sorted(zip(landau.skipped, timed_out, strict=True))
     if not skipped:
         return None
     names = [
@@ -548,13 +548,19 @@ def skipped_faces(landau: Landau) -> str | None:
             if whole
             else f"a face of dimension {dimension} with {points} points"
         )
-        for dimension, points, whole in skipped
+        + (" (past the time limit)" if late else "")
+        for (dimension, points, whole), late in skipped
     ]
     n = len(skipped)
+    why = (
+        ", too large to eliminate or past the time limit,"
+        if any(timed_out)
+        else " as too large to eliminate,"
+    )
     return (
-        f"{count_noun(n, 'face')} {'was' if n == 1 else 'were'} skipped as too large to "
-        f"eliminate, and {'its discriminant is' if n == 1 else 'their discriminants are'} "
-        f"missing from the list: {join_words(names)}."
+        f"{count_noun(n, 'face')} {'was' if n == 1 else 'were'} skipped{why} and "
+        f"{'its discriminant is' if n == 1 else 'their discriminants are'} missing from the "
+        f"list: {join_words(names)}."
     )
 
 

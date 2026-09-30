@@ -291,7 +291,10 @@
   `limit_candidates`, when the kinematics specialise the generic ones. The
   point counts leave the parent out. The parent is analysed with the same
   `max_face_points` and `timeout`, and when it skips faces the limit surfaces
-  may be incomplete. Its analysis is kept for the next integral of the same
+  may be incomplete: the report says so, and its summary has the row
+  `Parent skipped faces` after `Limit candidates`, `parent_skipped_faces` in
+  `fk analyse --json`. The report's sentence on skipped faces names those
+  that ran past the time limit. Its analysis is kept for the next integral of the same
   family. Kinematics that are the generic ones in renamed invariants have no
   parent. `DEFAULT_LIMITS` of `feynkit.landau` sets whether `landau_analysis`
   looks for limit surfaces when `limits` is not given: True, False or

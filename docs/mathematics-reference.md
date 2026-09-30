@@ -1149,7 +1149,8 @@ $\sum_e \nu_e \log u_e - (D/2) \log G$ on $X_z$, which number $|\chi(X_z)|$ for 
 (section 4.7), at a random rational point of $\mathcal E$ and at two random rational points of
 $\{h = 0\}$, each off every other surface found, as Fevola, Mizera and Telen filter candidate
 components (2024, appendix A). This is evidence, not proof: the points are random, and the counts
-are taken over $\mathbb F_p$ for two large primes.
+are taken over $\mathbb F_p$ for two large primes. The parent is analysed with the same limits on
+faces, and a face it skips can hide a limit surface.
 
 On every bubble, triangle and box with each propagator massless or of its own mass and each set
 of massless legs, $\mathrm{PLD}(\mathcal E)$ lies within the closed form, and with the limit
@@ -1167,8 +1168,8 @@ them may or may not be singular on the physical sheet, and the list is not guara
 coefficients can vanish identically after specialising to physical kinematics, and the face-by-face
 computation here specialises first; this is the "principal Landau determinant" of Fevola, Mizera and
 Telen rather than $E_A$ of the generic polynomial. Multiplicities are dropped. A face with more
-lattice points than `max_face_points`, or whose elimination runs past `timeout`, is skipped and its
-factors are missing from the result, at generic kinematics too. The default limit of 14 covers
+lattice points than `max_face_points`, or whose elimination runs past `timeout` (60 s by default),
+is skipped and its factors are missing from the result, at generic kinematics too. The default limit of 14 covers
 every one-loop box, whose polytope has at most $4 + 10$ points; the massless pentagon's has 15, and
 its own factor is lost.
 

@@ -244,7 +244,7 @@ $ fk analyse "12e|2e|e|:nzz" --json --sections gkz --no-db
 ```
 
 With the `landau` section and a kinematic class that specialises the legs, as `massless_on_shell`
-does, the summary also has `limit_surfaces` and `limit_candidates` (see
+does, the summary also has `limit_surfaces`, `limit_candidates` and `parent_skipped_faces` (see
 [Specialised kinematics](#specialised-kinematics)), and the report lists them apart from the Landau
 surfaces.
 
@@ -1703,12 +1703,17 @@ missing from `la.landau_surfaces` and `la.principal_a_determinant`, which are th
 whatever the kinematics, and the report names each skipped face. The default covers every
 one-loop box, whose polytope has at most 14 points: the all-massive box `12e|3e|3e|e|:nnnn` takes
 about 6 s, against 2 s without its polytope. The massless pentagon's polytope has 15 points and is
-skipped; Singular had not eliminated it after 20 minutes. A large face whose elimination ideal is
-zero can take far longer to decompose than to eliminate: with `max_face_points=30` one of 26
-points of the massive kite takes 18 s to eliminate and about 3 minutes to decompose.
-`landau_analysis(fi, timeout=60)` gives Singular at most 60 s for each face, with no limit by
-default, and a face that runs past it is skipped and listed in `la.skipped_faces` as a face with
-too many points is. An elimination that fails or prints output feynkit cannot read raises
+skipped; Singular had not eliminated it after 20 minutes. Singular gets at most `timeout` seconds
+for each face, `DEFAULT_FACE_TIMEOUT` of `feynkit.landau`, 60 s, by default, and a face that runs
+past it is skipped and listed in `la.skipped_faces` as a face with too many points is; the report
+says which faces ran past it. No face of the graphs the tests and the report exercise at the
+default `max_face_points` has taken more than about 8 s, so the default changes none of their
+results. Faces past the time limit are skipped: the generic massive parachute `12ee|22e|e|:nnnn`
+skips a face of 14 points, which Singular had not eliminated after 400 s, and its analysis takes
+about a minute where it did not finish. `timeout=None` sets no limit. A large face whose
+elimination ideal is zero can take far longer to decompose than to eliminate: with
+`max_face_points=30` one of 26 points of the massive kite takes 18 s to eliminate and over two
+minutes to decompose, past the default. An elimination that fails or prints output feynkit cannot read raises
 `ComputationError`; a factorisation that fails is left to SymPy. The limit applies to each face,
 its decomposition into minimal primes included, and is not a bound on the whole analysis, whose
 time can reach it for every face eliminated. The SymPy fallback, the discriminants of edges and the
@@ -1756,9 +1761,18 @@ the exponents. `limits=False` leaves the parent out. `landau_analysis_from_polyn
 unless one is passed, as `parent=` a polynomial in the same variables and `restriction=` the map
 from its kinematic symbols to expressions in the polynomial's, under which it must restrict to the
 polynomial. A restricted surface that vanishes identically gives nothing, and a skipped face of the
-parent, listed in `la.parent.skipped_faces`, gives nothing either. The parent's analysis is kept
-for the next integral of the same family, so that a sweep over the sets of massless legs of one
-graph analyses its generic family once.
+parent, listed in `la.parent.skipped_faces`, gives nothing either. The parent is analysed with the
+same `max_face_points` and `timeout`, and when it skips faces the limit surfaces may be
+incomplete; the report says so. Its analysis is kept for the next integral of the same family, so
+that a sweep over the sets of massless legs of one graph analyses its generic family once.
+Kinematics that are the generic ones in renamed invariants, related to them by an invertible
+linear map, have no parent.
+
+Whether `landau_analysis` looks for limit surfaces when `limits` is not given is set by
+`DEFAULT_LIMITS` of `feynkit.landau`: True, False, or `"one-loop"` for one-loop integrals only. It
+is True. At two loops the parent can cost more than the family: the massless double box
+`15e|24|3e|4e|5|e|:zzzzzzz` on shell takes about 40 s with `limits=False` and about two minutes
+by default, most of it the parent's analysis, which skips 57 faces.
 
 On the one-loop bubbles, triangles and boxes, with every set of massless legs, the Landau surfaces
 lie within the one-loop closed form and, with the limit surfaces, equal it; every factor tested
@@ -2362,10 +2376,11 @@ The document has up to thirteen parts:
     trivially.
 11. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
     into first and second type for one-loop graphs, with the skipped faces, each named by its
-    dimension and number of points, and the caveats. At kinematics that specialise the generic
-    ones, the limit surfaces follow apart, labelled as confirmed by a drop of the count of
-    critical points at random points, with the counts, and then the candidates with the reason
-    each is not confirmed.
+    dimension and number of points and marked when it ran past the time limit, and the
+    caveats. At kinematics that specialise the generic ones, the limit surfaces follow apart,
+    labelled as confirmed by a drop of the count of critical points at random points, with the
+    counts, then the candidates with the reason each is not confirmed, and a note when the
+    analysis of the generic family skipped faces, so that the limit surfaces may be incomplete.
 12. The Schwinger-representation system (section 10), its equivalence to the Lee-Pomeransky
     configuration and its reduction to the $\tilde F$ block.
 13. References, the works cited in order of first citation.

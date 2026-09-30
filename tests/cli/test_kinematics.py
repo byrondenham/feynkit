@@ -57,7 +57,7 @@ def test_json_counts_the_limit_surfaces_on_shell(capsys: pytest.CaptureFixture[s
     main([*argv, "--sections", "landau"])
     summary = json.loads(capsys.readouterr().out)["summary"]
     assert (summary["landau_surfaces"], summary["limit_surfaces"]) == (3, 0)
-    assert summary["limit_candidates"] == 0
+    assert summary["limit_candidates"] == summary["parent_skipped_faces"] == 0
     main(["analyse", BOX + ":zzzz", "--json", "--no-db", "--sections", "landau"])
     assert "limit_surfaces" not in json.loads(capsys.readouterr().out)["summary"]
 

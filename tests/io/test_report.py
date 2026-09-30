@@ -576,9 +576,11 @@ class TestLimitSurfaces:
         assert labels[labels.index("Landau surfaces") + 1 :] == [
             "Limit surfaces",
             "Limit candidates",
+            "Parent skipped faces",
         ]
         assert dict(rows)["Limit surfaces"] == "1"
         assert dict(rows)["Limit candidates"] == "0"
+        assert dict(rows)["Parent skipped faces"] == "0"
 
     def test_generic_kinematics_have_no_rows(self, triangle_report: AnalysisReport) -> None:
         assert "Limit surfaces" not in dict(triangle_report.summary())

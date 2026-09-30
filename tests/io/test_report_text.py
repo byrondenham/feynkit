@@ -746,6 +746,45 @@ def test_limit_candidates_give_their_reasons() -> None:
         assert "each is a limit surface" not in document
 
 
+def test_a_face_past_the_time_limit_is_named_so() -> None:
+    sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+    report = AnalysisReport.from_integral(sunrise, ["landau"], max_face_points=4)
+    assert report.landau is not None and report.landau.timed_out == (False, False)
+    order = [points for _, points, _ in report.landau.skipped]
+    landau = dataclasses.replace(report.landau, timed_out=tuple(p == 7 for p in order))
+    report = dataclasses.replace(report, landau=landau)
+    for document in (render_text(report), render_latex(report)):
+        assert (
+            "2 faces were skipped, too large to eliminate or past the time limit, and their "
+            "discriminants are missing from the list: a face of dimension 2 with 7 points (past "
+            "the time limit) and the whole polytope, 10 points."
+        ) in " ".join(document.split())
+
+
+def test_a_parent_that_skipped_faces_is_said_to_leave_the_limits_incomplete() -> None:
+    fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+    p1 = sp.Symbol("p1^2", real=True)
+    fi = fi.with_(
+        momentum_products={
+            k: sp.expand(sp.sympify(v).subs(p1, 0)) for k, v in fi.momentum_products.items()
+        }
+    )
+    report = AnalysisReport.from_integral(fi, ["landau"])
+    assert report.landau is not None and report.landau.analysis.parent is not None
+    analysis = report.landau.analysis
+    parent = dataclasses.replace(analysis.parent, skipped_faces=(((1, 0, 0),),))
+    landau = dataclasses.replace(
+        report.landau, analysis=dataclasses.replace(analysis, parent=parent)
+    )
+    report = dataclasses.replace(report, landau=landau)
+    for document in (render_text(report), render_latex(report)):
+        assert (
+            "The analysis of the generic family skipped 1 face, too large to eliminate or past "
+            "the time limit, so the limit surfaces may be incomplete."
+        ) in " ".join(document.split())
+    assert dict(report.summary())["Parent skipped faces"] == "1"
+
+
 def test_skipped_faces_are_named() -> None:
     sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
     for document in (

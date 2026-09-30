@@ -21,15 +21,24 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from fractions import Fraction
+from typing import TYPE_CHECKING
 
 import sympy as sp
 
 from ..point_count import TorusCount
+from ._latex_kit import (
+    _LATEX_EULER_MELLIN,
+    LatexDocument,
+    _escape,
+    _latex_equation,
+    _latex_vector,
+    _longtable,
+    _math,
+)
 from ._report_shared import (
     CITATIONS,
     MAX_PAIRS_SHOWN,
     MAX_UNIDENTIFIED_SHOWN,
-    Citations,
     append_signed,
     count_noun,
     count_polynomial,
@@ -64,7 +73,6 @@ from ._report_shared import (
 from .latex import to_latex, to_latex_lines, to_latex_split
 from .report import (
     GKZ,
-    AnalysisReport,
     Conventions,
     Faces,
     Identity,
@@ -75,6 +83,9 @@ from .report import (
     Schwinger,
     Symmetries,
 )
+
+if TYPE_CHECKING:
+    from .report import AnalysisReport
 
 __all__ = ["CITATIONS", "render_latex"]
 
@@ -92,85 +103,8 @@ _REASON_MATHS = re.compile(
     r"q\^\d+|p = \d+|\[0, N! Vol\(Newt G\)\] = \[-?\d+, -?\d+\]|\[-?\d+, -?\d+\]|(?<![\w-])-\d+"
 )
 
-# amsmath matrices stop at this many columns unless MaxMatrixCols is raised.
-_AMSMATH_MATRIX_COLUMNS = 10
-
-_ESCAPES: dict[int, str] = {
-    ord("\\"): "\\textbackslash{}",
-    ord("&"): "\\&",
-    ord("%"): "\\%",
-    ord("$"): "\\$",
-    ord("#"): "\\#",
-    ord("_"): "\\_",
-    ord("{"): "\\{",
-    ord("}"): "\\}",
-    ord("~"): "\\textasciitilde{}",
-    ord("^"): "\\textasciicircum{}",
-}
-
-# The Lee-Pomeransky integral without its prefactor, the function the GKZ
-# system annihilates.
-_EULER_MELLIN = (
-    "I_A(\\beta, z) = \\int_{\\mathbb{R}_{+}^{N}} \\prod_{e} \\mathrm{d}u_e\\, "
-    "u_e^{\\nu_e - 1}\\, G(z, u)^{-D/2}"
-)
-
 
 # --- small helpers -----------------------------------------------------------
-
-
-class _Document(Citations):
-    """What the preamble and the bibliography need to know about the sections.
-
-    The sections cite through :meth:`cite` and print matrices through
-    :meth:`matrix`, so that the bibliography lists the works cited, in the
-    order of first citation, and the preamble allows the widest matrix.
-    """
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.widest_matrix = 0
-
-    def cite(self, *keys: str) -> str:
-        self.add(*keys)
-        return "~\\cite{" + ",".join(keys) + "}"
-
-    def matrix(self, matrix: sp.Matrix) -> str:
-        self.widest_matrix = max(self.widest_matrix, matrix.cols)
-        rows = [
-            " & ".join(to_latex(matrix[r, c]) for c in range(matrix.cols))
-            for r in range(matrix.rows)
-        ]
-        return "\\begin{bmatrix}\n" + " \\\\\n".join(rows) + "\n\\end{bmatrix}"
-
-    def preamble(self) -> str:
-        columns = max(_AMSMATH_MATRIX_COLUMNS, self.widest_matrix)
-        return "\n".join(
-            [
-                "\\documentclass[11pt,a4paper]{article}",
-                "\\usepackage[utf8]{inputenc}",
-                "\\usepackage[T1]{fontenc}",
-                "\\usepackage{lmodern}",
-                "\\usepackage{amsmath,amssymb}",
-                f"\\setcounter{{MaxMatrixCols}}{{{columns}}}",
-                "\\usepackage[margin=2.5cm]{geometry}",
-                "\\usepackage{booktabs,array,longtable}",
-                "\\usepackage{tikz}",
-                "\\usetikzlibrary{calc}",
-                "\\usepackage{tikz-3dplot}",
-                "\\usepackage[hidelinks,pdfusetitle]{hyperref}",
-                "\\allowdisplaybreaks",
-            ]
-        )
-
-    def bibliography(self) -> str:
-        items = [f"\\bibitem{{{key}}} {CITATIONS[key]}" for key in self.keys]
-        return "\\begin{thebibliography}{99}\n" + "\n".join(items) + "\n\\end{thebibliography}"
-
-
-def _escape(text: str) -> str:
-    """Escape the characters that LaTeX treats specially in running text."""
-    return text.translate(_ESCAPES)
 
 
 def _reason(reason: str) -> str:
@@ -186,30 +120,12 @@ def _reason(reason: str) -> str:
     return "".join(pieces)
 
 
-def _math(expr: sp.Expr) -> str:
-    return "$" + to_latex(expr) + "$"
-
-
-def _vector(entries: Sequence[sp.Expr]) -> str:
-    return "\\left(" + ", ".join(to_latex(e) for e in entries) + "\\right)"
-
-
 def _scaled_lines(expr: sp.Expr, scale: sp.Expr) -> list[str]:
     """The lines of ``expr`` written as ``(1/scale)(...)``."""
     lines = to_latex_lines(expr)
     lines[0] = f"\\frac{{1}}{{{to_latex(scale)}}}\\bigl({lines[0]}"
     lines[-1] += "\\bigr)"
     return lines
-
-
-def _equation(lhs: str, lines: Sequence[str]) -> str:
-    """Display ``lhs = ...`` over the given lines, aligned after the equals sign."""
-    if len(lines) == 1:
-        body = f"{lhs} = {lines[0]}"
-    else:
-        continued = "".join(f" \\\\\n&\\quad {{}}{line}" for line in lines[1:])
-        body = f"\\begin{{split}}\n{lhs} &= {lines[0]}{continued}\n\\end{{split}}"
-    return "\\begin{equation*}\n" + body + "\n\\end{equation*}"
 
 
 # TeX sets an align* whole before breaking it across pages, and the massless hexagon's list of
@@ -320,7 +236,7 @@ def _kinematics(conventions: Conventions) -> str:
     return f"the {noun} {listed}: {clause}"
 
 
-def _conventions(report: AnalysisReport, doc: _Document) -> str:
+def _conventions(report: AnalysisReport, doc: LatexDocument) -> str:
     conventions = report.conventions
     dimension = conventions.dimension
     is_d = isinstance(dimension, sp.Symbol) and dimension.name == "D"
@@ -364,7 +280,7 @@ def _conventions(report: AnalysisReport, doc: _Document) -> str:
     )
 
 
-def _polynomials(report: AnalysisReport, doc: _Document) -> str:
+def _polynomials(report: AnalysisReport, doc: LatexDocument) -> str:
     polynomials = report.polynomials
     power = polynomials.f_scale_power
     scale = report.conventions.energy_scale
@@ -385,11 +301,11 @@ def _polynomials(report: AnalysisReport, doc: _Document) -> str:
         [
             "In the Schwinger parameters $a_e$ the first Symanzik polynomial, the sum over "
             "spanning trees $T$ of $\\prod_{e \\notin T} a_e$, is",
-            _equation("U", to_latex_lines(polynomials.u)),
+            _latex_equation("U", to_latex_lines(polynomials.u)),
             "and the second is",
-            _equation("F", f_lines),
+            _latex_equation("F", f_lines),
             "In the Lee-Pomeransky parameters $u_e$ their sum is",
-            _equation("G = U + F", g_lines),
+            _latex_equation("G = U + F", g_lines),
             f"$U$ has degree $L = {polynomials.degree_u}$ and $F$ degree "
             f"$L+1 = {polynomials.degree_f}$; $F$ has "
             f"{count_noun(polynomials.monomials_f, 'monomial')} and $G$ has "
@@ -438,7 +354,7 @@ def _representation(
 
 
 def _representations(
-    report: AnalysisReport, representations: Representations, doc: _Document
+    report: AnalysisReport, representations: Representations, doc: LatexDocument
 ) -> str:
     schwinger = representations.schwinger
     feynman = representations.feynman
@@ -507,7 +423,7 @@ def _representations(
     return "\n".join(parts)
 
 
-def _polytope(report: AnalysisReport, polytope: Polytope, doc: _Document) -> str:
+def _polytope(report: AnalysisReport, polytope: Polytope, doc: LatexDocument) -> str:
     data = polytope.data
     counts = [
         count_noun(n, singular, plural)
@@ -578,7 +494,7 @@ def _polytope(report: AnalysisReport, polytope: Polytope, doc: _Document) -> str
     return "\n".join(parts)
 
 
-def _lattice(polytope: Polytope, doc: _Document) -> str:
+def _lattice(polytope: Polytope, doc: LatexDocument) -> str:
     """The lattice invariants of $P$ and what they certify about $\\mathbb{C}[\\mathbb{N}A]$."""
     found = polytope.invariants
     assert found is not None
@@ -617,7 +533,7 @@ def _rational(value: Fraction) -> str:
     return to_latex(sp.Rational(value.numerator, value.denominator))
 
 
-def _torus(torus: TorusCount, doc: _Document) -> str:
+def _torus(torus: TorusCount, doc: LatexDocument) -> str:
     intro = (
         "Let $X$ be the complement of $V = \\{G = 0\\}$ in the torus $(\\mathbb{C}^*)^N$, with "
         "$\\mu = 1$. The number of master integrals, with subsectors included, symmetries unused "
@@ -714,7 +630,7 @@ def _torus(torus: TorusCount, doc: _Document) -> str:
     else:
         parts += [
             "The counts fit the candidate for $P$",
-            _equation("P(q)", to_latex_lines(count_polynomial(torus.candidate_polynomial))),
+            _latex_equation("P(q)", to_latex_lines(count_polynomial(torus.candidate_polynomial))),
             "at every prime counted, which gives the candidates "
             f"$\\chi(X) = -P(1) = {torus.candidate_euler_characteristic}$ and "
             f"$C = (-1)^N \\chi(X) = {torus.candidate_master_count}$.",
@@ -730,7 +646,7 @@ def _torus(torus: TorusCount, doc: _Document) -> str:
     return "\n".join(parts)
 
 
-def _gkz(gkz: GKZ, doc: _Document) -> str:
+def _gkz(gkz: GKZ, doc: LatexDocument) -> str:
     operators = []
     for r, (row, beta_r) in enumerate(gkz.euler_rows):
         terms = signed_terms([(a, f"\\theta_{{{j}}}") for j, a in enumerate(row, start=1)])
@@ -740,7 +656,7 @@ def _gkz(gkz: GKZ, doc: _Document) -> str:
         "Writing $G = \\sum_j z_j u^{\\alpha_j}$ and treating the coefficients $z_j$ as "
         "independent variables gives the Euler-Mellin integral",
         "\\begin{equation*}",
-        _EULER_MELLIN + ",",
+        _LATEX_EULER_MELLIN + ",",
         "\\end{equation*}",
         "the Lee-Pomeransky integral without its prefactor, which the GKZ system annihilates. "
         "The system has the matrix",
@@ -751,7 +667,7 @@ def _gkz(gkz: GKZ, doc: _Document) -> str:
         "$\\beta = (-D/2, -\\nu_1, \\ldots, -\\nu_N)$, the value the Euler equations require "
         f"for the Lee-Pomeransky integral{doc.cite('delacruz2019', 'klausen2020')}. Here",
         "\\begin{equation*}",
-        "\\beta = " + _vector(gkz.beta) + ".",
+        "\\beta = " + _latex_vector(gkz.beta) + ".",
         "\\end{equation*}",
         "The Euler operators are built from $\\theta_j = z_j \\partial_{z_j}$, which measures "
         "the degree in $z_j$. The operators $E_r = \\sum_j A_{rj}\\theta_j - \\beta_r$ "
@@ -779,7 +695,7 @@ def _gkz(gkz: GKZ, doc: _Document) -> str:
     return "\n".join(parts)
 
 
-def _scaleless(report: AnalysisReport, doc: _Document) -> str:
+def _scaleless(report: AnalysisReport, doc: LatexDocument) -> str:
     """Whether the integral is scaleless by Lee's criterion, for a $P$ that is not full-dimensional."""
     cite = doc.cite("lee2013")
     if report.polynomials.scaleless:
@@ -799,23 +715,7 @@ def _scaleless(report: AnalysisReport, doc: _Document) -> str:
     )
 
 
-def _longtable(spec: str, header: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
-    """A longtable with booktabs rules; header None for a table without one."""
-    head = ["\\toprule", " & ".join(header) + " \\\\", "\\midrule"] if header else ["\\toprule"]
-    return "\n".join(
-        [
-            f"\\begin{{longtable}}{{{spec}}}",
-            *head,
-            "\\endhead",
-            "\\bottomrule",
-            "\\endlastfoot",
-            *(" & ".join(row) + " \\\\" for row in rows),
-            "\\end{longtable}",
-        ]
-    )
-
-
-def _resonance(report: AnalysisReport, section: Resonance, doc: _Document) -> str:
+def _resonance(report: AnalysisReport, section: Resonance, doc: LatexDocument) -> str:
     paragraphs, classes, window = resonance_paragraphs(section, doc.cite, latex=True)
     parts = list(paragraphs)
     if not section.facets:
@@ -842,7 +742,7 @@ def _resonance(report: AnalysisReport, section: Resonance, doc: _Document) -> st
     return "\n\n".join(parts)
 
 
-def _faces(report: AnalysisReport, section: Faces, doc: _Document) -> str:
+def _faces(report: AnalysisReport, section: Faces, doc: LatexDocument) -> str:
     paragraphs, classes, intro = face_paragraphs(section, doc.cite, latex=True)
     parts = list(paragraphs)
     if not section.full_dimensional:
@@ -879,8 +779,8 @@ def _faces(report: AnalysisReport, section: Faces, doc: _Document) -> str:
             assert face.prediction is not None
             parts += [
                 unverified_label(face, label, latex=True),
-                _equation("G|_F", to_latex_lines(face.polynomial)),
-                _equation("\\text{prediction}", to_latex_lines(face.prediction)),
+                _latex_equation("G|_F", to_latex_lines(face.polynomial)),
+                _latex_equation("\\text{prediction}", to_latex_lines(face.prediction)),
             ]
         left = len(unidentified) - MAX_UNIDENTIFIED_SHOWN
         if left > 0:
@@ -888,7 +788,7 @@ def _faces(report: AnalysisReport, section: Faces, doc: _Document) -> str:
     return "\n\n".join(parts)
 
 
-def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) -> str:
+def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: LatexDocument) -> str:
     orbits = symmetries.vertex_orbits
     if report.polytope is not None:
         # A long orbit may break after any of its commas.
@@ -913,7 +813,7 @@ def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) 
         integral = " for the Euler-Mellin integral $I_A$ of Section~\\ref{sec:gkz-system}"
     else:
         definition = (
-            f"Write $G = \\sum_j z_j u^{{\\alpha_j}}$ and let ${_EULER_MELLIN}$ be the "
+            f"Write $G = \\sum_j z_j u^{{\\alpha_j}}$ and let ${_LATEX_EULER_MELLIN}$ be the "
             "Lee-Pomeransky integral without its prefactor, where "
             "$\\beta = (-D/2, -\\nu_1, \\ldots, -\\nu_N)$. "
         )
@@ -977,7 +877,7 @@ def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) 
     return "\n".join(parts)
 
 
-def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
+def _landau(landau: Landau, scale: sp.Symbol, doc: LatexDocument) -> str:
     intro = (
         "The reduced principal $A$-determinant of $G$, each irreducible kinematic factor taken "
         "once, is the product of the discriminants of $G$ restricted to the faces of $P$"
@@ -1041,7 +941,7 @@ def _landau(landau: Landau, scale: sp.Symbol, doc: _Document) -> str:
     return "\n".join(parts)
 
 
-def _limits(landau: Landau, doc: _Document) -> list[str]:
+def _limits(landau: Landau, doc: LatexDocument) -> list[str]:
     """The paragraphs on the limit surfaces and candidates, none without a parent family."""
     limits = limit_factors(landau)
     if limits is None:
@@ -1071,7 +971,7 @@ def _limits(landau: Landau, doc: _Document) -> list[str]:
     return parts
 
 
-def _schwinger(schwinger: Schwinger, doc: _Document) -> str:
+def _schwinger(schwinger: Schwinger, doc: LatexDocument) -> str:
     system = schwinger.system
     f_block = schwinger.f_block
     check = "verified" if schwinger.columns_match else "not verified"
@@ -1083,7 +983,7 @@ def _schwinger(schwinger: Schwinger, doc: _Document) -> str:
             f"{doc.cite('jimenez2026', 'klausen2023')}:",
             "\\begin{gather*}",
             "A_{\\text{Cayley}} = " + doc.matrix(system.a_matrix) + ", \\\\",
-            "\\beta_{\\text{Cayley}} = " + _vector(system.beta_parameters) + ".",
+            "\\beta_{\\text{Cayley}} = " + _latex_vector(system.beta_parameters) + ".",
             "\\end{gather*}",
             "It is unimodularly equivalent to the Lee-Pomeransky configuration, the matrix "
             "$A_{\\text{LP}}$ and parameter vector "
@@ -1098,7 +998,7 @@ def _schwinger(schwinger: Schwinger, doc: _Document) -> str:
             f"{check} for this integral. Restricting to the $\\tilde F$ block gives the system",
             "\\begin{gather*}",
             "A_F = " + doc.matrix(f_block.a_matrix) + ", \\\\",
-            "\\beta_F = " + _vector(f_block.beta_parameters) + ";",
+            "\\beta_F = " + _latex_vector(f_block.beta_parameters) + ";",
             "\\end{gather*}",
             f_block_sentence(schwinger, doc.cite, latex=True),
         ]
@@ -1124,7 +1024,7 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
     str
         The document source, ASCII only, compilable with pdflatex.
     """
-    doc = _Document()
+    doc = LatexDocument()
     if title is None:
         heading = f"Feynman integral \\texttt{{{_escape(report.identity.cnickel)}}}"
     else:

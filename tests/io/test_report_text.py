@@ -19,9 +19,10 @@ import sympy as sp
 
 from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit.io._report_shared import NOT_COMPUTED, TORUS_HEADING
+from feynkit.io._text_kit import _str, _strip_latex
 from feynkit.io.report import SECTION_NAMES, AnalysisReport
 from feynkit.io.report_latex import CITATIONS, render_latex
-from feynkit.io.report_text import _str, _strip_latex, render_text
+from feynkit.io.report_text import render_text
 from feynkit.point_count import TorusCount, count_torus_points
 
 _KEY = r"[a-z]+\d{4}"

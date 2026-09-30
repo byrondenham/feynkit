@@ -90,7 +90,10 @@ The `backends` extra installs two Python packages, which `uv sync` also installs
 - python-flint. `count_torus_points(backend="flint")` counts the points of $G = 0$ with it, point
   by point: slower than the default numpy backend, it is an independent cross-check of the counts.
   Installing it also makes SymPy use FLINT for its integers and polynomials everywhere, which is
-  faster; set `SYMPY_GROUND_TYPES=python` to keep SymPy's own. The test suite runs both ways.
+  faster; set `SYMPY_GROUND_TYPES=python` to keep SymPy's own. The test suite runs both ways. The
+  Landau analysis factors its polynomials with python-flint when Singular is not on the path,
+  which is far quicker than SymPy's factorisation and does not depend on the state of its random
+  generator.
 
 feynkit detects both at run time; without them the pure-Python paths, the reference, are used.
 
@@ -1649,9 +1652,11 @@ default `max_face_points` the faces miss 1 of the 32 factors of the massless pen
 hexagon's 79. It is fast, needs no Gröbner basis, and is what the test-suite checks the face
 computation against. The massless pentagon takes about half a second, the massless hexagon about
 7 s and the all-massive hexagon about 80 s. With Singular on the path the minors are factored
-there, in one run. Without it SymPy factors them, which usually takes about as long but now and
-then far longer: SymPy's factorisation draws evaluation points from a random generator the whole
-process shares, and from some of its states a single minor takes minutes.
+there, in one run. Without it python-flint factors them when it is installed, which is as quick
+and gives the same factors; the closed form then needs neither Singular nor a Gröbner basis. With
+neither, SymPy factors them, which usually takes about as long but now and then far longer:
+SymPy's factorisation draws evaluation points from a random generator the whole process shares,
+and from some of its states a single minor takes minutes.
 
 `one_loop_landau_surfaces_by_type(fi)` splits the same factors by kind of minor. Principal minors
 that leave out the bordering first row and column of the modified Cayley matrix give first-type
@@ -1696,8 +1701,11 @@ Landau determinant of Fevola, Mizera and Telen (2024, definition 3.5); see
 [Specialised kinematics](#specialised-kinematics) for what it can leave out.
 The massless pentagon and hexagon take about 3 s and 15 s. feynkit eliminates and factors with
 Singular when the `Singular` binary is on the path, except for the discriminants of edges, small
-polynomials that SymPy factors to write them, and falls back to SymPy otherwise, which is much
-slower and whose factorisation now and then takes minutes. Faces with more monomials than
+polynomials that SymPy factors to write them. Without Singular it factors with python-flint when
+that is installed, else with SymPy, whose factorisation now and then takes minutes, and it
+eliminates with SymPy's Gröbner basis. That elimination is far too slow beyond small faces:
+the massless pentagon had not finished after 300 s without Singular. The Landau analysis needs
+Singular beyond small cases; python-flint speeds up only the factorisation. Faces with more monomials than
 `max_face_points` (default 14) are skipped and listed in `la.skipped_faces`. Their factors are
 missing from `la.landau_surfaces` and `la.principal_a_determinant`, which are then incomplete
 whatever the kinematics, and the report names each skipped face. The default covers every

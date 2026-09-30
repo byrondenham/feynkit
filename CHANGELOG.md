@@ -302,6 +302,13 @@
 
 ### Changed
 
+- The Landau analysis factors its polynomials with python-flint when Singular
+  is not on the path and python-flint is installed (the `backends` extra),
+  instead of with SymPy. The factors, their forms and their order are the
+  same. Factoring is far quicker and no longer depends on the state of SymPy's
+  random generator, which made some factorisations run for minutes. The
+  analysis of faces still needs Singular beyond small cases: without it SymPy's
+  Gröbner elimination had not finished on the massless pentagon after 300 s.
 - `nickel_index`, `cnickel()` and `compute_graph_automorphisms` find the
   canonical labelling by an exact branch and bound over breadth-first
   labellings instead of a scan of all V! labellings, and give the same strings

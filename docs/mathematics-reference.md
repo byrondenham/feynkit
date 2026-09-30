@@ -1062,7 +1062,7 @@ of the integral (Klausen 2023, lemma "Landau variety contained in Sing"). feynki
 - an edge contributes the discriminant of $G_\tau$ as a univariate polynomial in the lattice
   coordinate along the edge, $\Delta(P) = \mathrm{Res}(P, P') / \mathrm{lc}(P)^{\deg P - 1}$;
 - any other face contributes the elimination ideal of $\{G_\tau = 0,\ u_i \partial_i G_\tau = 0\}$ in
-  the torus, computed with a Gröbner basis (Singular when installed, SymPy otherwise). It is taken
+  the torus, computed with a Gröbner basis (Singular when installed, SymPy otherwise), and its factors are found with Singular or, failing that, python-flint or SymPy. It is taken
   at $\mu = 1$ when every coefficient of $G$ is $\mu^{k(\alpha)}$ times a factor free of $\mu$, with
   $k$ an affine function of the exponent $\alpha$, as when the kinematics are free of $\mu$, where
   $k$ is $0$ on $U$ and $-2$ on $F$. Rescaling $\mu$ is then a torus action on the coefficients,

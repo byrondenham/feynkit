@@ -72,6 +72,8 @@ markers = [
 addopts = [
     "--strict-markers",
     "--strict-config",
+    "-n",
+    "auto",
     "-m",
     "not examples and not slow",
     "--cov=feynkit",
@@ -168,4 +170,5 @@ dev = [
     "hypothesis>=6.168",
     "PyNormaliz>=2.24; sys_platform != 'win32'",
     "python-flint>=0.9",
+    "pytest-xdist>=3.8.0",
 ]

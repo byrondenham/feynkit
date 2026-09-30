@@ -421,6 +421,8 @@
   nu = (1, 2) it holds, but the block is the one column (0, 1, 1) and the
   restriction is not a true subsystem.
 
+- The test suite runs in parallel by default through pytest-xdist, about 2.5 times
+  faster on four cores; `pytest -n 0` runs it in one process.
 - The Landau analysis factors its polynomials with python-flint when Singular
   is not on the path and python-flint is installed (the `backends` extra),
   instead of with SymPy. The factors, their forms and their order are the

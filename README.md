@@ -421,6 +421,10 @@ uv run pytest
 
 # Run them without coverage
 uv run pytest --no-cov
+
+# The tests run in parallel by default (pytest-xdist, -n auto); use -n 0 to run
+# them in one process, for example under a debugger
+uv run pytest -n 0
 ```
 
 ---

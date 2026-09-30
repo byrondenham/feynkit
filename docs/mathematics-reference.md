@@ -351,6 +351,9 @@ Rescaling the $\tilde F$ coefficients along an exponent row rescales $u$ and cha
 $\tilde U^{\nu - (L+1)D/2}$ unless that exponent vanishes, so the $\tilde F$-block Euler equations
 do not annihilate $I_\Gamma$ at generic $D$. No claim is made that its rank bounds the number of
 master integrals.
+`restrict_to_f_block` warns when $\vec\beta$ does not lie in the span of the block's columns,
+decided exactly by `feynkit.resonance.admissible` (section 4.8); with symbols, when it does not lie
+there for all their values.
 
 Accessed via `fi.schwinger_gkz` (a `CayleyGKZSystem`) with `.a_matrix`, `.beta_parameters`,
 `.euler_equations`, `.toric_ideal()` and `.restrict_to_f_block()`.
@@ -444,6 +447,56 @@ at infinity, so the count is $p - 3$ and $C = 2$.
 Accessed via `fi.torus_count()` and `feynkit.point_count.count_torus_points`, which return a
 `TorusCount`, and `feynkit.point_count.critical_point_count`, which counts the critical points of
 section 4.5 modulo two large primes as a cross-check.
+
+### 4.8 Resonant and Admissible Facets
+
+*Ref:* Britto, Grimm, Hoefnagels (2026), arXiv:2606.09978, sections 2.2, 3.1 and 8.1 and
+appendix A; Schulze and Walther (2012), sections 3 to 5. The statements these papers do not make
+are proved in `docs/design/2026-09-30-resonance.md`.
+
+**Definitions.** A face $F$ of $A$ is a set of columns for which some linear functional vanishes on
+$F$ and is positive on the other columns (Britto, Grimm and Hoefnagels, Eq. 19, p. 10). It is
+*resonant* for $\beta$ when $\beta \in \operatorname{span}_{\mathbb{C}} A_F + \mathbb{Z}A$ (Eq. 23,
+p. 12), and *admissible* when $\beta \in \operatorname{span}_{\mathbb{C}} A_F$; then $(A_F, \beta)$ is
+a true subsystem, its solutions solving $(A, \beta)$ (pp. 10-11). Both sets are closed under
+$\beta \mapsto -\beta$, so the sign of section 4.2, $\beta = (-D/2, -\nu)$ against the paper's
+$(D/2, \nu)$, does not matter.
+
+**Facets.** Let $l_F$ be the lattice form of section 5.5: zero on $F$, positive off it, with
+$l_F(\mathbb{Z}A) = \mathbb{Z}$. A facet is resonant exactly when $\beta$ lies in the span of $A$ and
+$l_F(\beta) \in \mathbb{Z}$, and admissible exactly when $\beta$ lies in the span of $A$ and
+$l_F(\beta) = 0$. The paper proves the first for $\mathbb{Z}A = \mathbb{Z}^{n+1}$ (Eq. 24,
+appendix A); the design note needs only $l_F(\mathbb{Z}A) = \mathbb{Z}$. Off the span of $A$ the
+Euler equations are inconsistent and the system has no non-zero solutions. For the Lee-Pomeransky
+$A$ the span condition is $h_0 D/2 + h \cdot \nu = 0$ for every equation $h_0 + h \cdot x = 0$ of
+the affine hull, which fixes $D$ when some $h_0 \ne 0$, as for a scaleless integral.
+
+**The classification in $\varepsilon$.** With integer powers and $D = D_0 - 2\varepsilon$, a facet
+$m \cdot x \le b$ with lattice index $g_F$ has
+$$l_F(\beta) = \frac{c_F + b\,\varepsilon}{g_F}, \qquad c_F = m \cdot \nu - \frac{b D_0}{2}.$$
+When $b = 0$ it is resonant for every $\varepsilon$ if $g_F \mid m \cdot \nu$ and for none
+otherwise. When $b \ne 0$ it is resonant exactly for
+$\varepsilon \in \varepsilon_F + (g_F/|b|)\mathbb{Z}$, with
+$\varepsilon_F = D_0/2 - m \cdot \nu / b$, and admissible exactly at $\varepsilon_F$. With
+$g_F = 1$ the facet is resonant at $\varepsilon = 0$ exactly when $b D_0/2 \in \mathbb{Z}$. An edge
+facet has $l_{F_e}(\beta) = -\nu_e$: it is resonant for every $D$ (Eq. 47, p. 17) and admissible at
+$\nu_e = 0$. $F_{\mathcal F}$ and $F_{\mathcal U}$ have $b = -L$ and $b = L + 1$ and are resonant
+when $LD/2 - \nu$, respectively $(L+1)D/2 - \nu$, is an integer, $\nu$ the sum of the powers
+(p. 46).
+
+**Reducibility.** Theorem 4.1 of Schulze and Walther (2012) makes $M_A(\beta)$ reducible when a
+resonance centre, a minimal face $F$ with $\beta \in \mathbb{Z}A + \mathbb{C}F$, is a face over which
+$A$ is not a pyramid; they assume $\mathbb{Z}A$ of full rank. So if $A$ has full rank, a facet is
+resonant and at least two columns lie off it, the system is reducible: a minimal such face inside
+the facet is a resonance centre, and $A$ is not a pyramid over it either. With one column off the
+facet, $A$ is a pyramid over it and the facet decides nothing.
+
+**The Cayley system.** The matrix $T$ of section 4.6 is unimodular and maps
+$\beta_{\text{LP}}$ to $\vec\beta$, so corresponding facets of the two systems have the same
+$l_F(\beta)$ and the same classification. The $\tilde F$ block corresponds to $F_{\mathcal U}$.
+
+Accessed via `feynkit.resonance`: `classify_facets`, `classify_configuration`, `span_epsilons`
+and `admissible`.
 
 ---
 
@@ -1517,3 +1570,7 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 38. **Batyrev (1994).** Batyrev.
     *Dual polyhedra and mirror symmetry for Calabi-Yau hypersurfaces in toric varieties.*
     J.\ Algebraic Geom.\ **3** (1994) 493-545.  arXiv:alg-geom/9310003.
+
+39. **Britto-Grimm-Hoefnagels (2026).** R. Britto, T.W. Grimm, A. Hoefnagels.
+    *Resonance and differential reduction of Feynman integrals.*
+    JHEP **09** (2026) 018.  arXiv:2606.09978.

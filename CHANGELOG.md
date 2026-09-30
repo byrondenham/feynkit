@@ -324,8 +324,19 @@
   `classify_facets` are also exported from `feynkit`. The design note
   `docs/design/2026-09-30-resonance.md` proves the criteria for any lattice
   ZA of full rank.
+- `lp_to_cayley(n_edges, loop_count)` in `feynkit.systems.cayley`, the
+  unimodular matrix T taking the Lee-Pomeransky configuration and parameter
+  to the Cayley ones; it was private to the report.
 
 ### Changed
+
+- `CayleyGKZSystem.restrict_to_f_block` warns with a `UserWarning` when the
+  Cayley parameter does not lie in the span of the F~ block's columns, the
+  condition under which the restriction is a true subsystem (Britto, Grimm and
+  Hoefnagels, arXiv:2606.09978); for a block of full rank it is
+  nu = (L+1) D/2. With D or the exponents symbols the condition must hold for
+  all their values, so the default integral warns. The report states the
+  condition itself and builds the restriction without the warning.
 
 - The Landau analysis factors its polynomials with python-flint when Singular
   is not on the path and python-flint is installed (the `backends` extra),

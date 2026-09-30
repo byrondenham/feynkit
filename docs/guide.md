@@ -939,6 +939,10 @@ reduction. In short: Britto, Grimm and Hoefnagels (arXiv:2606.09978) show that t
 system's solutions solve the full one when the parameter vector lies in the span of the face's
 columns, which here means the exponent of $\tilde U$ vanishes; away from that point, and off cut
 contours, the relation between the reduced and full systems is not established.
+`restrict_to_f_block` warns, with a `UserWarning`, when the parameter vector does not lie in that
+span; with $D$ a symbol that is unless $\nu - (L+1)D/2$ vanishes identically, so the call above
+warns. `lp_to_cayley(N, L)` in `feynkit.systems.cayley` gives the unimodular matrix $T$ with
+$T A_{\text{LP}} = A_{\text{Cayley}}$ up to column order and $T\beta_{\text{LP}} = \beta_{\text{Cayley}}$.
 
 ---
 

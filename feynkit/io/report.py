@@ -28,6 +28,7 @@ symbols.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Collection
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -49,7 +50,7 @@ from ..normal_forms.polytope_automorphisms import coefficient_preserving_indices
 from ..parametrisations.base import ParametrisationResult
 from ..point_count import TorusCount
 from ..polytope import PolytopeData, polytope_data
-from ..systems.cayley import CayleyGKZSystem
+from ..systems.cayley import CayleyGKZSystem, lp_to_cayley
 from ..systems.complete import GKZSystem
 from ..systems.monomial import extract_monomial_support
 from .latex import factor_energy_scale
@@ -582,37 +583,20 @@ def _affine_dimension(points: tuple[tuple[int, ...], ...]) -> int:
     return _exact.affine_rank(points)
 
 
-def _lp_to_cayley(n_edges: int, loop_count: int) -> sp.Matrix:
-    """The unimodular map from the Lee-Pomeransky A-matrix to the Cayley one.
-
-    The rows of the Lee-Pomeransky matrix are (1, ..., 1) and the exponents
-    alpha_1, ..., alpha_N. The Cayley matrix of the Schwinger representation
-    has the two grading rows (L + 1) 1 - sum_i alpha_i and -L 1 + sum_i
-    alpha_i, which count the U~ and F~ blocks, followed by alpha_1, ...,
-    alpha_{N-1}; the last parameter is set to one (Klausen 2023, section
-    3.4).
-    """
-    t = sp.zeros(n_edges + 1, n_edges + 1)
-    t[0, 0] = loop_count + 1
-    t[1, 0] = -loop_count
-    for j in range(1, n_edges + 1):
-        t[0, j] = -1
-        t[1, j] = 1
-    for i in range(2, n_edges + 1):
-        t[i, i - 1] = 1
-    return t
-
-
 def _columns(matrix: sp.Matrix) -> list[tuple[int, ...]]:
     return sorted(tuple(int(x) for x in matrix.col(j)) for j in range(matrix.cols))
 
 
 def _schwinger(fi: FeynmanIntegral) -> Schwinger:
     system = fi.schwinger_gkz
-    t = _lp_to_cayley(len(fi.symanzik.lp_parameters), fi.loop_count)
+    t = lp_to_cayley(len(fi.symanzik.lp_parameters), fi.loop_count)
+    # The section states the condition under which the restriction is a true subsystem.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        f_block = system.restrict_to_f_block()
     return Schwinger(
         system=system,
-        f_block=system.restrict_to_f_block(),
+        f_block=f_block,
         lp_to_cayley=t,
         columns_match=_columns(t * fi.gkz.a_matrix) == _columns(system.a_matrix),
     )

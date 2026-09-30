@@ -8,9 +8,18 @@ as sets because the paper orders them differently.
 
 from __future__ import annotations
 
+import warnings
+
+import pytest
 import sympy as sp
 
-from feynkit.systems.cayley import CayleyGKZSystem, cayley_matrix, create_cayley_system
+from feynkit import FeynmanIntegral
+from feynkit.systems.cayley import (
+    CayleyGKZSystem,
+    cayley_matrix,
+    create_cayley_system,
+    lp_to_cayley,
+)
 
 u, u1, u2, u3 = sp.symbols("u u1 u2 u3")
 s, t, m1, m2 = sp.symbols("s t m_1 m_2")
@@ -171,7 +180,8 @@ class TestReduction:
             propagator_exponents=[nu1, nu2],
             loop_count=1,
         )
-        red = sys_.restrict_to_f_block()
+        with pytest.warns(UserWarning, match="does not lie in the span"):
+            red = sys_.restrict_to_f_block()
         assert _columns(red.a_matrix) == {(1, 0), (1, 1), (1, 2)}
         expected = [D / 2 - nu1 - nu2, -nu1]
         assert [sp.simplify(a - b) for a, b in zip(red.beta_parameters, expected, strict=True)] == [
@@ -192,7 +202,8 @@ class TestReduction:
             propagator_exponents=[1, 1, 1, 1],
             loop_count=1,
         )
-        red = sys_.restrict_to_f_block()
+        with pytest.warns(UserWarning, match="does not lie in the span"):
+            red = sys_.restrict_to_f_block()
         expected = sp.Matrix(
             [[1, 1, 1, 1, 1, 1], [1, 0, 1, 0, 1, 0], [0, 1, 1, 0, 0, 1], [0, 0, 0, 1, 1, 1]]
         )
@@ -213,7 +224,8 @@ class TestToricIdeal:
         )
         from feynkit.algebra.toric import compute_toric_ideal_generators
 
-        red = sys_.restrict_to_f_block()
+        with pytest.warns(UserWarning, match="does not lie in the span"):
+            red = sys_.restrict_to_f_block()
         gens = compute_toric_ideal_generators(red.a_matrix)
         z1, z2, z3 = red.z_variables
         assert len(gens) == 1
@@ -242,3 +254,54 @@ class TestToricIdeal:
         n = len(sys_.u_support)
         assert sys_.variables[:n] == sys_.w_variables
         assert sys_.variables[n:] == sys_.z_variables
+
+
+class TestAdmissibleRestriction:
+    """The F~ block is a true subsystem where beta lies in the span of its columns.
+
+    For a block whose columns span the hyperplane y_0 = 0 that is nu = (L+1) D/2, where
+    the exponent of U~ vanishes (Britto, Grimm and Hoefnagels, arXiv:2606.09978, p. 46).
+    """
+
+    def _bubble(self, dimension: sp.Expr, powers: list[sp.Expr]) -> CayleyGKZSystem:
+        return create_cayley_system(
+            1 + u,
+            m2**2 + (s + m1**2 + m2**2) * u + m1**2 * u**2,
+            [u],
+            dimension=dimension,
+            propagator_exponents=powers,
+            loop_count=1,
+        )
+
+    def test_warns_off_the_admissible_point(self) -> None:
+        with pytest.warns(UserWarning, match=r"nu = \(L\+1\) D/2"):
+            self._bubble(sp.Integer(4), [sp.Integer(1), sp.Integer(1)]).restrict_to_f_block()
+
+    @pytest.mark.parametrize(
+        ("dimension", "powers"),
+        [
+            (sp.Integer(2), [sp.Integer(1), sp.Integer(1)]),
+            (sp.Symbol("nu_1") + sp.Symbol("nu_2"), [sp.Symbol("nu_1"), sp.Symbol("nu_2")]),
+        ],
+        ids=["D=2", "D=nu"],
+    )
+    def test_silent_where_nu_is_l_plus_one_d_over_two(
+        self, dimension: sp.Expr, powers: list[sp.Expr]
+    ) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            self._bubble(dimension, powers).restrict_to_f_block()
+
+
+class TestLpToCayley:
+    @pytest.mark.parametrize("cnickel", ["11e|e|:nn", "111e|e|:nnz", "12e|3e|3e|e|:nnnn"])
+    def test_maps_the_columns_and_the_parameter(self, cnickel: str) -> None:
+        fi = FeynmanIntegral.from_cnickel(cnickel)
+        n = len(fi.symanzik.lp_parameters)
+        t = lp_to_cayley(n, fi.loop_count)
+        # det T = 1 with the columns ordered (ones, alpha_N, alpha_1, ...), so (-1)^(N-1) here.
+        assert t.det() == (-1) ** (n - 1)
+        assert _columns(t * fi.gkz.a_matrix) == _columns(fi.schwinger_gkz.a_matrix)
+        mapped = t * sp.Matrix(fi.gkz.beta_parameters)
+        cayley = fi.schwinger_gkz.beta_parameters
+        assert [sp.expand(a - b) for a, b in zip(mapped, cayley, strict=True)] == [0] * (n + 1)

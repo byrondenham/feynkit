@@ -166,10 +166,11 @@ centre, a question about faces of every dimension.
 
 ## The Schwinger-representation system
 
-$T$, the matrix of section 4.6 of the mathematics reference taking the Lee-Pomeransky rows to the
-Cayley rows, is an integer matrix of determinant 1: in the row order (ones, $\alpha_N$,
-$\alpha_1, \ldots, \alpha_{N-1}$) it is block triangular with diagonal blocks
-$\bigl(\begin{smallmatrix} L+1 & -1 \\ -L & 1 \end{smallmatrix}\bigr)$ and the identity. It maps
+$T$ = `lp_to_cayley(N, L)`, the matrix of section 4.6 of the mathematics reference taking the
+Lee-Pomeransky rows to the Cayley rows, is an integer matrix of determinant $\pm 1$: with its
+columns in the order (ones, $\alpha_N$, $\alpha_1, \ldots, \alpha_{N-1}$) it is block triangular
+with diagonal blocks $\bigl(\begin{smallmatrix} L+1 & -1 \\ -L & 1 \end{smallmatrix}\bigr)$ and
+the identity, so its determinant is 1 there and $(-1)^{N-1}$ in feynkit's order. It maps
 the Lee-Pomeransky columns onto the Cayley columns and
 $T\beta_{\mathrm{LP}} = (\nu - (L+1)D/2,\ LD/2 - \nu,\ -\nu_1, \ldots, -\nu_{N-1})$, the Cayley
 parameter. So $T$ carries $\mathbb{Z}A$, spans, faces and pyramids across, the functionals go to

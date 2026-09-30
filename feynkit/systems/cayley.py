@@ -26,17 +26,19 @@ F~^(L D/2 - nu); the general-L form is used here.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import sympy as sp
 
 from ..algebra.toric import compute_toric_ideal_generators
 from ..core.exceptions import ValidationError
+from ..resonance import admissible
 from .complete import GKZSystem
 from .euler import create_euler_equations
 from .monomial import extract_monomial_support
 
-__all__ = ["CayleyGKZSystem", "cayley_matrix", "create_cayley_system"]
+__all__ = ["CayleyGKZSystem", "cayley_matrix", "create_cayley_system", "lp_to_cayley"]
 
 Support = list[tuple[tuple[int, ...], sp.Expr]]
 
@@ -136,8 +138,23 @@ class CayleyGKZSystem:
         the F~-block Euler equations do not annihilate the Feynman integral
         at generic D. No claim is made that its rank bounds the number of
         master integrals.
+
+        A UserWarning says so when beta does not lie in the span of the
+        block's columns, as decided by :func:`feynkit.resonance.admissible`;
+        with D or the exponents symbols, when it does not lie there for all
+        their values.
         """
         n = len(self.u_support)
+        block = range(n, n + len(self.f_support))
+        if not admissible(self.a_matrix, block, self.beta_parameters):
+            warnings.warn(
+                "beta does not lie in the span of the columns of the F~ block, the condition "
+                "under which the restriction is a true subsystem, its solutions solving the "
+                "full system (Britto, Grimm and Hoefnagels, arXiv:2606.09978, pp. 10-11); "
+                "for a block of full rank the condition is nu = (L+1) D/2",
+                UserWarning,
+                stacklevel=2,
+            )
         a_f = self.a_matrix[2:, n:]
         a_matrix = sp.Matrix.vstack(sp.Matrix([[1] * a_f.cols]), a_f)
         beta = [self.beta_parameters[1]] + list(self.beta_parameters[2:])
@@ -150,6 +167,28 @@ class CayleyGKZSystem:
             dimension=self.dimension,
             propagator_exponents=list(self.propagator_exponents[:-1]),
         )
+
+
+def lp_to_cayley(n_edges: int, loop_count: int) -> sp.Matrix:
+    """The unimodular map from the Lee-Pomeransky A-matrix to the Cayley one.
+
+    The rows of the Lee-Pomeransky matrix are (1, ..., 1) and the exponents
+    alpha_1, ..., alpha_N. The Cayley matrix of the Schwinger representation
+    has the two grading rows (L + 1) 1 - sum_i alpha_i and -L 1 + sum_i
+    alpha_i, which count the U~ and F~ blocks, followed by alpha_1, ...,
+    alpha_{N-1}; the last parameter is set to one (Klausen 2023, section
+    3.4). T is unimodular, of determinant (-1)^(N-1), and T beta_LP is the
+    Cayley parameter.
+    """
+    t = sp.zeros(n_edges + 1, n_edges + 1)
+    t[0, 0] = loop_count + 1
+    t[1, 0] = -loop_count
+    for j in range(1, n_edges + 1):
+        t[0, j] = -1
+        t[1, j] = 1
+    for i in range(2, n_edges + 1):
+        t[i, i - 1] = 1
+    return t
 
 
 def create_cayley_system(

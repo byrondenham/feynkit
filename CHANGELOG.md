@@ -387,6 +387,8 @@
   Britto, Grimm and Hoefnagels, with a massless line on the bubble and the
   sunrise. The default takes about 0.3 s on the massless double box, and
   every face 1.5 s.
+- `FeynmanIntegral.face_identification(max_codimension=2)` gives
+  `identify_faces(fi, max_codimension=...)`, cached for each argument.
 
 ### Changed
 

@@ -591,3 +591,23 @@ class TestReportD0:
         fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
         for render in (fi.to_text, fi.to_latex):
             assert "D_0 = 3" in " ".join(render(["resonance"], d0=3).split())
+
+
+class TestFaceIdentification:
+    def test_the_accessor_caches_identify_faces(self) -> None:
+        from feynkit import identify_faces
+
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nzz")
+        first = fi.face_identification()
+        assert first == identify_faces(fi)
+        assert fi.face_identification() is first
+        every = fi.face_identification(None)
+        assert every == identify_faces(fi, max_codimension=None)
+        assert len(every) > len(first)
+        assert fi.with_(dimension=sp.Integer(6)).face_identification() is not first
+
+    @pytest.mark.parametrize("bad", [-1, [2], 2.0])
+    def test_a_bad_codimension_is_rejected(self, bad: object) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        with pytest.raises(ValidationError, match="max_codimension"):
+            fi.face_identification(bad)  # type: ignore[arg-type]

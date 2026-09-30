@@ -41,6 +41,7 @@ import sympy as sp
 
 if TYPE_CHECKING:
     from .database import FeynkitDatabase
+    from .face_identification import FaceIdentification
     from .kinematics.classes import ExternalAxis, InternalAxis, KinematicClass
     from .landau import LandauAnalysis
     from .lattice_invariants import Lattice, LatticeInvariants
@@ -180,6 +181,7 @@ class FeynmanIntegral:
         self._lattice_invariants: dict[
             tuple[str, str, int | None, float | None], LatticeInvariants
         ] = {}
+        self._face_identifications: dict[int | None, tuple[FaceIdentification, ...]] = {}
 
     # -------- Read-only views of the input data --------
 
@@ -991,6 +993,41 @@ class FeynmanIntegral:
             ]
             return classify_configuration(self.schwinger_gkz.a_matrix, beta, powers, d0_value)
         raise ValidationError(f"unknown system {system!r}; choose 'gkz' or 'schwinger'")
+
+    def face_identification(
+        self, max_codimension: int | None = 2
+    ) -> tuple[FaceIdentification, ...]:
+        """
+        The graph of each face of the Newton polytope of G, up to a codimension.
+
+        Each face F is compared with a product of U, F and G of minors of the
+        graph, read off a flag of subgraphs given by the facets containing F,
+        and identified when the two agree exactly: as the whole graph, a
+        contraction Gamma/S, a product U_gamma G_{Gamma/gamma} or
+        G_gamma U_{Gamma/gamma}, or a face of the U or F layer. See
+        :func:`feynkit.face_identification.identify_faces`. The faces of a
+        Newton polytope that is not full-dimensional are not identified. The
+        result is cached for each max_codimension.
+
+        Parameters
+        ----------
+        max_codimension
+            Faces of codimension up to this, the polytope itself counting as
+            0 and its facets as 1; None for every face.
+
+        Raises
+        ------
+        ValidationError
+            If max_codimension is not None or a non-negative integer.
+        """
+        from .face_identification import check_codimension, identify_faces
+
+        check_codimension(max_codimension)
+        if max_codimension not in self._face_identifications:
+            self._face_identifications[max_codimension] = identify_faces(
+                self, max_codimension=max_codimension
+            )
+        return self._face_identifications[max_codimension]
 
     def is_unimodular_equivalent_to(self, other: FeynmanIntegral) -> PolytopeEquivalence:
         """

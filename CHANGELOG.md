@@ -349,6 +349,14 @@
 - `lp_to_cayley(n_edges, loop_count)` in `feynkit.systems.cayley`, the
   unimodular matrix T taking the Lee-Pomeransky configuration and parameter
   to the Cayley ones; it was private to the report.
+- `Graph.contract(edges)` and `Graph.delete(edges)` return the minors
+  Gamma/S and Gamma - D. Contraction identifies the two ends of each
+  propagator in S and removes it, so a set with a cycle contracts each of its
+  components to a vertex. Legs move with their vertices, and a vertex left
+  without propagators is removed with its legs. Edges keep their indices,
+  masses and exponents, and so their Schwinger parameters. A minor need not be
+  connected. The tests check deletion-contraction for U, Kirchhoff's
+  spanning-tree counts and the loop numbers of the minors.
 
 ### Changed
 

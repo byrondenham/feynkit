@@ -7,6 +7,7 @@ with methods to compute Laplacians and related polynomials.
 
 from __future__ import annotations
 
+import dataclasses
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from itertools import permutations
@@ -20,7 +21,7 @@ from .constants import (
     SCHWINGER_PARAM_PREFIX,
 )
 from .edge import Edge
-from .exceptions import GraphTopologyError
+from .exceptions import GraphTopologyError, ValidationError
 from .validation import (
     validate_edge_connectivity,
     validate_nonnegative_integer,
@@ -432,6 +433,8 @@ class Graph:
         The loop count L is given by the formula:
             L = E - V + 1
         where E is the number of internal edges and V is the number of internal vertices.
+        It is the loop number of a connected graph; a graph with c connected
+        components has E - V + c loops.
 
         Returns
         -------
@@ -446,6 +449,150 @@ class Graph:
         1
         """
         return len(self._internal_edges) - self.internal_vertices + 1
+
+    def _components(self) -> list[int]:
+        """For each vertex, counting from 0, the least vertex of its connected component."""
+        parent = list(range(self.internal_vertices))
+
+        def find(v: int) -> int:
+            while parent[v] != v:
+                parent[v] = parent[parent[v]]
+                v = parent[v]
+            return v
+
+        for e in self._internal_edges:
+            a, b = find(e.v1 - 1), find(e.v2 - 1)
+            if a != b:
+                parent[max(a, b)] = min(a, b)
+        return [find(v) for v in range(self.internal_vertices)]
+
+    # -- Minors ----------------------------------------------------------------
+
+    def contract(self, edges: Iterable[int]) -> Graph:
+        """
+        The graph with the given propagators contracted.
+
+        The two ends of each propagator in ``edges`` are identified and the
+        propagator removed, so a set containing a cycle contracts each of its
+        components to one vertex; another propagator joining two identified
+        vertices becomes a self-loop. Legs move with their vertices. A vertex
+        left without propagators is removed with its legs. Edges keep their
+        indices, masses and exponents, so the minor has the same Schwinger
+        parameters a_e; the vertices are renumbered in the order of their
+        least original vertex, and the legs keep their order.
+
+        Parameters
+        ----------
+        edges
+            Indices of internal edges.
+
+        Returns
+        -------
+        Graph
+            The minor Gamma/S for the set S of ``edges``.
+
+        Raises
+        ------
+        ValidationError
+            If an index is not that of an internal edge.
+        GraphTopologyError
+            If no propagator would remain.
+
+        Examples
+        --------
+        >>> Graph.from_cnickel("11e|e|:nn").contract([1])   # a tadpole on edge 2
+        """
+        chosen = self._minor_edges(edges)
+        parent = list(range(self.internal_vertices))
+
+        def find(v: int) -> int:
+            while parent[v] != v:
+                parent[v] = parent[parent[v]]
+                v = parent[v]
+            return v
+
+        for e in self._internal_edges:
+            if e.idx in chosen:
+                a, b = find(e.v1 - 1), find(e.v2 - 1)
+                if a != b:
+                    parent[max(a, b)] = min(a, b)
+        kept = [e for e in self._internal_edges if e.idx not in chosen]
+        return self._minor(kept, [find(v) for v in range(self.internal_vertices)])
+
+    def delete(self, edges: Iterable[int]) -> Graph:
+        """
+        The graph without the given propagators.
+
+        A vertex left without propagators is removed with its legs. Edges keep
+        their indices, masses and exponents, so the minor has the same
+        Schwinger parameters a_e; the remaining vertices and legs keep their
+        order. The result need not be connected, and :meth:`get_loop_count`
+        then counts one loop too few for each component beyond the first.
+
+        Parameters
+        ----------
+        edges
+            Indices of internal edges.
+
+        Returns
+        -------
+        Graph
+            The minor Gamma - D for the set D of ``edges``.
+
+        Raises
+        ------
+        ValidationError
+            If an index is not that of an internal edge.
+        GraphTopologyError
+            If no propagator would remain.
+
+        Examples
+        --------
+        >>> Graph.from_cnickel("12e|2e|e|:nnn").delete([3])   # a path of two propagators
+        """
+        chosen = self._minor_edges(edges)
+        kept = [e for e in self._internal_edges if e.idx not in chosen]
+        return self._minor(kept, list(range(self.internal_vertices)))
+
+    def _minor_edges(self, edges: Iterable[int]) -> frozenset[int]:
+        """The indices of ``edges``, each checked to be that of an internal edge."""
+        chosen = frozenset(edges)
+        internal = {e.idx for e in self._internal_edges}
+        unknown = sorted(chosen - internal)
+        if unknown:
+            named = ", ".join(map(str, unknown))
+            what = "is not the index of an internal edge" if len(unknown) == 1 else "are not"
+            raise ValidationError(
+                f"{named} {what}; the internal edges are {', '.join(map(str, sorted(internal)))}"
+            )
+        return chosen
+
+    def _minor(self, kept: list[Edge], image: list[int]) -> Graph:
+        """The graph on the propagators ``kept``, vertex v (from 0) sent to vertex image[v].
+
+        Vertices that no kept propagator touches are removed with their legs; the
+        others are numbered from 1 in the order of their images.
+        """
+        if not kept:
+            raise GraphTopologyError("the minor would have no propagator left")
+        touched = sorted({image[e.v1 - 1] for e in kept} | {image[e.v2 - 1] for e in kept})
+        number = {v: k for k, v in enumerate(touched, start=1)}
+        V = len(touched)
+        internal = [
+            dataclasses.replace(e, v1=number[image[e.v1 - 1]], v2=number[image[e.v2 - 1]])
+            for e in kept
+        ]
+        legs = [e for e in self._external_edges if image[e.v1 - 1] in number]
+        external = [
+            dataclasses.replace(e, v1=number[image[e.v1 - 1]], v2=V + k)
+            for k, e in enumerate(legs, start=1)
+        ]
+        return Graph(
+            internal_vertices=V,
+            external_legs=len(external),
+            edges=internal + external,
+            energy_scale=self.energy_scale,
+        )
 
     # -- Nickel / CNickel index ------------------------------------------------
 

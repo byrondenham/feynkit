@@ -9,6 +9,7 @@ modified Cayley matrix. Face-by-face computation must reproduce it.
 from __future__ import annotations
 
 import dataclasses
+import importlib.util
 import itertools
 import random
 import re
@@ -37,6 +38,7 @@ from feynkit.landau import (
     _elimination_discriminant,
     _factor_list,
     _factor_lists,
+    _factorize_flint,
     _factorize_singular,
     _images,
     _modified_cayley_matrix,
@@ -1679,6 +1681,99 @@ class TestFactorLists:
         seen = fake_singular(monkeypatch, stdout, returncode=returncode)
         assert _factor_lists([expression], {a, b}) == [expected]
         assert "factorize" in str(seen["script"])
+
+
+# Polynomials that the Landau analysis of one-loop and two-loop families factored.
+_CORPUS = (
+    "2*_c1*_c2*_c5",
+    "2*_c1*_c4*_c7",
+    "2*_c2*_c4*_c9",
+    "2*_c10*_c3*_c4",
+    "2*_c11*_c6*_c8",
+    "2*_c13*_c7*_c8",
+    "2*_c15*_c8*_c9",
+    "2*_c13*_c14*_c15",
+    "_c1*_c10 - _c4**2",
+    "-_c1 + 2*_c3 - _c8",
+    "-_c10 - _c8 + 2*_c9",
+    "_c1**2 - 2*_c1*_c2 - 2*_c1*_c6 + _c2**2 - 2*_c2*_c6 + _c6**2",
+    "_c1**2 - 2*_c1*_c4 - 2*_c1*_c8 + _c4**2 - 2*_c4*_c8 + _c8**2",
+    "_c5**2 - 2*_c5*_c6 - 2*_c5*_c8 + _c6**2 - 2*_c6*_c8 + _c8**2",
+    "_c10**2 - 2*_c10*_c6 - 2*_c10*_c7 + _c6**2 - 2*_c6*_c7 + _c7**2",
+    "_c12**2 - 2*_c12*_c2 - 2*_c12*_c5 + _c2**2 - 2*_c2*_c5 + _c5**2",
+    "_c14**2 - 2*_c14*_c3 - 2*_c14*_c5 + _c3**2 - 2*_c3*_c5 + _c5**2",
+    "_c1*_c5*_c8 - _c1*_c6**2 - _c2**2*_c8 + 2*_c2*_c3*_c6 - _c3**2*_c5",
+    "-m5**4 + 2*m5**2*m6**2 + 2*m5**2*s12 - m6**4 + 2*m6**2*s12 - s12**2",
+    "-p1**4 + 2*p1**2*p4**2 + 2*p1**2*s23 - p4**4 + 2*p4**2*s23 - s23**2",
+    "_c1*_c10*_c8 - _c1*_c9**2 - _c10*_c3**2 + 2*_c3*_c4*_c9 - _c4**2*_c8",
+    "_c11**2 - 2*_c11*_c12 - 2*_c11*_c15 + _c12**2 - 2*_c12*_c15 + _c15**2",
+    "-m1**4 + 2*m1**2*m3**2 + 2*m1**2*p2**2 - m3**4 + 2*m3**2*p2**2 - p2**4",
+    "-m5**4 + 2*m5**2*m7**2 + 2*m5**2*p3**2 - m7**4 + 2*m7**2*p3**2 - p3**4",
+    "_c1**2*_c10**2 - 2*_c1*_c10*_c2*_c7 - 2*_c1*_c10*_c3*_c6 + _c2**2*_c7**2 - 2*_c2*_c3*_c6*_c7 + _c3**2*_c6**2",
+    "_c1**2*_c13**2 - 2*_c1*_c13*_c3*_c8 - 2*_c1*_c13*_c4*_c7 + _c3**2*_c8**2 - 2*_c3*_c4*_c7*_c8 + _c4**2*_c7**2",
+    "_c10**2*_c5**2 - 2*_c10*_c5*_c6*_c9 - 2*_c10*_c5*_c7*_c8 + _c6**2*_c9**2 - 2*_c6*_c7*_c8*_c9 + _c7**2*_c8**2",
+    "_c10**2*_c9**2 - 2*_c10*_c12*_c7*_c9 - 2*_c10*_c14*_c6*_c9 + _c12**2*_c7**2 - 2*_c12*_c14*_c6*_c7 + _c14**2*_c6**2",
+    "_c13**2*_c9**2 - 2*_c13*_c14*_c8*_c9 - 2*_c13*_c15*_c7*_c9 + _c14**2*_c8**2 - 2*_c14*_c15*_c7*_c8 + _c15**2*_c7**2",
+    "-_c1*_c10 - _c1*_c8 + 2*_c1*_c9 + 2*_c10*_c3 - _c10*_c8 + _c3**2 - 2*_c3*_c4 - 2*_c3*_c9 + _c4**2 + 2*_c4*_c8 - 2*_c4*_c9 + _c9**2",
+    "-2*_c1**2*_c9 - 2*_c1*_c2*_c5 + 2*_c1*_c2*_c7 + 2*_c1*_c2*_c9 + 2*_c1*_c4*_c5 - 2*_c1*_c4*_c7 + 2*_c1*_c4*_c9 + 2*_c1*_c5*_c9 + 2*_c1*_c7*_c9 - 2*_c1*_c9**2 - 2*_c2**2*_c7 + 2*_c2*_c4*_c5 + 2*_c2*_c4*_c7 - 2*_c2*_c4*_c9 + 2*_c2*_c5*_c7 - 2*_c2*_c7**2 + 2*_c2*_c7*_c9 - 2*_c4**2*_c5 - 2*_c4*_c5**2 + 2*_c4*_c5*_c7 + 2*_c4*_c5*_c9 - 2*_c5*_c7*_c9",
+    "-2*_c1**2*_c12 - 2*_c1*_c12**2 + 2*_c1*_c12*_c2 + 2*_c1*_c12*_c5 + 2*_c1*_c12*_c6 + 2*_c1*_c12*_c9 - 2*_c1*_c2*_c6 + 2*_c1*_c2*_c9 + 2*_c1*_c5*_c6 - 2*_c1*_c5*_c9 - 2*_c12*_c2*_c5 + 2*_c12*_c2*_c9 + 2*_c12*_c5*_c6 - 2*_c12*_c6*_c9 - 2*_c2**2*_c9 + 2*_c2*_c5*_c6 + 2*_c2*_c5*_c9 + 2*_c2*_c6*_c9 - 2*_c2*_c9**2 - 2*_c5**2*_c6 - 2*_c5*_c6**2 + 2*_c5*_c6*_c9",
+    "-2*_c10**2*_c2 - 2*_c10*_c2**2 + 2*_c10*_c2*_c3 + 2*_c10*_c2*_c4 + 2*_c10*_c2*_c8 + 2*_c10*_c2*_c9 - 2*_c10*_c3*_c4 + 2*_c10*_c3*_c9 + 2*_c10*_c4*_c8 - 2*_c10*_c8*_c9 - 2*_c2*_c3*_c8 + 2*_c2*_c3*_c9 + 2*_c2*_c4*_c8 - 2*_c2*_c4*_c9 - 2*_c3**2*_c9 + 2*_c3*_c4*_c8 + 2*_c3*_c4*_c9 + 2*_c3*_c8*_c9 - 2*_c3*_c9**2 - 2*_c4**2*_c8 - 2*_c4*_c8**2 + 2*_c4*_c8*_c9",
+    "-2*_c10**2*_c8 - 2*_c10*_c11*_c13 + 2*_c10*_c11*_c7 + 2*_c10*_c11*_c8 + 2*_c10*_c13*_c6 + 2*_c10*_c13*_c8 - 2*_c10*_c6*_c7 + 2*_c10*_c6*_c8 + 2*_c10*_c7*_c8 - 2*_c10*_c8**2 - 2*_c11**2*_c7 + 2*_c11*_c13*_c6 + 2*_c11*_c13*_c7 + 2*_c11*_c6*_c7 - 2*_c11*_c6*_c8 - 2*_c11*_c7**2 + 2*_c11*_c7*_c8 - 2*_c13**2*_c6 - 2*_c13*_c6**2 + 2*_c13*_c6*_c7 + 2*_c13*_c6*_c8 - 2*_c13*_c7*_c8",
+    "-2*_c13**2*_c5 - 2*_c13*_c14*_c15 + 2*_c13*_c14*_c4 + 2*_c13*_c14*_c5 + 2*_c13*_c15*_c3 + 2*_c13*_c15*_c5 - 2*_c13*_c3*_c4 + 2*_c13*_c3*_c5 + 2*_c13*_c4*_c5 - 2*_c13*_c5**2 - 2*_c14**2*_c4 + 2*_c14*_c15*_c3 + 2*_c14*_c15*_c4 + 2*_c14*_c3*_c4 - 2*_c14*_c3*_c5 - 2*_c14*_c4**2 + 2*_c14*_c4*_c5 - 2*_c15**2*_c3 - 2*_c15*_c3**2 + 2*_c15*_c3*_c4 + 2*_c15*_c3*_c5 - 2*_c15*_c4*_c5",
+    "-m1**4*s12 + m1**2*m2**2*p1**2 - m1**2*m2**2*p2**2 + m1**2*m2**2*s12 - m1**2*m4**2*p1**2 + m1**2*m4**2*p2**2 + m1**2*m4**2*s12 + m1**2*p1**2*s12 + m1**2*p2**2*s12 - m1**2*s12**2 - m2**4*p1**2 + m2**2*m4**2*p1**2 + m2**2*m4**2*p2**2 - m2**2*m4**2*s12 - m2**2*p1**4 + m2**2*p1**2*p2**2 + m2**2*p1**2*s12 - m4**4*p2**2 + m4**2*p1**2*p2**2 - m4**2*p2**4 + m4**2*p2**2*s12 - p1**2*p2**2*s12",
+    "-2*_c10**2*_c15 - 2*_c10*_c11*_c13 + 2*_c10*_c11*_c14 + 2*_c10*_c11*_c15 + 2*_c10*_c12*_c13 - 2*_c10*_c12*_c14 + 2*_c10*_c12*_c15 + 2*_c10*_c13*_c15 + 2*_c10*_c14*_c15 - 2*_c10*_c15**2 - 2*_c11**2*_c14 + 2*_c11*_c12*_c13 + 2*_c11*_c12*_c14 - 2*_c11*_c12*_c15 + 2*_c11*_c13*_c14 - 2*_c11*_c14**2 + 2*_c11*_c14*_c15 - 2*_c12**2*_c13 - 2*_c12*_c13**2 + 2*_c12*_c13*_c14 + 2*_c12*_c13*_c15 - 2*_c13*_c14*_c15",
+    "-2*m1**4*s12 + 2*m1**2*m2**2*p1**2 - 2*m1**2*m2**2*p2**2 + 2*m1**2*m2**2*s12 - 2*m1**2*m4**2*p1**2 + 2*m1**2*m4**2*p2**2 + 2*m1**2*m4**2*s12 + 2*m1**2*p1**2*s12 + 2*m1**2*p2**2*s12 - 2*m1**2*s12**2 - 2*m2**4*p1**2 + 2*m2**2*m4**2*p1**2 + 2*m2**2*m4**2*p2**2 - 2*m2**2*m4**2*s12 - 2*m2**2*p1**4 + 2*m2**2*p1**2*p2**2 + 2*m2**2*p1**2*s12 - 2*m4**4*p2**2 + 2*m4**2*p1**2*p2**2 - 2*m4**2*p2**4 + 2*m4**2*p2**2*s12 - 2*p1**2*p2**2*s12",
+)
+
+
+requires_flint = pytest.mark.skipif(
+    importlib.util.find_spec("flint") is None, reason="python-flint not installed"
+)
+
+
+@requires_flint
+class TestFlintFactorLists:
+    """python-flint factors what SymPy would, in the same form and order, when Singular is
+    absent."""
+
+    def test_the_factors_are_sympys(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
+        expressions = [sp.sympify(text) for text in _CORPUS]
+        symbols = set().union(*(e.free_symbols for e in expressions))
+        expected = [_factor_list(e, symbols) for e in expressions]
+        assert any(len(factors) > 1 for factors in expected)
+
+        def fail(*args: object) -> list[sp.Expr]:
+            raise AssertionError("factored by SymPy")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(landau_module, "_factor_list", fail)
+            assert _factor_lists(expressions, symbols) == expected
+        polys = [sp.Poly(e) for e in expressions]
+        assert _factorize_flint(polys) == {p: p.factor_list()[1] for p in polys}
+
+    def test_rational_coefficients_and_repeated_factors(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
+        a, b, c = sp.symbols("a b c")
+        expression = sp.expand((a - 2 * b) ** 2 * (a * c + b) * (b**2 - c) / 6)
+        assert _factor_lists([expression], {a, b, c}) == [_factor_list(expression, {a, b, c})]
+
+    def test_a_polynomial_that_is_not_integral_goes_to_sympy(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
+        a, b = sp.symbols("a b")
+        expression = sp.expand((a - sp.sqrt(2) * b) * (a + sp.sqrt(2) * b))
+        assert _factor_lists([expression], {a, b}) == [_factor_list(expression, {a, b})]
+
+    def test_a_failure_leaves_it_to_sympy(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
+        monkeypatch.setattr(landau_module, "_factorize_flint", lambda polys: None)
+        a, b = sp.symbols("a b")
+        expression = sp.expand((a - b) * (a + 2 * b))
+        assert _factor_lists([expression], {a, b}) == [_factor_list(expression, {a, b})]
 
 
 class TestFaceLimit:

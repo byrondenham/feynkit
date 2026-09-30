@@ -79,6 +79,7 @@ from __future__ import annotations
 
 import dataclasses
 import functools
+import importlib.util
 import numbers
 import random
 import re
@@ -740,9 +741,71 @@ def _factorize_singular(
     return out
 
 
+def _flint_available() -> bool:
+    """Whether python-flint can be imported; the analogue of :func:`_singular_binary`."""
+    return importlib.util.find_spec("flint") is not None
+
+
+def _factorize_flint(polys: list[sp.Poly]) -> dict[sp.Poly, list[tuple[sp.Poly, int]]] | None:
+    """Poly.factor_list without the constant, for each polynomial, by python-flint.
+
+    Each factor is written as :func:`_factorize_singular` writes it: in the polynomial's
+    generators and domain, primitive with a positive leading coefficient, and in SymPy's
+    order. The polynomials must be over the integers or the rationals. A polynomial whose
+    factors do not multiply back to it up to a constant is left out of the result, and so
+    is every polynomial when python-flint cannot be used; None if it cannot.
+    """
+    try:
+        from flint import fmpz_mpoly, fmpz_mpoly_ctx
+    except ImportError:
+        return None
+    out: dict[sp.Poly, list[tuple[sp.Poly, int]]] = {}
+    for poly in polys:
+        if poly.domain not in (sp.ZZ, sp.QQ):
+            continue
+        zeros = (0,) * len(poly.gens)
+        try:
+            ctx = fmpz_mpoly_ctx.get(tuple(f"x{k}" for k in range(len(poly.gens))), "lex")
+            _, integral = poly.clear_denoms(convert=True)
+            _, integral_factors = fmpz_mpoly(
+                {powers: int(c) for powers, c in integral.terms()}, ctx
+            ).factor()
+        except (ArithmeticError, TypeError, ValueError):
+            continue
+        factors: dict[sp.Poly, int] = {}
+        for factor, multiplicity in integral_factors:
+            terms = factor.to_dict()
+            if list(terms) == [zeros]:
+                continue
+            piece = sp.Poly.from_dict(
+                {powers: int(c) for powers, c in terms.items()}, *poly.gens, domain=sp.ZZ
+            )
+            _, piece = piece.primitive()
+            piece = (-piece if piece.LC() < 0 else piece).set_domain(poly.domain)
+            factors[piece] = factors.get(piece, 0) + int(multiplicity)
+        product = sp.Poly(1, *poly.gens, domain=sp.QQ)
+        for piece, k in factors.items():
+            product *= piece.set_domain(sp.QQ) ** k
+        if product.monic() != poly.set_domain(sp.QQ).monic():
+            continue
+        out[poly] = sorted(factors.items(), key=_factor_order)
+    return out
+
+
+def _factorize(
+    polys: list[sp.Poly], binary: str | None
+) -> dict[sp.Poly, list[tuple[sp.Poly, int]]]:
+    """The factorisation of as many of the polynomials as Singular, else python-flint, gives;
+    the rest are left to SymPy."""
+    factored = _factorize_singular(polys, binary) if binary is not None and polys else None
+    if factored is None and polys and _flint_available():
+        factored = _factorize_flint(polys)
+    return factored or {}
+
+
 def _factor_lists(exprs: list[sp.Expr], kinematic_syms: set[sp.Symbol]) -> list[list[sp.Expr]]:
     """:func:`_factor_list` of each expression, factored by Singular in one run when it is
-    installed.
+    installed, else by python-flint when that is.
 
     SymPy factors a multivariate polynomial by Wang's algorithm, which draws
     evaluation points from a generator the whole process shares. Its time
@@ -754,23 +817,21 @@ def _factor_lists(exprs: list[sp.Expr], kinematic_syms: set[sp.Symbol]) -> list[
     factors are written and ordered as sp.factor_list writes and orders
     them, so the result is the same either way. An expression that is not a
     polynomial over the integers or the rationals goes to SymPy, and so does
-    every expression when Singular fails. An element of a polynomial ring
+    every expression that neither Singular nor python-flint factors. An element of a polynomial ring
     over the rationals, whose symbols are in SymPy's order, stands for its
     expression.
     """
     binary = _singular_binary()
     plans = [
         _ring_bases(expr) if isinstance(expr, PolyElement) else _factor_bases(expr)
-        for expr in (exprs if binary is not None else [])
+        for expr in (exprs if binary is not None or _flint_available() else [])
     ]
     distinct = list(dict.fromkeys(poly for plan in plans if plan for poly, _ in plan))
-    factored = _factorize_singular(distinct, binary) if binary is not None and distinct else {}
-    if factored is None:
-        plans, factored = [], {}
+    factored = _factorize(distinct, binary)
     result: list[list[sp.Expr]] = []
     for k, expr in enumerate(exprs):
         plan = plans[k] if plans else None
-        if plan is None:
+        if plan is None or any(base not in factored for base, _ in plan):
             if isinstance(expr, PolyElement):
                 expr = expr.as_expr()
             result.append(_factor_list(expr, kinematic_syms))
@@ -961,19 +1022,15 @@ def _elimination_discriminant(
     # _factor_list normalises those of the other faces.
     order = sp.Poly(sp.Add(*kin)).gens
     common = _gcd(eliminated).reorder(*order)
-    factored = None
-    if binary is not None and not common.is_ground:
-        factored = _factorize_singular([common], binary)
-    pairs = factored[common] if factored is not None else common.factor_list()[1]
+    factored = _factorize([common], binary) if not common.is_ground else {}
+    pairs = factored[common] if common in factored else common.factor_list()[1]
     factors: dict[sp.Expr, None] = {}
     if back:
         images = [sp.expand(fac.as_expr().xreplace(back)) for fac, _exp in pairs]
         if not squared:
             pieces_of = [[_normalised(image)] for image in images]
-        elif binary is not None:
-            pieces_of = _factor_lists(images, kinematic_syms)
         else:
-            pieces_of = [_factor_list(image, kinematic_syms) for image in images]
+            pieces_of = _factor_lists(images, kinematic_syms)
         for pieces in pieces_of:
             for piece in pieces:
                 factors.setdefault(piece, None)

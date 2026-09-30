@@ -44,6 +44,10 @@ from ._report_shared import (
     not_computed,
     primes_left_out,
     render_sections,
+    resonance_forms,
+    resonance_paragraphs,
+    resonance_rows,
+    resonance_windows,
     signed_terms,
     skipped_faces,
     split_g,
@@ -58,6 +62,7 @@ from .report import (
     Landau,
     Polytope,
     Representations,
+    Resonance,
     Schwinger,
     Symmetries,
 )
@@ -785,6 +790,49 @@ def _scaleless(report: AnalysisReport, doc: _Document) -> str:
     )
 
 
+def _longtable(spec: str, header: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
+    """A longtable with booktabs rules; header None for a table without one."""
+    head = ["\\toprule", " & ".join(header) + " \\\\", "\\midrule"] if header else ["\\toprule"]
+    return "\n".join(
+        [
+            f"\\begin{{longtable}}{{{spec}}}",
+            *head,
+            "\\endhead",
+            "\\bottomrule",
+            "\\endlastfoot",
+            *(" & ".join(row) + " \\\\" for row in rows),
+            "\\end{longtable}",
+        ]
+    )
+
+
+def _resonance(report: AnalysisReport, section: Resonance, doc: _Document) -> str:
+    paragraphs, classes, window = resonance_paragraphs(section, doc.cite, latex=True)
+    parts = list(paragraphs)
+    if not section.facets:
+        return "\n\n".join([*parts, "$P$ is a point and has no facets."])
+    forms = [
+        (f"$F_{{{k}}}$", f"${to_latex(lhs)} \\le {b}$", _math(form))
+        for k, lhs, b, form in resonance_forms(report, section)
+    ]
+    rows = [
+        (f"$F_{{{k}}}$", *row) for k, row in enumerate(resonance_rows(section, latex=True), start=1)
+    ]
+    parts += [
+        _longtable("lll", ("Facet", "Inequality", "$l_F(\\beta)$"), forms),
+        classes,
+        _longtable(
+            "lllll",
+            ("Facet", "Resonant for", "At $0$", "Admissible at", "Reducible"),
+            rows,
+        ),
+    ]
+    windows = resonance_windows(section, latex=True)
+    if windows:
+        parts += [window, _longtable("ll", (), [(f"$F_{{{k}}}$", v) for k, v in windows])]
+    return "\n\n".join(parts)
+
+
 def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) -> str:
     orbits = symmetries.vertex_orbits
     if report.polytope is not None:
@@ -1046,6 +1094,7 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
         polytope=lambda section: _polytope(report, section, doc),
         torus=lambda section: _torus(section, doc),
         gkz=lambda section: _gkz(section, doc),
+        resonance=lambda section: _resonance(report, section, doc),
         symmetries=lambda section: _symmetries(report, section, doc),
         landau=lambda section: _landau(section, report.conventions.energy_scale, doc),
         schwinger=lambda section: _schwinger(report, section, doc),

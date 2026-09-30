@@ -161,6 +161,7 @@ def test_every_section_present(latex: str) -> None:
         "Parametric representations",
         "Newton polytope",
         "GKZ system",
+        "Resonance",
         "Symmetries",
         "Landau surfaces",
         "Schwinger-representation system",
@@ -445,3 +446,14 @@ def test_long_factor_lists_are_split_into_displays(monkeypatch: pytest.MonkeyPat
     assert rows(_factor_lines([x[0], long, x[2]])) == [1, 3, 3]
     split = _factor_lines([x[0], x[1], long, x[2]])
     assert split.replace("\n\\end{align*}\n\\begin{align*}\n", " \\\\\n") == whole
+
+
+def test_resonance_tables(sunrise: FeynmanIntegral) -> None:
+    latex = render_latex(AnalysisReport.from_integral(sunrise, ["resonance"]))
+    body = latex.split("\\section{Resonance}")[1]
+    assert "$D = D_0 - 2\\varepsilon$ with $D_0 = 4$" in body
+    # F_U of the sunrise, x_1 + x_2 + x_3 <= 3, resonant on 1 + Z/3.
+    assert "$x_{1} + x_{2} + x_{3} \\le 3$" in body
+    assert "$1 + \\tfrac{1}{3}\\mathbb{Z}$" in body
+    assert body.count("\\begin{longtable}") == 3
+    assert "\\cite{schulze2012}" in body

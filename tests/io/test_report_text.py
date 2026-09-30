@@ -1410,3 +1410,62 @@ def test_newton_section_when_the_budget_ran_out(triangle_report: AnalysisReport)
     for document in (text, latex):
         assert "h* vector" not in document and "$h^*$ vector" not in document
         assert "hochster1972" not in document
+
+
+# --- resonance ---------------------------------------------------------------
+
+
+def _resonance_rows(text: str) -> list[list[str]]:
+    """The rows of the tables of the resonance section, split at runs of spaces."""
+    body = _section(text, "Resonance")
+    return [
+        re.split(r"\s{2,}", line.strip()) for line in body.splitlines() if line.startswith("    ")
+    ]
+
+
+def test_resonance_section_of_the_bubble() -> None:
+    report = AnalysisReport.from_integral(FeynmanIntegral.from_cnickel("11e|e|:nn"), ["resonance"])
+    text = render_text(report)
+    body = _flat(_section(text, "Resonance"))
+    assert "Let D = D_0 - 2 epsilon with D_0 = 4, and nu_e = 1 on every edge" in body
+    rows = _resonance_rows(text)
+    forms = {row[1]: row[2] for row in rows if len(row) == 3 and row[0].startswith("F_")}
+    # F_F, F_U and the two edge facets (Britto, Grimm and Hoefnagels, Eq. 68, p. 22).
+    assert forms == {
+        "-x_1 - x_2 <= -1": "D/2 - nu_1 - nu_2",
+        "x_1 + x_2 <= 2": "-D + nu_1 + nu_2",
+        "-x_1 <= 0": "-nu_1",
+        "-x_2 <= 0": "-nu_2",
+    }
+    classes = {tuple(row[1:]) for row in rows if len(row) == 5 and row[0].startswith("F_")}
+    assert ("Z", "yes", "epsilon = 0", "yes") in classes
+    assert ("1 + Z/2", "yes", "epsilon = 1", "yes") in classes
+    assert ("every epsilon", "yes", "no epsilon", "yes") in classes
+    windows = {row[1] for row in rows if len(row) == 2}
+    assert windows == {"-1, 0, 1", "-1, -1/2, 0, 1/2, 1"}
+    assert all(len(line) <= 79 for line in text.splitlines())
+    assert _prose_diff(report, _INTENDED[:2])[1] == []
+
+
+def test_resonance_section_with_integer_exponents_and_d0() -> None:
+    fi = FeynmanIntegral.from_cnickel("1111e|e|:nnnn")
+    fi = fi.with_(propagator_exponents={e: sp.Integer(1) for e in fi.propagator_exponents})
+    report = AnalysisReport.from_integral(fi, ["resonance"], d0=sp.Rational(7, 2))
+    text = render_text(report)
+    body = _flat(_section(text, "Resonance"))
+    assert "with D_0 = 7/2, and the powers nu = (1, 1, 1, 1) of the integral" in body
+    assert all(len(line) <= 79 for line in text.splitlines())
+    assert _prose_diff(report, _INTENDED[:2])[1] == []
+
+
+def test_resonance_below_full_dimension() -> None:
+    fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematics="massless_on_shell")
+    report = AnalysisReport.from_integral(fi, ["resonance"])
+    text = render_text(report)
+    body = _flat(_section(text, "Resonance"))
+    assert "Here beta lies in the span of A only at epsilon = 0." in body
+    rows = _resonance_rows(text)
+    assert {tuple(row[1:]) for row in rows if len(row) == 5 and row[0].startswith("F_")} == {
+        ("epsilon = 0", "yes", "no epsilon", "-")
+    }
+    assert _prose_diff(report, _INTENDED[:2])[1] == []

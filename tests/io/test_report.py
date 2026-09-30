@@ -29,6 +29,7 @@ from feynkit.landau import (
     one_loop_landau_surfaces_by_type,
 )
 from feynkit.polytope import polytope_data
+from feynkit.resonance import EpsilonSet, classify_facets
 from feynkit.systems.monomial import extract_monomial_support
 
 SUMMARY_LABELS = (
@@ -526,6 +527,38 @@ class TestSchwinger:
         assert schwinger.f_block.beta_parameters == [system.beta_parameters[1]] + list(
             system.beta_parameters[2:]
         )
+
+
+class TestResonance:
+    def test_the_facets_of_the_polytope_section(
+        self, bubble_report: AnalysisReport, bubble: FeynmanIntegral
+    ) -> None:
+        section = bubble_report.resonance
+        assert section is not None and bubble_report.polytope is not None
+        # The exponents are symbols, so the section takes unit powers and says so.
+        assert (section.d0, section.powers, section.unit_powers) == (4, (1, 1), True)
+        assert section.span == EpsilonSet("all")
+        assert section.facets == classify_facets(bubble_report.polytope.data, [1, 1])
+
+    def test_integer_exponents_and_d0(self, bubble: FeynmanIntegral) -> None:
+        fi = bubble.with_(propagator_exponents={e: 2 - e for e in bubble.propagator_exponents})
+        section = AnalysisReport.from_integral(fi, ["resonance"], d0=3).resonance
+        assert section is not None
+        assert (section.d0, section.powers, section.unit_powers) == (3, (1, 0), False)
+        data = polytope_data(fi.newton_polytope.points)
+        assert section.facets == classify_facets(data, [1, 0], 3)
+
+    def test_d0_must_be_exact(self, bubble: FeynmanIntegral) -> None:
+        with pytest.raises(ValidationError):
+            AnalysisReport.from_integral(bubble, ["resonance"], d0=4.0)  # type: ignore[arg-type]
+
+    def test_below_full_dimension(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematics="massless_on_shell")
+        section = AnalysisReport.from_integral(fi, ["resonance"]).resonance
+        assert section is not None
+        # D/2 = nu_1 + nu_2 = 2 at eps = 0.
+        assert section.span == EpsilonSet("point", 0)
+        assert len(section.facets) == 2
 
 
 class TestSections:

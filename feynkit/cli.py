@@ -35,17 +35,20 @@ import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 from typing import NamedTuple, NoReturn
 
 import sympy as sp
 
+from feynkit import _exact
 from feynkit.a_configuration import AConfiguration, FiniteIndexResult, finite_index_map
 from feynkit.core.constants import __version__
 from feynkit.core.exceptions import FeynkitError, ValidationError
 from feynkit.core.graph import Graph
 from feynkit.database import FeynkitDatabase
 from feynkit.integral import FeynmanIntegral
+from feynkit.io._report_shared import epsilon_set
 from feynkit.io.report import (
     DEFAULT_SECTIONS,
     LATTICE_BUDGET,
@@ -59,8 +62,9 @@ from feynkit.kinematics.classes import IMPOSABLE_CLASSES, KinematicClass
 from feynkit.landau import LandauAnalysis
 from feynkit.point_count import TorusCount
 from feynkit.polytope import polytope_data
+from feynkit.resonance import classify_facets, span_epsilons
 
-SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "symmetries")
+SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "resonance", "symmetries")
 # The seed and budget of the point counts when --seed and --torus-budget are not given.
 DEFAULT_TORUS_SEED = 0
 DEFAULT_TORUS_BUDGET = 2 * 10**9
@@ -413,6 +417,35 @@ def _print_lattice_invariants(fi: FeynmanIntegral, full: bool) -> None:
     _kv("Normal configuration", f"no  ({'; '.join(reasons)})")
 
 
+def _print_resonance(fi: FeynmanIntegral, d0: Fraction) -> None:
+    """Each facet: its inequality, l_F(beta), and where it is resonant and admissible."""
+    _sec(f"Resonance  (D = {d0} - 2 epsilon)")
+    edges = fi.graph.get_internal_edges()
+    try:
+        powers = [_exact._as_int(fi.propagator_exponents[e.idx], "") for e in edges]
+        note = ""
+    except ValidationError:
+        powers, note = [1] * len(edges), "  (the exponents are not all integers, so 1 is used)"
+    _kv("Powers nu_e", f"({', '.join(map(str, powers))}){note}")
+    data = polytope_data(fi.newton_polytope.points)
+    if not data.is_full_dimensional:
+        _kv("beta in the span of A for", epsilon_set(span_epsilons(data, powers, d0), latex=False))
+        print("  P is not full-dimensional: the facets are relative to its affine hull.")
+    x = [sp.Symbol(f"x_{e.idx}") for e in edges]
+    nu = [sp.Symbol(f"nu_{e.idx}") for e in edges]
+    for k, record in enumerate(classify_facets(data, powers, d0), start=1):
+        lhs = sp.Add(*(m * v for m, v in zip(record.facet.normal, x, strict=True)))
+        form = record.form.expression(sp.Symbol("D"), nu)
+        zero = "yes" if record.resonant_at_zero else "no"
+        reducible = "yes" if record.reducible else "not decided"
+        print(f"  F_{k:<3} {lhs} <= {record.facet.offset}    l_F(beta) = {form}")
+        print(
+            f"        resonant: {epsilon_set(record.resonant, latex=False)} (at epsilon = 0: "
+            f"{zero}); admissible: {epsilon_set(record.admissible, latex=False)}; "
+            f"reducible: {reducible}"
+        )
+
+
 def _print_symmetries(fi: FeynmanIntegral) -> None:
     _sec("Symmetries")
     cfg = AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
@@ -501,6 +534,7 @@ class ReportOptions:
     torus_seed: int = DEFAULT_TORUS_SEED
     torus_budget: int = DEFAULT_TORUS_BUDGET
     limits: bool = False
+    d0: Fraction = Fraction(4)
 
     @property
     def writes_files(self) -> bool:
@@ -527,6 +561,16 @@ def _seed(text: str) -> int:
 def _budget(text: str) -> int:
     """Parse --torus-budget, 1 or more evaluations of G."""
     return _integer(text, 1)
+
+
+def _d0(text: str) -> Fraction:
+    """Parse --d0: an integer or a fraction such as 7/2, read exactly."""
+    try:
+        return Fraction(text)
+    except (ValueError, ZeroDivisionError):
+        raise argparse.ArgumentTypeError(
+            f"expected an integer or a fraction such as 7/2; got {text!r}"
+        ) from None
 
 
 def _kinematic_class(text: str) -> KinematicClass:
@@ -662,6 +706,7 @@ def analyse_one(
                     torus_seed=options.torus_seed,
                     torus_budget=options.torus_budget,
                     limits=True if options.limits else None,
+                    d0=options.d0,
                 )
             )
         return built[0]
@@ -681,7 +726,10 @@ def analyse_one(
         for name in SECTION_FLAGS:
             if not sections or name in sections:
                 with _stage(name, verbose):
-                    _PRINTERS[name](fi)
+                    if name == "resonance":
+                        _print_resonance(fi, options.d0)
+                    else:
+                        _PRINTERS[name](fi)
         if "torus" in sections:
             with _stage("torus", verbose):
                 count = None
@@ -885,7 +933,7 @@ def _compare(
 # Options that take a value. The bare form needs them to tell a value from a
 # second diagram: fk "12e|2e|e|" --db x.db names one diagram, not two.
 _VALUE_OPTIONS = frozenset(
-    {"--db", "--latex", "--text", "--sections", "--seed", "--torus-budget", "--kinematics"}
+    {"--db", "--latex", "--text", "--sections", "--seed", "--torus-budget", "--kinematics", "--d0"}
 )
 
 _MAIN_EPILOG = """\
@@ -1010,6 +1058,24 @@ def _build_parser() -> _Parsers:
         help=(
             "Newton polytope: vertices, whether scaleless, normalised volume, Smith invariants, "
             "lattice invariants"
+        ),
+    )
+    shown.add_argument(
+        "-r",
+        "--resonance",
+        action="store_true",
+        help=(
+            "where each facet of the Newton polytope is resonant or admissible as "
+            "D = D_0 - 2 epsilon varies, and whether it makes the GKZ system reducible"
+        ),
+    )
+    shown.add_argument(
+        "--d0",
+        type=_d0,
+        metavar="VALUE",
+        help=(
+            "D_0 of --resonance and of the report's resonance section, an integer or a "
+            "fraction such as 7/2; 4 by default"
         ),
     )
     shown.add_argument(
@@ -1188,6 +1254,10 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         parser.error("--sections chooses report sections; add --latex, --text or --json")
     if args.limits and not (args.latex or args.text or args.json):
         parser.error("--limits changes the report; add --latex, --text or --json")
+    flags = _section_flags(args)
+    printed = not flags or "resonance" in flags
+    if args.d0 is not None and not (printed or args.latex or args.text or args.json):
+        parser.error("--d0 applies to the resonance section; add -r, --latex, --text or --json")
     counts = args.torus_count or (args.sections is not None and "torus" in args.sections)
     for option, value in (("--seed", args.seed), ("--torus-budget", args.torus_budget)):
         if value is not None and not counts:
@@ -1206,6 +1276,7 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         torus_seed=DEFAULT_TORUS_SEED if args.seed is None else args.seed,
         torus_budget=DEFAULT_TORUS_BUDGET if args.torus_budget is None else args.torus_budget,
         limits=args.limits,
+        d0=Fraction(4) if args.d0 is None else args.d0,
     )
 
 

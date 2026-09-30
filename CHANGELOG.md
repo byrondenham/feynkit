@@ -324,6 +324,17 @@
   `classify_facets` are also exported from `feynkit`. The design note
   `docs/design/2026-09-30-resonance.md` proves the criteria for any lattice
   ZA of full rank.
+- The report has a `resonance` section, built by default after the GKZ
+  system: with D = D_0 - 2 eps and the integral's powers, or 1 on every edge
+  when they are not all integers, one row per facet with its inequality and
+  l_F(beta), where it is resonant, whether at eps = 0, where it is admissible
+  and whether it makes the system reducible, then the resonant values with
+  -1 <= eps <= 1, and below full dimension where beta lies in the span of A.
+  `AnalysisReport.from_integral` takes `d0`, 4 by default, and the report
+  holds the section as `AnalysisReport.resonance`, a `Resonance`, or None. It
+  cites Schulze and Walther (arXiv:1009.3569). `fk analyse -r` prints the
+  same classification on the terminal, and `--d0 VALUE`, an integer or a
+  fraction such as 7/2, sets D_0 for both.
 - `lp_to_cayley(n_edges, loop_count)` in `feynkit.systems.cayley`, the
   unimodular matrix T taking the Lee-Pomeransky configuration and parameter
   to the Cayley ones; it was private to the report.

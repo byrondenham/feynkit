@@ -294,3 +294,38 @@ def test_help_descriptions_fit_in_80_columns() -> None:
     for parser in _build_parser():
         assert parser.description is not None
         assert max(len(line) for line in parser.description.splitlines()) < 80
+
+
+def test_resonance_prints_each_facet(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyse", "11e|e|:nn", "-r", "--no-db"])
+    out = capsys.readouterr().out
+    assert "Resonance" in out and "D = 4 - 2 epsilon" in out
+    assert "Euler equations" not in out
+    # F_U of the bubble: resonant on 1 + Z/2, admissible at eps = 1.
+    assert "x_1 + x_2 <= 2" in out
+    assert (
+        "resonant: 1 + Z/2 (at epsilon = 0: yes); admissible: epsilon = 1; reducible: yes"
+        in " ".join(out.split())
+    )
+
+
+def test_d0_sets_the_dimension(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    text = tmp_path / "r.txt"
+    main(["analyse", "11e|e|:nn", "-r", "--d0", "7/2", "--text", str(text), "--no-db"])
+    assert "D = 7/2 - 2 epsilon" in capsys.readouterr().out
+    assert "D_0 = 7/2" in " ".join(text.read_text().split())
+
+
+@pytest.mark.parametrize("value", ["four", "4.5.1", "1/0"])
+def test_d0_must_be_a_number(value: str, capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(["analyse", "11e|e|:nn", "-r", "--d0", value, "--no-db"])
+    assert excinfo.value.code == 2
+    assert "--d0" in capsys.readouterr().err
+
+
+def test_d0_needs_the_resonance_section(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(["analyse", "11e|e|:nn", "-g", "--d0", "3", "--no-db"])
+    assert excinfo.value.code == 2
+    assert "--d0" in capsys.readouterr().err

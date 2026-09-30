@@ -105,8 +105,9 @@ After `pip install -e .` or `uv sync`, the `fk` command is on the PATH (run it a
 under uv). It has two subcommands:
 
 ```
-fk analyse CNICKEL [--kinematics CLASS] [section flags] [--latex FILE] [--text FILE] [--json]
-           [--sections NAMES] [--limits] [--seed N] [--torus-budget N] [--db PATH | --no-db] [--verbose]
+fk analyse CNICKEL [--kinematics CLASS] [section flags] [--d0 VALUE] [--latex FILE] [--text FILE]
+           [--json] [--sections NAMES] [--limits] [--seed N] [--torus-budget N] [--db PATH | --no-db]
+           [--verbose]
 fk compare A B [--db PATH | --no-db] [--verbose]
 fk --version
 ```
@@ -128,6 +129,7 @@ fk analyse "12e|2e|e|:zzz" -g -n        # GKZ system and Newton polytope only
 fk analyse "111e|e|:zzz"                # massless banana with three propagators
 fk analyse "12e|2e|e|"                  # bare topology: every propagator massless
 fk analyse "12e|2e|e|:nzz" -S           # symmetries of the one-mass triangle
+fk analyse "11e|e|:nn" -r --d0 3        # resonant facets of the massive bubble, D = 3 - 2 eps
 fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive bubble
 ```
 
@@ -138,8 +140,14 @@ fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive 
 | `-g` | `--gkz` | GKZ A-matrix and Euler equations |
 | `-t` | `--toric` | Toric ideal of the A-matrix |
 | `-n` | `--newton` | Newton polytope: vertices, whether the integral is scaleless, normalised volume (the holonomic rank for generic $\beta$), Smith invariants, lattice invariants and whether $\mathbb{N}A$ is normal |
+| `-r` | `--resonance` | For each facet of the Newton polytope, its inequality, $l_F(\beta)$, where it is resonant and admissible as $D = D_0 - 2\varepsilon$ varies, and whether it makes the GKZ system reducible (see [Resonant and admissible facets](#resonant-and-admissible-facets)) |
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
 | | `--torus-count` | Candidate Euler characteristic from finite-field point counts; left out when no flag is given |
+
+`--d0 VALUE` sets $D_0$, an integer or a fraction such as `7/2`, for `-r` and for the report's
+`resonance` section; it is 4 by default. The powers are the integral's when they are integers, and
+1 on every edge otherwise, which is what `fk` builds. `--d0` needs `-r`, no section flag at all,
+or a report.
 
 The graph header (CNickel string, Nickel index, loop count, propagators, external legs,
 kinematic class) is printed whatever the section flags, and so is the database record unless
@@ -205,7 +213,7 @@ the options are given, and checks that it can write each file before the analysi
 |--------|--------|
 | `--latex FILE` | write the report as a LaTeX document |
 | `--text FILE` | write the report as plain text |
-| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `symmetries`, `landau` and `schwinger`; all but `torus` by default |
+| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `symmetries`, `landau` and `schwinger`; all but `torus` by default |
 | `--limits` | look for limit surfaces in the Landau section, which analyses the parent family as well (see [Specialised kinematics](#specialised-kinematics)) |
 | `--json` | print a JSON summary of the report on stdout, and nothing else |
 
@@ -1094,6 +1102,74 @@ $g_F = 2$. A Smith invariant above 1 is necessary for this but not sufficient: t
 $(0,0), (4,0), (2,2), (2,1)$ all have $g_F = 1$ although the differences of those points span a
 sublattice of index 2. The convergence inequalities above are unchanged by positive scaling and
 keep using $(m, b)$.
+
+### Resonant and admissible facets
+
+A face $F$ of the A-matrix, a set of its columns $A_F$, is resonant for $\beta$ when $\beta$ lies
+in $\operatorname{span}_{\mathbb{C}} A_F + \mathbb{Z}A$, and admissible when it lies in
+$\operatorname{span}_{\mathbb{C}} A_F$ itself; the face system $(A_F, \beta)$ is then a true
+subsystem, its solutions solving the full system (Britto, Grimm and Hoefnagels,
+arXiv:2606.09978, pp. 10-12). For a facet the lattice form decides both: the facet is resonant
+exactly when $l_F(\beta) \in \mathbb{Z}$ and admissible exactly when $l_F(\beta) = 0$ (section 4.8
+of the mathematics reference). With integer powers and $D = D_0 - 2\varepsilon$, `classify_facets`
+says at which $\varepsilon$ this happens:
+
+```python
+from feynkit import FeynmanIntegral, classify_facets, polytope_data
+
+fi = FeynmanIntegral.from_cnickel("11e|e|:nn")        # massive bubble
+data = polytope_data(fi.newton_polytope.points)
+for r in classify_facets(data, [1, 1]):               # nu = (1, 1), D_0 = 4
+    print(r.facet.normal, r.facet.offset, r.kind, r.resonant.offset, r.resonant.period)
+# (-1, -1) -1 progression 0 1       F_F: resonant for eps in Z, admissible at eps = 0
+# (0, -1) 0 all None None           the edge facet of u_2
+# (-1, 0) 0 all None None           the edge facet of u_1
+# (1, 1) 2 progression 1 1/2        F_U: eps in 1 + Z/2, admissible at eps = 1
+print([r.resonant_at_zero for r in classify_facets(data, [1, 1], d0=3)])
+# [False, True, True, True]: at D_0 = 3, F_F (b = -1) is not resonant at eps = 0
+print(*classify_facets(data, [1, 1])[3].resonant.window(-1, 1))
+# -1 -1/2 0 1/2 1
+```
+
+These are the four facets Britto, Grimm and Hoefnagels give for the bubble (Eqs. 67-68, p. 22):
+the edge facets are resonant for every $D$, $F_{\mathcal F}$ when $D/2$ is an integer and
+$F_{\mathcal U}$ when $D$ is. Each `FacetResonance` holds:
+
+| Attribute | Description |
+|-----------|-------------|
+| `facet` | The `Facet`; its `point_indices` are the columns on it |
+| `functional` | $l_F$, zero on the facet, positive off it, mapping $\mathbb{Z}A$ onto $\mathbb{Z}$; `facet.lattice_form` for `classify_facets` |
+| `form` | $l_F(\beta)$ as a `ParameterForm` in $D$ and the $\nu_e$; `form.expression(D, nus)` gives it in SymPy |
+| `resonant` | The $\varepsilon$ at which the facet is resonant, an `EpsilonSet`: `"all"`, `"progression"` (`offset` + `period` $\mathbb{Z}$), `"point"` or `"never"` |
+| `admissible` | The $\varepsilon$ at which it is admissible: `"all"`, `"point"` or `"never"`; for a progression, the point at its offset $\varepsilon_F$ |
+| `columns_off` | The number of columns off the facet; `pyramid` is whether it is 1 |
+| `reducible` | True when the GKZ system is reducible wherever the facet is resonant (Schulze and Walther, arXiv:1009.3569, Theorem 4.1), None when the facet does not decide it |
+
+`resonant_at_zero`, `kind` and `lattice_index` are shorthands. A facet with $b = 0$ is resonant for
+every $\varepsilon$ or for none, and one with $b \ne 0$ on the progression
+$\varepsilon_F + (g_F/|b|)\mathbb{Z}$, $\varepsilon_F = D_0/2 - m \cdot \nu / b$. The "never" class
+needs $g_F > 1$: on $(0,0), (2,0), (0,1)$ with $\nu = (1, 0)$ the facet $x \ge 0$ is never resonant.
+`reducible` is True only for a resonant facet of a full-dimensional polytope with at least two
+columns off it; it is never False, since irreducibility is a question about faces of every
+dimension. Below full dimension $\beta$ must first lie in the span of $A$, and
+`span_epsilons(data, nu, d0)` says for which $\varepsilon$ it does: for every value, for one, or for
+none. The facets' sets are then intersected with it.
+
+`classify_configuration(a_matrix, beta, nu, d0)` does the same for any homogeneous configuration,
+computing the facets from the columns, with $\beta$ one `ParameterForm` per row
+(`lee_pomeransky_beta(n)` is the Lee-Pomeransky one), and `admissible(a_matrix, face, beta)` tests
+any set of columns, with numbers or SymPy expressions in $\beta$:
+
+```python
+from feynkit.resonance import admissible
+
+a, beta = fi.gkz.a_matrix, fi.gkz.beta_parameters   # beta = (-D/2, -nu_1, -nu_2), symbolic
+print(admissible(a, range(a.cols), beta))            # True: every column
+print(admissible(a, [0], beta))                      # False: not for all D and nu
+```
+
+The analysis report has a `resonance` section built from the same data, and `fk analyse -r` prints
+it on the terminal, both with `--d0` for $D_0$.
 
 ### Lattice invariants
 
@@ -2316,8 +2392,8 @@ Both methods take the same arguments:
 | `max_face_points` | 14 | Faces of the Newton polytope with more monomials are left out of the Landau analysis and listed as skipped |
 
 The section names, in `feynkit.io.report.SECTION_NAMES`, are `identity`, `conventions`,
-`polynomials`, `representations`, `polytope`, `torus`, `gkz`, `symmetries`, `landau` and
-`schwinger`. The first three are always built. The rest are built only when named, so a survey can
+`polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `symmetries`, `landau`
+and `schwinger`. The first three are always built. The rest are built only when named, so a survey can
 ask for a short report without the automorphism and Landau computations. Without `sections` every
 section but `torus` is built, the tuple `DEFAULT_SECTIONS`. The point counts of `torus` take seconds
 for five propagators, and seven exceed the default budget (see
@@ -2359,7 +2435,7 @@ latex = render_latex(report)
 text = render_text(report, title="Massive triangle")
 ```
 
-The document has up to thirteen parts:
+The document has up to fourteen parts:
 
 1. The title; no author, date or abstract.
 2. A summary table: loops, propagators, external legs, the monomial counts of $F$ and $G$,
@@ -2386,12 +2462,19 @@ The document has up to thirteen parts:
    count, or why the counts give no candidate.
 9. The GKZ system: $A$, $\beta = (-D/2, -\nu_1, \ldots, -\nu_N)$, one Euler operator per row of $A$
    and the toric generators.
-10. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
+10. Resonance: with $D = D_0 - 2\varepsilon$, $D_0$ = `d0`, and the integral's powers when they
+    are integers, 1 on every edge otherwise, one row per facet of the Newton polytope with its
+    inequality and $l_F(\beta)$, where it is resonant, whether at $\varepsilon = 0$, where it is
+    admissible and whether it makes the system reducible, then the resonant values with
+    $-1 \le \varepsilon \le 1$ (see
+    [Resonant and admissible facets](#resonant-and-admissible-facets)). Below full dimension it
+    also says where $\beta$ lies in the span of $A$.
+11. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
     coefficient-preserving subgroup, and the symmetry pairs with the identity each gives. For a
     Newton polytope that is not full-dimensional, $\mathrm{Aut}(P)$ is its group in its affine
     hull, and the section counts the symmetry pairs and says why their identities hold only
     trivially.
-11. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
+12. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
     into first and second type for one-loop graphs, with the skipped faces, each named by its
     dimension and number of points and marked when it ran past the time limit, and the
     caveats. With `limits=True`, at kinematics that specialise the generic ones, the limit surfaces
@@ -2399,11 +2482,11 @@ The document has up to thirteen parts:
     labelled as confirmed by a drop of the count of critical points at random points, with the
     counts, then the candidates with the reason each is not confirmed, and a note when the
     analysis of the generic family skipped faces, so that the limit surfaces may be incomplete.
-12. The Schwinger-representation system (section 10), its equivalence to the Lee-Pomeransky
+13. The Schwinger-representation system (section 10), its equivalence to the Lee-Pomeransky
     configuration and its reduction to the $\tilde F$ block.
-13. References, the works cited in order of first citation.
+14. References, the works cited in order of first citation.
 
-Parts 6 to 12 appear when their sections are built. When the `polytope` section is built and the
+Parts 6 to 13 appear when their sections are built. When the `polytope` section is built and the
 polytope is full-dimensional, the document also states what feynkit does not compute: the
 holonomic rank at the physical point, the Euler characteristic that counts the master integrals,
 series solutions, a Pfaffian system and the restriction of the GKZ system to physical kinematics.
@@ -2641,3 +2724,9 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
 11. Batyrev (1994). Dual polyhedra and mirror symmetry for Calabi-Yau hypersurfaces in toric
     varieties. *J. Algebraic Geom.* **3**, 493-545.
     [arXiv:alg-geom/9310003](https://arxiv.org/abs/alg-geom/9310003)
+
+12. Britto, R., Grimm, T.W. and Hoefnagels, A. (2026). Resonance and differential reduction of
+    Feynman integrals. *JHEP* **09**, 018. [arXiv:2606.09978](https://arxiv.org/abs/2606.09978)
+
+13. Schulze, M. and Walther, U. (2012). Resonance equals reducibility for A-hypergeometric
+    systems. *Algebra Number Theory* **6**, 527. [arXiv:1009.3569](https://arxiv.org/abs/1009.3569)

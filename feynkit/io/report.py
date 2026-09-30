@@ -31,6 +31,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Collection
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import TYPE_CHECKING
 
 import sympy as sp
@@ -50,6 +51,7 @@ from ..normal_forms.polytope_automorphisms import coefficient_preserving_indices
 from ..parametrisations.base import ParametrisationResult
 from ..point_count import TorusCount
 from ..polytope import PolytopeData, polytope_data
+from ..resonance import EpsilonSet, FacetResonance, _rational, classify_facets, span_epsilons
 from ..systems.cayley import CayleyGKZSystem, lp_to_cayley
 from ..systems.complete import GKZSystem
 from ..systems.monomial import extract_monomial_support
@@ -62,6 +64,7 @@ __all__ = [
     "DEFAULT_SECTIONS",
     "LATTICE_BUDGET",
     "NORMALIZ_TIMEOUT",
+    "RESONANCE_WINDOW",
     "SECTION_NAMES",
     "AnalysisReport",
     "Conventions",
@@ -71,6 +74,7 @@ __all__ = [
     "Polynomials",
     "Polytope",
     "Representations",
+    "Resonance",
     "Schwinger",
     "Symmetries",
     "ZEntry",
@@ -85,6 +89,7 @@ SECTION_NAMES = (
     "polytope",
     "torus",
     "gkz",
+    "resonance",
     "symmetries",
     "landau",
     "schwinger",
@@ -99,6 +104,9 @@ DEFAULT_SECTIONS = tuple(name for name in SECTION_NAMES if name != "torus")
 # need more are not computed. The massless three-loop box would need about 10^10 steps.
 LATTICE_BUDGET = 2 * 10**7
 NORMALIZ_TIMEOUT = 60.0
+
+# The interval of eps in which the resonance section lists the resonant values of each facet.
+RESONANCE_WINDOW = (Fraction(-1), Fraction(1))
 
 
 # --- section data types ------------------------------------------------------
@@ -302,6 +310,38 @@ class GKZ:
     z_variables: tuple[sp.Symbol, ...]
     euler_rows: tuple[tuple[tuple[int, ...], sp.Expr], ...]
     toric_generators: tuple[sp.Expr, ...]
+
+
+@dataclass(frozen=True)
+class Resonance:
+    """Which facets of P are resonant or admissible as D = D_0 - 2 eps varies.
+
+    Attributes
+    ----------
+    d0
+        D_0.
+    powers
+        The integer power of each edge, in internal-edge order.
+    unit_powers
+        Whether ``powers`` are all 1 because the exponents of the integral are
+        not all integers.
+    span
+        The eps at which beta lies in the span of A: "all" when P is
+        full-dimensional.
+    facets
+        One record per facet of P, relative to its affine hull when P is not
+        full-dimensional, in the order of ``PolytopeData.relative_facets``;
+        see :func:`feynkit.resonance.classify_facets`.
+    full_dimensional
+        Whether P is full-dimensional.
+    """
+
+    d0: Fraction
+    powers: tuple[int, ...]
+    unit_powers: bool
+    span: EpsilonSet
+    facets: tuple[FacetResonance, ...]
+    full_dimensional: bool
 
 
 @dataclass(frozen=True)
@@ -535,6 +575,23 @@ def _gkz(fi: FeynmanIntegral) -> GKZ:
     )
 
 
+def _resonance(fi: FeynmanIntegral, data: PolytopeData, d0: Fraction) -> Resonance:
+    exponents = [fi.propagator_exponents[e.idx] for e in fi.graph.get_internal_edges()]
+    try:
+        powers = tuple(_exact._as_int(x, "the exponents") for x in exponents)
+        unit = False
+    except ValidationError:
+        powers, unit = (1,) * len(exponents), True
+    return Resonance(
+        d0=d0,
+        powers=powers,
+        unit_powers=unit,
+        span=span_epsilons(data, powers, d0),
+        facets=classify_facets(data, powers, d0),
+        full_dimensional=data.is_full_dimensional,
+    )
+
+
 def _symmetries(fi: FeynmanIntegral, data: PolytopeData) -> Symmetries:
     automorphisms = fi.polytope_automorphisms
     return Symmetries(
@@ -624,6 +681,7 @@ class AnalysisReport:
     landau: Landau | None
     schwinger: Schwinger | None
     torus: TorusCount | None = None
+    resonance: Resonance | None = None
 
     @classmethod
     def from_integral(
@@ -636,6 +694,7 @@ class AnalysisReport:
         torus_seed: int = 0,
         torus_budget: int = 2 * 10**9,
         limits: bool | str | None = None,
+        d0: int | Fraction = 4,
     ) -> AnalysisReport:
         """Build the report for an integral.
 
@@ -662,6 +721,9 @@ class AnalysisReport:
             ``limits`` of :func:`~feynkit.landau.landau_analysis`: True, False or
             ``"one-loop"``; None, the default, takes its default. The ``torus``
             section never does.
+        d0
+            D_0 of the ``resonance`` section, which takes D = D_0 - 2 eps: an
+            integer or a Fraction, 4 by default.
 
         Raises
         ------
@@ -670,7 +732,8 @@ class AnalysisReport:
             :meth:`FeynmanIntegral.torus_count` raises for the ``torus`` section,
             for instance when the integral has kinematic constraints, which is
             checked before any section is built, or when counting needs more
-            than ``torus_budget`` evaluations of G.
+            than ``torus_budget`` evaluations of G; or if ``d0`` is not an
+            integer or a Fraction, also checked first.
         """
         wanted = set(DEFAULT_SECTIONS) if sections is None else set(sections)
         unknown = sorted(wanted - set(SECTION_NAMES))
@@ -680,6 +743,7 @@ class AnalysisReport:
                 f"expected any of {', '.join(SECTION_NAMES)}"
             )
 
+        d0_value = _rational(d0, "d0")
         # torus_count rejects kinematic constraints; say so before the Landau analysis runs.
         if "torus" in wanted and integral.kinematic_constraints:
             raise ValidationError(
@@ -690,7 +754,8 @@ class AnalysisReport:
         representations: Representations | None = None
         polytope: Polytope | None = None
         symmetries: Symmetries | None = None
-        if wanted & {"representations", "polytope", "symmetries"}:
+        resonance: Resonance | None = None
+        if wanted & {"representations", "polytope", "symmetries", "resonance"}:
             data = polytope_data(integral.newton_polytope.points)
             if "representations" in wanted:
                 representations = _representations(integral, data)
@@ -698,6 +763,8 @@ class AnalysisReport:
                 polytope = _polytope(integral, data, figure_max_vertices)
             if "symmetries" in wanted:
                 symmetries = _symmetries(integral, data)
+            if "resonance" in wanted:
+                resonance = _resonance(integral, data, d0_value)
 
         analysis: LandauAnalysis | None = None
         if wanted & {"landau", "torus"}:
@@ -728,6 +795,7 @@ class AnalysisReport:
             ),
             schwinger=_schwinger(integral) if "schwinger" in wanted else None,
             torus=torus,
+            resonance=resonance,
         )
 
     def summary(self) -> tuple[tuple[str, str], ...]:

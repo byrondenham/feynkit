@@ -46,6 +46,10 @@ from ._report_shared import (
     not_computed,
     primes_left_out,
     render_sections,
+    resonance_forms,
+    resonance_paragraphs,
+    resonance_rows,
+    resonance_windows,
     signed_terms,
     skipped_faces,
     split_g,
@@ -59,6 +63,7 @@ from .report import (
     Landau,
     Polytope,
     Representations,
+    Resonance,
     Schwinger,
     Symmetries,
 )
@@ -860,6 +865,27 @@ def _gkz(gkz: GKZ, doc: _Document) -> str:
     return _blocks(*blocks)
 
 
+def _resonance(report: AnalysisReport, section: Resonance, doc: _Document) -> str:
+    paragraphs, classes, window = resonance_paragraphs(section, doc.cite, latex=False)
+    blocks = [_paragraph(p) for p in paragraphs]
+    if not section.facets:
+        return _blocks(*blocks, _paragraph("P is a point and has no facets."))
+    forms = [
+        (f"F_{k}", f"{_str(lhs)} <= {b}", _str(form))
+        for k, lhs, b, form in resonance_forms(report, section)
+    ]
+    rows = [(f"F_{k}", *row) for k, row in enumerate(resonance_rows(section, latex=False), start=1)]
+    blocks += [
+        _table(("Facet", "Inequality", "l_F(beta)"), forms),
+        _paragraph(classes),
+        _table(("Facet", "Resonant for", "At 0", "Admissible at", "Reducible"), rows),
+    ]
+    windows = resonance_windows(section, latex=False)
+    if windows:
+        blocks += [_paragraph(window), _table(None, [(f"F_{k}", v) for k, v in windows])]
+    return _blocks(*blocks)
+
+
 def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) -> str:
     orbits = symmetries.vertex_orbits
     if report.polytope is not None:
@@ -1132,6 +1158,7 @@ def render_text(report: AnalysisReport, *, title: str | None = None) -> str:
         polytope=lambda section: _polytope(report, section, doc),
         torus=lambda section: _torus(section, doc),
         gkz=lambda section: _gkz(section, doc),
+        resonance=lambda section: _resonance(report, section, doc),
         symmetries=lambda section: _symmetries(report, section, doc),
         landau=lambda section: _landau(section, report.conventions.energy_scale, doc),
         schwinger=lambda section: _schwinger(report, section, doc),

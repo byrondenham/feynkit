@@ -1582,3 +1582,10 @@ def test_faces_section_marks_support_products() -> None:
     assert rows == [["support", "product", "0", "1", "3"]]
     assert "G({2,4}) U(Gamma/{2,4}) (support)" in section
     assert "with the exponents of G({2,4}) U(Gamma/{2,4}):" in section
+
+
+def test_substitutions_are_stated_under_the_title(triangle_report: AnalysisReport) -> None:
+    lines = render_text(triangle_report, substitutions=["p1^2 = 0", "p2^2 = p3^2"]).splitlines()
+    assert lines[2:4] == ["", "With p1^2 = 0 and p2^2 = p3^2."]
+    assert render_text(triangle_report).splitlines()[2] == ""
+    assert not render_text(triangle_report).splitlines()[3].startswith("With p")

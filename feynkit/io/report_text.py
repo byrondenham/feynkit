@@ -16,8 +16,10 @@ product, a quotient or a vector allows it.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
+from ._report_shared import join_words
 from ._text_kit import TextDocument, _heading, _table
 from .sections import render_sections
 
@@ -31,7 +33,9 @@ def _summary(report: AnalysisReport) -> str:
     return _table(None, report.summary())
 
 
-def render_text(report: AnalysisReport, *, title: str | None = None) -> str:
+def render_text(
+    report: AnalysisReport, *, title: str | None = None, substitutions: Sequence[str] = ()
+) -> str:
     """Render an analysis report as plain text.
 
     Parameters
@@ -41,6 +45,9 @@ def render_text(report: AnalysisReport, *, title: str | None = None) -> str:
     title
         Title line, used as given; by default "Feynman integral" followed by
         the CNickel string.
+    substitutions
+        The kinematic substitutions applied to the integral, such as
+        ``"p4^2 = 0"``, stated in a line under the title; none by default.
 
     Returns
     -------
@@ -57,6 +64,7 @@ def render_text(report: AnalysisReport, *, title: str | None = None) -> str:
     )
     blocks = [
         _heading(heading, "="),
+        *([f"With {join_words(substitutions)}."] if substitutions else []),
         *(f"{_heading(name, '-')}\n\n{body}" for name, body in sections),
         f"{_heading('References', '-')}\n\n{doc.references()}",
     ]

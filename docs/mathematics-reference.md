@@ -285,8 +285,9 @@ monomial of $\mathcal{G}$ cancels, and either every edge is massive, every edge 
 every internal vertex is joined to an external vertex by massive edges) the configuration is
 normal, hence Cohen-Macaulay (Klausen 2023, drawing on Tellander and Helmer 2023 and Walther
 2022), so there are no rank jumps.  Outside these hypotheses Cohen-Macaulayness is not
-guaranteed: Michaelsen and Tellander (2025) characterise the fully massive one-loop case and give
-a fully massive three-point configuration whose semigroup ring is not Cohen-Macaulay.  Resonance
+guaranteed: Michaelsen and Tellander (2025) state a characterisation of the fully massive
+one-loop case and give a fully massive three-point configuration whose semigroup ring is not
+Cohen-Macaulay.  Resonance
 of $\beta$ can make the system reducible (Schulze and Walther 2012; section 4.8 says when), but
 does not change its rank.
 

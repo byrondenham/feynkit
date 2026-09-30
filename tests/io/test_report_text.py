@@ -697,6 +697,22 @@ def test_an_empty_factor_list_ends_its_sentence(tadpole: FeynmanIntegral) -> Non
         assert "and there are no second-type (Gram) factors." in " ".join(document.split())
 
 
+def test_limits_choose_whether_the_report_looks_for_limit_surfaces() -> None:
+    fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+    p1 = sp.Symbol("p1^2", real=True)
+    fi = fi.with_(
+        momentum_products={
+            k: sp.expand(sp.sympify(v).subs(p1, 0)) for k, v in fi.momentum_products.items()
+        }
+    )
+    without = AnalysisReport.from_integral(fi, ["landau"], limits=False)
+    assert without.landau is not None and without.landau.analysis.parent is None
+    assert "limit surface" not in _flat(render_text(without))
+    looked = AnalysisReport.from_integral(fi, ["landau"], limits=True)
+    assert looked.landau is not None and looked.landau.analysis.parent is not None
+    assert "each is a limit surface" in _flat(render_text(looked))
+
+
 def test_limit_surfaces_are_listed_apart() -> None:
     fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
     p1 = sp.Symbol("p1^2", real=True)
@@ -705,7 +721,7 @@ def test_limit_surfaces_are_listed_apart() -> None:
             k: sp.expand(sp.sympify(v).subs(p1, 0)) for k, v in fi.momentum_products.items()
         }
     )
-    report = AnalysisReport.from_integral(fi, ["landau"])
+    report = AnalysisReport.from_integral(fi, ["landau"], limits=True)
     text, latex = _flat(render_text(report)), _flat(render_latex(report))
     for document in (text, latex):
         assert "These kinematics restrict those of the same graph and masses" in document

@@ -106,7 +106,7 @@ under uv). It has two subcommands:
 
 ```
 fk analyse CNICKEL [--kinematics CLASS] [section flags] [--latex FILE] [--text FILE] [--json]
-           [--sections NAMES] [--seed N] [--torus-budget N] [--db PATH | --no-db] [--verbose]
+           [--sections NAMES] [--limits] [--seed N] [--torus-budget N] [--db PATH | --no-db] [--verbose]
 fk compare A B [--db PATH | --no-db] [--verbose]
 fk --version
 ```
@@ -206,6 +206,7 @@ the options are given, and checks that it can write each file before the analysi
 | `--latex FILE` | write the report as a LaTeX document |
 | `--text FILE` | write the report as plain text |
 | `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `symmetries`, `landau` and `schwinger`; all but `torus` by default |
+| `--limits` | look for limit surfaces in the Landau section, which analyses the parent family as well (see [Specialised kinematics](#specialised-kinematics)) |
 | `--json` | print a JSON summary of the report on stdout, and nothing else |
 
 `--sections` chooses what the report holds, and so what `--json` summarises; it does not change
@@ -253,7 +254,7 @@ surfaces.
 
 `--json` still writes the files of `--latex` and `--text` and stores the integral in the
 database, but does not report either on stdout. It cannot be combined with section flags, and
-`--sections` needs `--latex`, `--text` or `--json`.
+`--sections` and `--limits` need `--latex`, `--text` or `--json`.
 
 ### Comparing two diagrams
 

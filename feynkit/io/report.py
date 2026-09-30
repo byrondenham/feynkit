@@ -651,6 +651,7 @@ class AnalysisReport:
         figure_max_vertices: int = 12,
         torus_seed: int = 0,
         torus_budget: int = 2 * 10**9,
+        limits: bool | str | None = None,
     ) -> AnalysisReport:
         """Build the report for an integral.
 
@@ -672,6 +673,11 @@ class AnalysisReport:
             The ``seed`` and ``max_evaluations`` of
             :meth:`FeynmanIntegral.torus_count` for the ``torus`` section, which
             shares the Landau analysis with the ``landau`` section.
+        limits
+            Whether the ``landau`` section looks for limit surfaces, as the
+            ``limits`` of :func:`~feynkit.landau.landau_analysis`: True, False or
+            ``"one-loop"``; None, the default, takes its default. The ``torus``
+            section never does.
 
         Raises
         ------
@@ -715,7 +721,7 @@ class AnalysisReport:
             analysis = landau_analysis(
                 integral,
                 max_face_points=max_face_points,
-                limits=None if "landau" in wanted else False,
+                limits=limits if "landau" in wanted else False,
             )
         torus: TorusCount | None = None
         if "torus" in wanted:

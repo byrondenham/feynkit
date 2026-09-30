@@ -54,7 +54,7 @@ def test_json_and_the_database(capsys: pytest.CaptureFixture[str], tmp_path: Pat
 def test_json_counts_the_limit_surfaces_on_shell(capsys: pytest.CaptureFixture[str]) -> None:
     # The legs of the on-shell box specialise the generic ones, whose surfaces are restricted.
     argv = ["analyse", BOX + ":zzzz", "--kinematics", "massless_on_shell", "--json", "--no-db"]
-    main([*argv, "--sections", "landau"])
+    main([*argv, "--sections", "landau", "--limits"])
     summary = json.loads(capsys.readouterr().out)["summary"]
     assert (summary["landau_surfaces"], summary["limit_surfaces"]) == (3, 0)
     assert summary["limit_candidates"] == summary["parent_skipped_faces"] == 0
@@ -96,3 +96,8 @@ def test_the_class_of_the_string_is_accepted(capsys: pytest.CaptureFixture[str])
     payload = json.loads(capsys.readouterr().out)
     assert payload["cnickel"] == FeynmanIntegral.from_cnickel("12e|2e|e|:nnn").cnickel
     assert payload["summary"]["kinematic_class"] == "generic"
+
+
+def test_limits_need_a_report(capsys: pytest.CaptureFixture[str]) -> None:
+    assert _exit_code(["analyse", BOX + ":zzzz", "--limits", "-n", "--no-db"]) == 2
+    assert "--limits" in capsys.readouterr().err

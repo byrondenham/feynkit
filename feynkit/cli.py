@@ -500,6 +500,7 @@ class ReportOptions:
     as_json: bool = False
     torus_seed: int = DEFAULT_TORUS_SEED
     torus_budget: int = DEFAULT_TORUS_BUDGET
+    limits: bool = False
 
     @property
     def writes_files(self) -> bool:
@@ -660,6 +661,7 @@ def analyse_one(
                     options.sections,
                     torus_seed=options.torus_seed,
                     torus_budget=options.torus_budget,
+                    limits=True if options.limits else None,
                 )
             )
         return built[0]
@@ -1036,6 +1038,14 @@ def _build_parser() -> _Parsers:
         help="print a JSON summary of the report on stdout and nothing else",
     )
     report.add_argument(
+        "--limits",
+        action="store_true",
+        help=(
+            "look for limit surfaces in the Landau section: the factors of the parent family's "
+            "surfaces that the kinematics restrict; it analyses the parent family as well"
+        ),
+    )
+    report.add_argument(
         "--sections",
         type=_section_list,
         metavar="NAMES",
@@ -1176,6 +1186,8 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         parser.error("--json prints only the summary; drop the section flags")
     if args.sections is not None and not (args.latex or args.text or args.json):
         parser.error("--sections chooses report sections; add --latex, --text or --json")
+    if args.limits and not (args.latex or args.text or args.json):
+        parser.error("--limits changes the report; add --latex, --text or --json")
     counts = args.torus_count or (args.sections is not None and "torus" in args.sections)
     for option, value in (("--seed", args.seed), ("--torus-budget", args.torus_budget)):
         if value is not None and not counts:
@@ -1193,6 +1205,7 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         as_json=args.json,
         torus_seed=DEFAULT_TORUS_SEED if args.seed is None else args.seed,
         torus_budget=DEFAULT_TORUS_BUDGET if args.torus_budget is None else args.torus_budget,
+        limits=args.limits,
     )
 
 

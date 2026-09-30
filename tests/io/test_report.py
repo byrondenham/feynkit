@@ -20,8 +20,9 @@ from feynkit import Edge, FeynmanIntegral, Graph
 from feynkit import landau as landau_module
 from feynkit import point_count as point_count_module
 from feynkit.core.exceptions import ValidationError
+from feynkit.face_identification import identify_faces
 from feynkit.io import report as report_module
-from feynkit.io.report import DEFAULT_SECTIONS, SECTION_NAMES, AnalysisReport
+from feynkit.io.report import DEFAULT_SECTIONS, FACE_CODIMENSION, SECTION_NAMES, AnalysisReport
 from feynkit.landau import (
     landau_analysis,
     landau_analysis_from_polynomial,
@@ -603,14 +604,33 @@ class TestResonance:
         assert len(section.facets) == 2
 
 
+class TestFaces:
+    def test_the_faces_up_to_codimension_two(self, triangle: FeynmanIntegral) -> None:
+        report = AnalysisReport.from_integral(triangle, ["faces"])
+        section = report.faces
+        assert section is not None and section.full_dimensional
+        assert section.max_codimension == FACE_CODIMENSION == 2
+        assert section.faces == identify_faces(triangle)
+        assert report.polytope is None
+        assert ("Unidentified faces", "0") in report.summary()
+
+    def test_below_full_dimension(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematics="massless_on_shell")
+        section = AnalysisReport.from_integral(fi, ["faces"]).faces
+        assert section is not None and not section.full_dimensional
+        assert all(face.kind == "unidentified" for face in section.faces)
+
+
 class TestSections:
-    def test_default_builds_every_section_but_the_point_counts(
+    def test_default_builds_every_section_but_the_point_counts_and_the_faces(
         self, triangle_report: AnalysisReport
     ) -> None:
-        assert tuple(name for name in SECTION_NAMES if name != "torus") == DEFAULT_SECTIONS
+        expected = tuple(name for name in SECTION_NAMES if name not in ("torus", "faces"))
+        assert expected == DEFAULT_SECTIONS
         for name in DEFAULT_SECTIONS:
             assert getattr(triangle_report, name) is not None
         assert triangle_report.torus is None
+        assert triangle_report.faces is None
 
     def test_one_section_leaves_the_others_empty(self, triangle: FeynmanIntegral) -> None:
         report = AnalysisReport.from_integral(triangle, ["gkz"])

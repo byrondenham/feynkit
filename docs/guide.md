@@ -121,7 +121,8 @@ without a `|` is read as a command, never as a CNickel string. `fk analyze` is t
 ### Analysing one diagram
 
 With no section flags, `fk analyse` prints every section except the point counts of
-`--torus-count`, which can take minutes. Pass one or more flags to choose.
+`--torus-count`, which can take minutes, and the graphs of the faces of `--faces`. Pass one or more
+flags to choose.
 
 ```bash
 fk analyse "12e|2e|e|:zzz"              # every section of the massless triangle
@@ -130,6 +131,7 @@ fk analyse "111e|e|:zzz"                # massless banana with three propagators
 fk analyse "12e|2e|e|"                  # bare topology: every propagator massless
 fk analyse "12e|2e|e|:nzz" -S           # symmetries of the one-mass triangle
 fk analyse "11e|e|:nn" -r --d0 3        # resonant facets of the massive bubble, D = 3 - 2 eps
+fk analyse "12e|22e|e|:nnnn" -f         # the graphs of the faces of the massive parachute
 fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive bubble
 ```
 
@@ -141,6 +143,7 @@ fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive 
 | `-t` | `--toric` | Toric ideal of the A-matrix |
 | `-n` | `--newton` | Newton polytope: vertices, whether the integral is scaleless, normalised volume (the holonomic rank for generic $\beta$), Smith invariants, lattice invariants and whether $\mathbb{N}A$ is normal |
 | `-r` | `--resonance` | For each facet of the Newton polytope, its inequality, $l_F(\beta)$, where it is resonant and admissible as $D = D_0 - 2\varepsilon$ varies, and whether it makes the GKZ system reducible (see [Resonant and admissible facets](#resonant-and-admissible-facets)) |
+| `-f` | `--faces` | For each facet of the Newton polytope, its inequality and its graph, a product of Symanzik polynomials of minors, then the number of faces of each class up to codimension 2 (see [Graphs of the faces](#graphs-of-the-faces)); left out when no flag is given. With `--latex` or `--text` the report gains the `faces` section |
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
 | | `--torus-count` | Candidate Euler characteristic from finite-field point counts; left out when no flag is given |
 
@@ -213,7 +216,7 @@ the options are given, and checks that it can write each file before the analysi
 |--------|--------|
 | `--latex FILE` | write the report as a LaTeX document |
 | `--text FILE` | write the report as plain text |
-| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `symmetries`, `landau` and `schwinger`; all but `torus` by default |
+| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `symmetries`, `landau` and `schwinger`; all but `torus` and `faces` by default |
 | `--limits` | look for limit surfaces in the Landau section, which analyses the parent family as well (see [Specialised kinematics](#specialised-kinematics)) |
 | `--json` | print a JSON summary of the report on stdout, and nothing else |
 
@@ -721,6 +724,7 @@ from feynkit.io import AnalysisReport
 polytope_data(fi.newton_polytope.points)   # PolytopeData: faces, facets, volume (section 11)
 fi.torus_count()                           # TorusCount: point counts and candidates (section 18)
 fi.facet_resonance(nu={1: 1, 2: 1, 3: 1})  # FacetResonance per facet, D = 4 - 2 eps (section 11)
+fi.face_identification()                   # FaceIdentification per face up to codim 2 (section 11)
 AnalysisReport.from_integral(fi)           # every fact the analysis report states (section 21)
 fi.to_latex()                              # the report as a LaTeX document
 fi.to_text()                               # the report as plain text
@@ -1196,6 +1200,121 @@ and does not warn.
 
 The analysis report has a `resonance` section built from the same data, and `fk analyse -r` prints
 it on the terminal, both with `--d0` for $D_0$.
+
+### Graphs of the faces
+
+For a face $F$ of the Newton polytope $P$ of $\mathcal G$, the restriction $\mathcal G|_F$ keeps the
+terms of $\mathcal G$ whose exponents lie on $F$. It is the initial form of $\mathcal G$ for any
+weight $w$ that $F$ minimises (Fevola, Mizera and Telen, arXiv:2311.16219, p. 28), and it is often
+a product of Symanzik polynomials of minors of the graph. For the weight that is 1 on the edges of
+a connected subgraph $\gamma$ and 0 elsewhere, with every mass non-zero, it is
+$\mathcal U_\gamma\,\mathcal G_{\Gamma/\gamma}$ (their Eqs. 3.13 and 3.15, pp. 27-28), and the face of
+the terms free of $u_e$ gives $\mathcal G_{\Gamma/e}$ (Britto, Grimm and Hoefnagels,
+arXiv:2606.09978, Eq. 21, p. 11). `identify_faces` names every face in this way:
+
+```python
+from feynkit import FeynmanIntegral, identify_faces
+
+fi = FeynmanIntegral.from_cnickel("12e|22e|e|:nnnn")    # the parachute with four masses
+for face in identify_faces(fi):
+    if face.facet is not None:
+        print(face.facet.normal, face.facet.offset, face.kind, face.name())
+# (-1, -1, -1, -1) -2 u_layer U(Gamma)
+# (0, 0, -1, -1) -1 product_uv U({3,4}) G(Gamma/{3,4})
+# (0, -1, 0, 0) 0 contraction G(Gamma/{2})
+# (-1, -1, 0, -1) -1 product_uv U({1,2,4}) G(Gamma/{1,2,4})
+# (0, 0, 0, -1) 0 contraction G(Gamma/{4})
+# (-1, -1, -1, 0) -1 product_uv U({1,2,3}) G(Gamma/{1,2,3})
+# (0, 0, -1, 0) 0 contraction G(Gamma/{3})
+# (-1, 0, 0, 0) 0 contraction G(Gamma/{1})
+# (1, 1, 1, 1) 3 f_layer F(Gamma)
+```
+
+These are the nine rays Fevola, Mizera and Telen give for the parachute (p. 29), each inward
+normal $-m$ a ray, with $\mathcal U_\gamma\,\mathcal G_{\Gamma/\gamma}$ on each $w_\gamma$.
+
+The weight of a face is $w = -\sum m$ over the facets $m \cdot x \le b$ containing it, which the
+face minimises. Its distinct values $t_1 > \dots > t_k$ on the edges give a flag of subgraphs
+$\sigma_1 \subset \dots \subset \sigma_k$, $\sigma_j$ the edges with $w_e \ge t_j$, and the minors
+$H_j = \sigma_j/\sigma_{j-1}$: the edges of weight $t_j$, with those of greater weight contracted
+and the others deleted. The terms of $\mathcal U$ of least $w$-degree are
+$\prod_j \mathcal U_{H_j}$ (section 5.7 of the mathematics reference). The prediction for
+$\mathcal G|_F$ is that product with the factor of the last level whose $\mathcal F_{H_j}$ is not
+zero replaced by $\mathcal G_{H_j}$ when $t_j = 0$ and by $\mathcal F_{H_j}$ when $t_j < 0$. A face
+is identified only when $\mathcal G|_F$ equals the prediction exactly; otherwise its class is
+`unidentified`, and both polynomials are kept. `name()` writes each factor as `U`, `F` or `G` of
+its minor, `Gamma` for the whole graph, `{1,2}` for the subgraph on edges 1 and 2 and
+`{1,2,3}/{1}` for it with edge 1 contracted, and leaves out the factors equal to 1.
+
+| Class | $\mathcal G\vert_F$ |
+|-------|--------------------|
+| `whole` | $\mathcal G_\Gamma$, the polytope itself |
+| `contraction` | $\mathcal G_{\Gamma/S}$ alone |
+| `product_uv` | a product whose $\mathcal G$ factor is on a quotient $\Gamma/S$, as $\mathcal U_\gamma\,\mathcal G_{\Gamma/\gamma}$ |
+| `product_ir` | a product whose $\mathcal G$ factor is on a minor with edges deleted, as $\mathcal G_\gamma\,\mathcal U_{\Gamma/\gamma}$ |
+| `u_layer` | a product of $\mathcal U$'s alone, a face of $\mathrm{Newt}(\mathcal U)$ |
+| `f_layer` | a product with one $\mathcal F$ factor, a face of $\mathrm{Newt}(\mathcal F)$ |
+| `unidentified` | not the prediction |
+
+A massless line gives facets of the kind `product_ir`. On the bubble with $m_2 = 0$, where the
+edge face $F_1$ is no longer a facet, Britto, Grimm and Hoefnagels find the new facet
+$F_{2,(1,2)}$ (Eq. 105, p. 29). It is $x_2 \le 1$, and
+$\mathcal G|_F = \mathcal G_{\{1\}}\,\mathcal U_{\Gamma/\{1\}} = u_2(1 + (m_1^2 - s)u_1/\mu^2)$:
+
+```python
+bubble = FeynmanIntegral.from_cnickel("11e|e|:nz")
+(face,) = [f for f in identify_faces(bubble) if f.kind == "product_ir"]
+print(face.facet.normal, face.facet.offset, face.name())   # (0, 1) 1 G({1}) U(Gamma/{1})
+print(face.polynomial)                    # u_1*u_2*(m_1**2/mu**2 - s/mu**2) + u_2
+print(face.levels[0])
+# FlagLevel(edges=(1,), contracted=(), deleted=(2,), weight=0, kind='G', loops=0)
+```
+
+Arkani-Hamed, Hillman and Mizera label the facets of the Feynman polytope by subgraphs $\gamma$,
+ultraviolet when $\mathcal F_{\Gamma/\gamma} \ne 0$ and infrared when it is zero
+(arXiv:2202.12296, Eqs. 7-8, p. 3). The massive sunrise has, besides the two layers, six facets,
+three of them the ultraviolet bubbles $\mathcal U_{\{i,j\}}\,\mathcal G_{\Gamma/\{i,j\}}$, as in
+their App. B (Eq. B14, p. 9). On their three-mass box the facet of $\gamma_{14}$ (App. B, p. 10)
+carries the restricted $\mathcal U$ and $\mathcal F$ they write down, whose $\mathcal F$ part is not a
+product of polynomials, so feynkit leaves it `unidentified` while its flag names $\gamma_{14}$.
+
+Each `FaceIdentification` holds:
+
+| Attribute | Description |
+|-----------|-------------|
+| `point_indices`, `dimension`, `codimension` | The face, as indices into `fi.newton_polytope.points` |
+| `facet` | The `Facet`, when the face is one |
+| `weight` | $w$, in internal-edge order |
+| `levels` | The flag, one `FlagLevel` per value of $w$, from the largest: `edges`, `contracted`, `deleted`, `weight` $t_j$, `kind` (`"U"`, `"F"` or `"G"`) and `loops` of $H_j$ |
+| `kind`, `contracted` | The class, and $S$ for a contraction |
+| `verified` | Whether $\mathcal G\vert_F$ equals the prediction |
+| `polynomial`, `prediction` | $\mathcal G\vert_F$ and the product of the level polynomials, in the $u_e$ |
+| `reason` | Why the face is not identified; None when it is |
+
+`identify_faces(fi, max_codimension=2)` takes the polytope, its facets and the faces of codimension
+2; `max_codimension=None` takes every face, vertices included. The massless double box has 154
+faces up to codimension 2, identified in about 0.3 s, and 2245 in all, in about 1.5 s.
+`fi.face_identification(max_codimension=2)` caches the result for each argument. The faces of a
+Newton polytope that is not full-dimensional, as that of a scaleless integral, are not identified:
+a relative facet's normal is fixed only modulo the equations of the affine hull, and so is the
+flag. They come back as `unidentified` with that reason.
+
+The minors come from `Graph.contract` and `Graph.delete`, which keep the edge indices, move the legs
+with their vertices and remove a vertex left without propagators, with its legs.
+`minor_polynomials` in `feynkit.polynomials` gives their $\mathcal U$ and $\mathcal F$ in the
+parameters and kinematics of the graph, a minor that is not connected taking the product of the
+$\mathcal U_c$ of its components and $\sum_c \mathcal F_c \prod_{c' \ne c} \mathcal U_{c'}$:
+
+```python
+from feynkit.polynomials import minor_polynomials
+
+print(fi.graph.contract([3, 4]))         # the bubble on edges 1 and 2
+u, f = minor_polynomials(fi.graph, fi.momentum_products, contract=[3, 4])
+print(u)                                 # a_1 + a_2
+```
+
+The analysis report has a `faces` section, left out by default, and `fk analyse -f` prints the
+facets and the counts on the terminal and adds the section to the reports it writes.
 
 ### Lattice invariants
 
@@ -2413,16 +2532,16 @@ Both methods take the same arguments:
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `sections` | all but `torus` | Names of the sections to build, from `SECTION_NAMES` |
+| `sections` | all but `torus` and `faces` | Names of the sections to build, from `SECTION_NAMES` |
 | `title` | "Feynman integral" and the CNickel string | Document title; `to_latex` escapes it |
 | `max_face_points` | 14 | Faces of the Newton polytope with more monomials are left out of the Landau analysis and listed as skipped |
 | `d0` | None | $D_0$ of the `resonance` section, which takes $D = D_0 - 2\varepsilon$: an integer or a `Fraction`; None reads it from the dimension of the integral when that is $D_0 - 2\varepsilon$ with $D_0$ a number, and takes 4 otherwise |
 
 The section names, in `feynkit.io.report.SECTION_NAMES`, are `identity`, `conventions`,
-`polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `symmetries`, `landau`
-and `schwinger`. The first three are always built. The rest are built only when named, so a survey can
-ask for a short report without the automorphism and Landau computations. Without `sections` every
-section but `torus` is built, the tuple `DEFAULT_SECTIONS`. The point counts of `torus` take seconds
+`polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `symmetries`,
+`landau` and `schwinger`. The first three are always built. The rest are built only when named, so a
+survey can ask for a short report without the automorphism and Landau computations. Without
+`sections` every section but `torus` and `faces` is built, the tuple `DEFAULT_SECTIONS`. The point counts of `torus` take seconds
 for five propagators, and seven exceed the default budget (see
 [Torus point counts](#torus-point-counts)); `to_latex` and `to_text` count with seed 0 and the
 default budget, and raise `ValidationError` when the count cannot run, as for an integral with
@@ -2462,7 +2581,7 @@ latex = render_latex(report)
 text = render_text(report, title="Massive triangle")
 ```
 
-The document has up to fourteen parts:
+The document has up to fifteen parts:
 
 1. The title; no author, date or abstract.
 2. A summary table: loops, propagators, external legs, the monomial counts of $F$ and $G$,
@@ -2496,12 +2615,17 @@ The document has up to fourteen parts:
     $-1 \le \varepsilon \le 1$ (see
     [Resonant and admissible facets](#resonant-and-admissible-facets)). Below full dimension it
     also says where $\beta$ lies in the span of $A$.
-11. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
+11. Faces as graphs, only when `faces` is named: how a face is compared with a product of Symanzik
+    polynomials of minors, a table of the facets with their inequalities and graphs, the number of
+    faces of each class up to codimension 2, and up to ten unidentified faces with $G|_F$ and the
+    prediction written out (see [Graphs of the faces](#graphs-of-the-faces)). Below full
+    dimension it says that the faces are not identified.
+12. Symmetries: the order and vertex orbits of $\mathrm{Aut}(P)$, the graph automorphisms, the
     coefficient-preserving subgroup, and the symmetry pairs with the identity each gives. For a
     Newton polytope that is not full-dimensional, $\mathrm{Aut}(P)$ is its group in its affine
     hull, and the section counts the symmetry pairs and says why their identities hold only
     trivially.
-12. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
+13. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
     into first and second type for one-loop graphs, with the skipped faces, each named by its
     dimension and number of points and marked when it ran past the time limit, and the
     caveats. With `limits=True`, at kinematics that specialise the generic ones, the limit surfaces
@@ -2509,11 +2633,11 @@ The document has up to fourteen parts:
     labelled as confirmed by a drop of the count of critical points at random points, with the
     counts, then the candidates with the reason each is not confirmed, and a note when the
     analysis of the generic family skipped faces, so that the limit surfaces may be incomplete.
-13. The Schwinger-representation system (section 10), its equivalence to the Lee-Pomeransky
+14. The Schwinger-representation system (section 10), its equivalence to the Lee-Pomeransky
     configuration and its reduction to the $\tilde F$ block.
-14. References, the works cited in order of first citation.
+15. References, the works cited in order of first citation.
 
-Parts 6 to 13 appear when their sections are built. When the `polytope` section is built and the
+Parts 6 to 14 appear when their sections are built. When the `polytope` section is built and the
 polytope is full-dimensional, the document also states what feynkit does not compute: the
 holonomic rank at the physical point, the Euler characteristic that counts the master integrals,
 series solutions, a Pfaffian system and the restriction of the GKZ system to physical kinematics.
@@ -2757,3 +2881,7 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
 
 13. Schulze, M. and Walther, U. (2012). Resonance equals reducibility for A-hypergeometric
     systems. *Algebra Number Theory* **6**, 527. [arXiv:1009.3569](https://arxiv.org/abs/1009.3569)
+
+14. Arkani-Hamed, N., Hillman, A. and Mizera, S. (2022). Feynman polytopes and the tropical
+    geometry of UV and IR divergences. *Phys. Rev. D* **105**, 125013.
+    [arXiv:2202.12296](https://arxiv.org/abs/2202.12296)

@@ -329,3 +329,33 @@ def test_d0_needs_the_resonance_section(capsys: pytest.CaptureFixture[str]) -> N
         main(["analyse", "11e|e|:nn", "-g", "--d0", "3", "--no-db"])
     assert excinfo.value.code == 2
     assert "--d0" in capsys.readouterr().err
+
+
+def test_faces_prints_each_facet(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyse", "12e|22e|e|:nnnn", "-f", "--no-db"])
+    out = capsys.readouterr().out
+    assert "Faces as graphs  (up to codimension 2)" in out
+    assert "U({3,4}) G(Gamma/{3,4})" in out
+    assert "Euler equations" not in out
+
+
+def test_faces_are_not_printed_by_default(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyse", "11e|e|:nn", "--no-db"])
+    assert "Faces as graphs" not in capsys.readouterr().out
+
+
+def test_faces_name_the_unidentified(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyse", "12e|3e|3e|e|:zzzz", "--kinematics", "massless_on_shell", "-f", "--no-db"])
+    out = capsys.readouterr().out
+    assert "unidentified; predicted G({3,4}) U(Gamma/{3,4})" in out
+
+
+def test_faces_add_the_section_to_the_report(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    text = tmp_path / "r.txt"
+    main(["analyse", "11e|e|:nz", "-f", "--text", str(text), "--no-db"])
+    capsys.readouterr()
+    report = text.read_text()
+    assert "Faces as graphs" in report and "G({1}) U(Gamma/{1})" in report
+    assert "Resonance" in report

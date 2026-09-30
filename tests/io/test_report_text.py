@@ -103,7 +103,7 @@ def _latex_summary(latex: str) -> list[tuple[str, str]]:
 _MATH_WORDS = frozenset(
     {"sum", "prod", "int", "exp", "gamma", "theta", "beta", "sigma", "mu", "lambda", "infinity"}
     | {"epsilon", "delta", "not", "alpha", "Re", "rank", "Aut", "pi", "nu", "Cayley", "dz"}
-    | {"Newt", "Vol"}
+    | {"Newt", "Vol", "tau", "Gamma"}
 )
 
 # What the text says differently on purpose, as substitutions on the LaTeX:
@@ -842,8 +842,10 @@ _TORUS_INTENDED = (
 
 @pytest.fixture(scope="module")  # type: ignore[misc]
 def torus_report() -> AnalysisReport:
-    # Every section of the massive bubble, whose counts at seed 0 are p - 4.
-    return AnalysisReport.from_integral(FeynmanIntegral.from_cnickel("11e|e|:nn"), SECTION_NAMES)
+    # Every section of the massive bubble, whose counts at seed 0 are p - 4, but the faces,
+    # which cite fmt2024 as the point counts do only for a drawn point.
+    sections = [name for name in SECTION_NAMES if name != "faces"]
+    return AnalysisReport.from_integral(FeynmanIntegral.from_cnickel("11e|e|:nn"), sections)
 
 
 def _without_candidate(report: AnalysisReport) -> AnalysisReport:
@@ -1529,3 +1531,39 @@ def test_resonance_states_where_d0_comes_from() -> None:
     report = AnalysisReport.from_integral(six, ["resonance"], d0=3)
     assert "with D_0 = 3 as given" in _flat(_section(render_text(report), "Resonance"))
     assert _prose_diff(report, _INTENDED[:2])[1] == []
+
+
+# --- faces -------------------------------------------------------------------
+
+
+def test_faces_section_of_the_parachute() -> None:
+    fi = FeynmanIntegral.from_cnickel("12e|22e|e|:nnnn")
+    text = render_text(AnalysisReport.from_integral(fi, ["faces"]))
+    section = text[text.index("Faces as graphs") : text.index("References\n---")]
+    assert "-x_3 - x_4 <= -1" in section
+    rows = {
+        line.split()[0]: line.split(maxsplit=1)[1]
+        for line in section.splitlines()
+        if line.startswith("    F_")
+    }
+    assert rows["F_2"].endswith("U({3,4}) G(Gamma/{3,4})")
+    assert rows["F_9"].endswith("F(Gamma)")
+    assert "[ahm2022]" in section and "[fmt2024]" in section and "[britto2026]" in section
+    assert "UV product" in section
+    assert "differs from the prediction" not in section
+
+
+def test_faces_section_lists_the_unidentified_faces() -> None:
+    fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz", kinematics="massless_on_shell")
+    text = render_text(AnalysisReport.from_integral(fi, ["faces"]))
+    section = text[text.index("Faces as graphs") : text.index("References\n---")]
+    assert "F_4, predicted as G({3,4}) U(Gamma/{3,4}):" in section
+    assert section.count("G|_F = ") == 10
+    assert "6 more faces are not shown." in section
+
+
+def test_faces_section_below_full_dimension() -> None:
+    fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematics="massless_on_shell")
+    text = " ".join(render_text(AnalysisReport.from_integral(fi, ["faces"])).split())
+    assert "P is not full-dimensional, so its faces are not identified" in text
+    assert "Facet Inequality Graph" not in text

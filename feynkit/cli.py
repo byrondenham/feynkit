@@ -47,14 +47,17 @@ from feynkit.core.constants import __version__
 from feynkit.core.exceptions import FeynkitError, ValidationError
 from feynkit.core.graph import Graph
 from feynkit.database import FeynkitDatabase
+from feynkit.face_identification import identify_faces
 from feynkit.integral import FeynmanIntegral
-from feynkit.io._report_shared import epsilon_set
+from feynkit.io._report_shared import epsilon_set, face_counts
 from feynkit.io.report import (
     DEFAULT_SECTIONS,
+    FACE_CODIMENSION,
     LATTICE_BUDGET,
     NORMALIZ_TIMEOUT,
     SECTION_NAMES,
     AnalysisReport,
+    Faces,
 )
 from feynkit.io.report_latex import render_latex
 from feynkit.io.report_text import render_text
@@ -453,6 +456,31 @@ def _print_resonance(fi: FeynmanIntegral, given: Fraction | None) -> None:
         )
 
 
+def _print_faces(fi: FeynmanIntegral) -> None:
+    """The graph of each facet and the number of faces in each class."""
+    _sec(f"Faces as graphs  (up to codimension {FACE_CODIMENSION})")
+    data = polytope_data(fi.newton_polytope.points)
+    found = identify_faces(fi, max_codimension=FACE_CODIMENSION, data=data)
+    if not data.is_full_dimensional:
+        print("  P is not full-dimensional: its faces are not identified.")
+        return
+    x = [sp.Symbol(f"x_{e.idx}") for e in fi.graph.get_internal_edges()]
+    facets = [face for face in found if face.facet is not None]
+    for k, face in enumerate(facets, start=1):
+        assert face.facet is not None
+        inequality = f"{sp.Add(*(m * v for m, v in zip(face.facet.normal, x, strict=True)))}"
+        inequality += f" <= {face.facet.offset}"
+        graph = face.name() if face.verified else f"unidentified; predicted {face.name()}"
+        print(f"  F_{k:<3} {inequality:<32} {graph}")
+    section = Faces(faces=found, max_codimension=FACE_CODIMENSION, full_dimensional=True)
+    columns = "".join(f"{f'codim {c}':>9}" for c in range(FACE_CODIMENSION + 1))
+    print(f"  {'Class':<14}{columns}")
+    for name, counts in face_counts(section):
+        print(f"  {name:<14}{''.join(f'{n:>9}' for n in counts)}")
+    if any(face.kind == "unidentified" for face in found):
+        print("  The report (--faces with --latex or --text) writes out G|_F and the prediction.")
+
+
 def _print_symmetries(fi: FeynmanIntegral) -> None:
     _sec("Symmetries")
     cfg = AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
@@ -737,6 +765,9 @@ def analyse_one(
                         _print_resonance(fi, options.d0)
                     else:
                         _PRINTERS[name](fi)
+        if "faces" in sections:
+            with _stage("faces", verbose):
+                _print_faces(fi)
         if "torus" in sections:
             with _stage("torus", verbose):
                 count = None
@@ -970,6 +1001,7 @@ examples:
   fk analyse "12e|2e|e|:nnn" --latex triangle.tex --text triangle.txt
   fk analyse "12e|2e|e|:nzz" --json --sections gkz,polytope --no-db
   fk analyse "12e|3e|3e|e|:zzzz" --kinematics massless_on_shell -n
+  fk analyse "12e|22e|e|:nnnn" -f              the graphs of the parachute's faces
 
 Quote every CNickel string: an unquoted | is a shell pipe.
 """
@@ -1047,7 +1079,7 @@ def _build_parser() -> _Parsers:
         help="kinematic class to impose; by default the kinematics of the CNickel string",
     )
     shown = analyse.add_argument_group(
-        "sections", "sections to print; all but --torus-count when no flag is given"
+        "sections", "sections to print; all but --faces and --torus-count when no flag is given"
     )
     shown.add_argument("-s", "--symanzik", action="store_true", help="Symanzik polynomials U, F, G")
     shown.add_argument(
@@ -1083,6 +1115,16 @@ def _build_parser() -> _Parsers:
         help=(
             "D_0 of --resonance and of the report's resonance section, an integer or a "
             "fraction such as 7/2; 4 by default"
+        ),
+    )
+    shown.add_argument(
+        "-f",
+        "--faces",
+        action="store_true",
+        help=(
+            f"the graph of each face of the Newton polytope up to codimension {FACE_CODIMENSION}, "
+            "a product of Symanzik polynomials of minors checked exactly; it also adds the "
+            "faces section to the --latex and --text reports"
         ),
     )
     shown.add_argument(
@@ -1244,8 +1286,10 @@ def _parse_args(parsers: _Parsers, argv: Sequence[str]) -> argparse.Namespace:
 
 
 def _section_flags(args: argparse.Namespace) -> set[str]:
-    """The sections that the section flags of analyse choose; --torus-count chooses "torus"."""
+    """The sections that the section flags of analyse choose; --faces chooses "faces" and
+    --torus-count "torus"."""
     chosen = {name for name in SECTION_FLAGS if getattr(args, name)}
+    chosen |= {"faces"} if args.faces else set()
     return chosen | {"torus"} if args.torus_count else chosen
 
 
@@ -1275,8 +1319,11 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
     for path, kind in ((args.latex, "LaTeX"), (args.text, "text")):
         if path is not None:
             _check_writable(path, kind)
+    sections = DEFAULT_SECTIONS if args.sections is None else args.sections
+    if args.faces and "faces" not in sections:
+        sections = (*sections, "faces")
     return ReportOptions(
-        sections=DEFAULT_SECTIONS if args.sections is None else args.sections,
+        sections=sections,
         latex=args.latex,
         text=args.text,
         as_json=args.json,

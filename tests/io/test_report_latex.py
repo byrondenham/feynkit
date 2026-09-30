@@ -457,3 +457,18 @@ def test_resonance_tables(sunrise: FeynmanIntegral) -> None:
     assert "$1 + \\tfrac{1}{3}\\mathbb{Z}$" in body
     assert body.count("\\begin{longtable}") == 3
     assert "\\cite{schulze2012}" in body
+
+
+def test_faces_section(sunrise: FeynmanIntegral) -> None:
+    latex = render_latex(AnalysisReport.from_integral(sunrise, ["faces"]))
+    section = latex[latex.index("\\section{Faces as graphs}") :]
+    assert r"$\mathcal{U}_{\{1,2\}}\,\mathcal{G}_{\Gamma/\{1,2\}}$" in section
+    assert r"\bibitem{ahm2022}" in latex
+    assert "UV product" in section
+
+
+def test_faces_section_writes_out_an_unidentified_face() -> None:
+    fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz", kinematics="massless_on_shell")
+    latex = render_latex(AnalysisReport.from_integral(fi, ["faces"]))
+    assert r"\text{prediction} = " in latex
+    assert "predicted as $\\mathcal{G}_{\\{3,4\\}}" in latex

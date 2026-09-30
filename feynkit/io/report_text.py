@@ -29,13 +29,18 @@ from ..point_count import TorusCount
 from ._report_shared import (
     CITATIONS,
     MAX_PAIRS_SHOWN,
+    MAX_UNIDENTIFIED_SHOWN,
     TORUS_HEADING,
     Citations,
     append_signed,
     count_noun,
     count_polynomial,
     f_block_sentence,
+    face_counts,
+    face_name,
     face_names,
+    face_paragraphs,
+    facet_graphs,
     in_squared_masses,
     integrand_templates,
     join_words,
@@ -44,6 +49,7 @@ from ._report_shared import (
     lattice_normality,
     limit_factors,
     limit_sentences,
+    more_faces,
     not_computed,
     primes_left_out,
     render_sections,
@@ -60,6 +66,7 @@ from .report import (
     GKZ,
     AnalysisReport,
     Conventions,
+    Faces,
     Identity,
     Landau,
     Polytope,
@@ -887,6 +894,73 @@ def _resonance(report: AnalysisReport, section: Resonance, doc: _Document) -> st
     return _blocks(*blocks)
 
 
+def _facet_table(rows: Sequence[tuple[str, str, str]]) -> str:
+    """The facets with their inequalities and graphs.
+
+    A graph too long for the rest of its line goes on the lines below, under
+    the inequality, broken between its factors.
+    """
+    header = ("Facet", "Inequality", "Graph")
+    first = max(len(row[0]) for row in [header, *rows])
+    second = max(len(row[1]) for row in [header, *rows])
+    lead = len(_INDENT) + first + 2
+    lines = []
+    for k, (facet, inequality, graph) in enumerate([header, *rows]):
+        start = f"{_INDENT}{facet.ljust(first)}  {inequality.ljust(second)}  "
+        if len(start) + len(graph) <= _WIDTH:
+            lines.append((start + graph).rstrip())
+        else:
+            lines.append(start.rstrip())
+            below = [""]
+            for factor in graph.split(" "):
+                if below[-1] and lead + len(below[-1]) + 1 + len(factor) > _WIDTH:
+                    below.append("")
+                below[-1] = f"{below[-1]} {factor}".strip()
+            lines.extend(" " * lead + part for part in below)
+        if k == 0:
+            rules = ("-" * first, "-" * second, "-" * max(len(row[2]) for row in [header, *rows]))
+            lines.append(f"{_INDENT}{rules[0]}  {rules[1]}  {rules[2]}"[:_WIDTH])
+    return "\n".join(lines)
+
+
+def _faces(report: AnalysisReport, section: Faces, doc: _Document) -> str:
+    paragraphs, classes, intro = face_paragraphs(section, doc.cite, latex=False)
+    blocks = [_paragraph(p) for p in paragraphs]
+    if not section.full_dimensional:
+        return _blocks(*blocks)
+    graphs = facet_graphs(report, section)
+    rows = [
+        (f"F_{k}", f"{_str(lhs)} <= {b}", face_name(face, latex=False) if face.verified else "-")
+        for k, lhs, b, face in graphs
+    ]
+    counts = face_counts(section)
+    header = ("Class", *(f"Codim {c}" for c in range(section.max_codimension + 1)))
+    blocks += [
+        _paragraph("The graph of each facet, a dash marking one that is not identified:"),
+        _facet_table(rows),
+        _paragraph(f"{classes}:"),
+        _table(header, [(name, *map(str, row)) for name, row in counts]),
+    ]
+    unidentified = [face for face in section.faces if face.kind == "unidentified"]
+    if unidentified:
+        number = {id(face): k for k, _, _, face in graphs}
+        blocks.append(_paragraph(intro))
+        for face in unidentified[:MAX_UNIDENTIFIED_SHOWN]:
+            k = number.get(id(face))
+            label = f"F_{k}" if k is not None else f"A face of dimension {face.dimension}"
+            flag = face_name(face, latex=False)
+            assert face.prediction is not None
+            blocks += [
+                _paragraph(f"{label}, predicted as {flag}:"),
+                _equation("G|_F", _lines(face.polynomial, _room("G|_F"))),
+                _equation("prediction", _lines(face.prediction, _room("prediction"))),
+            ]
+        left = len(unidentified) - MAX_UNIDENTIFIED_SHOWN
+        if left > 0:
+            blocks.append(_paragraph(more_faces(left)))
+    return _blocks(*blocks)
+
+
 def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) -> str:
     orbits = symmetries.vertex_orbits
     if report.polytope is not None:
@@ -1152,6 +1226,7 @@ def render_text(report: AnalysisReport, *, title: str | None = None) -> str:
         torus=lambda section: _torus(section, doc),
         gkz=lambda section: _gkz(section, doc),
         resonance=lambda section: _resonance(report, section, doc),
+        faces=lambda section: _faces(report, section, doc),
         symmetries=lambda section: _symmetries(report, section, doc),
         landau=lambda section: _landau(section, report.conventions.energy_scale, doc),
         schwinger=lambda section: _schwinger(section, doc),

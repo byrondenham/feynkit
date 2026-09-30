@@ -2,8 +2,8 @@
 Frozen description of everything feynkit computes for one Feynman integral.
 
 :meth:`AnalysisReport.from_integral` gathers the graph data, the Symanzik
-polynomials, the parametric representations, the Newton polytope, the GKZ
-system, the symmetries, the Landau surfaces and the Schwinger-representation
+polynomials, the parametric representations, the Newton polytope and the
+graphs of its faces, the GKZ system, the symmetries, the Landau surfaces and the Schwinger-representation
 system into one immutable value, so that a renderer can walk the result
 without reaching back into the integral. The module carries data only: it
 makes no formatting decisions and holds no LaTeX beyond the TikZ figures it
@@ -39,6 +39,7 @@ import sympy as sp
 from .. import _exact
 from ..a_configuration import SymmetryPair
 from ..core.exceptions import ValidationError
+from ..face_identification import FaceIdentification, identify_faces
 from ..kinematics.mandelstam import KinematicInvariants, standard_invariants
 from ..landau import (
     LandauAnalysis,
@@ -70,12 +71,14 @@ if TYPE_CHECKING:
 
 __all__ = [
     "DEFAULT_SECTIONS",
+    "FACE_CODIMENSION",
     "LATTICE_BUDGET",
     "NORMALIZ_TIMEOUT",
     "RESONANCE_WINDOW",
     "SECTION_NAMES",
     "AnalysisReport",
     "Conventions",
+    "Faces",
     "GKZ",
     "Identity",
     "Landau",
@@ -98,14 +101,19 @@ SECTION_NAMES = (
     "torus",
     "gkz",
     "resonance",
+    "faces",
     "symmetries",
     "landau",
     "schwinger",
 )
 
 # The sections built when none are named: all but the point counts, which take seconds for
-# five propagators; seven exceed the default budget.
-DEFAULT_SECTIONS = tuple(name for name in SECTION_NAMES if name != "torus")
+# five propagators; seven exceed the default budget; and the graphs of the faces, which are
+# asked for.
+DEFAULT_SECTIONS = tuple(name for name in SECTION_NAMES if name not in ("torus", "faces"))
+
+# The faces section identifies the faces of P up to this codimension.
+FACE_CODIMENSION = 2
 
 # The budget and Normaliz timeout of the lattice invariants in the report and in fk analyse:
 # about five seconds of pure-Python work, beyond which Normaliz takes over or the fields that
@@ -354,6 +362,28 @@ class Resonance:
     unit_powers: bool
     span: EpsilonSet
     facets: tuple[FacetResonance, ...]
+    full_dimensional: bool
+
+
+@dataclass(frozen=True)
+class Faces:
+    """The graphs of the faces of P, up to codimension FACE_CODIMENSION.
+
+    Attributes
+    ----------
+    faces
+        One record per face, from :func:`feynkit.face_identification.identify_faces`:
+        P itself, then the facets in the order of ``PolytopeData.facets``, then
+        the faces of codimension 2.
+    max_codimension
+        The largest codimension included.
+    full_dimensional
+        Whether P is full-dimensional; below full dimension no face is
+        identified.
+    """
+
+    faces: tuple[FaceIdentification, ...]
+    max_codimension: int
     full_dimensional: bool
 
 
@@ -614,6 +644,14 @@ def _resonance(
     )
 
 
+def _faces(fi: FeynmanIntegral, data: PolytopeData) -> Faces:
+    return Faces(
+        faces=identify_faces(fi, max_codimension=FACE_CODIMENSION, data=data),
+        max_codimension=FACE_CODIMENSION,
+        full_dimensional=data.is_full_dimensional,
+    )
+
+
 def _symmetries(fi: FeynmanIntegral, data: PolytopeData) -> Symmetries:
     automorphisms = fi.polytope_automorphisms
     return Symmetries(
@@ -707,6 +745,7 @@ class AnalysisReport:
     schwinger: Schwinger | None
     torus: TorusCount | None = None
     resonance: Resonance | None = None
+    faces: Faces | None = None
 
     @classmethod
     def from_integral(
@@ -729,7 +768,7 @@ class AnalysisReport:
             The integral to describe.
         sections
             Names from :data:`SECTION_NAMES` to build; :data:`DEFAULT_SECTIONS`,
-            every section but ``torus``, by default. ``identity``,
+            every section but ``torus`` and ``faces``, by default. ``identity``,
             ``conventions`` and ``polynomials`` are built whatever is asked for,
             since the rest of the report reads as a fragment without them.
         max_face_points
@@ -783,7 +822,8 @@ class AnalysisReport:
         polytope: Polytope | None = None
         symmetries: Symmetries | None = None
         resonance: Resonance | None = None
-        if wanted & {"representations", "polytope", "symmetries", "resonance"}:
+        faces: Faces | None = None
+        if wanted & {"representations", "polytope", "symmetries", "resonance", "faces"}:
             data = polytope_data(integral.newton_polytope.points)
             if "representations" in wanted:
                 representations = _representations(integral, data)
@@ -793,6 +833,8 @@ class AnalysisReport:
                 symmetries = _symmetries(integral, data)
             if "resonance" in wanted:
                 resonance = _resonance(integral, data, d0_value, d0_source)
+            if "faces" in wanted:
+                faces = _faces(integral, data)
 
         analysis: LandauAnalysis | None = None
         if wanted & {"landau", "torus"}:
@@ -824,6 +866,7 @@ class AnalysisReport:
             schwinger=_schwinger(integral) if "schwinger" in wanted else None,
             torus=torus,
             resonance=resonance,
+            faces=faces,
         )
 
     def summary(self) -> tuple[tuple[str, str], ...]:
@@ -853,6 +896,9 @@ class AnalysisReport:
             rows.append(("Gorenstein index", "none" if index is None else str(index)))
             normal = "not computed" if found.normal is None else "yes" if found.normal else "no"
             rows.append(("Normal configuration", normal))
+        if self.faces is not None:
+            unidentified = sum(face.kind == "unidentified" for face in self.faces.faces)
+            rows.append(("Unidentified faces", str(unidentified)))
         if self.symmetries is not None:
             rows.append(("Polytope automorphisms", str(self.symmetries.automorphism_order)))
         if self.gkz is not None:

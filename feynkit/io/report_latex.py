@@ -28,12 +28,17 @@ from ..point_count import TorusCount
 from ._report_shared import (
     CITATIONS,
     MAX_PAIRS_SHOWN,
+    MAX_UNIDENTIFIED_SHOWN,
     Citations,
     append_signed,
     count_noun,
     count_polynomial,
     f_block_sentence,
+    face_counts,
+    face_name,
     face_names,
+    face_paragraphs,
+    facet_graphs,
     in_squared_masses,
     integrand_templates,
     join_words,
@@ -42,6 +47,7 @@ from ._report_shared import (
     lattice_normality,
     limit_factors,
     limit_sentences,
+    more_faces,
     not_computed,
     primes_left_out,
     render_sections,
@@ -59,6 +65,7 @@ from .report import (
     GKZ,
     AnalysisReport,
     Conventions,
+    Faces,
     Identity,
     Landau,
     Polytope,
@@ -834,6 +841,51 @@ def _resonance(report: AnalysisReport, section: Resonance, doc: _Document) -> st
     return "\n\n".join(parts)
 
 
+def _faces(report: AnalysisReport, section: Faces, doc: _Document) -> str:
+    paragraphs, classes, intro = face_paragraphs(section, doc.cite, latex=True)
+    parts = list(paragraphs)
+    if not section.full_dimensional:
+        return "\n\n".join(parts)
+    graphs = facet_graphs(report, section)
+    rows = [
+        (
+            f"$F_{{{k}}}$",
+            f"${to_latex(lhs)} \\le {b}$",
+            f"${face_name(face, latex=True)}$" if face.verified else "--",
+        )
+        for k, lhs, b, face in graphs
+    ]
+    counts = face_counts(section)
+    header = ("Class", *(f"Codim.\\ {c}" for c in range(section.max_codimension + 1)))
+    parts += [
+        "The graph of each facet, a dash marking one that is not identified:",
+        _longtable("lll", ("Facet", "Inequality", "Graph"), rows),
+        f"{classes}:",
+        _longtable(
+            "l" + "r" * (section.max_codimension + 1),
+            header,
+            [(_escape(name), *map(str, row)) for name, row in counts],
+        ),
+    ]
+    unidentified = [face for face in section.faces if face.kind == "unidentified"]
+    if unidentified:
+        number = {id(face): k for k, _, _, face in graphs}
+        parts.append(intro)
+        for face in unidentified[:MAX_UNIDENTIFIED_SHOWN]:
+            k = number.get(id(face))
+            label = f"$F_{{{k}}}$" if k is not None else f"A face of dimension {face.dimension}"
+            assert face.prediction is not None
+            parts += [
+                f"{label}, predicted as ${face_name(face, latex=True)}$:",
+                _equation("G|_F", to_latex_lines(face.polynomial)),
+                _equation("\\text{prediction}", to_latex_lines(face.prediction)),
+            ]
+        left = len(unidentified) - MAX_UNIDENTIFIED_SHOWN
+        if left > 0:
+            parts.append(more_faces(left))
+    return "\n\n".join(parts)
+
+
 def _symmetries(report: AnalysisReport, symmetries: Symmetries, doc: _Document) -> str:
     orbits = symmetries.vertex_orbits
     if report.polytope is not None:
@@ -1087,6 +1139,7 @@ def render_latex(report: AnalysisReport, *, title: str | None = None) -> str:
         torus=lambda section: _torus(section, doc),
         gkz=lambda section: _gkz(section, doc),
         resonance=lambda section: _resonance(report, section, doc),
+        faces=lambda section: _faces(report, section, doc),
         symmetries=lambda section: _symmetries(report, section, doc),
         landau=lambda section: _landau(section, report.conventions.energy_scale, doc),
         schwinger=lambda section: _schwinger(section, doc),

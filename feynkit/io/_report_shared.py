@@ -21,6 +21,7 @@ from typing import NamedTuple
 
 import sympy as sp
 
+from ..face_identification import FACE_KINDS, FaceIdentification, FlagLevel
 from ..landau import LimitSurface
 from ..point_count import TorusCount
 from ..resonance import EpsilonSet, FacetResonance
@@ -30,6 +31,7 @@ from .report import (
     RESONANCE_WINDOW,
     AnalysisReport,
     Conventions,
+    Faces,
     Landau,
     Polytope,
     Representations,
@@ -40,7 +42,9 @@ from .report import (
 
 __all__ = [
     "CITATIONS",
+    "FACE_CLASSES",
     "MAX_PAIRS_SHOWN",
+    "MAX_UNIDENTIFIED_SHOWN",
     "NOT_COMPUTED",
     "TORUS_HEADING",
     "Citations",
@@ -53,7 +57,11 @@ __all__ = [
     "display_factors",
     "epsilon_set",
     "f_block_sentence",
+    "face_counts",
+    "face_name",
     "face_names",
+    "face_paragraphs",
+    "facet_graphs",
     "in_squared_masses",
     "integrand_templates",
     "join_words",
@@ -62,6 +70,7 @@ __all__ = [
     "lattice_normality",
     "limit_factors",
     "limit_sentences",
+    "more_faces",
     "not_computed",
     "primes_left_out",
     "render_sections",
@@ -187,10 +196,28 @@ CITATIONS: dict[str, str] = {
         "R. Britto, T.W. Grimm and A. Hoefnagels, \\emph{Resonance and differential reduction "
         "of Feynman integrals}, JHEP 09 (2026) 018, arXiv:2606.09978."
     ),
+    "ahm2022": (
+        "N. Arkani-Hamed, A. Hillman and S. Mizera, \\emph{Feynman polytopes and the tropical "
+        "geometry of UV and IR divergences}, Phys. Rev. D 105 (2022) 125013, arXiv:2202.12296."
+    ),
 }
 
 # The symmetry section writes out at most this many symmetry pairs.
 MAX_PAIRS_SHOWN = 10
+
+# The faces section writes out at most this many unidentified faces.
+MAX_UNIDENTIFIED_SHOWN = 10
+
+# The name of each class of face in the faces section.
+FACE_CLASSES = {
+    "whole": "whole graph",
+    "contraction": "contraction",
+    "product_uv": "UV product",
+    "product_ir": "IR product",
+    "u_layer": "U layer",
+    "f_layer": "F layer",
+    "unidentified": "unidentified",
+}
 
 # What the Newton polytope section says feynkit leaves uncomputed when P is full-dimensional.
 NOT_COMPUTED = (
@@ -230,6 +257,7 @@ def render_sections(
     torus: Callable[[TorusCount], str],
     gkz: Callable[[GKZ], str],
     resonance: Callable[[Resonance], str],
+    faces: Callable[[Faces], str],
     symmetries: Callable[[Symmetries], str],
     landau: Callable[[Landau], str],
     schwinger: Callable[[Schwinger], str],
@@ -257,6 +285,8 @@ def render_sections(
         sections.append(("GKZ system", gkz(report.gkz)))
     if report.resonance is not None:
         sections.append(("Resonance", resonance(report.resonance)))
+    if report.faces is not None:
+        sections.append(("Faces as graphs", faces(report.faces)))
     if report.symmetries is not None:
         sections.append(("Symmetries", symmetries(report.symmetries)))
     if report.landau is not None:
@@ -481,6 +511,142 @@ def resonance_paragraphs(
         "resonant at:"
     )
     return paragraphs, classes, window
+
+
+def _level_name(level: FlagLevel, latex: bool) -> str:
+    if not latex:
+        return level.name()
+    minor = level.minor().replace("Gamma", r"\Gamma").replace("{", r"\{").replace("}", r"\}")
+    return rf"\mathcal{{{level.kind}}}_{{{minor}}}"
+
+
+def face_name(face: FaceIdentification, *, latex: bool) -> str:
+    """The flag's product of minor polynomials, as FaceIdentification.name, or in LaTeX
+    maths without the dollars."""
+    factors = [_level_name(level, latex) for level in face.levels if not level.trivial]
+    if not face.levels:
+        return "none"
+    return (r"\," if latex else " ").join(factors) or "1"
+
+
+def facet_graphs(
+    report: AnalysisReport, section: Faces
+) -> list[tuple[int, sp.Expr, int, FaceIdentification]]:
+    """Per facet: its number k in F_k, the left side m . x and right side b of its
+    inequality, and its identification; the coordinates x_e are named by the edge
+    indices, as in the resonance section."""
+    x = [sp.Symbol(f"x_{e}") for e in report.identity.edge_indices]
+    rows: list[tuple[int, sp.Expr, int, FaceIdentification]] = []
+    for face in section.faces:
+        if face.facet is not None:
+            lhs = sp.Add(*(m * v for m, v in zip(face.facet.normal, x, strict=True)))
+            rows.append((len(rows) + 1, lhs, face.facet.offset, face))
+    return rows
+
+
+def face_counts(section: Faces) -> list[tuple[str, list[int]]]:
+    """Per class that occurs: its name and the number of its faces of each codimension from
+    0 to the section's largest."""
+    rows = []
+    for kind in FACE_KINDS:
+        counts = [
+            sum(face.kind == kind and face.codimension == c for face in section.faces)
+            for c in range(section.max_codimension + 1)
+        ]
+        if any(counts):
+            rows.append((FACE_CLASSES[kind], counts))
+    return rows
+
+
+def more_faces(left: int) -> str:
+    """The sentence after the unidentified faces shown, when some are not."""
+    return "One more face is not shown." if left == 1 else f"{left} more faces are not shown."
+
+
+# The maths of the faces section, as the text prints it and in LaTeX.
+_FACE_MATHS = {
+    "F": ("F", "F"),
+    "P": ("P", "P"),
+    "G": ("G", "G"),
+    "G_F": ("G|_F", r"G|_F"),
+    "w": ("w", "w"),
+    "sum": ("w = -sum_j m_j", r"w = -\sum_j m_j"),
+    "facet": ("m_j . x <= b_j", r"m_j \cdot x \le b_j"),
+    "t": ("t_1 > ... > t_k", r"t_1 > \dots > t_k"),
+    "w_e": ("w_e", "w_e"),
+    "H_j": ("H_j", "H_j"),
+    "t_j": ("t_j", "t_j"),
+    "U(H_j)": ("U(H_j)", r"\mathcal{U}_{H_j}"),
+    "F(H_j)": ("F(H_j)", r"\mathcal{F}_{H_j}"),
+    "G(H_j)": ("G(H_j)", r"\mathcal{G}_{H_j}"),
+    "zero": ("t_j = 0", "t_j = 0"),
+    "negative": ("t_j < 0", "t_j < 0"),
+    "minor": ("sigma/tau", r"\sigma/\tau"),
+    "sigma": ("sigma", r"\sigma"),
+    "tau": ("tau", r"\tau"),
+    "Gamma": ("Gamma", r"\Gamma"),
+    "gamma": ("gamma", r"\gamma"),
+    "uv": ("U(gamma) G(Gamma/gamma)", r"\mathcal{U}_\gamma \mathcal{G}_{\Gamma/\gamma}"),
+    "u_e": ("u_e", "u_e"),
+    "edge": ("G(Gamma/{e})", r"\mathcal{G}_{\Gamma/\{e\}}"),
+    "F_quotient": ("F(Gamma/gamma)", r"\mathcal{F}_{\Gamma/\gamma}"),
+}
+
+
+def face_paragraphs(
+    section: Faces, cite: Callable[..., str], *, latex: bool
+) -> tuple[list[str], str, str]:
+    """The paragraphs of the faces section before its tables, and the sentences before the
+    table of classes and before the unidentified faces."""
+
+    def m(text: str, tex: str) -> str:
+        return f"${tex}$" if latex else text
+
+    x = {key: m(text, tex) for key, (text, tex) in _FACE_MATHS.items()}
+    u, f, g = m("U", r"\mathcal{U}"), m("F", r"\mathcal{F}"), m("G", r"\mathcal{G}")
+    opening = (
+        f"For a face {x['F']} of {x['P']}, {x['G_F']} is the sum of the terms of {x['G']} "
+        f"whose exponents lie on {x['F']}: the initial form of {x['G']} for any weight "
+        f"{x['w']} in the relative interior of the normal cone of {x['F']}, the terms of least "
+        f"{x['w']}-degree{cite('fmt2024')}. The report takes {x['sum']} over the facets "
+        f"{x['facet']} containing {x['F']}, and the distinct values {x['t']} of the {x['w_e']} "
+        f"give a flag of minors of the graph: {x['H_j']} keeps the edges of weight {x['t_j']}, "
+        "contracts those of greater weight and deletes the others, legs moving with their "
+        "vertices and a vertex left without propagators dropped with its legs. The terms of "
+        f"{u} of least {x['w']}-degree are the product of the {x['U(H_j)']}. For the last level "
+        f"whose {x['F(H_j)']} is not zero, the prediction for {x['G_F']} replaces "
+        f"{x['U(H_j)']} in that product by {x['G(H_j)']} when {x['zero']} and by "
+        f"{x['F(H_j)']} when {x['negative']}; a face is identified only when {x['G_F']} equals "
+        f"the prediction exactly. A minor is written {x['minor']}, the subgraph on the edges "
+        f"{x['sigma']} with those of {x['tau']} contracted, and {x['Gamma']} is the whole "
+        "graph."
+    )
+    known = (
+        f"For the weight that is 1 on the edges of a connected subgraph {x['gamma']} and 0 "
+        f"elsewhere, with every mass non-zero, the initial form is {x['uv']}"
+        f"{cite('fmt2024')}, and the face of the terms free of {x['u_e']} gives "
+        f"{x['edge']}{cite('britto2026')}. "
+        f"Arkani-Hamed, Hillman and Mizera label the facets of the Feynman polytope by "
+        f"subgraphs {x['gamma']}, ultraviolet when {x['F_quotient']} is not zero and infrared "
+        f"when it is{cite('ahm2022')}."
+    )
+    paragraphs = [opening, known]
+    if not section.full_dimensional:
+        paragraphs.append(
+            f"{x['P']} is not full-dimensional, so its faces are not identified: the normal of "
+            f"a facet relative to the affine hull of {x['P']} is fixed only modulo the "
+            "equations of the hull, and so is the flag."
+        )
+    classes = (
+        f"A contraction is the {g} of a quotient alone, a UV product has its {g} factor on a "
+        f"quotient and an IR product on a minor with edges deleted; the {u} layer holds the "
+        f"products of {u}'s alone and the {f} layer those with an {f} factor. The faces of "
+        "each codimension fall into the classes"
+    )
+    unidentified = (
+        f"On these faces {x['G_F']} differs from the prediction of its flag, written below it:"
+    )
+    return paragraphs, classes, unidentified
 
 
 def f_block_sentence(schwinger: Schwinger, cite: Callable[..., str], *, latex: bool) -> str:

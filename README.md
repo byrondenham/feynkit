@@ -66,12 +66,15 @@ fk analyse "12e|2e|e|:zzz" -g -n               # GKZ system and Newton polytope 
 fk analyse "12e|2e|e|"                         # bare topology: every propagator massless
 fk analyse "12e|2e|e|:nzz" --latex triangle.tex --json --no-db
 fk analyse "11e|e|:nn" --torus-count           # candidate master count from point counts
+fk analyse "12e|22e|e|:nnnn" -f                # the graphs of the parachute's faces
 fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"     # the mass on two different propagators
 ```
 
 `fk analyse` prints the Symanzik polynomials, parametrisations, GKZ system, toric ideal, Newton
 polytope, the facets resonant as $D = D_0 - 2\varepsilon$ varies, and symmetries, or those its
-section flags choose. `--torus-count` adds a candidate
+section flags choose. `-f` names each facet by a graph, a contraction or a product of the
+Symanzik polynomials of a subgraph and a quotient, each checked exactly. `--torus-count` adds a
+candidate
 number of master integrals from finite-field point counts: evidence from finitely many primes, not
 a proof, and often no candidate for massive or off-shell graphs. `fk analyse` also writes the
 analysis report with `--latex FILE` and `--text FILE`, and prints a JSON summary with `--json`.

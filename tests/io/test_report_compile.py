@@ -101,3 +101,13 @@ def _compile(latex: str, tmp_path: Path) -> None:
     assert (tmp_path / "report.pdf").exists()
     assert not [line for line in lines if "Overfull \\hbox" in line]
     assert not [line for line in lines if _UNDEFINED.search(line)]
+
+
+@requires_pdflatex
+@pytest.mark.parametrize(  # type: ignore[misc]
+    "cnickel", ["12e|3e|3e|e|:zzzz", "15e|24|3e|4e|5|e|:zzzzzzz"]
+)
+def test_faces_section_compiles(cnickel: str, tmp_path: Path) -> None:
+    # On shell, both list unidentified faces with G|_F and the prediction written out.
+    fi = FeynmanIntegral.from_cnickel(cnickel, kinematics="massless_on_shell")
+    _compile(fi.to_latex(["faces"]), tmp_path)

@@ -79,6 +79,8 @@ def test_json_summary_of_the_default_sections(capsys: pytest.CaptureFixture[str]
     assert data["summary"]["normal_configuration"] is found.normal
     assert data["summary"]["polytope_automorphisms"] == 6
     assert data["summary"]["landau_surfaces"] == 1
+    assert data["summary"]["unidentified_faces"] == 0
+    assert data["summary"]["support_product_faces"] == 0
 
 
 def test_json_summary_with_the_point_counts(capsys: pytest.CaptureFixture[str]) -> None:

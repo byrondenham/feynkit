@@ -50,6 +50,7 @@ SUMMARY_LABELS = (
     "Gorenstein index",
     "Normal configuration",
     "Unidentified faces",
+    "Support product faces",
     "Polytope automorphisms",
     "Toric generators",
     "Landau surfaces",
@@ -614,6 +615,21 @@ class TestFaces:
         assert section.faces == identify_faces(triangle)
         assert report.polytope is None
         assert ("Unidentified faces", "0") in report.summary()
+        assert ("Support product faces", "0") in report.summary()
+
+    def test_the_summary_counts_the_support_products(self) -> None:
+        # Three massive legs, p_2^2 = 0: one facet and one face of codimension 2 have the
+        # exponents of their prediction but not its coefficients.
+        fi = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+        p2 = sp.Symbol("p2^2", real=True)
+        fi = fi.with_(momentum_products={k: v.subs(p2, 0) for k, v in fi.momentum_products.items()})
+        report = AnalysisReport.from_integral(fi, ["faces"])
+        assert report.faces is not None
+        kinds = [face.kind for face in report.faces.faces]
+        rows = dict(report.summary())
+        assert rows["Support product faces"] == str(kinds.count("support_product"))
+        assert rows["Unidentified faces"] == str(kinds.count("unidentified"))
+        assert kinds.count("support_product") > 0
 
     def test_below_full_dimension(self) -> None:
         fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematics="massless_on_shell")

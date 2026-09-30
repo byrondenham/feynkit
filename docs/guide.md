@@ -2600,8 +2600,8 @@ The document has up to fifteen parts:
 2. A summary table: loops, propagators, external legs, the monomial counts of $F$ and $G$,
    independent invariants, codimension, whether the integral is scaleless, polytope vertices,
    normalised volume, the candidate master count (with `torus`; "none" when the counts give no
-   candidate), the number of unidentified faces (with `faces`), $|\mathrm{Aut}(P)|$, toric
-   generators and Landau surfaces.
+   candidate), the numbers of unidentified and of support product faces (with `faces`),
+   $|\mathrm{Aut}(P)|$, toric generators and Landau surfaces.
 3. The graph: a TikZ figure and a table of the propagators with their endpoints, exponents and
    masses.
 4. Conventions: the momentum-space integral and its normalisation, $D = D_0 - 2\epsilon$, the

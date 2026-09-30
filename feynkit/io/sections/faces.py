@@ -358,7 +358,11 @@ def latex(report: AnalysisReport, section: Faces, doc: LatexDocument) -> str:
 
 def summary(faces: Faces) -> list[tuple[str, str]]:
     unidentified = sum(face.kind == "unidentified" for face in faces.faces)
-    return [("Unidentified faces", str(unidentified))]
+    support_products = sum(face.kind == "support_product" for face in faces.faces)
+    return [
+        ("Unidentified faces", str(unidentified)),
+        ("Support product faces", str(support_products)),
+    ]
 
 
 SECTION = Section(

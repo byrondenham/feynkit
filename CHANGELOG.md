@@ -416,6 +416,10 @@
   the prediction reproduces Eqs. 3.13 and 3.15 of Fevola, Mizera and Telen
   and Eq. 21 of Britto, Grimm and Hoefnagels. Both, and the guide, describe
   the support products.
+- The summary of the analysis report has a row "Support product faces", and
+  `fk analyse --json` a field `support_product_faces`, counting the faces whose
+  exponents are those of their prediction but whose coefficients are not; they
+  come with the `faces` section, after the unidentified faces.
 
 ### Changed
 

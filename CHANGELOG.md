@@ -266,8 +266,9 @@
   `feynkit.io.report` gains the field `invariants`, last and None by default.
   The report cites Beck and Robins, Bruns, Gubeladze and Trung, Hochster and
   Batyrev, which the mathematics reference and the guide list too.
-- Limit surfaces. For a Feynman integral whose momentum products are not the
-  generic ones, `landau_analysis` also analyses the parent family, the same
+- Limit surfaces, on request. For a Feynman integral whose momentum products
+  are not the generic ones, `landau_analysis(limits=True)` also analyses the
+  parent family, the same
   graph and masses with generic external kinematics, restricts its surfaces,
   and tests each irreducible factor that does not vanish and is not among
   `landau_surfaces` for a drop of the Euler characteristic:
@@ -288,7 +289,8 @@
   counts, and the candidates with their reasons; `AnalysisReport.summary()`
   gains the rows `Limit surfaces` and `Limit candidates` after
   `Landau surfaces`, and `fk analyse --json` the keys `limit_surfaces` and
-  `limit_candidates`, when the kinematics specialise the generic ones. The
+  `limit_candidates`, when they were asked for and the kinematics specialise
+  the generic ones. The
   point counts leave the parent out. The parent is analysed with the same
   `max_face_points` and `timeout`, and when it skips faces the limit surfaces
   may be incomplete: the report says so, and its summary has the row
@@ -296,9 +298,15 @@
   `fk analyse --json`. The report's sentence on skipped faces names those
   that ran past the time limit. Its analysis is kept for the next integral of the same
   family. Kinematics that are the generic ones in renamed invariants have no
-  parent. `DEFAULT_LIMITS` of `feynkit.landau` sets whether `landau_analysis`
-  looks for limit surfaces when `limits` is not given: True, False or
-  "one-loop"; it is True.
+  parent. They are off by default, since at one loop the closed form of
+  `one_loop_landau_surfaces`, which the report prints, already gives them, and
+  beyond one loop the analysis of the parent family roughly triples the cost:
+  the massless double box on shell takes about 40 s without it and about
+  two minutes with it. `DEFAULT_LIMITS` of `feynkit.landau` sets whether
+  `landau_analysis` looks for limit surfaces when `limits` is not given: True,
+  False or "one-loop"; it is False. `fk analyse --limits` switches them on for
+  the report, and `AnalysisReport.from_integral`, `FeynmanIntegral.to_latex`
+  and `FeynmanIntegral.to_text` take `limits`.
 
 ### Changed
 

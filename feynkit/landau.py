@@ -48,7 +48,8 @@ u_3 = 0, so p_2^2 - p_3^2 is not in the principal Landau determinant,
 though |chi| drops from 6 to 5 there. For a Feynman integral whose
 momentum products are not the generic ones, :func:`landau_analysis` also
 restricts the surfaces of the parent family, the same graph and masses
-with generic external kinematics, and tests each irreducible factor of
+with generic external kinematics, when asked to with ``limits=True``, and
+tests each irreducible factor of
 the restrictions that is not in the principal Landau determinant: it is a
 limit surface when the number of critical points, |chi| for generic
 exponents, drops at two random rational points of it, and a candidate
@@ -353,7 +354,7 @@ DEFAULT_FACE_TIMEOUT = 60
 
 # Whether landau_analysis looks for limit surfaces when not told: True, False, or "one-loop"
 # for one-loop integrals only.
-DEFAULT_LIMITS: bool | str = True
+DEFAULT_LIMITS: bool | str = False
 
 
 def _check_timeout(timeout: object, *, optional: bool = True, name: str = "timeout") -> None:
@@ -1540,14 +1541,14 @@ def landau_analysis(
     integral's products, which they determine uniquely, and give the
     restriction. When the products are the generic ones, or the generic
     ones in invariants renamed by an invertible linear map, there is no
-    parent, and ``limit_surfaces`` and ``limit_candidates`` are empty. The
-    parent is analysed with the same ``max_face_points`` and ``timeout``;
+    parent, and ``limit_surfaces`` and ``limit_candidates`` are empty, and
+    there is none unless ``limits`` asks for it. The parent is analysed with the same ``max_face_points`` and ``timeout``;
     when it skips faces, listed in ``parent.skipped_faces``, the limit
     surfaces may be incomplete.
 
     ``limits`` is True to look for limit surfaces, False not to, and
     "one-loop" to look for them only at one loop; None, the default, takes
-    :data:`DEFAULT_LIMITS`, which is True.
+    :data:`DEFAULT_LIMITS`, which is False.
     """
     if limits is None:
         limits = DEFAULT_LIMITS

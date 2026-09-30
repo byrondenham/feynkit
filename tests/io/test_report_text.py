@@ -744,7 +744,7 @@ def test_limit_candidates_give_their_reasons() -> None:
             k: sp.expand(sp.sympify(v).subs(p1, 0)) for k, v in fi.momentum_products.items()
         }
     )
-    report = AnalysisReport.from_integral(fi, ["landau"])
+    report = AnalysisReport.from_integral(fi, ["landau"], limits=True)
     assert report.landau is not None
     analysis = report.landau.analysis
     (limit,) = analysis.limit_surfaces
@@ -785,7 +785,7 @@ def test_a_parent_that_skipped_faces_is_said_to_leave_the_limits_incomplete() ->
             k: sp.expand(sp.sympify(v).subs(p1, 0)) for k, v in fi.momentum_products.items()
         }
     )
-    report = AnalysisReport.from_integral(fi, ["landau"])
+    report = AnalysisReport.from_integral(fi, ["landau"], limits=True)
     assert report.landau is not None and report.landau.analysis.parent is not None
     analysis = report.landau.analysis
     parent = dataclasses.replace(analysis.parent, skipped_faces=(((1, 0, 0),),))

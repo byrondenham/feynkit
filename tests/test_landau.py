@@ -823,7 +823,7 @@ class TestSeveralGenerators:
     def test_the_component_lost_in_the_limit_is_a_limit_surface(self) -> None:
         # The Euler characteristic drops from 6 to 5 on p_2^2 = p_3^2.
         on_shell, component = self._triangle_with_massless_leg()
-        analysis = landau_analysis(on_shell)
+        analysis = landau_analysis(on_shell, limits=True)
         assert component not in analysis.landau_surfaces
         (limit,) = analysis.limit_surfaces
         assert limit.surface == component
@@ -875,7 +875,7 @@ class TestLimitSurfaces:
     @requires_singular
     def test_the_parent_has_the_same_graph_and_generic_legs(self) -> None:
         on_shell = _massless_legs("12e|2e|e|:nnn", (1,))
-        analysis = landau_analysis(on_shell, confirm=False)
+        analysis = landau_analysis(on_shell, confirm=False, limits=True)
         generic = landau_analysis(FeynmanIntegral.from_cnickel("12e|2e|e|:nnn"))
         assert analysis.parent is not None
         assert analysis.parent.landau_surfaces == generic.landau_surfaces
@@ -906,7 +906,7 @@ class TestLimitSurfaces:
         monkeypatch.setattr(landau_module, "_analysis", spy)
         generic = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn").symanzik.g
         for legs in [(1,), (2,), (1, 2)]:
-            landau_analysis(_massless_legs("12e|2e|e|:nnn", legs), confirm=False)
+            landau_analysis(_massless_legs("12e|2e|e|:nnn", legs), confirm=False, limits=True)
         assert analysed.count(generic) == 1
         assert len(analysed) == 4
 
@@ -922,9 +922,9 @@ class TestLimitSurfaces:
 
         monkeypatch.setattr(landau_module, "_analysis", spy)
         on_shell = _massless_legs("12e|2e|e|:nnn", (1,))
-        landau_analysis(on_shell, confirm=False)
+        landau_analysis(on_shell, confirm=False, limits=True)
         assert timeouts == [landau_module.DEFAULT_FACE_TIMEOUT] * 2
-        landau_analysis(on_shell, confirm=False, timeout=30)
+        landau_analysis(on_shell, confirm=False, timeout=30, limits=True)
         assert timeouts[2:] == [30, 30]
 
     def test_renamed_generic_kinematics_have_no_parent(self) -> None:
@@ -936,13 +936,15 @@ class TestLimitSurfaces:
         products = {
             k: sp.expand(sp.sympify(v).subs(renamed)) for k, v in fi.momentum_products.items()
         }
-        assert landau_analysis(fi.with_(momentum_products=products)).parent is None
+        assert landau_analysis(fi.with_(momentum_products=products), limits=True).parent is None
         # A mass among the values is a specialisation.
         m1 = fi.graph.get_internal_edges()[0].get_mass()
         products = {
             k: sp.expand(sp.sympify(v).subs(p1, m1**2)) for k, v in fi.momentum_products.items()
         }
-        assert landau_analysis(fi.with_(momentum_products=products), confirm=False).parent
+        assert landau_analysis(
+            fi.with_(momentum_products=products), confirm=False, limits=True
+        ).parent
 
     def test_the_default_of_limits_is_one_switch(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # The banana at s = m_1^2 has a parent, the triangle at p_1^2 = 0 too.
@@ -966,6 +968,17 @@ class TestLimitSurfaces:
         with pytest.raises(ValidationError, match="limits must be True, False or 'one-loop'"):
             landau_analysis(triangle, limits="two-loop")  # type: ignore[arg-type]
 
+    def test_the_default_gives_no_limit_surfaces(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        assert landau_module.DEFAULT_LIMITS is False
+
+        def refuse(*args: object) -> None:
+            raise AssertionError("analysed the parent family")
+
+        monkeypatch.setattr(landau_module, "_parent_analysis", refuse)
+        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), confirm=False)
+        assert analysis.parent is None
+        assert analysis.limit_surfaces == analysis.limit_candidates == ()
+
     def test_limits_can_be_left_out(self) -> None:
         analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), limits=False)
         assert analysis.parent is None
@@ -976,7 +989,7 @@ class TestLimitSurfaces:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(point_count_module, "critical_point_count", lambda *a, **k: 6)
-        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)))
+        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), limits=True)
         (candidate,) = analysis.limit_candidates
         assert candidate.counts == (6,)
         assert candidate.reason == "the count, 6, did not drop below 6"
@@ -991,7 +1004,7 @@ class TestLimitSurfaces:
             raise ComputationError("Singular did not finish within timeout=60 s")
 
         monkeypatch.setattr(point_count_module, "critical_point_count", count)
-        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)))
+        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), limits=True)
         (candidate,) = analysis.limit_candidates
         assert candidate.reason == ("the count failed: Singular did not finish within timeout=60 s")
 
@@ -1000,7 +1013,7 @@ class TestLimitSurfaces:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(landau_module, "_rational_root", lambda poly: None)
-        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)))
+        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), limits=True)
         (candidate,) = analysis.limit_candidates
         assert candidate.reason == "no rational point found on it"
         assert candidate.generic_count == 6
@@ -1008,8 +1021,12 @@ class TestLimitSurfaces:
     @requires_singular
     def test_the_time_limit_applies_to_each_candidate(self) -> None:
         with pytest.raises(ValidationError, match="confirm_timeout must be a number"):
-            landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), confirm_timeout=None)
-        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), confirm_timeout=1e-9)
+            landau_analysis(
+                _massless_legs("12e|2e|e|:nnn", (1,)), confirm_timeout=None, limits=True
+            )
+        analysis = landau_analysis(
+            _massless_legs("12e|2e|e|:nnn", (1,)), confirm_timeout=1e-9, limits=True
+        )
         (candidate,) = analysis.limit_candidates
         assert candidate.reason is not None
 
@@ -1021,7 +1038,7 @@ class TestLimitSurfaces:
             raise RuntimeError("critical_point_count needs Singular, which was not found")
 
         monkeypatch.setattr(point_count_module, "critical_point_count", count)
-        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)))
+        analysis = landau_analysis(_massless_legs("12e|2e|e|:nnn", (1,)), limits=True)
         (candidate,) = analysis.limit_candidates
         assert candidate.reason == (
             "the count at a random point of the family failed: critical_point_count needs "
@@ -1031,7 +1048,7 @@ class TestLimitSurfaces:
 
     @requires_singular
     def test_the_points_are_on_the_surface(self) -> None:
-        analysis = landau_analysis(_massless_legs("12e|3e|3e|e|:nnzz", (1,)))
+        analysis = landau_analysis(_massless_legs("12e|3e|3e|e|:nnzz", (1,)), limits=True)
         assert analysis.limit_surfaces
         for limit in analysis.limit_surfaces:
             assert len(limit.points) == 2
@@ -1085,7 +1102,7 @@ def test_the_limit_surfaces_complete_the_closed_form(cnickel: str, legs: tuple[i
     # The principal Landau determinant lies within the closed form, and with the limit
     # surfaces, each confirmed, it is the closed form.
     fi = _massless_legs(cnickel, legs)
-    analysis = landau_analysis(fi)
+    analysis = landau_analysis(fi, limits=True)
     closed = set(one_loop_landau_surfaces(fi))
     faces = set(analysis.landau_surfaces)
     assert not analysis.skipped_faces
@@ -1160,7 +1177,7 @@ class TestTwoLoopExamples:
         expected = [m3, m4, p3, p4, p3 - p4] + [
             q - (m3 + a * m4) ** 2 for q in (p3, p4) for a in (1, -1)
         ]
-        analysis = landau_analysis(on_s, max_face_points=15)
+        analysis = landau_analysis(on_s, max_face_points=15, limits=True)
         assert _factor_set(analysis.landau_surfaces, set(x.values())) == _factor_set(
             expected, set(x.values())
         )

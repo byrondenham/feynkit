@@ -1143,13 +1143,15 @@ kinematic space $K$ of the same graph and masses with generic external kinematic
 $$\mathrm{PLD}(\mathcal E) \quad\text{and}\quad \{\, h \text{ irreducible} :
 h \mid g|_{\mathcal E} \neq 0 \text{ for a surface } g \text{ of } \mathrm{PLD}(K),\
 h \notin \mathrm{PLD}(\mathcal E) \,\}$$
-separately, the second as limit surfaces when a drop of $|\chi|$ is found on them and as
+separately when asked to with `limits=True`, the second as limit surfaces when a drop of $|\chi|$ is found on them and as
 candidates otherwise. The drop is tested by counting critical points of
 $\sum_e \nu_e \log u_e - (D/2) \log G$ on $X_z$, which number $|\chi(X_z)|$ for generic exponents
 (section 4.7), at a random rational point of $\mathcal E$ and at two random rational points of
 $\{h = 0\}$, each off every other surface found, as Fevola, Mizera and Telen filter candidate
 components (2024, appendix A). This is evidence, not proof: the points are random, and the counts
-are taken over $\mathbb F_p$ for two large primes. The parent is analysed with the same limits on
+are taken over $\mathbb F_p$ for two large primes. The limit surfaces are off by default: at one loop
+the closed form of section 10.2 gives them already, and beyond one loop the analysis of the parent
+adds a second analysis to the cost. The parent is analysed with the same limits on
 faces, and a face it skips can hide a limit surface.
 
 On every bubble, triangle and box with each propagator massless or of its own mass and each set

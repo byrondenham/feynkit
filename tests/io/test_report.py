@@ -567,7 +567,9 @@ def _triangle_with_massless_leg() -> FeynmanIntegral:
 
 class TestLimitSurfaces:
     def test_the_report_carries_them(self) -> None:
-        report = AnalysisReport.from_integral(_triangle_with_massless_leg(), ["landau"])
+        report = AnalysisReport.from_integral(
+            _triangle_with_massless_leg(), ["landau"], limits=True
+        )
         assert report.landau is not None
         (limit,) = report.landau.analysis.limit_surfaces
         assert str(limit.surface) == "p2^2 - p3^2"

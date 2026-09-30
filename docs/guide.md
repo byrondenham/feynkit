@@ -248,7 +248,8 @@ $ fk analyse "12e|2e|e|:nzz" --json --sections gkz --no-db
 ```
 
 With the `landau` section and a kinematic class that specialises the legs, as `massless_on_shell`
-does, the summary also has `limit_surfaces`, `limit_candidates` and `parent_skipped_faces` (see
+does and `--limits` is given, the summary also has `limit_surfaces`, `limit_candidates` and
+`parent_skipped_faces` (see
 [Specialised kinematics](#specialised-kinematics)), and the report lists them apart from the Landau
 surfaces.
 
@@ -1740,8 +1741,8 @@ $p_1^2 = 0$ the massive triangle `12e|2e|e|:nnn` has no $p_2^2 - p_3^2$ among it
 where $p_2^2 = p_3^2$ its top face has no singular point in the torus, since it has moved onto the
 facet $u_3 = 0$, yet $|\chi|$ drops from 6 to 5 there.
 
-For a `FeynmanIntegral` whose momentum products are not the generic ones, `landau_analysis`
-therefore also analyses the parent family, the same graph and masses with the momentum products it
+For a `FeynmanIntegral` whose momentum products are not the generic ones, `landau_analysis(fi,
+limits=True)` therefore also analyses the parent family, the same graph and masses with the momentum products it
 would have by default, whose invariants the integral's products determine. It restricts the
 parent's surfaces to the integral's kinematics, factors them, and keeps the irreducible factors
 that do not vanish and are not Landau surfaces already. Each is tested with
@@ -1759,14 +1760,14 @@ from feynkit.kinematics.mandelstam import standard_invariants
 fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
 p1, p2, p3 = standard_invariants(3).external_masses
 fi = fi.with_(momentum_products={k: sp.expand(v.subs(p1, 0)) for k, v in fi.momentum_products.items()})
-la = landau_analysis(fi)
+la = landau_analysis(fi, limits=True)
 (limit,) = la.limit_surfaces
 print(limit.surface, limit.generic_count, limit.counts)   # p2^2 - p3^2  6  (5, 5)
 ```
 
 `landau_analysis(fi, confirm=False)` lists every factor as a candidate without counting,
 `confirm_timeout` (default 60 s) limits the counts of each factor, and `seed` fixes the points and
-the exponents. `limits=False` leaves the parent out. `landau_analysis_from_polynomial` has no parent
+the exponents. `limits=False`, the default, leaves the parent out. `landau_analysis_from_polynomial` has no parent
 unless one is passed, as `parent=` a polynomial in the same variables and `restriction=` the map
 from its kinematic symbols to expressions in the polynomial's, under which it must restrict to the
 polynomial. A restricted surface that vanishes identically gives nothing, and a skipped face of the
@@ -1779,9 +1780,12 @@ linear map, have no parent.
 
 Whether `landau_analysis` looks for limit surfaces when `limits` is not given is set by
 `DEFAULT_LIMITS` of `feynkit.landau`: True, False, or `"one-loop"` for one-loop integrals only. It
-is True. At two loops the parent can cost more than the family: the massless double box
-`15e|24|3e|4e|5|e|:zzzzzzz` on shell takes about 40 s with `limits=False` and about two minutes
-by default, most of it the parent's analysis, which skips 57 faces.
+is False. At one loop the closed form `one_loop_landau_surfaces`, which the report prints, gives the
+limit surfaces already, and beyond one loop the parent can cost more than the family: the massless
+double box `15e|24|3e|4e|5|e|:zzzzzzz` on shell takes about 40 s without the parent and about two
+minutes with `limits=True`, most of it the parent's analysis, which skips 57 faces. The report
+takes `limits` too (`AnalysisReport.from_integral`, `FeynmanIntegral.to_latex` and `to_text`), and
+`fk analyse --limits` asks for them.
 
 On the one-loop bubbles, triangles and boxes, with every set of massless legs, the Landau surfaces
 lie within the one-loop closed form and, with the limit surfaces, equal it; every factor tested
@@ -2323,8 +2327,8 @@ latex = fi.to_latex(["polytope", "gkz"], title="Massive triangle")
 
 The Landau section dominates the build time: the kite `12e|23|3|e|:zzzzz` takes about 7 s in all,
 6 s of it in the Landau analysis, and the massive box `12e|3e|3e|e|:nnnn` about 7 s, 5 s of it in
-the analysis. At kinematics that specialise the generic ones the analysis of the parent family and
-the counts of the limit surfaces come on top (see [Specialised kinematics](#specialised-kinematics)).
+the analysis. With `limits=True`, at kinematics that specialise the generic ones, the analysis of the parent
+family and the counts of the limit surfaces come on top (see [Specialised kinematics](#specialised-kinematics)).
 A survey over many graphs can leave the section out and keep everything else:
 
 ```python
@@ -2386,7 +2390,8 @@ The document has up to thirteen parts:
 11. Landau surfaces: the factors of the reduced principal A-determinant by face dimension, split
     into first and second type for one-loop graphs, with the skipped faces, each named by its
     dimension and number of points and marked when it ran past the time limit, and the
-    caveats. At kinematics that specialise the generic ones, the limit surfaces follow apart,
+    caveats. With `limits=True`, at kinematics that specialise the generic ones, the limit surfaces
+    follow apart,
     labelled as confirmed by a drop of the count of critical points at random points, with the
     counts, then the candidates with the reason each is not confirmed, and a note when the
     analysis of the generic family skipped faces, so that the limit surfaces may be incomplete.

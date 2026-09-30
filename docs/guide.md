@@ -105,7 +105,7 @@ After `pip install -e .` or `uv sync`, the `fk` command is on the PATH (run it a
 under uv). It has two subcommands:
 
 ```
-fk analyse CNICKEL [--kinematics CLASS] [section flags] [--d0 VALUE] [--latex FILE] [--text FILE]
+fk analyse CNICKEL [--kinematics CLASS] [--set SYMBOL=VALUE ...] [section flags] [--d0 VALUE] [--latex FILE] [--text FILE]
            [--json] [--sections NAMES] [--limits] [--seed N] [--torus-budget N] [--db PATH | --no-db]
            [--verbose]
 fk compare A B [--db PATH | --no-db] [--verbose]
@@ -179,6 +179,28 @@ An unknown class is a usage error (status 2). A class the integral cannot take, 
 stops with one line on stderr and status 1. `equal_masses` changes the CNickel string, to
 `12e|3e|3e|e|:aaaa` in the second example, and the header shows the new form beside the one
 typed. The database records the class with the polytope.
+
+#### Setting invariants
+
+`--set SYMBOL=VALUE` sets one kinematic symbol of the integral, after `--kinematics`. The option
+repeats, and each use applies to the integral the earlier ones left. The value is 0, a rational
+number such as `-3/2`, another symbol, or a linear combination of them with `+`, `-`, `*` by a
+number, `/` by a number and brackets, read exactly and never as a float. The symbols are those of
+the momentum products, such as `p1^2`, `s12` and `s23` of the box. The three-mass box is the box
+with $p_4^2 = 0$:
+
+```bash
+fk analyse "12e|3e|3e|e|:zzzz" --set 'p4^2=0' --json --no-db
+fk analyse "12e|3e|3e|e|:zzzz" --kinematics massless_on_shell --set 's12=s23' -n
+```
+
+A symbol the integral does not have, including one that an earlier `--set` or `--kinematics`
+removed, a value that is not linear (a product or quotient of symbols, or a power), a decimal or
+function that cannot be read exactly, and a value that contains the symbol it sets, stop with one
+line on stderr and status 1. A `--set` without `=` or with an empty side is a usage error (status
+2). The header of `fk analyse` shows a `Substitutions` row, the LaTeX report states them in its
+date, the text report in a line under its title, and the JSON lists them under `substitutions`
+when there are any. The kinematic class of the result is usually `other`.
 
 #### Point counts
 

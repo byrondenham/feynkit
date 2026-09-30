@@ -212,6 +212,12 @@
   `massless_on_shell` or `equal_masses` before the analysis; a class the
   integral cannot take exits with status 1. The header prints the kinematic
   class.
+- `fk analyse --set SYMBOL=VALUE`, repeatable, sets a kinematic symbol to 0, a
+  rational number, another symbol or a linear combination of them, read
+  exactly, after `--kinematics`; `--set 'p4^2=0'` gives the three-mass box.
+  Unknown symbols and values that are not linear exit with status 1. The
+  header, the reports and the JSON (`substitutions`) state the substitutions.
+  `render_latex` and `render_text` take a `substitutions` argument for this.
 - The test-suite checks the normalised volume of the Newton polytope of G
   against a second computation, from the volumes of the Newton polytopes of U
   and F, which span the two hyperplanes of a Cayley polytope. The

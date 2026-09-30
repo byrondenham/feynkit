@@ -25,6 +25,7 @@ Quote every CNickel string: an unquoted | is a shell pipe.
 from __future__ import annotations
 
 import argparse
+import ast
 import errno
 import json
 import os
@@ -261,6 +262,129 @@ def _load(cnickel: str, kinematics: KinematicClass | None = None) -> FeynmanInte
         raise CliError(f"CNickel {cnickel!r}: {exc}") from exc
 
 
+_ASSIGNMENT_GRAMMAR = "expected SYMBOL=VALUE, such as p4^2=0"
+_WORD = re.compile(r"[A-Za-z_]\w*")
+
+
+def _assignment(text: str) -> tuple[str, str]:
+    """Parse --set: SYMBOL=VALUE, both sides non-empty and stripped."""
+    name, equals, value = text.partition("=")
+    name, value = name.strip(), value.strip()
+    if not (equals and name and value):
+        raise argparse.ArgumentTypeError(f"{_ASSIGNMENT_GRAMMAR}; got {text!r}")
+    return name, value
+
+
+def _unknown_symbol(name: str, cnickel: str, symbols: Sequence[sp.Symbol]) -> CliError:
+    listed = ", ".join(str(symbol) for symbol in symbols) or "none"
+    return CliError(
+        f"unknown kinematic symbol {name!r}; the symbols of CNickel {cnickel!r} are {listed}"
+    )
+
+
+def _exact_value(text: str, symbols: dict[str, sp.Symbol], cnickel: str) -> sp.Expr:
+    """The value of a --set as a linear form in the symbols, read exactly.
+
+    Integers and quotients of them, the symbols, + - * / and brackets are read.
+    Anything else raises CliError: a float or a function is not exact, an
+    unknown name is not a symbol, and a product or quotient of symbols, or a
+    power, is not linear.
+    """
+    slots: dict[str, sp.Symbol] = {}
+    replaced = text
+    for index, name in enumerate(sorted(symbols, key=len, reverse=True)):
+        slot = f"_slot{index}_"
+        if name in replaced:
+            replaced = replaced.replace(name, slot)
+            slots[slot] = symbols[name]
+    if re.search(r"\d\.|\.\d|\d[eE][+-]?\d", replaced):
+        raise CliError(f"cannot read {text!r} exactly; write fractions such as 1/2, not decimals")
+    for word in _WORD.findall(replaced):
+        if word not in slots:
+            if re.search(rf"{word}\s*\(", replaced):
+                raise CliError(
+                    f"cannot read {word}(...) exactly; use integers, fractions and symbols"
+                )
+            raise _unknown_symbol(word, cnickel, list(symbols.values()))
+    try:
+        tree = ast.parse(replaced, mode="eval")
+    except SyntaxError:
+        raise CliError(f"cannot read {text!r}; use integers, fractions and symbols") from None
+
+    def value(node: ast.expr) -> sp.Expr:
+        if isinstance(node, ast.Constant) and type(node.value) is int:
+            return sp.Integer(node.value)
+        if isinstance(node, ast.Constant):
+            raise CliError(
+                f"cannot read {text!r} exactly; write fractions such as 1/2, not decimals"
+            )
+        if isinstance(node, ast.Name):
+            return slots[node.id]
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub | ast.UAdd):
+            inner = value(node.operand)
+            return -inner if isinstance(node.op, ast.USub) else inner
+        if isinstance(node, ast.BinOp) and isinstance(
+            node.op, ast.Add | ast.Sub | ast.Mult | ast.Div
+        ):
+            left, right = value(node.left), value(node.right)
+            if isinstance(node.op, ast.Add):
+                return left + right
+            if isinstance(node.op, ast.Sub):
+                return left - right
+            if isinstance(node.op, ast.Mult):
+                return left * right
+            if right == 0:
+                raise CliError(f"cannot read {text!r}: division by zero")
+            return left / right
+        if isinstance(node, ast.BinOp):
+            raise CliError(f"not linear: {text!r} has a power")
+        raise CliError(f"cannot read {text!r}; use integers, fractions and symbols")
+
+    result = sp.expand(value(tree.body))
+    if (
+        not result.is_polynomial(*slots.values())
+        or sp.Poly(result, *symbols.values()).total_degree() > 1
+    ):
+        raise CliError(f"not linear: {text!r} is not a linear combination of the symbols")
+    return result
+
+
+def _substitute(
+    integral: FeynmanIntegral, cnickel: str, assignments: Sequence[tuple[str, str]]
+) -> tuple[FeynmanIntegral, list[str]]:
+    """The integral with each --set applied in order, and the substitutions as stated.
+
+    Each assignment names a symbol of the momentum products as they stand after
+    the earlier ones. A failure raises CliError naming the assignment.
+    """
+    stated: list[str] = []
+    for name, text in assignments:
+        products = integral.momentum_products
+        symbols = {
+            str(symbol): symbol
+            for symbol in sorted(
+                set().union(*(sp.sympify(v).free_symbols for v in products.values())),
+                key=str,
+            )
+        }
+        try:
+            if name not in symbols:
+                raise _unknown_symbol(name, cnickel, list(symbols.values()))
+            target = symbols[name]
+            value = _exact_value(text, symbols, cnickel)
+            if value.has(target):
+                raise CliError(f"the value contains {name} itself")
+        except CliError as exc:
+            raise CliError(f"--set '{name}={text}': {exc}") from None
+        integral = integral.with_(
+            momentum_products={
+                k: sp.expand(sp.sympify(v).subs(target, value)) for k, v in products.items()
+            }
+        )
+        stated.append(f"{name} = {value}")
+    return integral, stated
+
+
 def _fail(message: str) -> NoReturn:
     """Print message as one line on stderr and exit with status 1."""
     sys.stdout.flush()
@@ -294,13 +418,15 @@ def _label(given: str, fi: FeynmanIntegral) -> str:
 # -----------------------------------------------------------------------------
 
 
-def _print_graph(given: str, fi: FeynmanIntegral) -> None:
+def _print_graph(given: str, fi: FeynmanIntegral, substitutions: Sequence[str] = ()) -> None:
     _header(f"Feynman integral  {_label(given, fi)}")
     _kv("Nickel index", fi.nickel_index)
     _kv("Loop count", fi.loop_count)
     _kv("Propagators", len(fi.graph.get_internal_edges()))
     _kv("External legs", fi.graph.external_legs)
     _kv("Kinematic class", fi.kinematic_class)
+    if substitutions:
+        _kv("Substitutions", ", ".join(substitutions))
 
 
 def _print_symanzik(fi: FeynmanIntegral) -> None:
@@ -673,14 +799,20 @@ def _check_writable(path: Path, kind: str) -> None:
     raise CliError(f"cannot write the {kind} report to {path}: {os.strerror(code)}")
 
 
-def _write_reports(report: AnalysisReport, options: ReportOptions, *, announce: bool) -> None:
+def _write_reports(
+    report: AnalysisReport,
+    options: ReportOptions,
+    *,
+    announce: bool,
+    substitutions: Sequence[str] = (),
+) -> None:
     """Write the LaTeX and text reports asked for, saying so on stdout when announce is set."""
     if options.latex is not None:
-        _write(options.latex, render_latex(report), "LaTeX")
+        _write(options.latex, render_latex(report, substitutions=substitutions), "LaTeX")
         if announce:
             print(f"  Wrote the LaTeX report to {options.latex}")
     if options.text is not None:
-        _write(options.text, render_text(report), "text")
+        _write(options.text, render_text(report, substitutions=substitutions), "text")
         if announce:
             print(f"  Wrote the text report to {options.text}")
 
@@ -699,9 +831,16 @@ def _json_value(value: str) -> bool | int | str | None:
 
 
 def _summary_json(
-    given: str, fi: FeynmanIntegral, report: AnalysisReport, sections: Sequence[str]
+    given: str,
+    fi: FeynmanIntegral,
+    report: AnalysisReport,
+    sections: Sequence[str],
+    substitutions: Sequence[str] = (),
 ) -> str:
-    """The report's summary as JSON, keyed in snake case, with the CNickel strings."""
+    """The report's summary as JSON, keyed in snake case, with the CNickel strings.
+
+    The substitutions of --set are listed under "substitutions" when there are any.
+    """
     summary = {
         label.lower().replace(" ", "_"): _json_value(value) for label, value in report.summary()
     }
@@ -711,6 +850,8 @@ def _summary_json(
         "sections": list(sections),
         "summary": summary,
     }
+    if substitutions:
+        payload["substitutions"] = list(substitutions)
     return json.dumps(payload, indent=2)
 
 
@@ -722,11 +863,13 @@ def analyse_one(
     report: ReportOptions | None = None,
     verbose: bool = False,
     kinematics: KinematicClass | None = None,
+    substitutions: Sequence[tuple[str, str]] = (),
 ) -> None:
     """Analyse one diagram: every section or the chosen ones, then the reports asked for.
 
     ``kinematics`` is a kinematic class to impose on the integral of the
-    string. With --json, only the report's summary is printed, as JSON. Stdout is
+    string, and ``substitutions`` are (symbol, value) pairs of --set, applied
+    after it and stated in the headers. With --json, only the report's summary is printed, as JSON. Stdout is
     flushed after each stage; verbose prints each stage's time on stderr. The
     point counts are printed only when ``sections`` holds "torus". They run once
     when the report holds them too, and otherwise take the report's Landau
@@ -736,6 +879,7 @@ def analyse_one(
     t0 = time.perf_counter()
     with _stage("parse", verbose):
         fi = _load(cnickel, kinematics)
+        fi, stated = _substitute(fi, cnickel, substitutions)
     built: list[AnalysisReport] = []
 
     def build() -> AnalysisReport:
@@ -756,14 +900,14 @@ def analyse_one(
         db = _open_database(stack, db_path)
         if options.as_json:
             with _stage("report", verbose):
-                _write_reports(build(), options, announce=False)
+                _write_reports(build(), options, announce=False, substitutions=stated)
             if db is not None:
                 with _stage("database", verbose):
                     db.store(fi, label=fi.cnickel)
-            print(_summary_json(cnickel, fi, build(), options.sections))
+            print(_summary_json(cnickel, fi, build(), options.sections, stated))
             return
         with _stage("graph", verbose):
-            _print_graph(cnickel, fi)
+            _print_graph(cnickel, fi, stated)
         for name in SECTION_FLAGS:
             if not sections or name in sections:
                 with _stage(name, verbose):
@@ -793,7 +937,7 @@ def analyse_one(
         if options.writes_files:
             with _stage("report", verbose):
                 _sec("Report")
-                _write_reports(build(), options, announce=True)
+                _write_reports(build(), options, announce=True, substitutions=stated)
         if db is not None:
             with _stage("database", verbose):
                 _print_database(fi, db)
@@ -977,7 +1121,17 @@ def _compare(
 # Options that take a value. The bare form needs them to tell a value from a
 # second diagram: fk "12e|2e|e|" --db x.db names one diagram, not two.
 _VALUE_OPTIONS = frozenset(
-    {"--db", "--latex", "--text", "--sections", "--seed", "--torus-budget", "--kinematics", "--d0"}
+    {
+        "--db",
+        "--latex",
+        "--text",
+        "--sections",
+        "--seed",
+        "--torus-budget",
+        "--kinematics",
+        "--set",
+        "--d0",
+    }
 )
 
 _MAIN_EPILOG = """\
@@ -1083,6 +1237,18 @@ def _build_parser() -> _Parsers:
         type=_kinematic_class,
         metavar="CLASS",
         help="kinematic class to impose; by default the kinematics of the CNickel string",
+    )
+    analyse.add_argument(
+        "--set",
+        dest="substitutions",
+        action="append",
+        default=[],
+        type=_assignment,
+        metavar="SYMBOL=VALUE",
+        help=(
+            "set a kinematic symbol to 0, a rational number, another symbol or a linear "
+            "combination of them, after --kinematics; repeatable, as in --set 'p4^2=0'"
+        ),
     )
     shown = analyse.add_argument_group(
         "sections", "sections to print; all but --torus-count when no flag is given"
@@ -1357,6 +1523,7 @@ def _run(parsers: _Parsers, args: argparse.Namespace) -> int:
                 report=options,
                 verbose=args.verbose,
                 kinematics=args.kinematics,
+                substitutions=args.substitutions,
             )
             return 0
         found = analyse_pair(args.first, args.second, db_path, verbose=args.verbose)

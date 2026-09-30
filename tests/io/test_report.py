@@ -49,6 +49,7 @@ SUMMARY_LABELS = (
     "Interior lattice points",
     "Gorenstein index",
     "Normal configuration",
+    "Unidentified faces",
     "Polytope automorphisms",
     "Toric generators",
     "Landau surfaces",
@@ -622,15 +623,13 @@ class TestFaces:
 
 
 class TestSections:
-    def test_default_builds_every_section_but_the_point_counts_and_the_faces(
+    def test_default_builds_every_section_but_the_point_counts(
         self, triangle_report: AnalysisReport
     ) -> None:
-        expected = tuple(name for name in SECTION_NAMES if name not in ("torus", "faces"))
-        assert expected == DEFAULT_SECTIONS
+        assert tuple(name for name in SECTION_NAMES if name != "torus") == DEFAULT_SECTIONS
         for name in DEFAULT_SECTIONS:
             assert getattr(triangle_report, name) is not None
         assert triangle_report.torus is None
-        assert triangle_report.faces is None
 
     def test_one_section_leaves_the_others_empty(self, triangle: FeynmanIntegral) -> None:
         report = AnalysisReport.from_integral(triangle, ["gkz"])

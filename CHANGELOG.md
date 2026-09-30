@@ -389,16 +389,16 @@
   every face 1.5 s.
 - `FeynmanIntegral.face_identification(max_codimension=2)` gives
   `identify_faces(fi, max_codimension=...)`, cached for each argument.
-- The analysis report has a `faces` section, left out of `DEFAULT_SECTIONS`:
+- The analysis report has a `faces` section, built by default:
   how a face is compared with the prediction of its flag, a table of the
   facets with their inequalities and graphs, the number of faces of each
   class and codimension up to 2, and up to ten unidentified faces with G|_F
   and the prediction written out. It cites Arkani-Hamed, Hillman and Mizera
   (arXiv:2202.12296), and the summary gains `Unidentified faces`. The report
   holds the section as `AnalysisReport.faces`, a `Faces`, or None.
-  `fk analyse -f` (`--faces`) prints the facets and the counts on the
-  terminal, is left out when no section flag is given, and adds the section
-  to the reports of `--latex` and `--text`.
+  `fk analyse` prints the facets and the counts on the terminal, as
+  `-f` (`--faces`) does alone; `-f` also adds the section to a report whose
+  `--sections` leave it out.
 - Section 5.7 of the mathematics reference and the design note
   `docs/design/2026-09-30-face-identification.md` describe the
   identification of faces. The note proves that the initial form of U for a

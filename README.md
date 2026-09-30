@@ -71,10 +71,9 @@ fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"     # the mass on two different propa
 ```
 
 `fk analyse` prints the Symanzik polynomials, parametrisations, GKZ system, toric ideal, Newton
-polytope, the facets resonant as $D = D_0 - 2\varepsilon$ varies, and symmetries, or those its
-section flags choose. `-f` names each facet by a graph, a contraction or a product of the
-Symanzik polynomials of a subgraph and a quotient, each checked exactly. `--torus-count` adds a
-candidate
+polytope, the facets resonant as $D = D_0 - 2\varepsilon$ varies, the graph of each facet (a
+contraction or a product of the Symanzik polynomials of a subgraph and a quotient, each checked
+exactly) and symmetries, or those its section flags choose. `--torus-count` adds a candidate
 number of master integrals from finite-field point counts: evidence from finitely many primes, not
 a proof, and often no candidate for massive or off-shell graphs. `fk analyse` also writes the
 analysis report with `--latex FILE` and `--text FILE`, and prints a JSON summary with `--json`.

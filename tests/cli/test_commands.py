@@ -339,9 +339,9 @@ def test_faces_prints_each_facet(capsys: pytest.CaptureFixture[str]) -> None:
     assert "Euler equations" not in out
 
 
-def test_faces_are_not_printed_by_default(capsys: pytest.CaptureFixture[str]) -> None:
+def test_faces_are_printed_by_default(capsys: pytest.CaptureFixture[str]) -> None:
     main(["analyse", "11e|e|:nn", "--no-db"])
-    assert "Faces as graphs" not in capsys.readouterr().out
+    assert "Faces as graphs  (up to codimension 2)" in capsys.readouterr().out
 
 
 def test_faces_name_the_unidentified(capsys: pytest.CaptureFixture[str]) -> None:
@@ -353,9 +353,10 @@ def test_faces_name_the_unidentified(capsys: pytest.CaptureFixture[str]) -> None
 def test_faces_add_the_section_to_the_report(
     capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
+    # The default sections hold the faces; -f adds them to sections chosen without them.
     text = tmp_path / "r.txt"
-    main(["analyse", "11e|e|:nz", "-f", "--text", str(text), "--no-db"])
+    main(["analyse", "11e|e|:nz", "-f", "--text", str(text), "--sections", "gkz", "--no-db"])
     capsys.readouterr()
     report = text.read_text()
     assert "Faces as graphs" in report and "G({1}) U(Gamma/{1})" in report
-    assert "Resonance" in report
+    assert "\nResonance\n---" not in report

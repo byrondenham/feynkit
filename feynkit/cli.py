@@ -478,7 +478,7 @@ def _print_faces(fi: FeynmanIntegral) -> None:
     for name, counts in face_counts(section):
         print(f"  {name:<14}{''.join(f'{n:>9}' for n in counts)}")
     if any(face.kind == "unidentified" for face in found):
-        print("  The report (--faces with --latex or --text) writes out G|_F and the prediction.")
+        print("  The report (--latex or --text) writes out G|_F and the prediction.")
 
 
 def _print_symmetries(fi: FeynmanIntegral) -> None:
@@ -765,7 +765,7 @@ def analyse_one(
                         _print_resonance(fi, options.d0)
                     else:
                         _PRINTERS[name](fi)
-        if "faces" in sections:
+        if not sections or "faces" in sections:
             with _stage("faces", verbose):
                 _print_faces(fi)
         if "torus" in sections:
@@ -1079,7 +1079,7 @@ def _build_parser() -> _Parsers:
         help="kinematic class to impose; by default the kinematics of the CNickel string",
     )
     shown = analyse.add_argument_group(
-        "sections", "sections to print; all but --faces and --torus-count when no flag is given"
+        "sections", "sections to print; all but --torus-count when no flag is given"
     )
     shown.add_argument("-s", "--symanzik", action="store_true", help="Symanzik polynomials U, F, G")
     shown.add_argument(
@@ -1124,7 +1124,7 @@ def _build_parser() -> _Parsers:
         help=(
             f"the graph of each face of the Newton polytope up to codimension {FACE_CODIMENSION}, "
             "a product of Symanzik polynomials of minors checked exactly; it also adds the "
-            "faces section to the --latex and --text reports"
+            "faces section to reports whose --sections leave it out"
         ),
     )
     shown.add_argument(

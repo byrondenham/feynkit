@@ -121,8 +121,7 @@ without a `|` is read as a command, never as a CNickel string. `fk analyze` is t
 ### Analysing one diagram
 
 With no section flags, `fk analyse` prints every section except the point counts of
-`--torus-count`, which can take minutes, and the graphs of the faces of `--faces`. Pass one or more
-flags to choose.
+`--torus-count`, which can take minutes. Pass one or more flags to choose.
 
 ```bash
 fk analyse "12e|2e|e|:zzz"              # every section of the massless triangle
@@ -143,7 +142,7 @@ fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive 
 | `-t` | `--toric` | Toric ideal of the A-matrix |
 | `-n` | `--newton` | Newton polytope: vertices, whether the integral is scaleless, normalised volume (the holonomic rank for generic $\beta$), Smith invariants, lattice invariants and whether $\mathbb{N}A$ is normal |
 | `-r` | `--resonance` | For each facet of the Newton polytope, its inequality, $l_F(\beta)$, where it is resonant and admissible as $D = D_0 - 2\varepsilon$ varies, and whether it makes the GKZ system reducible (see [Resonant and admissible facets](#resonant-and-admissible-facets)) |
-| `-f` | `--faces` | For each facet of the Newton polytope, its inequality and its graph, a product of Symanzik polynomials of minors, then the number of faces of each class up to codimension 2 (see [Graphs of the faces](#graphs-of-the-faces)); left out when no flag is given. With `--latex` or `--text` the report gains the `faces` section |
+| `-f` | `--faces` | For each facet of the Newton polytope, its inequality and its graph, a product of Symanzik polynomials of minors, then the number of faces of each class up to codimension 2 (see [Graphs of the faces](#graphs-of-the-faces)). It also adds the `faces` section to a report whose `--sections` leave it out |
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
 | | `--torus-count` | Candidate Euler characteristic from finite-field point counts; left out when no flag is given |
 
@@ -216,7 +215,7 @@ the options are given, and checks that it can write each file before the analysi
 |--------|--------|
 | `--latex FILE` | write the report as a LaTeX document |
 | `--text FILE` | write the report as plain text |
-| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `symmetries`, `landau` and `schwinger`; all but `torus` and `faces` by default |
+| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `symmetries`, `landau` and `schwinger`; all but `torus` by default |
 | `--limits` | look for limit surfaces in the Landau section, which analyses the parent family as well (see [Specialised kinematics](#specialised-kinematics)) |
 | `--json` | print a JSON summary of the report on stdout, and nothing else |
 
@@ -1313,8 +1312,8 @@ u, f = minor_polynomials(fi.graph, fi.momentum_products, contract=[3, 4])
 print(u)                                 # a_1 + a_2
 ```
 
-The analysis report has a `faces` section, left out by default, and `fk analyse -f` prints the
-facets and the counts on the terminal and adds the section to the reports it writes.
+The analysis report has a `faces` section, built by default, and `fk analyse` prints the facets and
+the counts on the terminal, as `-f` does alone.
 
 ### Lattice invariants
 
@@ -2532,7 +2531,7 @@ Both methods take the same arguments:
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `sections` | all but `torus` and `faces` | Names of the sections to build, from `SECTION_NAMES` |
+| `sections` | all but `torus` | Names of the sections to build, from `SECTION_NAMES` |
 | `title` | "Feynman integral" and the CNickel string | Document title; `to_latex` escapes it |
 | `max_face_points` | 14 | Faces of the Newton polytope with more monomials are left out of the Landau analysis and listed as skipped |
 | `d0` | None | $D_0$ of the `resonance` section, which takes $D = D_0 - 2\varepsilon$: an integer or a `Fraction`; None reads it from the dimension of the integral when that is $D_0 - 2\varepsilon$ with $D_0$ a number, and takes 4 otherwise |
@@ -2541,7 +2540,7 @@ The section names, in `feynkit.io.report.SECTION_NAMES`, are `identity`, `conven
 `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `symmetries`,
 `landau` and `schwinger`. The first three are always built. The rest are built only when named, so a
 survey can ask for a short report without the automorphism and Landau computations. Without
-`sections` every section but `torus` and `faces` is built, the tuple `DEFAULT_SECTIONS`. The point counts of `torus` take seconds
+`sections` every section but `torus` is built, the tuple `DEFAULT_SECTIONS`. The point counts of `torus` take seconds
 for five propagators, and seven exceed the default budget (see
 [Torus point counts](#torus-point-counts)); `to_latex` and `to_text` count with seed 0 and the
 default budget, and raise `ValidationError` when the count cannot run, as for an integral with
@@ -2587,7 +2586,8 @@ The document has up to fifteen parts:
 2. A summary table: loops, propagators, external legs, the monomial counts of $F$ and $G$,
    independent invariants, codimension, whether the integral is scaleless, polytope vertices,
    normalised volume, the candidate master count (with `torus`; "none" when the counts give no
-   candidate), $|\mathrm{Aut}(P)|$, toric generators and Landau surfaces.
+   candidate), the number of unidentified faces (with `faces`), $|\mathrm{Aut}(P)|$, toric
+   generators and Landau surfaces.
 3. The graph: a TikZ figure and a table of the propagators with their endpoints, exponents and
    masses.
 4. Conventions: the momentum-space integral and its normalisation, $D = D_0 - 2\epsilon$, the
@@ -2615,7 +2615,7 @@ The document has up to fifteen parts:
     $-1 \le \varepsilon \le 1$ (see
     [Resonant and admissible facets](#resonant-and-admissible-facets)). Below full dimension it
     also says where $\beta$ lies in the span of $A$.
-11. Faces as graphs, only when `faces` is named: how a face is compared with a product of Symanzik
+11. Faces as graphs: how a face is compared with a product of Symanzik
     polynomials of minors, a table of the facets with their inequalities and graphs, the number of
     faces of each class up to codimension 2, and up to ten unidentified faces with $G|_F$ and the
     prediction written out (see [Graphs of the faces](#graphs-of-the-faces)). Below full

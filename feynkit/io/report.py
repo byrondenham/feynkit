@@ -108,9 +108,8 @@ SECTION_NAMES = (
 )
 
 # The sections built when none are named: all but the point counts, which take seconds for
-# five propagators; seven exceed the default budget; and the graphs of the faces, which are
-# asked for.
-DEFAULT_SECTIONS = tuple(name for name in SECTION_NAMES if name not in ("torus", "faces"))
+# five propagators; seven exceed the default budget.
+DEFAULT_SECTIONS = tuple(name for name in SECTION_NAMES if name != "torus")
 
 # The faces section identifies the faces of P up to this codimension.
 FACE_CODIMENSION = 2
@@ -768,7 +767,7 @@ class AnalysisReport:
             The integral to describe.
         sections
             Names from :data:`SECTION_NAMES` to build; :data:`DEFAULT_SECTIONS`,
-            every section but ``torus`` and ``faces``, by default. ``identity``,
+            every section but ``torus``, by default. ``identity``,
             ``conventions`` and ``polynomials`` are built whatever is asked for,
             since the rest of the report reads as a fragment without them.
         max_face_points

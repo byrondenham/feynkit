@@ -18,9 +18,9 @@ the parameter vector is
     beta = (nu - (L+1) D/2, L D/2 - nu, -nu_1, ..., -nu_{N-1}),
 
 each entry the exponent of the corresponding polynomial or minus the
-exponent of u_i. This is what the paper's worked examples use (eqs. 53, 54
+exponent of u_i. This is what the paper's worked examples use (eqs. 4.6, 4.7
 and the triangle and box); its section 2.3 writes the first two entries
-with the opposite sign, and its eq. 46 drops L from Gamma(nu - L D/2) and
+with the opposite sign, and its eq. 3.17 drops L from Gamma(nu - L D/2) and
 F~^(L D/2 - nu); the general-L form is used here.
 """
 
@@ -121,7 +121,7 @@ class CayleyGKZSystem:
         ]
 
     def restrict_to_f_block(self) -> GKZSystem:
-        """The face subsystem on the F~ block, the paper's eq. 54.
+        """The face subsystem on the F~ block, the paper's eq. 4.7.
 
         Returns the ordinary GKZ system with A = (1 ... 1; A_F) and
         beta = (L D/2 - nu, -nu_1, ..., -nu_{N-1}). Britto, Grimm and

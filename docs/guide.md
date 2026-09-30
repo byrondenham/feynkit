@@ -941,7 +941,7 @@ print(sys_.beta_parameters)   # (nu - D, D/2 - nu, -nu_1) with nu = nu_1 + nu_2
 print(sys_.w_variables, sys_.z_variables)   # coefficients of U~ and of F~
 print(sys_.toric_ideal())
 
-reduced = sys_.restrict_to_f_block()   # the paper's eq. 54: an ordinary GKZSystem
+reduced = sys_.restrict_to_f_block()   # the paper's eq. 4.7: an ordinary GKZSystem
 print(reduced.a_matrix, reduced.beta_parameters)
 ```
 

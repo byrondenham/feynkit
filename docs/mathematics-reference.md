@@ -287,8 +287,8 @@ normal, hence Cohen-Macaulay (Klausen 2023, drawing on Tellander and Helmer 2023
 2022), so there are no rank jumps.  Outside these hypotheses Cohen-Macaulayness is not
 guaranteed: Michaelsen and Tellander (2025) characterise the fully massive one-loop case and give
 a fully massive three-point configuration whose semigroup ring is not Cohen-Macaulay.  Resonance
-of $\beta$ means that the system is reducible (Schulze and Walther 2012), not that its rank
-changes.
+of $\beta$ can make the system reducible (Schulze and Walther 2012; section 4.8 says when), but
+does not change its rank.
 
 The number of master integrals at physical kinematics is $|\chi|$, the absolute Euler
 characteristic of the complement of $\{G = 0\}$ in $(\mathbb{C}^*)^n$ (Bitoun et al. 2019,
@@ -327,7 +327,7 @@ $$\vec\beta = \bigl(\nu - (L+1)D/2,\; LD/2 - \nu,\; -\nu_1, \ldots, -\nu_{N-1}\b
 
 Each entry is the exponent of the corresponding polynomial or minus the exponent of $u_i$; the
 paper's worked examples use this, while its section 2.3 text carries the opposite sign on the first
-two entries, and its eq. 46 drops $L$ from $\Gamma(\nu - LD/2)$ and from the exponent of
+two entries, and its eq. 3.17 drops $L$ from $\Gamma(\nu - LD/2)$ and from the exponent of
 $\tilde F$. The $1/\Gamma(\nu_N)$ factor is kept.
 
 **Relation to the Lee-Pomeransky system.** Because $U$ has degree $L$ and $F$ degree $L+1$, the
@@ -341,7 +341,7 @@ different coordinates; the Cayley form keeps the topological and kinematic coeff
 
 **Facet reduction.** Dropping the $\tilde U$ block gives the face subsystem with
 $A = (1 \cdots 1;\ A_{\tilde F})$ and $\vec\beta = (LD/2 - \nu, -\nu_1, \ldots, -\nu_{N-1})$
-(the paper's eq. 54). Britto, Grimm and Hoefnagels (arXiv:2606.09978, section 2.2, eqs. 19-20)
+(the paper's eq. 4.7). Britto, Grimm and Hoefnagels (arXiv:2606.09978, section 2.2, eqs. 19-20)
 show that the face subsystem is a true subsystem, its solutions solving the full system, when the
 parameter vector lies in the span of the face's columns. That span has zero first coordinate, and
 when the block's columns span the whole hyperplane of zero first coordinate, as they do when the
@@ -1177,7 +1177,7 @@ than target columns in full dimension, and then asks $M$ to send the columns inj
 ## 10. Landau Singularities via the Principal A-Determinant
 
 *Ref:* GKZ (1994) chapter 10; Klausen (2023) section 5; Dlapa, Helmer, Papathanasiou, Tellander
-(2023); Fevola, Mizera, Telen (2023).
+(2023); Fevola, Mizera, Telen (2024).
 
 ### 10.1 Principal A-Determinant
 
@@ -1242,7 +1242,7 @@ Minors of $Y$ alone are Cayley determinants, the first-type (threshold) singular
 containing the index $0$ are Gram determinants, the second-type singularities. Vertices give the mass
 singularities $m_i^2 = 0$ and, for massless propagators, the external masses $p_i^2 = 0$. Edges give
 only the normal and pseudo-normal thresholds; for massless internal lines every edge is a simplex
-and the edge part is trivial (Fevola, Mizera, Telen 2023, lemma 4.10). `one_loop_landau_surfaces`
+and the edge part is trivial (Fevola, Mizera, Telen 2024, lemma 4.11). `one_loop_landau_surfaces`
 implements the closed form and the test-suite checks the face computation against it for generic
 kinematics; with special kinematics it can keep a factor the faces miss, which the limit surfaces
 of section 10.3 then give.
@@ -1301,7 +1301,7 @@ determinant.
 
 The factors are candidate codimension-one loci on all sheets of the integral. A point on one of
 them may or may not be singular on the physical sheet, and the list is not guaranteed complete
-(Fevola, Mizera, Telen 2023, section 2). Beyond one loop the principal A-determinant with generic
+(Fevola, Mizera, Telen 2024, section 2). Beyond one loop the principal A-determinant with generic
 coefficients can vanish identically after specialising to physical kinematics, and the face-by-face
 computation here specialises first; this is the "principal Landau determinant" of Fevola, Mizera and
 Telen rather than $E_A$ of the generic polynomial. Multiplicities are dropped. A face with more
@@ -1317,7 +1317,7 @@ its own factor is lost.
 - **Massless off-shell triangle:** $p_1^2$, $p_2^2$, $p_3^2$ and the Gram determinant
   $\lambda(p_1^2, p_2^2, p_3^2)$.
 - **Massive banana $B_3$:** $m_e^2$, $s$ and $s = (m_1 \pm m_2 \pm m_3)^2$ (Fevola, Mizera, Telen
-  2023, example 3.4).
+  2024, example 3.7).
 
 Accessed via `landau_analysis(fi)`, returning `LandauAnalysis` with `.face_discriminants`,
 `.principal_a_determinant`, `.landau_surfaces`, `.skipped_faces`, `.limit_surfaces`,
@@ -1665,16 +1665,12 @@ All papers cited in the feynkit source and directly relevant to the implemented 
     *Symbol alphabets from the Landau singular locus.*
     JHEP **10** (2023) 161.  arXiv:2304.02629.
 
-42. **Fevola-Mizera-Telen (2023).** C. Fevola, S. Mizera, S. Telen.
-    *Landau singularities revisited: computational algebraic geometry for Feynman integrals.*
-    Phys.\ Rev.\ Lett.\ **132** (2024) 101601.  arXiv:2311.14669.
-
-43. **Jimenez-Santacruz et al.\ (2026).** M. Jimenez-Santacruz, C. Lopez-Arcos,
+42. **Jimenez-Santacruz et al.\ (2026).** M. Jimenez-Santacruz, C. Lopez-Arcos,
     A. Quintero Velez.
     *Canonical differential equations for Feynman integrals from A-hypergeometric systems in the
     Schwinger representation.*  arXiv:2609.16107.
 
-44. **Vanhove (2018).** P. Vanhove.
+43. **Vanhove (2018).** P. Vanhove.
     *Feynman integrals, toric geometry and mirror symmetry.*  arXiv:1807.11466.  Published in
     *Elliptic Integrals, Elliptic Functions and Modular Forms in Quantum Field Theory*, Springer
     (2019) 415-458.

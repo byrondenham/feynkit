@@ -17,7 +17,8 @@ from feynkit import degeneracy as degeneracy_module
 from feynkit.core.exceptions import ValidationError
 from feynkit.io import render_latex, render_text
 from feynkit.io.report import DEFAULT_SECTIONS, SECTION_NAMES, AnalysisReport
-from feynkit.io.sections.degeneracy import torus_point
+from feynkit.io.sections import degeneracy as section_module
+from feynkit.io.sections.degeneracy import decide, torus_point
 from feynkit.landau import _singular_binary
 
 pytestmark = [
@@ -111,6 +112,18 @@ class TestBuild:
         assert dict(report.summary())["Degenerate faces"] == "not decided"
         assert "Singular" in _section(render_text(report))
         assert "Singular" in render_latex(report)
+
+    def test_without_singular_nothing_slow_runs_first(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def refuse(*args: object, **kwargs: object) -> None:
+            raise AssertionError("the Landau analysis ran without Singular")
+
+        monkeypatch.setattr(degeneracy_module, "_singular_binary", lambda: None)
+        monkeypatch.setattr(section_module, "landau_analysis", refuse)
+        monkeypatch.setattr(section_module, "torus_point", refuse)
+        fi = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+        assert decide(fi, seed=0).analysis is None
 
 
 class TestRendering:

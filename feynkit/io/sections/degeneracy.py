@@ -11,10 +11,13 @@ from typing import TYPE_CHECKING, Literal
 
 import sympy as sp
 
+from ... import degeneracy as _degeneracy
 from ...degeneracy import DegeneracyAnalysis
 from ...face_identification import FaceIdentification
 from ...landau import LandauAnalysis, landau_analysis
 from ...point_count import kinematic_point
+from ...polytope import polytope_data
+from ...systems.monomial import extract_monomial_support
 from .._latex_kit import LatexDocument, _longtable
 from .._report_shared import count_noun, join_words
 from .._text_kit import TextDocument, _blocks, _paragraph, _str, _table
@@ -91,6 +94,16 @@ def _identifications(
     )
 
 
+def _needs_singular(integral: FeynmanIntegral) -> bool:
+    """Whether a face of the Newton polytope of G has dimension 2 or more and is not a simplex,
+    which face_degeneracy decides with Singular. The torus point keeps every coefficient, so
+    the polytope at the point is this one."""
+    sym = integral.symanzik
+    support = extract_monomial_support(sym.g, list(sym.lp_parameters))
+    data = polytope_data([e for e, _ in support])
+    return any(d >= 2 and len(indices) > d + 1 for d, indices in data.faces)
+
+
 def decide(
     integral: FeynmanIntegral,
     *,
@@ -101,6 +114,8 @@ def decide(
     """The degenerate faces at the point the torus counts draw with this seed, or at the
     generic point; ``landau`` is the integral's Landau analysis for the draw, computed as
     the counts compute it when not given."""
+    if _degeneracy._singular_binary() is None and _needs_singular(integral):
+        return Degeneracy(analysis=None, seed=None if generic else seed)
     try:
         if generic:
             analysis = integral.face_degeneracy()

@@ -85,6 +85,12 @@ from feynkit.core import (
     __version__,
 )
 from feynkit.database import FeynkitDatabase
+from feynkit.degeneracy import (
+    DegeneracyAnalysis,
+    FaceDegeneracy,
+    face_degeneracy,
+    face_degeneracy_from_polynomial,
+)
 from feynkit.face_identification import FaceIdentification, FlagLevel, identify_faces
 from feynkit.face_lattice import DecoratedFace, DecoratedFaceLattice, decorate_faces
 from feynkit.generate import generate_graphs
@@ -180,4 +186,9 @@ __all__ = [
     "DecoratedFace",
     "DecoratedFaceLattice",
     "decorate_faces",
+    # Degenerate faces
+    "DegeneracyAnalysis",
+    "FaceDegeneracy",
+    "face_degeneracy",
+    "face_degeneracy_from_polynomial",
 ]

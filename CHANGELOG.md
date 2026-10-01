@@ -450,6 +450,9 @@
   Hoefnagels (arXiv:2409.13815), the massless bubble, which is resonant but
   irreducible, and the Cayley side on 21 graphs up to the double box. The
   double box's 2246 faces take about 0.8 s.
+- `FeynmanIntegral.face_lattice(d0=None, *, nu=None, identify_codimension=2)`
+  gives `decorate_faces` for the integral, cached for each choice of the
+  arguments, with D_0 chosen as for `facet_resonance`.
 
 ### Changed
 

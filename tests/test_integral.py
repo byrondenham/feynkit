@@ -611,3 +611,39 @@ class TestFaceIdentification:
         fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
         with pytest.raises(ValidationError, match="max_codimension"):
             fi.face_identification(bad)  # type: ignore[arg-type]
+
+
+class TestFaceLattice:
+    NU = {1: 1, 2: 1, 3: 1}
+
+    def test_the_accessor_caches_decorate_faces(self) -> None:
+        from feynkit import decorate_faces
+
+        fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nzz")
+        first = fi.face_lattice(nu=self.NU)
+        assert first == decorate_faces(fi, nu=self.NU)
+        assert fi.face_lattice(nu=self.NU) is first
+        assert fi.face_lattice(nu={3: 1, 2: 1, 1: 1}) is first
+        other = fi.face_lattice(3, nu=self.NU)
+        assert other is not first and other.d0 == 3
+        every = fi.face_lattice(nu=self.NU, identify_codimension=None)
+        assert every is not first and every.identify_codimension is None
+        assert fi.with_(dimension=sp.Integer(6)).face_lattice(nu=self.NU) is not first
+
+    def test_d0_and_powers_come_from_the_integral(self) -> None:
+        eps = sp.Symbol("epsilon")
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn").with_(
+            dimension=6 - 2 * eps, propagator_exponents={1: 1, 2: 2}
+        )
+        lattice = fi.face_lattice()
+        assert (lattice.d0, lattice.d0_source, lattice.nu) == (6, "dimension", (1, 2))
+
+    def test_symbolic_powers_need_nu(self) -> None:
+        with pytest.raises(ValidationError, match="integer powers"):
+            FeynmanIntegral.from_cnickel("11e|e|:nn").face_lattice()
+
+    @pytest.mark.parametrize("bad", [-1, [2], 2.0])
+    def test_a_bad_codimension_is_rejected(self, bad: object) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        with pytest.raises(ValidationError, match="identify_codimension"):
+            fi.face_lattice(nu={1: 1, 2: 1}, identify_codimension=bad)  # type: ignore[arg-type]

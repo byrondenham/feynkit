@@ -74,6 +74,7 @@ __all__ = [
     "DecoratedFaceLattice",
     "Epsilon",
     "SchwingerCheck",
+    "check_identify_codimension",
     "decorate_configuration",
     "decorate_faces",
 ]
@@ -657,6 +658,19 @@ def _column_map(columns: Sequence[tuple[int, ...]], matrix: object, what: str) -
     return found
 
 
+def check_identify_codimension(identify_codimension: object) -> None:
+    """Raise ValidationError unless identify_codimension is None or a non-negative integer."""
+    from .face_identification import check_codimension
+
+    try:
+        check_codimension(identify_codimension)
+    except ValidationError:
+        raise ValidationError(
+            "identify_codimension must be None or a non-negative integer, not "
+            f"{identify_codimension!r}"
+        ) from None
+
+
 def decorate_faces(
     fi: FeynmanIntegral,
     d0: int | Fraction | None = None,
@@ -690,9 +704,7 @@ def decorate_faces(
         integer or a Fraction, or identify_codimension is not None or a
         non-negative integer.
     """
-    from .face_identification import check_codimension
-
-    check_codimension(identify_codimension)
+    check_identify_codimension(identify_codimension)
     d0_value, source = choose_d0(d0, fi.dimension)
     powers = _powers(fi, nu)
     points = [tuple(int(x) for x in p) for p in fi.newton_polytope.points]

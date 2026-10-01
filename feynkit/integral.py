@@ -42,6 +42,7 @@ import sympy as sp
 if TYPE_CHECKING:
     from .database import FeynkitDatabase
     from .face_identification import FaceIdentification
+    from .face_lattice import DecoratedFaceLattice
     from .kinematics.classes import ExternalAxis, InternalAxis, KinematicClass
     from .landau import LandauAnalysis
     from .lattice_invariants import Lattice, LatticeInvariants
@@ -182,6 +183,10 @@ class FeynmanIntegral:
             tuple[str, str, int | None, float | None], LatticeInvariants
         ] = {}
         self._face_identifications: dict[int | None, tuple[FaceIdentification, ...]] = {}
+        self._face_lattices: dict[
+            tuple[int | Fraction | None, tuple[tuple[int, int], ...] | None, int | None],
+            DecoratedFaceLattice,
+        ] = {}
 
     # -------- Read-only views of the input data --------
 
@@ -1028,6 +1033,55 @@ class FeynmanIntegral:
                 self, max_codimension=max_codimension
             )
         return self._face_identifications[max_codimension]
+
+    def face_lattice(
+        self,
+        d0: int | Fraction | None = None,
+        *,
+        nu: Mapping[int, int] | None = None,
+        identify_codimension: int | None = 2,
+    ) -> DecoratedFaceLattice:
+        """
+        Every face of the Newton polytope, decorated with its resonance.
+
+        Each face, the empty face included, carries the eps at which it is
+        resonant and admissible as D = d0 - 2 eps varies, its lattice defect,
+        whether A is a pyramid over it and, up to identify_codimension, its
+        graph; the lattice gives the resonance centres and the reducibility of
+        the GKZ system at any eps. See
+        :func:`feynkit.face_lattice.decorate_faces`. The result is cached for
+        each choice of the arguments.
+
+        Parameters
+        ----------
+        d0
+            D_0, an integer or a Fraction; None reads it from the dimension of
+            the integral, as :meth:`facet_resonance` does.
+        nu
+            The power of each internal edge, a mapping from edge index to
+            integer; by default the propagator exponents of the integral, which
+            must then be integers.
+        identify_codimension
+            The faces up to this codimension carry their identification from
+            :meth:`face_identification`; None for every face.
+
+        Raises
+        ------
+        ValidationError
+            If the powers are not one integer per internal edge, d0 is not an
+            integer or a Fraction, or identify_codimension is not None or a
+            non-negative integer.
+        """
+        from .face_lattice import check_identify_codimension, decorate_faces
+
+        check_identify_codimension(identify_codimension)
+        powers = None if nu is None else tuple(sorted(dict(nu).items()))
+        key = (d0, powers, identify_codimension)
+        if key not in self._face_lattices:
+            self._face_lattices[key] = decorate_faces(
+                self, d0, nu=nu, identify_codimension=identify_codimension
+            )
+        return self._face_lattices[key]
 
     def is_unimodular_equivalent_to(self, other: FeynmanIntegral) -> PolytopeEquivalence:
         """

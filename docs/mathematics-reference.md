@@ -850,9 +850,13 @@ general. It reproduces the published cases:
   (Britto, Grimm and Hoefnagels 2026, Eq. 21, p. 11). If $F_e$ is a facet, $w_F = w_{\{e\}}$ and
   the prediction is $\mathcal G_{\Gamma/e}$ (design note, section 4).
 
-Arkani-Hamed, Hillman and Mizera (2022) describe the facets of the Feynman polytope
-$\mathbf U_G \oplus c\,\mathbf F_G$ by subgraphs $\gamma$, with $\mathcal F_{G/\gamma} \ne 0$ for the
-ultraviolet ones and $\mathcal F_{G/\gamma} = 0$ for the infrared ones (Eqs. 4, 7 and 8, pp. 2-3).
+At generic kinematics, Arkani-Hamed, Hillman and Mizera (2022) describe the facets of the Feynman
+polytope $\mathbf U_G \oplus c\,\mathbf F_G$ by subgraphs $\gamma$, with
+$\mathcal F_{G/\gamma} \ne 0$ for the ultraviolet ones and $\mathcal F_{G/\gamma} = 0$ for the
+infrared ones (Eqs. 4, 7 and 8, pp. 2-3); there $\mathrm{Newt}(\mathcal F)$ is the polytope that the
+subgraph inequalities cut out (Borinsky, Munch and Tellander 2023, Theorem 3.6, p. 13). At
+exceptional kinematics it need not be: on Borinsky, Munch and Tellander's QED triangle,
+$\mathrm{Newt}(\mathcal F)$ is a segment while the inequalities cut out a polygon (Fig. 3, p. 15).
 
 **Classes.** A verified face is `whole` ($P$ itself), a `contraction` $\mathcal G_{\Gamma/S}$, a
 `product_uv` or `product_ir` according as its $\mathcal G$ factor is on a minor without or with
@@ -1727,3 +1731,7 @@ All papers cited in the feynkit source and directly relevant to the implemented 
     *Feynman integrals, toric geometry and mirror symmetry.*  arXiv:1807.11466.  Published in
     *Elliptic Integrals, Elliptic Functions and Modular Forms in Quantum Field Theory*, Springer
     (2019) 415-458.
+
+44. **Borinsky-Munch-Tellander (2023).** M. Borinsky, H.J. Munch, F. Tellander.
+    *Tropical Feynman integration in the Minkowski regime.*
+    Comput.\ Phys.\ Commun.\ **292** (2023) 108874.  arXiv:2302.08955.

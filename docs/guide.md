@@ -1303,9 +1303,13 @@ print(face.levels[0])
 # FlagLevel(edges=(1,), contracted=(), deleted=(2,), weight=0, kind='G', loops=0)
 ```
 
-Arkani-Hamed, Hillman and Mizera label the facets of the Feynman polytope by subgraphs $\gamma$,
-ultraviolet when $\mathcal F_{\Gamma/\gamma} \ne 0$ and infrared when it is zero
-(arXiv:2202.12296, Eqs. 7-8, p. 3). The massive sunrise has, besides the two layers, six facets,
+At generic kinematics, Arkani-Hamed, Hillman and Mizera label the facets of the Feynman polytope
+by subgraphs $\gamma$, ultraviolet when $\mathcal F_{\Gamma/\gamma} \ne 0$ and infrared when it is
+zero (arXiv:2202.12296, Eqs. 7-8, p. 3); there $\mathrm{Newt}(\mathcal F)$ is the polytope their
+subgraph inequalities cut out (Borinsky, Munch and Tellander, arXiv:2302.08955, Theorem 3.6,
+p. 13). At exceptional kinematics it need not be: on Borinsky, Munch and Tellander's QED
+triangle, $\mathrm{Newt}(\mathcal F)$ is a segment while the inequalities cut out a polygon
+(Fig. 3, p. 15). The massive sunrise has, besides the two layers, six facets,
 three of them the ultraviolet bubbles $\mathcal U_{\{i,j\}}\,\mathcal G_{\Gamma/\{i,j\}}$, as in
 their App. B (Eq. B14, p. 9). On their three-mass box the facet of $\gamma_{14}$ (App. B, p. 10)
 carries the restricted $\mathcal U$ and $\mathcal F$ they write down. Its flag names $\gamma_{14}$ and
@@ -3038,3 +3042,7 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
 24. Jimenez-Santacruz, M., Lopez-Arcos, C. and Quintero Velez, A. (2026). Canonical differential
     equations for Feynman integrals from A-hypergeometric systems in the Schwinger
     representation. [arXiv:2609.16107](https://arxiv.org/abs/2609.16107)
+
+25. Borinsky, M., Munch, H.J. and Tellander, F. (2023). Tropical Feynman integration in the
+    Minkowski regime. *Comput. Phys. Commun.* **292**, 108874.
+    [arXiv:2302.08955](https://arxiv.org/abs/2302.08955)

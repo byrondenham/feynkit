@@ -41,6 +41,7 @@ import sympy as sp
 
 if TYPE_CHECKING:
     from .database import FeynkitDatabase
+    from .degeneracy import DegeneracyAnalysis
     from .face_identification import FaceIdentification
     from .face_lattice import DecoratedFaceLattice
     from .kinematics.classes import ExternalAxis, InternalAxis, KinematicClass
@@ -186,6 +187,10 @@ class FeynmanIntegral:
         self._face_lattices: dict[
             tuple[int | Fraction | None, tuple[tuple[int, int], ...] | None, int | None],
             DecoratedFaceLattice,
+        ] = {}
+        self._face_degeneracies: dict[
+            tuple[frozenset[tuple[sp.Expr, int | Fraction]] | None, bool, float],
+            DegeneracyAnalysis,
         ] = {}
 
     # -------- Read-only views of the input data --------
@@ -1082,6 +1087,58 @@ class FeynmanIntegral:
                 self, d0, nu=nu, identify_codimension=identify_codimension
             )
         return self._face_lattices[key]
+
+    def face_degeneracy(
+        self,
+        point: Mapping[sp.Expr, int | Fraction] | None = None,
+        *,
+        check: bool = True,
+        timeout: float = 120,
+    ) -> DegeneracyAnalysis:
+        """
+        Which faces of the Newton polytope of G are degenerate.
+
+        A face F is degenerate when G restricted to F has a singular point in
+        the torus. At a rational kinematic point, with the energy scale set to
+        1, the faces are those of the Newton polytope P_z of G there; by
+        default, every face of P is decided at the generic point of the
+        integral's kinematics, over the field of rational functions in its
+        symbols. When P_z is full-dimensional and no face is degenerate,
+        |chi| of the complement of {G = 0} in the torus is N! Vol(P_z). See
+        :func:`feynkit.degeneracy.face_degeneracy`. The result is cached for
+        each choice of the arguments.
+
+        Parameters
+        ----------
+        point
+            A rational kinematic point, keyed by symbol or, for a mass, by its
+            square, as :attr:`~feynkit.point_count.TorusCount.point` gives it;
+            None for the generic point.
+        check
+            Whether to decide the faces that need Singular a second time over
+            F_p, as a probabilistic cross-check.
+        timeout
+            The most seconds Singular gets for the faces together, and for a
+            face run alone; a face past it is left undecided.
+
+        Raises
+        ------
+        ValidationError
+            If the integral has kinematic constraints, which are not applied,
+            or as :func:`feynkit.degeneracy.face_degeneracy_from_polynomial`
+            raises.
+        RuntimeError
+            If a face needs Singular and it is not installed.
+        """
+        from .degeneracy import face_degeneracy
+
+        given = None if point is None else frozenset(point.items())
+        key = (given, check, timeout)
+        if key not in self._face_degeneracies:
+            self._face_degeneracies[key] = face_degeneracy(
+                self, point, check=check, timeout=timeout
+            )
+        return self._face_degeneracies[key]
 
     def is_unimodular_equivalent_to(self, other: FeynmanIntegral) -> PolytopeEquivalence:
         """

@@ -542,6 +542,28 @@ class TestTimeouts:
             face_degeneracy_from_polynomial(CUBE, [X, Y, Z], check=False)
 
 
+@requires_singular
+class TestIntegral:
+    def test_the_method_is_cached_for_each_choice_of_the_arguments(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        m1, m2, s = symbol(fi, "m_1"), symbol(fi, "m_2"), symbol(fi, "s")
+        point = {m1**2: 1, m2**2: 4, s: 9}
+        at_point = fi.face_degeneracy(point)
+        assert at_point == face_degeneracy(fi, point)
+        assert fi.face_degeneracy({s: 9, m2**2: 4, m1**2: Fraction(1)}) is at_point
+        assert fi.face_degeneracy(point, check=False) is not at_point
+        generic = fi.face_degeneracy()
+        assert generic.mode == "generic"
+        assert fi.face_degeneracy() is generic
+        assert fi.with_().face_degeneracy() is not generic
+
+    def test_kinematic_constraints_are_refused(self) -> None:
+        s = sp.Symbol("s", real=True)
+        fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematic_constraints=[s - 1])
+        with pytest.raises(ValidationError, match="kinematic_constraints"):
+            fi.face_degeneracy()
+
+
 def test_exports() -> None:
     import feynkit
 

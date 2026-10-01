@@ -1382,6 +1382,52 @@ Accessed via `landau_analysis(fi)`, returning `LandauAnalysis` with `.face_discr
 `.principal_a_determinant`, `.landau_surfaces`, `.skipped_faces`, `.limit_surfaces`,
 `.limit_candidates` and `.parent`.
 
+### 10.6 Degenerate Faces
+
+Let $z$ be a rational kinematic point, $G_z$ the polynomial $G$ there at $\mu = 1$, $A_z$ the
+exponents whose coefficients do not vanish and $P_z = \mathrm{conv}(A_z)$. A face $F$ of $P_z$,
+$P_z$ included, is **degenerate** at $z$ when $G_z|_F = \sum_{\alpha \in A_z \cap F} c_\alpha
+u^\alpha$ has a singular point in the torus:
+$$G_z|_F = u_1 \partial_1 G_z|_F = \dots = u_N \partial_N G_z|_F = 0 \quad\text{for some } u
+\in (\mathbb C^*)^N.$$
+Write $G_z|_F = u^{\alpha_0} g_F(u^{b_1}, \ldots, u^{b_d})$, with $b_1, \ldots, b_d$ a basis of the
+lattice spanned by the differences of the points of $A_z \cap F$ and $g_F$ in the lattice
+coordinates $t \in (\mathbb C^*)^d$. Then $F$ is degenerate exactly when $g_F = \partial_1 g_F =
+\dots = \partial_d g_F = 0$ has a solution in $(\mathbb C^*)^d$, which happens exactly when
+$S = (g_F, \partial_1 g_F, \ldots, \partial_d g_F) : (t_1 \cdots t_d)^\infty$ is not the unit ideal.
+$\dim S$ is the dimension of the singular locus in the torus and, when that locus is finite,
+$\dim \mathbb C[t]/S$ is its total Tjurina number, in these lattice coordinates. Vertices and
+faces with affinely independent points are never degenerate, and an edge is degenerate exactly
+when the discriminant of $g_F$ vanishes.
+
+The principal A-determinant of $G_z$ is the A-resultant of $u_1 \partial_1 G_z, \ldots,
+u_N \partial_N G_z$ and $G_z$ (GKZ chapter 10, (1.1), p. 297). It vanishes exactly where these have
+a common zero on the toric variety $X_{A_z}$ (chapter 8, proposition 2.1, p. 256, and chapter 3,
+(2.2), p. 101), which is the union of one orbit for each face $F$ (chapter 5, proposition 1.9,
+p. 171), and a common zero on the orbit of $F$ is a solution of the system above. So
+$E_{A_z}(G_z) = 0$ exactly when some face of $P_z$ is degenerate at $z$. When $P_z$ is
+full-dimensional and no face is degenerate, therefore,
+$$|\chi(X_z)| = N!\,\mathrm{Vol}(P_z)$$
+(Fevola, Mizera and Telen 2024, theorem 2.3), the value Bitoun et al. (2019, theorem 44) give for
+generic coefficients.
+
+On a kinematic family $\mathcal E$ a face is **generically degenerate** when it is degenerate on a
+Zariski-dense set of points of $\mathcal E$. That happens exactly when $S \ne (1)$ over the field
+$\mathbb Q(\mathcal E)$, and exactly when the face's incidence variety has a component projecting
+onto a dense subset of $\mathcal E$: a dominant component (Fevola, Mizera and Telen 2024,
+definition 3.5), which section 10.1 leaves out of the principal Landau determinant. In the fully
+massive sunrise the three quadrilateral faces on which $G$ is
+$\mathcal U_{\{i,j\}} \mathcal G_{\Gamma/\{i,j\}}$ are generically degenerate, each with a single
+node; the discriminant of one of them vanishes identically on the kinematic space (Fevola, Mizera
+and Telen 2024, example 2.5). The square face of the dunce's cap on which
+$\mathcal U = (u_1 + u_2)(u_3 + u_4)$ is degenerate whatever the kinematics, so
+$E_{A_\mathcal U}(\mathcal U) = 0$, as Klausen (2022, section 4.3) finds. The design note
+`docs/design/2026-10-01-face-degeneracy.md` proves the statements of this section.
+
+Accessed via `fi.face_degeneracy(point)`, `point=None` for the generic point, returning
+`DegeneracyAnalysis` with `.faces`, `.degenerate_faces`, `.non_degenerate`, `.volume` and
+`.support_loss`; `face_degeneracy_from_polynomial` takes any polynomial.
+
 ---
 
 ## 11. Conformal and BMS Configurations
@@ -1558,6 +1604,8 @@ This table maps every mathematical symbol to the corresponding Python identifier
 | Face exponent vectors | `face.exponents` |
 | Face kinematic coefficients | `face.coefficients` |
 | One-loop closed form | `one_loop_landau_surfaces(fi)` |
+| Degenerate faces | `fi.face_degeneracy(point)`, `.degenerate_faces` (tuple of `FaceDegeneracy`) |
+| Singular locus of $g_F$ in the torus, its dimension and Tjurina number | `face.degenerate`, `face.singular_dimension`, `face.tjurina` |
 
 ---
 

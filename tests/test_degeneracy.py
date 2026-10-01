@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import math
 import random
+import re
 from collections.abc import Callable
 from fractions import Fraction
+from pathlib import Path
 
 import pytest
 import sympy as sp
@@ -620,6 +622,23 @@ class TestIntegral:
         fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematic_constraints=[s - 1])
         with pytest.raises(ValidationError, match="kinematic_constraints"):
             fi.face_degeneracy()
+
+
+GUIDE = Path(__file__).resolve().parents[1] / "docs" / "guide.md"
+
+
+@requires_singular
+def test_guide_examples_print_what_the_guide_says(capsys: pytest.CaptureFixture[str]) -> None:
+    section = GUIDE.read_text(encoding="utf-8").split("\n## Degenerate faces\n", 1)[1]
+    section = section.split("\n## ", 1)[0]
+    first, second = re.findall(r"```python\n(.*?)```", section, re.DOTALL)
+    printed = section.split("prints\n\n```\n", 1)[1].split("```", 1)[0]
+    exec(compile(first, "docs/guide.md", "exec"), {})
+    assert capsys.readouterr().out == printed
+    exec(compile(first + second, "docs/guide.md", "exec"), {})
+    out = capsys.readouterr().out
+    assert out.splitlines()[-1] == "[(2, 4, 0, 1), (2, 4, 0, 1), (2, 4, 0, 1)]"
+    assert f"prints `{out.splitlines()[-1]}`" in section
 
 
 def test_exports() -> None:

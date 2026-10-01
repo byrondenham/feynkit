@@ -480,6 +480,59 @@
   containing a face decide its resonance for every beta exactly when its
   lattice defect is 1, and that reducibility follows at full rank from
   Theorems 4.1 and 5.1 and Proposition 3.8 of Schulze and Walther.
+- `feynkit.degeneracy`, with `face_degeneracy` and
+  `face_degeneracy_from_polynomial` (also exported from `feynkit`), decides
+  for every face of the Newton polytope of G, the polytope included, whether
+  G restricted to it has a singular point in the torus. At a rational
+  kinematic point the faces are those of the polytope of the coefficients
+  that do not vanish there, and the difference of the volumes is reported as
+  support loss; without a point each face of the polytope is decided at the
+  generic point of the kinematics, over the field of rational functions in
+  its symbols. Vertices and faces with affinely independent points need no
+  computation, edges are decided by an exact discriminant, and the other
+  faces by a saturation in Singular, which also gives the dimension of the
+  singular locus and, when it is finite, its Tjurina number in the lattice
+  coordinates of the face. All faces go to Singular in one run with a time
+  limit, 120 s by default; a face that passes the limit alone is recorded as
+  undecided, never guessed. A second run over F_p, at the largest prime below
+  2^29 that divides no coefficient, gives a probabilistic cross-check that
+  never decides. When the polytope is full-dimensional and no face is
+  degenerate, the principal A-determinant does not vanish and |chi| equals
+  the normalised volume, by Gelfand, Kapranov and Zelevinsky and Theorem 2.3
+  of Fevola, Mizera and Telen (arXiv:2311.16219). The tests check faces
+  worked by hand, the shortcuts against the Gröbner path, the verdict over
+  F_p, generic mode against `FaceDiscriminant.dominant`,
+  `critical_point_count` against the volume, and examples of Fevola, Mizera
+  and Telen and of Klausen (arXiv:1910.08651, arXiv:2109.07584).
+- `FeynmanIntegral.face_degeneracy(point=None, *, check=True, timeout=120)`
+  gives `face_degeneracy` for the integral, cached for each choice of the
+  arguments. Kinematic constraints are refused.
+- `FeynmanIntegral.face_lattice` takes `degeneracy`, off by default; with it
+  each `DecoratedFace` carries `degenerate`, its verdict at the generic point.
+- `feynkit.point_count.kinematic_point` gives the kinematic point that
+  `count_torus_points` draws with a seed, without counting.
+- The analysis report has a `degeneracy` section, after the Landau section
+  and not built by default. It decides the faces at the kinematic point of
+  the torus counts, drawn with the report's seed, and lists the degenerate
+  ones with their dimension, number of points, graph, singular dimension
+  and Tjurina number, with the result of the check over F_p; when no face is
+  degenerate it states that |chi| is the normalised volume, and where the
+  torus counts give a candidate at the same point it sets the difference
+  from the volume beside the list. `AnalysisReport.from_integral` takes
+  `degeneracy_mode`, `"point"` by default or `"generic"`. The summary gains
+  `Degenerate faces`. The report holds the section as
+  `AnalysisReport.degeneracy`, a `Degeneracy`, or None.
+- `fk analyse -D` (`--degeneracy`) prints the degenerate faces at the
+  kinematic point of the point counts, which `--seed` chooses, and adds the
+  `degeneracy` section to the reports. `fk analyse --json` with the section
+  gains `degenerate_faces`.
+- Section 10.6 of the mathematics reference, the guide and the design note
+  `docs/design/2026-10-01-face-degeneracy.md` describe degenerate faces. The
+  note proves the reduction to the face polynomial in lattice coordinates,
+  the shortcuts for vertices, simplices and edges, the Gröbner test, the
+  criterion at the generic point of a family, and, from Gelfand, Kapranov
+  and Zelevinsky, that the principal A-determinant vanishes exactly when some
+  face is degenerate.
 
 ### Changed
 

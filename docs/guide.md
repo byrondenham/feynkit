@@ -29,11 +29,12 @@ diagram given by its CNickel string.
 16. [AConfiguration: arbitrary GKZ inputs](#aconfiguration-arbitrary-gkz-inputs)
 17. [Landau singularities](#landau-singularities)
 18. [Torus point counts](#torus-point-counts)
-19. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
-20. [The database](#the-database)
-21. [Visualisation and export](#visualisation-and-export)
-22. [Standard diagram library](#standard-diagram-library)
-23. [References](#references)
+19. [Degenerate faces](#degenerate-faces)
+20. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
+21. [The database](#the-database)
+22. [Visualisation and export](#visualisation-and-export)
+23. [Standard diagram library](#standard-diagram-library)
+24. [References](#references)
 
 ---
 
@@ -149,7 +150,7 @@ fk analyse "111e|e|:nnn" -D             # degenerate faces of the massive sunris
 | `-L` | `--face-lattice` | The faces of each dimension by where they are resonant, the resonance centres at generic $\varepsilon$ and at $\varepsilon = 0$, and whether the GKZ system is reducible there (see [Resonance of every face](#resonance-of-every-face)). It also compares the Cayley configuration of the Schwinger representation with the Lee-Pomeransky one face by face, and adds the `face_lattice` section, with that comparison, to the reports |
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
 | | `--torus-count` | Candidate Euler characteristic from finite-field point counts; left out when no flag is given |
-| `-D` | `--degeneracy` | The faces of the Newton polytope on which $G$ has a singular point in the torus, decided exactly at the kinematic point of `--torus-count`; left out when no flag is given. It needs Singular, and adds the `degeneracy` section to a report whose `--sections` leave it out |
+| `-D` | `--degeneracy` | The faces of the Newton polytope on which $G$ has a singular point in the torus, decided exactly at the kinematic point of `--torus-count` (see [Degenerate faces](#degenerate-faces)); left out when no flag is given. It needs Singular, and adds the `degeneracy` section to a report whose `--sections` leave it out |
 
 `--d0 VALUE` sets $D_0$, an integer or a fraction such as `7/2`, for `-r`, `-L` and the report's
 `resonance` and `face_lattice` sections; it is 4 by default, since `fk` builds $D$ as a symbol. The
@@ -236,7 +237,7 @@ fk analyse "12e|2e|e|:zzz" --json --sections polytope,torus --no-db
 #### Reports and JSON
 
 With these options, `fk analyse` also writes the analysis report of `FeynmanIntegral.to_latex`
-and `to_text` (section 21), or summarises it as JSON. It builds the report once, however many of
+and `to_text` (section 22), or summarises it as JSON. It builds the report once, however many of
 the options are given, and checks that it can write each file before the analysis starts.
 
 | Option | Effect |
@@ -756,7 +757,7 @@ polytope_data(fi.newton_polytope.points)   # PolytopeData: faces, facets, volume
 fi.torus_count()                           # TorusCount: point counts and candidates (section 18)
 fi.facet_resonance(nu={1: 1, 2: 1, 3: 1})  # FacetResonance per facet, D = 4 - 2 eps (section 11)
 fi.face_identification()                   # FaceIdentification per face up to codim 2 (section 11)
-AnalysisReport.from_integral(fi)           # every fact the analysis report states (section 21)
+AnalysisReport.from_integral(fi)           # every fact the analysis report states (section 22)
 fi.to_latex()                              # the report as a LaTeX document
 fi.to_text()                               # the report as plain text
 ```
@@ -1076,7 +1077,7 @@ lies outside the affine hull of the polytope, so that rescaling the $u_e$ multip
 by a power of $\lambda$ that involves $D$, and dimensional regularisation sets it to zero. A
 massless self-loop makes an integral scaleless; `1ee|1|:zn`, whose massless line carries no
 momentum, is not full-dimensional but does not satisfy the criterion either. The analysis report
-(section 21) lists one such expression per facet:
+(section 22) lists one such expression per facet:
 
 ```python
 from feynkit.io import AnalysisReport
@@ -2399,6 +2400,101 @@ print(critical_point_count(g, [u1, u2], {s: 3}))             # 1
 
 The massless bubble has $p - 2$ points, so $\chi(X) = -P(1) = 1$ and $C = 1$, and its log-likelihood
 function has one critical point.
+
+---
+
+## Degenerate faces
+
+A face $F$ of the Newton polytope of $G$, the polytope itself included, is degenerate when $G$
+restricted to $F$, the sum of its terms with exponents on $F$, has a singular point in the torus:
+$G|_F = u_1 \partial_1 G|_F = \dots = u_N \partial_N G|_F = 0$ has a solution in
+$(\mathbb{C}^*)^N$. When the polytope is full-dimensional and no face is degenerate, the principal
+A-determinant does not vanish and $|\chi(X)| = N!\,\mathrm{Vol}$ (section 10.6 of the mathematics
+reference). `FeynmanIntegral.face_degeneracy(point)` decides every face exactly at a rational
+kinematic point, keyed as `TorusCount.point` keys it, with $\mu = 1$; without a point it decides
+them at the generic point of the integral's kinematics, over the field of rational functions in its
+symbols, where a face is degenerate exactly when it is degenerate on a dense set of kinematic
+points.
+
+```python
+import sympy as sp
+
+from feynkit import FeynmanIntegral
+
+fi = FeynmanIntegral.from_cnickel("11e|e|:nn")  # the massive bubble
+s = sp.Symbol("s", real=True)
+m1, m2 = (edge.get_mass() for edge in fi.graph.get_internal_edges())
+
+# s = (m_1 + m_2)^2: G has the edge (u_1 - 2 u_2)^2 at mu = 1.
+threshold = fi.face_degeneracy({s: 9, m1**2: 1, m2**2: 4})
+for face in threshold.degenerate_faces:
+    print(face.dimension, [threshold.points[i] for i in face.point_indices], face.tjurina)
+print(threshold.volume, threshold.non_degenerate)
+
+generic = fi.face_degeneracy()  # at the generic point of the kinematics
+print(generic.mode, generic.non_degenerate, generic.volume)
+```
+
+prints
+
+```
+1 [(2, 0), (0, 2), (1, 1)] 1
+3 False
+generic True 3
+```
+
+so the bubble has $|\chi(X)| = 3$ for generic kinematics, and on the threshold the torus counts
+above find 2.
+
+Vertices and faces whose points are affinely independent are never degenerate. An edge is decided
+by the discriminant of $G$ along it, and any other face in Singular, by whether the saturation
+$(g_F, \partial_1 g_F, \ldots, \partial_d g_F) : (t_1 \cdots t_d)^\infty$ is the unit ideal, with
+$g_F$ the face polynomial in the lattice coordinates $t$ of $F$. All faces go to Singular in one run
+of at most `timeout` seconds, 120 by default; past it, the face Singular was on runs alone, and a
+face that passes the limit alone is left undecided, with a reason. `check=True`, the default,
+decides the same faces again over $\mathbb{F}_p$, $p$ the largest prime below $2^{29}$ that divides
+no coefficient, as a probabilistic cross-check that never decides. Without Singular, faces that need
+it raise `RuntimeError`.
+
+Where coefficients vanish at the point, the faces are those of the smaller polytope of the point,
+and the difference of the normalised volumes is reported as `support_loss`, not as degeneracy.
+`face_degeneracy_from_polynomial(g, variables, point)` in `feynkit.degeneracy` does the same for
+any polynomial. At the generic point the larger graphs take minutes: the hexagons and the off-shell
+massless double box pass the default limit.
+
+| Attribute | Description |
+|-----------|-------------|
+| `mode`, `point` | `"point"` with the point as (quantity, value) pairs, or `"generic"` with None |
+| `points` | The exponents with non-zero coefficients, the points of the polytope |
+| `volume`, `support_loss` | $N!\,\mathrm{Vol}$ of that polytope, and how much smaller it is than for generic kinematics |
+| `faces` | One `FaceDegeneracy` per face, in the order of `PolytopeData.faces` |
+| `prime` | The prime of the check over $\mathbb{F}_p$, or None |
+| `degenerate_faces`, `undecided_faces` | The faces decided degenerate, and those left undecided |
+| `non_degenerate` | True when no face is degenerate, False when one is, None when undecided faces leave it open |
+
+A `FaceDegeneracy` has `point_indices`, `dimension`, `degenerate` (None when undecided), `method`
+(`vertex`, `simplex`, `edge` or `groebner`), `singular_dimension`, the dimension of the singular
+locus in the torus ($-1$ when empty), `tjurina`, its total Tjurina number when it is finite,
+`modular`, the verdict over $\mathbb{F}_p$, and `reason`. The Tjurina number is taken in the lattice
+coordinates of the face, those of the lattice spanned by the differences of its points.
+
+`fi.face_lattice(..., degeneracy=True)` gives each `DecoratedFace` its verdict at the generic point
+as `degenerate`. The report's `degeneracy` section, which `--sections` or `fk analyse -D` adds,
+decides the faces at the point of the torus counts, drawn with the same seed;
+`AnalysisReport.from_integral(fi, ["degeneracy"], degeneracy_mode="generic")` uses the generic
+point instead.
+
+```python
+sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+analysis = sunrise.face_degeneracy()
+print([(f.dimension, len(f.point_indices), f.singular_dimension, f.tjurina)
+       for f in analysis.degenerate_faces])
+```
+
+prints `[(2, 4, 0, 1), (2, 4, 0, 1), (2, 4, 0, 1)]`: the three faces of the fully massive sunrise
+on which $G$ is $\mathcal{U}_{\{i,j\}} \mathcal{G}_{\Gamma/\{i,j\}}$ have a node for generic
+kinematics. The discriminant of one of them vanishes identically on the kinematic space (Fevola,
+Mizera and Telen 2024, example 2.5).
 
 ---
 

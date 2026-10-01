@@ -878,6 +878,14 @@
   which theorem of Britto, Grimm and Hoefnagels' first arXiv version is
   Theorem 4.1, and the bibliographies give the issue and last page of the
   paper.
+- Docs: "admissible" is feynkit's own term, not the name of Britto, Grimm and
+  Hoefnagels, who note only that the face system is then a true subsystem; the
+  guide, mathematics reference, design notes, docstrings and the resonance
+  report now say so, and the report no longer credits them with the facet
+  criterion for admissibility. Eq. 21 of their paper is stated for a
+  one-particle-irreducible graph, which the attributions now say, and their
+  mention of lower-dimensional resonant faces is cited as an outlook remark
+  (p. 51).
 
 ## 0.4.0 (2026-09-27)
 

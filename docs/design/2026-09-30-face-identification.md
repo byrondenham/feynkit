@@ -18,7 +18,7 @@ printed on the pages of the arXiv versions.
 `polytope_data` lists the faces of the Newton polytope $P$ as sets of monomials. The literature
 names them by graphs: FMT24 label faces by subgraphs $\gamma$ with initial forms
 $\mathcal U_\gamma\,\mathcal G_{\Gamma/\gamma}$ (Eq. 3.15, p. 28), BGH26 identify the face of the
-terms free of $x_e$ with the contraction $\Gamma/e$ (Eq. 21, p. 11), and AHM22 describe the facets
+terms free of $x_e$ with the contraction $\Gamma/e$ (Eq. 21, p. 11, for a one-particle-irreducible graph), and AHM22 describe the facets
 of the Feynman polytope by ultraviolet and infrared subgraphs (Eqs. 7-8, p. 3). This note gives one
 rule that names every face this way when it can, checks each name exactly, and says when it
 cannot.
@@ -181,7 +181,7 @@ single edges as contractions, $\{3,4\}$, $\{1,2,3\}$ and $\{1,2,4\}$ as `product
 $\gamma = E$ as the $\mathcal U$ layer $\mathcal U_\Gamma$, $\Gamma/\Gamma$ being a point.
 
 **BGH26.** The face $F_e$ of the terms free of $u_e$ gives $\mathcal G_{\Gamma/e}$ (Eq. 21,
-p. 11). If $F_e$ is a facet, its inequality is $u_e$'s exponent at least 0, so
+p. 11, for a one-particle-irreducible graph). If $F_e$ is a facet, its inequality is $u_e$'s exponent at least 0, so
 $w_F = w_{\{e\}}$ and the flag is $\{e\} \subset E$. The edge $e$ is not a self-loop, since a
 self-loop lies outside every forest and $F_e$ would be empty, so
 $\mathcal U_{H_1} = 1$. If $\mathcal F_{\Gamma/e} \ne 0$ the prediction is

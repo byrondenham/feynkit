@@ -3,8 +3,9 @@ The decorated face lattice of a GKZ configuration.
 
 Every face G of a homogeneous configuration A, the empty face included, is
 decorated with the values of eps at which it is resonant, beta in
-span_C(A_G) + ZA, and admissible, beta in span_C(A_G) (Britto, Grimm and
-Hoefnagels, arXiv:2606.09978, Eq. 23, p. 12, and pp. 10-11), for a parameter
+span_C(A_G) + ZA (Britto, Grimm and Hoefnagels, arXiv:2606.09978, Eq. 23,
+p. 12), and admissible, a term of feynkit's, beta in span_C(A_G) (the true-subsystem
+condition of pp. 10-11), for a parameter
 beta(eps) = beta_0 + eps beta_1; with its lattice defect, the number of
 columns off it, and whether A is a pyramid over it (Schulze and Walther,
 arXiv:1009.3569, Def. 3.4, p. 6).

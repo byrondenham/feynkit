@@ -1145,10 +1145,10 @@ keep using $(m, b)$.
 ### Resonant and admissible facets
 
 A face $F$ of the A-matrix, a set of its columns $A_F$, is resonant for $\beta$ when $\beta$ lies
-in $\operatorname{span}_{\mathbb{C}} A_F + \mathbb{Z}A$, and admissible when it lies in
-$\operatorname{span}_{\mathbb{C}} A_F$ itself; the face system $(A_F, \beta)$ is then a true
-subsystem, its solutions solving the full system (Britto, Grimm and Hoefnagels,
-arXiv:2606.09978, pp. 10-12). For a facet the lattice form decides both: the facet is resonant
+in $\operatorname{span}_{\mathbb{C}} A_F + \mathbb{Z}A$ (Britto, Grimm and Hoefnagels,
+arXiv:2606.09978, Eq. 23, p. 12). feynkit calls it admissible when $\beta$ lies in
+$\operatorname{span}_{\mathbb{C}} A_F$ itself; the paper notes that the face system $(A_F, \beta)$ is
+then a true subsystem, its solutions solving the full system (pp. 10-11). For a facet the lattice form decides both: the facet is resonant
 exactly when $l_F(\beta) \in \mathbb{Z}$ and admissible exactly when $l_F(\beta) = 0$ (section 4.8
 of the mathematics reference). With integer powers and $D = D_0 - 2\varepsilon$, `classify_facets`
 says at which $\varepsilon$ this happens:
@@ -1244,7 +1244,7 @@ a product of Symanzik polynomials of minors of the graph. For the weight that is
 a connected subgraph $\gamma$ and 0 elsewhere, with every mass non-zero, it is
 $\mathcal U_\gamma\,\mathcal G_{\Gamma/\gamma}$ (their Eqs. 3.13 and 3.15, pp. 27-28), and the face of
 the terms free of $u_e$ gives $\mathcal G_{\Gamma/e}$ (Britto, Grimm and Hoefnagels,
-arXiv:2606.09978, Eq. 21, p. 11). `identify_faces` names every face in this way:
+arXiv:2606.09978, Eq. 21, p. 11, for a one-particle-irreducible graph). `identify_faces` names every face in this way:
 
 ```python
 from feynkit import FeynmanIntegral, identify_faces

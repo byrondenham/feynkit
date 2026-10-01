@@ -9,7 +9,7 @@ arXiv:2311.16219, p. 28). For the weight w_gamma that is 1 on the edges of a
 connected subgraph gamma and 0 elsewhere, G|_F = U_gamma G_{Gamma/gamma}
 when every mass is non-zero (their Eqs. 3.13 and 3.15, pp. 27-28), and the
 face of the terms free of u_e is G of Gamma/e (Britto, Grimm and Hoefnagels,
-arXiv:2606.09978, Eq. 21, p. 11).
+arXiv:2606.09978, Eq. 21, p. 11, for a one-particle-irreducible graph).
 
 :func:`identify_faces` names every face in this way. It takes the weight
 w = -sum m over the outward normals m of the facets containing F, which lies

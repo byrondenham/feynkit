@@ -2,10 +2,10 @@
 Resonance and admissibility of the facets of a GKZ configuration.
 
 A face F of the configuration A is resonant for beta when beta lies in
-span_C(F) + ZA, and admissible when beta lies in span_C(F) itself; the face
-system (A_F, beta) is then a true subsystem, its solutions solving the full
-system (Britto, Grimm and Hoefnagels, arXiv:2606.09978, eqs. 19-23,
-pp. 10-12). For a facet with the linear functional l_F, zero on F, positive
+span_C(F) + ZA, and, in feynkit's term, admissible when beta lies in span_C(F)
+itself; the paper notes that the face system (A_F, beta) is then a true
+subsystem, its solutions solving the full system (Britto, Grimm and
+Hoefnagels, arXiv:2606.09978, eqs. 19-23, pp. 10-12). For a facet with the linear functional l_F, zero on F, positive
 off it and mapping ZA onto Z, resonance is l_F(beta) in Z and admissibility
 l_F(beta) = 0 (their eq. 24 and appendix A, for ZA = Z^d; the design note
 docs/design/2026-09-30-resonance.md proves both for any ZA of full rank).

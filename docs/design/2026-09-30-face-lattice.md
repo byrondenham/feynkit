@@ -13,8 +13,8 @@ Walther, arXiv:1009.3569 (SW12). Page numbers are those of the arXiv versions. T
 ## Purpose
 
 The resonance note classifies the facets. Faces of lower dimension need a test on several forms
-at once, and BGH26 name lower-dimensional resonant faces, such as intersections of edge facets, as
-a direction for further work (pp. 50-51). Reducibility needs them as well. The resonance centres
+at once, and BGH26 mention lower-dimensional resonant faces, such as intersections of edge facets, in
+their outlook (p. 51). Reducibility needs them as well. The resonance centres
 of SW12 are faces of any dimension, the empty face included, so the facets alone can show that a
 system is reducible but never that it is irreducible: `FacetResonance.reducible` is True or None.
 With every face decorated, reducibility is decided at every $\varepsilon$ whenever $A$ has full
@@ -40,7 +40,8 @@ The parameter is $\beta(\varepsilon) = \beta_0 + \varepsilon\beta_1$. For the Le
 configuration, with columns $(1, \alpha_j)$ and $\beta = (-D/2, -\nu_1, \ldots, -\nu_N)$ at
 $D = D_0 - 2\varepsilon$ and integer powers, $\beta_0 = (-D_0/2, -\nu)$ and $\beta_1 = e_0$. A face
 $G$ is resonant when $\beta \in V_G + \Lambda$ (BGH26 Eq. 23, p. 12) and
-admissible when $\beta \in V_G$ (BGH26 pp. 10-11). SW12's resonance centres are the minimal faces
+admissible, in our term, when $\beta \in V_G$, where $(A_G, \beta)$ is a true subsystem (BGH26
+pp. 10-11). SW12's resonance centres are the minimal faces
 with this property (p. 5), while their "$F$-resonant" (Def. 3.2, p. 5) means
 $\beta \in \mathbb{Z}A + \mathbb{C}G$ for a proper subface $G$ of $F$.
 

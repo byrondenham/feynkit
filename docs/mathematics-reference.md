@@ -466,8 +466,9 @@ are proved in `docs/design/2026-09-30-resonance.md`.
 **Definitions.** A face $F$ of $A$ is a set of columns for which some linear functional vanishes on
 $F$ and is positive on the other columns (Britto, Grimm and Hoefnagels, Eq. 19, p. 10). It is
 *resonant* for $\beta$ when $\beta \in \operatorname{span}_{\mathbb{C}} A_F + \mathbb{Z}A$ (Eq. 23,
-p. 12), and *admissible* when $\beta \in \operatorname{span}_{\mathbb{C}} A_F$; then $(A_F, \beta)$ is
-a true subsystem, its solutions solving $(A, \beta)$ (pp. 10-11). Both sets are closed under
+p. 12). We call it *admissible* when $\beta \in \operatorname{span}_{\mathbb{C}} A_F$, a name the
+paper does not use; the paper notes that then $(A_F, \beta)$ is a true subsystem, its solutions
+solving $(A, \beta)$ (pp. 10-11). Both sets are closed under
 $\beta \mapsto -\beta$, so the sign of section 4.2, $\beta = (-D/2, -\nu)$ against the paper's
 $(D/2, \nu)$, does not matter.
 
@@ -853,7 +854,7 @@ general. It reproduces the published cases:
   $H_2 = \Gamma/\gamma$, the masses make $\mathcal F_{\Gamma/\gamma} \ne 0$, and the prediction is
   that product.
 - The terms free of $u_e$ form a face $F_e$ with $\mathcal G|_{F_e} = \mathcal G_{\Gamma/e}$
-  (Britto, Grimm and Hoefnagels 2026, Eq. 21, p. 11). If $F_e$ is a facet, $w_F = w_{\{e\}}$ and
+  (Britto, Grimm and Hoefnagels 2026, Eq. 21, p. 11, for a one-particle-irreducible graph). If $F_e$ is a facet, $w_F = w_{\{e\}}$ and
   the prediction is $\mathcal G_{\Gamma/e}$ (design note, section 4).
 
 At generic kinematics, Arkani-Hamed, Hillman and Mizera (2022) describe the facets of the Feynman

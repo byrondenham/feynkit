@@ -39,7 +39,7 @@ A face $F$ of $A$ is a set of columns for which some linear functional vanishes 
 positive on the other columns (BGH26 Eq. 19, p. 10; SW12 Def. 3.1, p. 5). It is resonant for
 $\beta$ when
 $$\beta \in \operatorname{span}_{\mathbb{C}} F + \mathbb{Z}A$$
-(BGH26 Eq. 23, p. 12), and we call it admissible when $\beta \in \operatorname{span}_{\mathbb{C}} F$:
+(BGH26 Eq. 23, p. 12), and we call it admissible, a name BGH26 do not use, when $\beta \in \operatorname{span}_{\mathbb{C}} F$:
 then $(A_F, \beta)$ is a true subsystem, its solutions solving $(A, \beta)$ (BGH26 pp. 10-11).
 BGH26 show that a facet is resonant exactly when $L_F(\beta) \in \mathbb{Z}$, assuming
 $\mathbb{Z}A = \mathbb{Z}^d$ (Eq. 24, p. 12, proved in appendix A, p. 52). The assumption is not
@@ -254,8 +254,8 @@ included, takes 10 to 30 ms.
 ## Decisions
 
 - Resonance is classified for facets only. Faces of lower dimension need a lattice test on
-  several forms at once; BGH26 name lower-dimensional resonant faces, such as intersections of
-  edge facets, as a direction for further work (pp. 50-51).
+  several forms at once; BGH26 mention lower-dimensional resonant faces, such as intersections of
+  edge facets, in their outlook (p. 51).
 - The powers are integers. The forms keep $\nu$ symbolic, so that non-integer powers can be added
   as a new output later.
 - Reducibility is reported only as Proposition 2 allows, and never as False.

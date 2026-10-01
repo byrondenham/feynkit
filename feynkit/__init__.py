@@ -86,6 +86,7 @@ from feynkit.core import (
 )
 from feynkit.database import FeynkitDatabase
 from feynkit.face_identification import FaceIdentification, FlagLevel, identify_faces
+from feynkit.face_lattice import DecoratedFace, DecoratedFaceLattice, decorate_faces
 from feynkit.generate import generate_graphs
 from feynkit.integral import FeynmanIntegral
 from feynkit.io.report import AnalysisReport
@@ -175,4 +176,8 @@ __all__ = [
     "FaceIdentification",
     "FlagLevel",
     "identify_faces",
+    # The decorated face lattice
+    "DecoratedFace",
+    "DecoratedFaceLattice",
+    "decorate_faces",
 ]

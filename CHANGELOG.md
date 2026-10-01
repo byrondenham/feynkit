@@ -426,6 +426,30 @@
   `fk analyse --json` a field `support_product_faces`, counting the faces whose
   exponents are those of their prediction but whose coefficients are not; they
   come with the `faces` section, after the unidentified faces.
+- `feynkit.face_lattice` decorates every face of a GKZ configuration, the
+  empty face included, with the eps at which it is resonant and admissible,
+  its lattice defect, the number of columns off it and whether A is a pyramid
+  over it. `decorate_faces(fi, d0=None, *, nu=None, identify_codimension=2)`,
+  also exported from `feynkit`, does this for the Lee-Pomeransky
+  configuration of an integral: its faces are indexed by the points of
+  `fi.newton_polytope`, with maps to the columns of `fi.gkz` and
+  `fi.schwinger_gkz`, and those up to codimension 2 carry their
+  identification. `decorate_configuration(a_matrix, beta0, beta1=None)` takes
+  any homogeneous A and a parameter beta0 + eps beta1. A face is resonant
+  exactly when the integer forms vanishing on it are integers on beta; the
+  facets containing it decide this when their forms span those, which a
+  lattice defect of 1 says. `centres(eps)` gives the minimal resonant faces
+  and `reducible(eps)` decides reducibility at any rational eps or at generic
+  eps by Theorems 4.1 and 5.1 of Schulze and Walther (arXiv:1009.3569): True,
+  False, or None when A does not have full rank and off the span of A.
+  `check_schwinger()` decorates the Cayley configuration from its own columns
+  and compares the two face by face. The tests check every facet against
+  `classify_facets`, the statements of Britto, Grimm and Hoefnagels on the
+  bubble and the sunrise, Schulze and Walther's quadric cone, whose empty
+  face has lattice defect 2, the single-exchange configuration of Grimm and
+  Hoefnagels (arXiv:2409.13815), the massless bubble, which is resonant but
+  irreducible, and the Cayley side on 21 graphs up to the double box. The
+  double box's 2246 faces take about 0.8 s.
 
 ### Changed
 

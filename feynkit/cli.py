@@ -62,8 +62,9 @@ from feynkit.io.report import (
 )
 from feynkit.io.report_latex import render_latex
 from feynkit.io.report_text import render_text
+from feynkit.io.sections.degeneracy import Degeneracy, decide
 from feynkit.io.sections.face_lattice import face_rows, kind_counts
-from feynkit.io.sections.faces import face_counts
+from feynkit.io.sections.faces import face_counts, facet_graph
 from feynkit.io.sections.resonance import epsilon_set
 from feynkit.kinematics.classes import IMPOSABLE_CLASSES, KinematicClass
 from feynkit.landau import LandauAnalysis
@@ -743,6 +744,42 @@ def _print_torus(count: TorusCount) -> None:
     print("  A fit on finitely many primes is evidence, not a proof.")
 
 
+def _print_degeneracy(section: Degeneracy) -> None:
+    """The degenerate faces at the point of the point counts, as the report section has them."""
+    _sec("Degenerate faces  (at the kinematic point of the point counts)")
+    analysis = section.analysis
+    if analysis is None:
+        print("  Not decided: faces of dimension 2 or more need Singular, which was not found.")
+        return
+    if analysis.point:
+        point = ", ".join(f"{key} = {value}" for key, value in analysis.point)
+        _kv("Kinematic point", f"{point}  (seed {section.seed})")
+    else:
+        _kv("Kinematic point", "none needed: G has no kinematic symbols")
+    if analysis.support_loss:
+        _kv("Support loss", f"{analysis.support_loss}  (coefficients vanish at the point)")
+    _kv("Normalised volume", analysis.volume)
+    degenerate = analysis.degenerate_faces
+    _kv("Degenerate faces", len(degenerate))
+    for face, found in zip(degenerate, section.identifications, strict=True):
+        tau = "-" if face.tjurina is None else face.tjurina
+        graph = facet_graph(found, latex=False) if found is not None else "-"
+        print(
+            f"    dimension {face.dimension:<3} points {len(face.point_indices):<4} "
+            f"dim Sing {face.singular_dimension:<3} tau {str(tau):<4} {graph}"
+        )
+    undecided = analysis.undecided_faces
+    if undecided:
+        _kv("Undecided faces", f"{len(undecided)}  (Singular ran past its time limit)")
+    elif not degenerate and analysis.volume:
+        print("  No face is degenerate, so |chi(X)| = N! Vol(P_z) = " f"{analysis.volume}.")
+    if analysis.prime is not None:
+        checked = [f for f in analysis.faces if f.modular is not None and f.degenerate is not None]
+        differ = sum(f.modular != f.degenerate for f in checked)
+        verdict = "agrees on every face" if not differ else f"differs on {differ} faces"
+        _kv("Check over F_p", f"{verdict}  (p = {analysis.prime})")
+
+
 _PRINTERS: dict[str, Callable[[FeynmanIntegral], None]] = {
     "symanzik": _print_symanzik,
     "params": _print_params,
@@ -942,7 +979,9 @@ def analyse_one(
     flushed after each stage; verbose prints each stage's time on stderr. The
     point counts are printed only when ``sections`` holds "torus". They run once
     when the report holds them too, and otherwise take the report's Landau
-    analysis when it has one.
+    analysis when it has one. The degenerate faces are printed only when
+    ``sections`` holds "degeneracy", and are shared with the report in the same
+    way.
     """
     options = report if report is not None else ReportOptions()
     t0 = time.perf_counter()
@@ -1007,6 +1046,18 @@ def analyse_one(
                         landau=landau,
                     )
                 _print_torus(count)
+        if "degeneracy" in sections:
+            with _stage("degeneracy", verbose):
+                faces: Degeneracy | None = None
+                shared: LandauAnalysis | None = None
+                if options.writes_files and "degeneracy" in options.sections:
+                    faces = build().degeneracy
+                elif options.writes_files and "landau" in options.sections:
+                    found = build().landau
+                    shared = found.analysis if found is not None else None
+                if faces is None:
+                    faces = decide(fi, seed=options.torus_seed, landau=shared)
+                _print_degeneracy(faces)
         if options.writes_files:
             with _stage("report", verbose):
                 _sec("Report")
@@ -1235,6 +1286,7 @@ examples:
   fk analyse "12e|2e|e|:nzz" --json --sections gkz,polytope --no-db
   fk analyse "12e|3e|3e|e|:zzzz" --kinematics massless_on_shell -n
   fk analyse "12e|22e|e|:nnnn" -f              the graphs of the parachute's faces
+  fk analyse "111e|e|:nnn" -D                  the degenerate faces of the massive sunrise
 
 Quote every CNickel string: an unquoted | is a shell pipe.
 """
@@ -1391,10 +1443,25 @@ def _build_parser() -> _Parsers:
         action="store_true",
         help="print the candidate Euler characteristic from finite-field point counts; slow",
     )
+    shown.add_argument(
+        "-D",
+        "--degeneracy",
+        action="store_true",
+        help=(
+            "the faces of the Newton polytope on which G has a singular point in the torus, "
+            "decided exactly at the kinematic point of the point counts; it needs Singular, "
+            "and adds the degeneracy section to reports whose --sections leave it out"
+        ),
+    )
     counting = analyse.add_argument_group(
         "point counts", "for --torus-count and the torus report section"
     )
-    counting.add_argument("--seed", type=_seed, metavar="N", help="seed for the kinematic point")
+    counting.add_argument(
+        "--seed",
+        type=_seed,
+        metavar="N",
+        help="seed for the kinematic point, which --degeneracy shares",
+    )
     counting.add_argument("--torus-budget", type=_budget, metavar="N", help="maximum evaluations")
     report = analyse.add_argument_group(
         "report", "the analysis report of FeynmanIntegral.to_latex and to_text"
@@ -1543,10 +1610,11 @@ def _parse_args(parsers: _Parsers, argv: Sequence[str]) -> argparse.Namespace:
 
 def _section_flags(args: argparse.Namespace) -> set[str]:
     """The sections that the section flags of analyse choose; --faces chooses "faces",
-    --face-lattice "face_lattice" and --torus-count "torus"."""
+    --face-lattice "face_lattice", --torus-count "torus" and --degeneracy "degeneracy"."""
     chosen = {name for name in SECTION_FLAGS if getattr(args, name)}
     chosen |= {"faces"} if args.faces else set()
     chosen |= {"face_lattice"} if args.face_lattice else set()
+    chosen |= {"degeneracy"} if args.degeneracy else set()
     return chosen | {"torus"} if args.torus_count else chosen
 
 
@@ -1569,13 +1637,18 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
             "--d0 applies to the resonance and face-lattice sections; add -r, -L, --latex, "
             "--text or --json"
         )
-    counts = args.torus_count or (args.sections is not None and "torus" in args.sections)
-    for option, value in (("--seed", args.seed), ("--torus-budget", args.torus_budget)):
-        if value is not None and not counts:
-            parser.error(
-                f"{option} applies to the point counts; add --torus-count or name torus in "
-                "--sections"
-            )
+    named = set(args.sections or ())
+    counts = args.torus_count or "torus" in named
+    if args.torus_budget is not None and not counts:
+        parser.error(
+            "--torus-budget applies to the point counts; add --torus-count or name torus in "
+            "--sections"
+        )
+    if args.seed is not None and not (counts or args.degeneracy or "degeneracy" in named):
+        parser.error(
+            "--seed applies to the point counts and the degenerate faces; add --torus-count "
+            "or --degeneracy, or name torus or degeneracy in --sections"
+        )
     for path, kind in ((args.latex, "LaTeX"), (args.text, "text")):
         if path is not None:
             _check_writable(path, kind)
@@ -1584,6 +1657,8 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         sections = (*sections, "faces")
     if args.face_lattice and "face_lattice" not in sections:
         sections = (*sections, "face_lattice")
+    if args.degeneracy and "degeneracy" not in sections:
+        sections = (*sections, "degeneracy")
     return ReportOptions(
         sections=sections,
         latex=args.latex,

@@ -121,7 +121,8 @@ without a `|` is read as a command, never as a CNickel string. `fk analyze` is t
 ### Analysing one diagram
 
 With no section flags, `fk analyse` prints every section except the point counts of
-`--torus-count`, which can take minutes. Pass one or more flags to choose.
+`--torus-count`, which can take minutes, and the degenerate faces of `-D`, which need the Landau
+analysis. Pass one or more flags to choose.
 
 ```bash
 fk analyse "12e|2e|e|:zzz"              # every section of the massless triangle
@@ -133,6 +134,7 @@ fk analyse "11e|e|:nn" -r --d0 3        # resonant facets of the massive bubble,
 fk analyse "12e|22e|e|:nnnn" -f         # the graphs of the faces of the massive parachute
 fk analyse "111e|e|:nzz" -L             # resonance centres of the sunrise with one mass
 fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive bubble
+fk analyse "111e|e|:nnn" -D             # degenerate faces of the massive sunrise
 ```
 
 | Flag | Long form | Section |
@@ -147,6 +149,7 @@ fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive 
 | `-L` | `--face-lattice` | The faces of each dimension by where they are resonant, the resonance centres at generic $\varepsilon$ and at $\varepsilon = 0$, and whether the GKZ system is reducible there (see [Resonance of every face](#resonance-of-every-face)). It also compares the Cayley configuration of the Schwinger representation with the Lee-Pomeransky one face by face, and adds the `face_lattice` section, with that comparison, to the reports |
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
 | | `--torus-count` | Candidate Euler characteristic from finite-field point counts; left out when no flag is given |
+| `-D` | `--degeneracy` | The faces of the Newton polytope on which $G$ has a singular point in the torus, decided exactly at the kinematic point of `--torus-count`; left out when no flag is given. It needs Singular, and adds the `degeneracy` section to a report whose `--sections` leave it out |
 
 `--d0 VALUE` sets $D_0$, an integer or a fraction such as `7/2`, for `-r`, `-L` and the report's
 `resonance` and `face_lattice` sections; it is 4 by default, since `fk` builds $D$ as a symbol. The
@@ -214,10 +217,11 @@ not proofs.
 
 | Option | Effect |
 |--------|--------|
-| `--seed N` | seed for the kinematic point, 0 or more; 0 by default |
+| `--seed N` | seed for the kinematic point, 0 or more; 0 by default; `-D` and the `degeneracy` section use the same point |
 | `--torus-budget N` | maximum evaluations of $G$, 1 or more; $2 \times 10^9$ by default, enough for six propagators unless many small primes are left out, and never for seven |
 
-Both need `--torus-count`, or `torus` among the report sections of `--sections`. `--json` does not
+Both need `--torus-count`, or `torus` among the report sections of `--sections`; `--seed` also
+works with `-D` or the `degeneracy` section. `--json` does not
 take `--torus-count`: name `torus` in `--sections` instead, and the summary gains
 `candidate_master_count`, which is `null` when the counts give no candidate. Given
 `--torus-count` and a report with the `torus` section, `fk analyse` counts once for both. A
@@ -239,7 +243,7 @@ the options are given, and checks that it can write each file before the analysi
 |--------|--------|
 | `--latex FILE` | write the report as a LaTeX document |
 | `--text FILE` | write the report as plain text |
-| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `symmetries`, `landau` and `schwinger`; all but `torus` by default |
+| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `face_lattice`, `symmetries`, `landau`, `degeneracy` and `schwinger`; all but `torus` and `degeneracy` by default |
 | `--limits` | look for limit surfaces in the Landau section, which analyses the parent family as well (see [Specialised kinematics](#specialised-kinematics)) |
 | `--json` | print a JSON summary of the report on stdout, and nothing else |
 
@@ -280,6 +284,10 @@ $ fk analyse "12e|2e|e|:nzz" --json --sections gkz --no-db
   }
 }
 ```
+
+With the `degeneracy` section the summary has `degenerate_faces`, the number of degenerate faces.
+When Singular leaves a face undecided it is `null` if no face is degenerate, and a string such as
+`"at least 2"` otherwise.
 
 With the `landau` section and a kinematic class that specialises the legs, as `massless_on_shell`
 does and `--limits` is given, the summary also has `limit_surfaces`, `limit_candidates` and

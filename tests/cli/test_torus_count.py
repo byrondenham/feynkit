@@ -165,7 +165,13 @@ def test_seed_and_budget_need_the_point_counts(
 ) -> None:
     code, err = _exit(["analyse", "11e|e|:nn", "--no-db", *argv], capsys)
     assert code == 2
-    assert "applies to the point counts; add --torus-count or name torus in --sections" in err
+    if "--seed" in argv:
+        assert (
+            "--seed applies to the point counts and the degenerate faces; add --torus-count or "
+            "--degeneracy, or name torus or degeneracy in --sections"
+        ) in err
+    else:
+        assert "applies to the point counts; add --torus-count or name torus in --sections" in err
 
 
 def test_json_takes_the_point_counts_from_sections(capsys: pytest.CaptureFixture[str]) -> None:

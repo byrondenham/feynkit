@@ -13,7 +13,7 @@ import sympy as sp
 
 from ...degeneracy import DegeneracyAnalysis
 from ...face_identification import FaceIdentification
-from ...landau import LandauAnalysis
+from ...landau import LandauAnalysis, landau_analysis
 from ...point_count import kinematic_point
 from .._latex_kit import LatexDocument, _longtable
 from .._report_shared import count_noun, join_words
@@ -62,7 +62,9 @@ def torus_point(
 ) -> dict[sp.Expr, Fraction]:
     """The kinematic point :meth:`~feynkit.integral.FeynmanIntegral.torus_count` draws with
     this seed, keyed as its ``point``; ``landau`` is the integral's Landau analysis, computed
-    when not given."""
+    as the counts compute it when not given."""
+    if landau is None:
+        landau = landau_analysis(integral, limits=False)
     sym = integral.symanzik
     return dict(
         kinematic_point(
@@ -89,19 +91,39 @@ def _identifications(
     )
 
 
-def build(ctx: BuildContext) -> Degeneracy:
-    fi = ctx.integral
-    generic = ctx.degeneracy_mode == "generic"
-    seed = None if generic else ctx.torus_seed
+def decide(
+    integral: FeynmanIntegral,
+    *,
+    seed: int = 0,
+    landau: LandauAnalysis | None = None,
+    generic: bool = False,
+) -> Degeneracy:
+    """The degenerate faces at the point the torus counts draw with this seed, or at the
+    generic point; ``landau`` is the integral's Landau analysis for the draw, computed as
+    the counts compute it when not given."""
     try:
         if generic:
-            analysis = fi.face_degeneracy()
+            analysis = integral.face_degeneracy()
         else:
-            analysis = fi.face_degeneracy(torus_point(fi, ctx.torus_seed, ctx.analysis()))
+            analysis = integral.face_degeneracy(torus_point(integral, seed, landau))
     except RuntimeError:
         # Raised only when a face needs Singular and it is not installed.
-        return Degeneracy(analysis=None, seed=seed)
-    return Degeneracy(analysis=analysis, seed=seed, identifications=_identifications(fi, analysis))
+        return Degeneracy(analysis=None, seed=None if generic else seed)
+    return Degeneracy(
+        analysis=analysis,
+        seed=None if generic else seed,
+        identifications=_identifications(integral, analysis),
+    )
+
+
+def build(ctx: BuildContext) -> Degeneracy:
+    generic = ctx.degeneracy_mode == "generic"
+    return decide(
+        ctx.integral,
+        seed=ctx.torus_seed,
+        landau=None if generic else ctx.analysis(),
+        generic=generic,
+    )
 
 
 # --- the prose ---------------------------------------------------------------------

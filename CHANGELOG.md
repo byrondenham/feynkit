@@ -615,6 +615,14 @@
 
 ### Fixed
 
+- The discriminant of an edge in `feynkit.landau` was Res(P, P') / lc^(n-1)
+  for a univariate P of degree n, not the polynomial discriminant
+  (-1)^(n(n-1)/2) Res(P, P') / lc. It differed by a sign and by a factor
+  lc^(n-2), so for an edge with four or more lattice points it was a rational
+  function. `FaceDiscriminant.discriminant` now equals `sympy.discriminant`.
+  The leading coefficient is a vertex coefficient, so the surfaces on the torus
+  are unchanged, and so are the Landau surfaces and the report of every integral
+  tried; only the sign of a quadratic edge discriminant differs.
 - `Graph.get_loop_count` returned E - V + 1 whatever the graph, which is wrong
   for a disconnected one. It now returns E - V + c, with c the number of
   connected components, and so `FeynmanIntegral.loop_count` does too. Connected

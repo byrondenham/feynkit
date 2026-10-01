@@ -282,8 +282,9 @@ class LandauAnalysis:
 def _univariate_discriminant(coeffs: list[sp.Expr], t_exps: list[int]) -> sp.Expr:
     """Discriminant of P(t) = sum coeffs[k] * t^{t_exps[k]}.
 
-    Returns Res(P, P') / lc(P)^{deg P - 1}, the standard polynomial
-    discriminant.  Returns Integer(1) for linear or constant P.
+    For n = deg P this is (-1)^(n(n-1)/2) Res(P, P') / lc(P), the standard
+    polynomial discriminant, a polynomial in the coefficients.  Returns
+    Integer(1) for linear or constant P.
     """
     _t = sp.Symbol("_t_landau_internal_")
     P = sp.Integer(0)
@@ -293,11 +294,10 @@ def _univariate_discriminant(coeffs: list[sp.Expr], t_exps: list[int]) -> sp.Exp
     deg = poly.degree()
     if deg <= 1:
         return sp.Integer(1)
-    dP = sp.diff(P, _t)
-    dpoly = sp.Poly(dP, _t)
+    dpoly = sp.Poly(sp.diff(P, _t), _t)
     res = poly.resultant(dpoly)
     lc = poly.nth(deg)
-    disc = sp.cancel(res / lc ** (deg - 1))
+    disc = sp.cancel((-1) ** (deg * (deg - 1) // 2) * res / lc)
     return sp.factor(disc)
 
 

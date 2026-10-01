@@ -48,6 +48,7 @@ from feynkit.landau import (
     _read_singular_polynomial,
     _renaming,
     _singular_binary,
+    _univariate_discriminant,
     one_loop_bridge_poles,
     one_loop_landau_surfaces,
     one_loop_landau_surfaces_by_type,
@@ -134,6 +135,46 @@ class TestMassiveBubble:
         ]
         assert len(edge) == 1
         assert sp.degree(sp.expand(edge[0].discriminant), s) == 2
+
+
+class TestUnivariateDiscriminant:
+    """The edge discriminant is the standard polynomial discriminant."""
+
+    @pytest.mark.parametrize(
+        "exponents",
+        [[0, 1, 2], [0, 1, 2, 3], [0, 1, 2, 3, 4], [0, 1, 3], [0, 2, 3], [0, 1, 2, 4]],
+    )
+    def test_equals_the_sympy_discriminant(self, exponents: list[int]) -> None:
+        z = sp.symbols(f"z0:{len(exponents)}")
+        t = sp.Symbol("t")
+        expected = sp.discriminant(sum(c * t**e for c, e in zip(z, exponents, strict=True)), t)
+        got = _univariate_discriminant(list(z), exponents)
+        assert sp.expand(got - expected) == 0
+        assert got.is_polynomial(*z)
+
+    def test_the_cubic_is_the_classical_discriminant(self) -> None:
+        z0, z1, z2, z3 = sp.symbols("z0:4")
+        classical = (
+            z1**2 * z2**2
+            - 4 * z0 * z2**3
+            - 4 * z1**3 * z3
+            + 18 * z0 * z1 * z2 * z3
+            - 27 * z0**2 * z3**2
+        )
+        got = _univariate_discriminant([z0, z1, z2, z3], [0, 1, 2, 3])
+        assert sp.expand(got - classical) == 0
+
+    def test_an_edge_with_four_lattice_points_has_a_polynomial_discriminant(self) -> None:
+        a, b, c, d, e = sp.symbols("a b c d e")
+        x, y = sp.symbols("x y")
+        g = a + b * x + c * x**2 + d * x**3 + e * y
+        analysis = landau_analysis_from_polynomial(g, [x, y])
+        (edge,) = [
+            f for f in analysis.face_discriminants if f.dimension == 1 and len(f.exponents) == 4
+        ]
+        expected = sp.discriminant(a + b * x + c * x**2 + d * x**3, x)
+        assert sp.expand(edge.discriminant - expected) == 0
+        assert edge.discriminant.is_polynomial(a, b, c, d)
 
 
 class TestMasslessTriangle:

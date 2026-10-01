@@ -1409,7 +1409,10 @@ $E_{A_z}(G_z) = 0$ exactly when some face of $P_z$ is degenerate at $z$. When $P
 full-dimensional and no face is degenerate, therefore,
 $$|\chi(X_z)| = N!\,\mathrm{Vol}(P_z)$$
 (Fevola, Mizera and Telen 2024, theorem 2.3), the value Bitoun et al. (2019, theorem 44) give for
-generic coefficients.
+generic coefficients. Conversely, when $P_z$ is full-dimensional and some face is degenerate,
+$E_{A_z}(G_z) = 0$ and so $|\chi(X_z)| < N!\,\mathrm{Vol}(P_z)$ (the same theorem, p. 9: for
+$E_A(z) = 0$ it gives $|\chi| < \mathrm{vol}(A)$). The Euler characteristic drops below the volume
+exactly when some face is degenerate.
 
 On a kinematic family $\mathcal E$ a face is **generically degenerate** when it is degenerate on a
 Zariski-dense set of points of $\mathcal E$. That happens exactly when $S \ne (1)$ over the field

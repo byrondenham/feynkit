@@ -120,7 +120,9 @@ which the principal Landau determinant leaves out and `FaceDiscriminant.dominant
 **Proposition 6.** Let $f = \sum_{\alpha \in A} c_\alpha u^\alpha$ with every $c_\alpha \ne 0$ and
 $Q = \mathrm{conv}(A)$ of dimension $N$. The principal A-determinant $E_A(f)$ vanishes exactly
 when some face of $Q$, $Q$ included, is degenerate for $f$. So when no face is degenerate, the
-complement $X$ of $\{f = 0\}$ in $(\mathbb C^*)^N$ has $|\chi(X)| = N!\,\mathrm{Vol}(Q)$.
+complement $X$ of $\{f = 0\}$ in $(\mathbb C^*)^N$ has $|\chi(X)| = N!\,\mathrm{Vol}(Q)$, and when
+some face is degenerate, $|\chi(X)| < N!\,\mathrm{Vol}(Q)$. The Euler characteristic is below the
+volume exactly when some face is degenerate.
 
 *Proof.* By Proposition 1 the verdict on a face depends only on the lattice its points span, so
 we may take the coordinates of the lattice $A$ affinely generates, as GKZ assume. By definition
@@ -133,9 +135,11 @@ consists of the points with coordinates $y_\omega = \lambda u^\omega$ for $\omeg
 and $y_\omega = 0$ otherwise, $u \in (\mathbb C^*)^N$, $\lambda \ne 0$ (Ch. 5, Prop. 1.9 and its
 proof, p. 171). At such a point the form of $f$ is $\lambda f|_F(u)$ and that of
 $u_i \partial_i f$ is $\lambda (u_i \partial_i f|_F)(u)$, so a common zero on $X^0(F)$ is exactly
-a solution of the system that makes $F$ degenerate. The last statement is FMT, Theorem 2.3,
-p. 9, with $\chi(X) = -\chi(\{f = 0\})$ since $\chi$ is additive and vanishes on the torus, and
-with their normalised volume equal to $N!\,\mathrm{Vol}(Q)$ for $Q$ of full dimension. $\square$
+a solution of the system that makes $F$ degenerate. The last two statements are FMT,
+Theorem 2.3, p. 9 (equality of $|\chi|$ and the volume off $E_A = 0$, and $|\chi|$ below the
+volume on it), with $\chi(X) = -\chi(\{f = 0\})$ since $\chi$ is additive and vanishes on the
+torus, and with their normalised volume equal to $N!\,\mathrm{Vol}(Q)$ for $Q$ of full dimension.
+$\square$
 
 Bitoun, Bogner, Klausen and Panzer give this value for almost all coefficients (Theorem 44,
 after Kouchnirenko); Proposition 6 is a test for it at a given point. The report states it at the

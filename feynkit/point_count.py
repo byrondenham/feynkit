@@ -55,7 +55,7 @@ from .landau import (
 from .polytope import PolytopeData, polytope_data
 from .systems.monomial import extract_monomial_support
 
-__all__ = ["TorusCount", "count_torus_points", "critical_point_count"]
+__all__ = ["TorusCount", "count_torus_points", "critical_point_count", "kinematic_point"]
 
 # A polynomial as (exponent vector, coefficient) pairs with non-zero coefficients.
 _Terms = tuple[tuple[tuple[int, ...], Fraction], ...]
@@ -786,6 +786,77 @@ def _analyses(landau: LandauAnalysis, g: sp.Expr, variables: Sequence[sp.Symbol]
     return all(sp.cancel(c - terms[e]) == 0 for e, c in seen.items())
 
 
+def _prepare(
+    polynomial: sp.Expr,
+    variables: tuple[sp.Symbol, ...],
+    scale: sp.Symbol | None,
+    landau: LandauAnalysis | None,
+) -> tuple[LandauAnalysis, _Kinematics]:
+    """The Landau analysis of the polynomial, the one given or a new one, and its kinematics
+    at scale 1.
+
+    Raises
+    ------
+    ValidationError
+        If the variables are not one or more distinct symbols, the polynomial is
+        zero, or ``landau`` analyses another polynomial.
+    """
+    if not variables or len(set(variables)) != len(variables):
+        raise ValidationError("variables must be one or more distinct symbols")
+    g = sp.expand(sp.sympify(polynomial))
+    if g == 0:
+        raise ValidationError("the polynomial is zero")
+    if landau is None:
+        landau = landau_analysis_from_polynomial(g, list(variables), scale=scale)
+    elif not _analyses(landau, g, variables):
+        raise ValidationError(
+            "landau is not a Landau analysis of the polynomial; from "
+            "FeynmanIntegral.torus_count it must analyse the integral with on_shell applied"
+        )
+    unit = {scale: 1} if scale is not None else {}
+    at_unit_scale = scale is not None and _unit_scale_is_exact(
+        extract_monomial_support(g, list(variables)), scale
+    )
+    kinematics = _kinematics(
+        sp.expand(g.subs(unit)), variables, landau, unit, at_unit_scale=at_unit_scale
+    )
+    return landau, kinematics
+
+
+def kinematic_point(
+    polynomial: sp.Expr,
+    variables: Sequence[sp.Symbol],
+    *,
+    scale: sp.Symbol | None = None,
+    seed: int = 0,
+    landau: LandauAnalysis | None = None,
+) -> tuple[tuple[sp.Expr, Fraction], ...]:
+    """The kinematic point :func:`count_torus_points` draws with this seed, without counting.
+
+    The point is drawn as the counts draw it, with the energy scale set to 1, and
+    given as :attr:`TorusCount.point` gives it: (quantity, value) pairs in the
+    order of the symbol names, a symbol occurring only to even powers, such as
+    a mass, keyed by its square. The arguments are those of
+    :func:`count_torus_points`; ``landau``, when given, must analyse the
+    polynomial with the scale symbolic, and is computed otherwise.
+
+    Raises
+    ------
+    ValidationError
+        If ``variables`` are not one or more distinct symbols, the polynomial
+        is zero, ``seed`` is not an integer, ``landau`` analyses another
+        polynomial, or no admissible point is drawn.
+    """
+    variables = tuple(variables)
+    if not isinstance(seed, int):
+        raise ValidationError(f"seed must be an integer; got {seed!r}")
+    _, kinematics = _prepare(polynomial, variables, scale, landau)
+    values = _draw(kinematics, seed)
+    return tuple(
+        (_key(x, kinematics.even), v) for x, v in zip(kinematics.symbols, values, strict=True)
+    )
+
+
 def count_torus_points(
     polynomial: sp.Expr,
     variables: Sequence[sp.Symbol],
@@ -889,28 +960,10 @@ def count_torus_points(
     if verification < 1:
         raise ValidationError(f"verification must be at least 1; got {verification}")
     variables = tuple(variables)
-    if not variables or len(set(variables)) != len(variables):
-        raise ValidationError("variables must be one or more distinct symbols")
-    g = sp.expand(sp.sympify(polynomial))
-    if g == 0:
-        raise ValidationError("the polynomial is zero")
     if point is None and not isinstance(seed, int):
         raise ValidationError(f"seed must be an integer; got {seed!r}")
     n = len(variables)
-    if landau is None:
-        landau = landau_analysis_from_polynomial(g, list(variables), scale=scale)
-    elif not _analyses(landau, g, variables):
-        raise ValidationError(
-            "landau is not a Landau analysis of the polynomial; from "
-            "FeynmanIntegral.torus_count it must analyse the integral with on_shell applied"
-        )
-    unit = {scale: 1} if scale is not None else {}
-    at_unit_scale = scale is not None and _unit_scale_is_exact(
-        extract_monomial_support(g, list(variables)), scale
-    )
-    kinematics = _kinematics(
-        sp.expand(g.subs(unit)), variables, landau, unit, at_unit_scale=at_unit_scale
-    )
+    landau, kinematics = _prepare(polynomial, variables, scale, landau)
 
     values = (
         _draw(kinematics, seed)

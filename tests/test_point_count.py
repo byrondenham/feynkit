@@ -23,7 +23,7 @@ from feynkit import landau as landau_module
 from feynkit import point_count as pc
 from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.landau import _singular_binary, landau_analysis, landau_analysis_from_polynomial
-from feynkit.point_count import count_torus_points, critical_point_count
+from feynkit.point_count import count_torus_points, critical_point_count, kinematic_point
 from feynkit.polytope import polytope_data
 
 SMALL_PRIMES = (3, 5, 7, 11, 13, 17, 19, 23)
@@ -721,6 +721,38 @@ class TestCountTorusPoints:
 
 
 requires_singular = pytest.mark.skipif(_singular_binary() is None, reason="Singular not installed")
+
+
+class TestKinematicPoint:
+    """The point of the counts, drawn without counting."""
+
+    @pytest.mark.parametrize("seed", [0, 1, 7])
+    def test_it_is_the_point_of_the_counts(self, seed: int) -> None:
+        count = bubble_count(seed=seed)
+        assert kinematic_point(bubble_g(), U, scale=MU, seed=seed) == count.point
+
+    def test_it_takes_a_landau_analysis(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        landau = landau_analysis_from_polynomial(bubble_g(), list(U), scale=MU)
+
+        def refuse(*args: object, **kwargs: object) -> None:
+            raise AssertionError("the analysis was given")
+
+        monkeypatch.setattr(pc, "landau_analysis_from_polynomial", refuse)
+        point = kinematic_point(bubble_g(), U, scale=MU, seed=3, landau=landau)
+        assert point == bubble_count(seed=3, landau=landau).point
+
+    def test_without_kinematic_symbols(self) -> None:
+        u1, u2 = U
+        assert kinematic_point(u1 + u2 + u1 * u2, U) == ()
+
+    def test_the_seed_must_be_an_integer(self) -> None:
+        with pytest.raises(ValidationError, match="seed"):
+            kinematic_point(bubble_g(), U, scale=MU, seed="1")  # type: ignore[arg-type]
+
+    def test_a_landau_analysis_of_another_polynomial_is_refused(self) -> None:
+        other = landau_analysis_from_polynomial(bubble_g(massive=False), list(U), scale=MU)
+        with pytest.raises(ValidationError, match="landau"):
+            kinematic_point(bubble_g(), U, scale=MU, landau=other)
 
 
 class TestFlint:

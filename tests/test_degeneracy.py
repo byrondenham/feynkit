@@ -399,7 +399,7 @@ class TestProperties:
 @requires_singular
 class TestPublished:
     def test_banana_with_three_edges(self) -> None:
-        """Fevola, Mizera and Telen, Ex. 2.5 and Rem. 2.6, pp. 11-13: 7 < 10 on K; Klausen,
+        """Fevola, Mizera and Telen, Ex. 2.5 and Rem. 2.6, pp. 10-12: 7 < 10 on K; Klausen,
         Sec. 4, p. 25: the fully massive sunset has 10 basis solutions, of which 7 remain."""
         fi = FeynmanIntegral.from_cnickel("111e|e|:nnn")
         analysis = face_degeneracy(fi)
@@ -420,7 +420,7 @@ class TestPublished:
         ids=["E=2", "E=3", "E=4"],
     )
     def test_bananas(self, edges: int) -> None:
-        """Fevola, Mizera and Telen, Sec. 4.2, p. 45: |chi| = 2^E - 1 against
+        """Fevola, Mizera and Telen, Sec. 4.2, p. 44: |chi| = 2^E - 1 against
         vol = binom(2E - 1, E). The top face of B_4 takes Singular minutes, and is left
         undecided at the shorter limit."""
         fi = FeynmanIntegral.from_cnickel("1" * edges + "e|e|:" + "n" * edges)
@@ -434,14 +434,14 @@ class TestPublished:
         assert analysis.non_degenerate is (count == analysis.volume)
 
     def test_massless_banana_has_none(self) -> None:
-        """Fevola, Mizera and Telen, Tab. 1, p. 14: B_4 with massless lines, (1, 1)."""
+        """Fevola, Mizera and Telen, Tab. 1, p. 13: B_4 with massless lines, (1, 1)."""
         analysis = face_degeneracy(FeynmanIntegral.from_cnickel("1111e|e|:zzzz"))
         assert analysis.volume == 1
         assert analysis.non_degenerate is True
 
     @pytest.mark.slow
     def test_parachute(self) -> None:
-        """Fevola, Mizera and Telen, Tab. 1, p. 14: the parachute on K, (19, 35)."""
+        """Fevola, Mizera and Telen, Tab. 1, p. 13: the parachute on K, (19, 35)."""
         analysis = face_degeneracy(
             FeynmanIntegral.from_cnickel("112e|2e|e|:nnnn"), check=False, timeout=10
         )
@@ -449,7 +449,7 @@ class TestPublished:
         assert analysis.non_degenerate is False
 
     def test_product_with_a_dense_face(self) -> None:
-        """Fevola, Mizera and Telen, Ex. 3.9, pp. 22-23: the dense face of
+        """Fevola, Mizera and Telen, Ex. 3.9, pp. 21-22: the dense face of
         (1 + x)(a + b x + c y + d x y) is degenerate for all (a, b, c, d), and bc = ad adds a
         singular point."""
         a, b, c, d = sp.symbols("a b c d")
@@ -467,7 +467,7 @@ class TestPublished:
         assert top_on.tjurina > top.tjurina
 
     def test_nodal_cubic_at_the_cusp(self) -> None:
-        """Fevola, Mizera and Telen, Ex. 3.10, pp. 23-25: f = (y - 1)^2 - (x - z) x^2 has
+        """Fevola, Mizera and Telen, Ex. 3.10, pp. 22-24: f = (y - 1)^2 - (x - z) x^2 has
         |chi| = 4 for generic z and 3 at z = 0, where the node at (0, 1), outside the torus,
         becomes a cusp. Recorded here, as the paper makes no claim about faces: the edge on
         x = 0, where f is (y - 1)^2 for every z, is the only degenerate face, at z = 0 as for

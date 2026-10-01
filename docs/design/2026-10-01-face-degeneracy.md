@@ -112,7 +112,7 @@ point of $\mathcal E$, so its projection to $\mathcal E$, constructible by Cheva
 contains the generic point and hence a dense open set, on which $F$ is degenerate. $\square$
 
 So a generically degenerate face is one whose incidence variety has a component projecting onto a
-dense subset of $\mathcal E$: a dominant component in the sense of FMT, Definition 3.5, p. 18,
+dense subset of $\mathcal E$: a dominant component in the sense of FMT, Definition 3.5, p. 17,
 which the principal Landau determinant leaves out and `FaceDiscriminant.dominant` flags.
 
 ## Non-degeneracy and the volume
@@ -134,7 +134,7 @@ and $y_\omega = 0$ otherwise, $u \in (\mathbb C^*)^N$, $\lambda \ne 0$ (Ch. 5, P
 proof, p. 171). At such a point the form of $f$ is $\lambda f|_F(u)$ and that of
 $u_i \partial_i f$ is $\lambda (u_i \partial_i f|_F)(u)$, so a common zero on $X^0(F)$ is exactly
 a solution of the system that makes $F$ degenerate. The last statement is FMT, Theorem 2.3,
-p. 10, with $\chi(X) = -\chi(\{f = 0\})$ since $\chi$ is additive and vanishes on the torus, and
+p. 9, with $\chi(X) = -\chi(\{f = 0\})$ since $\chi$ is additive and vanishes on the torus, and
 with their normalised volume equal to $N!\,\mathrm{Vol}(Q)$ for $Q$ of full dimension. $\square$
 
 Bitoun, Bogner, Klausen and Panzer give this value for almost all coefficients (Theorem 44,
@@ -215,14 +215,14 @@ volume (Proposition 6).
 
 Published examples:
 
-- FMT, Ex. 2.5 and Rem. 2.6, pp. 11-13, and Klausen, arXiv:1910.08651, Sec. 4, p. 25: for the
+- FMT, Ex. 2.5 and Rem. 2.6, pp. 10-12, and Klausen, arXiv:1910.08651, Sec. 4, p. 25: for the
   fully massive sunrise the volume is 10 and the count 7, and the quadrilateral face whose
   discriminant vanishes on the kinematic space is degenerate.
-- FMT, Ex. 3.9, pp. 22-23: the dense face of $(1 + x)(a + bx + cy + dxy)$ is degenerate for all
+- FMT, Ex. 3.9, pp. 21-22: the dense face of $(1 + x)(a + bx + cy + dxy)$ is degenerate for all
   coefficients, with a larger Tjurina number on $bc = ad$.
-- FMT, Ex. 3.10, pp. 23-25, recorded: for $(y - 1)^2 - (x - z)x^2$ the only degenerate face is
+- FMT, Ex. 3.10, pp. 22-24, recorded: for $(y - 1)^2 - (x - z)x^2$ the only degenerate face is
   the edge on $x = 0$, at $z = 0$ as for generic $z$, and $P_z$ does not change at $z = 0$.
-- FMT, Tab. 1, p. 14, and Sec. 4.2, p. 45: the bananas with two to four edges, with $2^E - 1$
+- FMT, Tab. 1, p. 13, and Sec. 4.2, p. 44: the bananas with two to four edges, with $2^E - 1$
   critical points against the volume $\binom{2E - 1}{E}$, where the verdict agrees with
   Proposition 6; the massless banana, with no degenerate face; the parachute, with degenerate
   faces.

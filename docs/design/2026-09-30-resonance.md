@@ -144,7 +144,8 @@ basis, the systems being equivalent. What is used:
   pyramid over $F$ then $M_A(\beta)$ has reducible monodromy."
 
 BGH26 quote the theorem as reducibility for any resonant face over which $A$ is not a pyramid
-(p. 12). For facets this follows from SW12 as they state it.
+(p. 12), where their Theorem 3.1 is SW12's Theorem 4.1 (the number in the first arXiv version of
+BGH26). For facets this follows from SW12 as they state it.
 
 **Proposition 2.** Let $A$ have rank $d$, let $F$ be a facet resonant for $\beta$, and let at
 least two columns lie off $F$. Then $M_A(\beta)$ has reducible monodromy.

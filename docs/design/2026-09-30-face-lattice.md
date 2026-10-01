@@ -39,8 +39,10 @@ $\operatorname{rank} A_F = r - 1$; when $r = 1$, the empty face is the only one.
 The parameter is $\beta(\varepsilon) = \beta_0 + \varepsilon\beta_1$. For the Lee-Pomeransky
 configuration, with columns $(1, \alpha_j)$ and $\beta = (-D/2, -\nu_1, \ldots, -\nu_N)$ at
 $D = D_0 - 2\varepsilon$ and integer powers, $\beta_0 = (-D_0/2, -\nu)$ and $\beta_1 = e_0$. A face
-$G$ is resonant when $\beta \in V_G + \Lambda$ (BGH26 Eq. 23, p. 12; SW12 Def. 3.2, p. 5) and
-admissible when $\beta \in V_G$ (BGH26 pp. 10-11).
+$G$ is resonant when $\beta \in V_G + \Lambda$ (BGH26 Eq. 23, p. 12) and
+admissible when $\beta \in V_G$ (BGH26 pp. 10-11). SW12's resonance centres are the minimal faces
+with this property (p. 5), while their "$F$-resonant" (Def. 3.2, p. 5) means
+$\beta \in \mathbb{Z}A + \mathbb{C}G$ for a proper subface $G$ of $F$.
 
 ## The face test
 
@@ -218,9 +220,11 @@ lies off it.
 
 **The massless bubble.** The columns $(1,1,0)$, $(1,0,1)$, $(1,1,1)$ have determinant $-1$, so
 $|\bar G| + \operatorname{rank} A_G = 3$ for every set $G$, and $A$ is a pyramid over every face.
-Whichever face is the centre, the system is irreducible, at every $\varepsilon$. At
+Whichever face is the centre, the monodromy is irreducible, at every $\varepsilon$. At
 $\varepsilon = 0$, $\beta = (-2, -1, -1) \in \Lambda$, so every face is resonant and the empty face
-is the only centre: the system is resonant but irreducible. The facets leave this open, since each
+is the only centre: the monodromy is irreducible although every face is resonant. The D-module itself is
+reducible there: $A$ is unimodular and $A^{-1}\beta = (-1,-1,0)$ is integral, so it is a product of
+modules $D/(x\partial - \gamma_j)$, of rank 1. The facets leave this open, since each
 has a single column off it.
 
 **BGH26's examples.** With unit powers and $D = 4 - 2\varepsilon$:

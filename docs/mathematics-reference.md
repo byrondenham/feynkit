@@ -290,8 +290,10 @@ normal, hence Cohen-Macaulay (Klausen 2023, drawing on Tellander and Helmer 2023
 guaranteed: Michaelsen and Tellander (2025) state a characterisation of the fully massive
 one-loop case and give a fully massive three-point configuration whose semigroup ring is not
 Cohen-Macaulay.  Resonance
-of $\beta$ can make the system reducible (Schulze and Walther 2012; section 4.8 says when), but
-does not change its rank.
+of $\beta$ can make the system reducible (Schulze and Walther 2012, Thm 4.1; sections 4.8 and 4.9
+say when). The rank exceeds the volume only at exceptional $\beta$, which exist only when the toric
+ring is not Cohen-Macaulay (Schulze and Walther 2012, Rem. 2.2, p. 4; Matusevich, Miller and
+Walther 2005).
 
 The number of master integrals at physical kinematics is $|\chi|$, the absolute Euler
 characteristic of the complement of $\{G = 0\}$ in $(\mathbb{C}^*)^n$ (Bitoun et al. 2019,
@@ -541,15 +543,17 @@ Schulze and Walther's quadric cone, the columns $(1,0)$, $(1,1)$, $(1,2)$ at $\b
 $\beta \in \mathbb{Z}A + \mathbb{C}F$, and every $\beta$ has one (Schulze and Walther, Def. 3.2,
 p. 5). $A$ is a pyramid over $F$ when $\operatorname{rank}\mathbb{Z}A = |\bar F| +
 \operatorname{rank}\mathbb{Z}F$ (Def. 3.4, p. 6). A centre over which $A$ is a pyramid is the only
-centre (Prop. 3.8, p. 6); $M_A(\beta)$ is reducible when $A$ is not a pyramid over a centre
-(Thm 4.1, p. 7) and irreducible when it is (Thm 5.1, pp. 7-8). These hold for $\mathbb{Z}A$ of rank
+centre (Prop. 3.8, p. 6); $M_A(\beta)$ has reducible monodromy when $A$ is not a pyramid over a centre
+(Thm 4.1, p. 7) and irreducible monodromy when it is (Thm 5.1, pp. 7-8); the monodromy is
+irreducible when $M_A(\beta)(x_A)$ is an irreducible $D_A(x_A)$-module (Def. 2.3, p. 5). These hold for $\mathbb{Z}A$ of rank
 $d$ (Remark 2.1, p. 3). So when $\operatorname{rank} A = d$, the number of rows, reducibility is
-decided at every $\varepsilon$: the centres are the minimal resonant faces, and the system is
-irreducible exactly when $A$ is a pyramid over one of them. The rank is that of $A$, not the
+decided at every $\varepsilon$: the centres are the minimal resonant faces, and the system has
+irreducible monodromy exactly when $A$ is a pyramid over one of them. The rank is that of $A$, not the
 dimension of its columns as a point configuration, which is always less for a homogeneous $A$;
 for the Lee-Pomeransky $A$, full rank means that $P$ is full-dimensional. On the massless bubble
-$A$ is a pyramid over every face, so the system is irreducible at every $\varepsilon$, although at
-$D = 4$ every face is resonant.
+$A$ is a pyramid over every face, so the system has irreducible monodromy at every $\varepsilon$, although at
+$D = 4$ every face is resonant. There $A$ is unimodular and $A^{-1}\beta = (-1,-1,0)$ is integral, so
+$M_A(\beta) \cong \boxtimes_j D/(x\partial - \gamma_j)$ is reducible as a D-module, of rank 1.
 
 **The Cayley system.** The matrix $T$ of section 4.6 maps faces, $\Lambda$, the spans and the
 forms across, so the two systems have the same decorated face lattice.
@@ -1720,7 +1724,7 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 
 28. **Schulze-Walther (2012).** M. Schulze, U. Walther.
     *Resonance equals reducibility for A-hypergeometric systems.*
-    Algebra Number Theory **6** (2012) 527.  arXiv:1009.3569.
+    Algebra Number Theory **6** (3) (2012) 527-537.  arXiv:1009.3569.
 
 29. **Améndola et al.\ (2019).** C. Améndola, N. Bliss, I. Burke, C.R. Gibbons, M. Helmer,
     S. Hoşten, E.D. Nash, J.I. Rodriguez, D. Smolkin.

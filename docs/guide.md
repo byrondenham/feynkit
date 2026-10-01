@@ -1419,11 +1419,13 @@ print([face.point_indices for face in cone.centres(0)], cone.reducible(0))
 
 `centres(eps)` gives the minimal resonant faces at `eps`, an integer, a Fraction or `"generic"`,
 where exactly the faces resonant for every $\varepsilon$ are resonant. `reducible(eps)` is True when
-$A$ is a pyramid over no centre (Theorem 4.1) and False when it is a pyramid over one (Theorem 5.1),
-which is then the only centre. It is None when $A$ does not have full rank, as below full
+$A$ is a pyramid over no centre, so that the monodromy is reducible (Theorem 4.1), and False when it
+is a pyramid over one, so that the monodromy is irreducible (Theorem 5.1); that centre is then the
+only one (Prop. 3.8). It is None when $A$ does not have full rank, as below full
 dimension, and where no face is resonant, off the span of $A$. On the massless bubble $A$ is a
 pyramid over every face, so `fi.face_lattice(nu={1: 1, 2: 1}).reducible(0)` is False: at $D = 4$
-every face is resonant, yet the system is irreducible, which the facets leave open.
+every face is resonant, yet the system has irreducible monodromy (its D-module is reducible there,
+of rank 1), which the facets leave open.
 
 Each `DecoratedFace` holds:
 
@@ -3109,7 +3111,7 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
     Feynman integrals. *JHEP* **09**, 018. [arXiv:2606.09978](https://arxiv.org/abs/2606.09978)
 
 13. Schulze, M. and Walther, U. (2012). Resonance equals reducibility for A-hypergeometric
-    systems. *Algebra Number Theory* **6**, 527. [arXiv:1009.3569](https://arxiv.org/abs/1009.3569)
+    systems. *Algebra Number Theory* **6** (3), 527-537. [arXiv:1009.3569](https://arxiv.org/abs/1009.3569)
 
 14. Arkani-Hamed, N., Hillman, A. and Mizera, S. (2022). Feynman polytopes and the tropical
     geometry of UV and IR divergences. *Phys. Rev. D* **105**, 125013.

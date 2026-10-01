@@ -863,6 +863,17 @@
   F no longer contains. A product given under (j, i), with j > i, which F
   accepts, was read as 0. The closed form now takes every squared momentum
   from the products, reading each under either order of its legs, as F does.
+- The documentation said more of Schulze and Walther's theorems than they
+  prove. Their Theorem 5.1 gives irreducible monodromy, not an irreducible
+  D-module: the massless bubble at D = 4 is a reducible D-module of rank 1,
+  and the face-lattice and resonance notes, the guide and the mathematics
+  reference now say so. The rank exceeds the volume only at exceptional
+  parameters, which exist only when the toric ring is not Cohen-Macaulay;
+  resonance alone does not move it. The face-lattice note keeps their
+  F-resonance apart from the resonance of a face, the resonance note says
+  which theorem of Britto, Grimm and Hoefnagels' first arXiv version is
+  Theorem 4.1, and the bibliographies give the issue and last page of the
+  paper.
 
 ## 0.4.0 (2026-09-27)
 

@@ -464,6 +464,64 @@ class TestPublished:
         assert top_on.tjurina is not None and top.tjurina is not None
         assert top_on.tjurina > top.tjurina
 
+    def test_nodal_cubic_at_the_cusp(self) -> None:
+        """Fevola, Mizera and Telen, Ex. 3.10, pp. 23-25: f = (y - 1)^2 - (x - z) x^2 has
+        |chi| = 4 for generic z and 3 at z = 0, where the node at (0, 1), outside the torus,
+        becomes a cusp. Recorded here, as the paper makes no claim about faces: the edge on
+        x = 0, where f is (y - 1)^2 for every z, is the only degenerate face, at z = 0 as for
+        generic z, and the coefficient of x^2 vanishes at z = 0 without changing the polytope."""
+        z = sp.Symbol("z")
+        f = sp.expand((Y - 1) ** 2 - (X - z) * X**2)
+        expected = [(1, 3, 0, 1)]
+        generic = face_degeneracy_from_polynomial(f, [X, Y])
+        at_cusp = face_degeneracy_from_polynomial(f, [X, Y], {z: 0})
+        assert degenerate(generic) == degenerate(at_cusp) == expected
+        (edge,) = at_cusp.degenerate_faces
+        assert exponents(at_cusp, edge) == {(0, 0), (0, 1), (0, 2)}
+        assert (2, 0) in generic.points and (2, 0) not in at_cusp.points
+        assert (at_cusp.volume, at_cusp.support_loss) == (6, 0)
+
+    @pytest.mark.parametrize(
+        ("cnickel", "square"),
+        [
+            ("112e|2e|e|:nnnn", True),
+            ("12e|2e|e|:nnn", False),
+            ("12e|3e|3e|e|:nnnn", False),
+            ("111e|e|:nnn", False),
+            ("1111e|e|:nnnn", False),
+        ],
+        ids=["dunces-cap", "triangle", "box", "sunrise", "banana"],
+    )
+    def test_faces_of_newt_u(self, cnickel: str, square: bool) -> None:
+        """Klausen, arXiv:2109.07584, Sec. 4.3, p. 28: the principal A-determinant of U is 1
+        for every one-loop and banana graph and vanishes for the dunce's cap. Newt(U) is a
+        facet of the Newton polytope of G, on whose faces G is U; for the dunce's cap the
+        degenerate face is the square on which U is (u_1 + u_2)(u_3 + u_4)."""
+        sym = FeynmanIntegral.from_cnickel(cnickel).symanzik
+        analysis = face_degeneracy_from_polynomial(sym.u_lp, sym.lp_parameters)
+        assert analysis.non_degenerate is not square
+        if square:
+            assert degenerate(analysis) == [(2, 4, 0, 1)]
+            (face,) = analysis.degenerate_faces
+            assert exponents(analysis, face) == {
+                (1, 0, 1, 0),
+                (1, 0, 0, 1),
+                (0, 1, 1, 0),
+                (0, 1, 0, 1),
+            }
+
+    def test_sunrise_degenerate_faces_are_proper_and_mixed(self) -> None:
+        """Klausen, arXiv:2109.07584, Sec. 4.3, p. 29: for the sunset some discriminants of
+        proper faces with monomials of both U and F vanish identically on the physical
+        kinematics. Every degenerate face of the fully massive sunrise is such a face."""
+        fi = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+        analysis = face_degeneracy(fi)
+        assert len(analysis.degenerate_faces) == 3
+        for face in analysis.degenerate_faces:
+            degrees = {sum(p) for p in exponents(analysis, face)}
+            assert degrees == {2, 3}
+            assert face.dimension < 3
+
 
 # --- timeouts -----------------------------------------------------------------------------
 

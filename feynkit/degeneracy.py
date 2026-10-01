@@ -10,9 +10,16 @@ G_z|_F = u_1 dG_z|_F/du_1 = ... = u_N dG_z|_F/du_N = 0 has a solution in
 (C^*)^N. When P_z is full-dimensional and no face is degenerate, |chi| of the
 complement of {G_z = 0} in the torus is N! Vol(P_z), the value Bitoun, Bogner,
 Klausen and Panzer (arXiv:1712.09215, Theorem 44, after Kouchnirenko) give for
-almost all coefficients: the principal A-determinant does not vanish at z, as
-the design note docs/design/2026-10-01-face-degeneracy.md proves, and Fevola,
-Mizera and Telen (arXiv:2311.16219, Theorem 2.3) give the equality. Where
+almost all coefficients. For the principal A-determinant E_A of Gelfand,
+Kapranov and Zelevinsky (Discriminants, Resultants, and Multidimensional
+Determinants, 1994) is the A-resultant of the u_i dG_z/du_i and G_z (Ch. 10,
+(1.1)), which vanishes exactly where they have a common zero on the toric
+variety of P_z (Ch. 8, Prop. 2.1, and Ch. 3, (2.2)); that variety is the union
+of one orbit for each face F (Ch. 5, Prop. 1.9), and a common zero on the
+orbit of F is a singular point of G_z|_F in the torus. So E_A does not vanish
+at z, and Fevola, Mizera and Telen (arXiv:2311.16219, Theorem 2.3) give the
+equality. The design note docs/design/2026-10-01-face-degeneracy.md spells
+the argument out. Where
 coefficients vanish at z, P_z is smaller than the Newton polytope P of G for
 generic kinematics, and the difference of the normalised volumes is reported as
 support loss, not as degeneracy.
@@ -114,10 +121,18 @@ class FaceDegeneracy:
         "groebner" (Singular).
     singular_dimension
         The dimension of the singular locus in the torus of F's lattice
-        coordinates, -1 when it is empty; None when undecided.
+        coordinates, -1 when it is empty; None when undecided. It does not
+        depend on the choice of lattice.
     tjurina
         The total Tjurina number of that locus when it is finite, 0 when it
-        is empty; None when it is not finite or F is undecided.
+        is empty; None when it is not finite or F is undecided. It is taken
+        in the lattice coordinates of F, those of the lattice that the
+        differences of its points span: the sum over the singular points p
+        of dim C[t]_p / (g_F, dg_F/dt_1, ..., dg_F/dt_d). In the coordinates
+        of the saturated lattice aff(F) cap Z^N it is that number times the
+        index of the one lattice in the other, since the change of
+        coordinates is then an isogeny of that degree, a covering of the
+        torus that keeps the local type of each singular point.
     modular
         The verdict over F_p at ``DegeneracyAnalysis.prime``, a probabilistic
         cross-check that never decides; None for faces decided without

@@ -259,11 +259,13 @@ def paragraphs(
             verdict += (
                 f". Then the principal A-determinant {x['E_A']} of {x['G']} does not vanish "
                 f"{at}: it is the A-resultant of {x['derivatives']} and {x['G']}"
-                f"{cite('gkz1994')} (Ch. 10, (1.1), p. 297), which vanishes only where "
+                f"{cite('gkz1994')} (Ch. 10, (1.1), p. 297), which vanishes exactly where "
                 f"they have a common zero on the toric variety {x['X_A']} of {x['P_z']} "
-                "(Ch. 8, Prop.-Def. 1.1, p. 252), and a common zero on the orbit of a face "
-                f"{x['F']} is a singular point of {x['G_F']} in the torus (Ch. 5, Prop. 1.9, "
-                f"p. 171). So the complement {x['X']} of {x['V']} in the torus has "
+                f"(Ch. 8, Prop. 2.1, p. 256, and Ch. 3, (2.2), p. 101). {x['X_A']} is the "
+                f"union of one orbit for each face {x['F']}, on which the coordinates off "
+                f"{x['F']} vanish (Ch. 5, Prop. 1.9, p. 171), and a common zero on that orbit "
+                f"is a singular point of {x['G_F']} in the torus. So the complement {x['X']} "
+                f"of {x['V']} in the torus has "
                 f"{m(_chi(analysis.volume, False), _chi(analysis.volume, True))} by Theorem "
                 f"2.3 of{cite('fmt2024')}"
             )

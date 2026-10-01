@@ -23,6 +23,7 @@ from feynkit.face_lattice import (
     decorate_configuration,
     decorate_faces,
 )
+from feynkit.landau import _singular_binary
 from feynkit.polytope import polytope_data
 from feynkit.resonance import EpsilonSet, classify_facets
 from feynkit.systems.cayley import lp_to_cayley
@@ -576,6 +577,34 @@ class TestBelowFullDimension:
             for face in lattice.faces
         )
         assert lattice.check_schwinger().agrees
+
+
+@pytest.mark.skipif(_singular_binary() is None, reason="Singular not installed")
+class TestDegeneracy:
+    def test_faces_carry_their_degeneracy_on_request(self) -> None:
+        """The fully massive sunrise has degenerate faces at the generic point; each face of
+        the lattice carries the verdict of FeynmanIntegral.face_degeneracy."""
+        fi = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+        plain = fi.face_lattice(nu=_unit(fi))
+        assert all(face.degenerate is None for face in plain.faces)
+        lattice = fi.face_lattice(nu=_unit(fi), degeneracy=True)
+        assert lattice is not plain
+        assert fi.face_lattice(nu=_unit(fi), degeneracy=True) is lattice
+        analysis = fi.face_degeneracy()
+        verdicts = {
+            frozenset(analysis.points[i] for i in face.point_indices): face.degenerate
+            for face in analysis.faces
+        }
+        points = [tuple(int(x) for x in p) for p in fi.newton_polytope.points]
+        for face in lattice.faces:
+            if not face.point_indices:
+                assert face.degenerate is None
+                continue
+            key = frozenset(points[j] for j in face.point_indices)
+            assert face.degenerate is verdicts[key]
+        assert any(face.degenerate for face in lattice.faces)
+        assert any(face.degenerate is False for face in lattice.faces)
+        assert decorate_faces(fi, nu=_unit(fi), degeneracy=True) == lattice
 
 
 class TestInputs:

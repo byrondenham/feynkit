@@ -185,7 +185,7 @@ class FeynmanIntegral:
         ] = {}
         self._face_identifications: dict[int | None, tuple[FaceIdentification, ...]] = {}
         self._face_lattices: dict[
-            tuple[int | Fraction | None, tuple[tuple[int, int], ...] | None, int | None],
+            tuple[int | Fraction | None, tuple[tuple[int, int], ...] | None, int | None, bool],
             DecoratedFaceLattice,
         ] = {}
         self._face_degeneracies: dict[
@@ -1045,6 +1045,7 @@ class FeynmanIntegral:
         *,
         nu: Mapping[int, int] | None = None,
         identify_codimension: int | None = 2,
+        degeneracy: bool = False,
     ) -> DecoratedFaceLattice:
         """
         Every face of the Newton polytope, decorated with its resonance.
@@ -1069,22 +1070,34 @@ class FeynmanIntegral:
         identify_codimension
             The faces up to this codimension carry their identification from
             :meth:`face_identification`; None for every face.
+        degeneracy
+            Whether each face also carries whether it is degenerate at the
+            generic point of the kinematics, from :meth:`face_degeneracy`;
+            off by default, since most faces need Singular and larger graphs
+            take minutes.
 
         Raises
         ------
         ValidationError
             If the powers are not one integer per internal edge, d0 is not an
             integer or a Fraction, or identify_codimension is not None or a
-            non-negative integer.
+            non-negative integer; with degeneracy, also as
+            :meth:`face_degeneracy` raises.
+        RuntimeError
+            With degeneracy, if a face needs Singular and it is not installed.
         """
         from .face_lattice import check_identify_codimension, decorate_faces
 
         check_identify_codimension(identify_codimension)
         powers = None if nu is None else tuple(sorted(dict(nu).items()))
-        key = (d0, powers, identify_codimension)
+        key = (d0, powers, identify_codimension, bool(degeneracy))
         if key not in self._face_lattices:
             self._face_lattices[key] = decorate_faces(
-                self, d0, nu=nu, identify_codimension=identify_codimension
+                self,
+                d0,
+                nu=nu,
+                identify_codimension=identify_codimension,
+                degeneracy=bool(degeneracy),
             )
         return self._face_lattices[key]
 

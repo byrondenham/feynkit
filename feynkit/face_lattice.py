@@ -126,6 +126,13 @@ class DecoratedFace:
         :func:`feynkit.face_identification.identify_faces` gives, when G lies
         within the codimension identified; None otherwise and for the empty
         face.
+    degenerate
+        For a Newton polytope decorated with ``degeneracy=True``, whether the
+        Lee-Pomeransky polynomial restricted to the face has a singular point
+        in the torus at the generic point of the integral's kinematics, from
+        :meth:`~feynkit.integral.FeynmanIntegral.face_degeneracy`; None
+        otherwise, for the empty face and for a face that analysis left
+        undecided.
     """
 
     point_indices: tuple[int, ...]
@@ -139,6 +146,7 @@ class DecoratedFace:
     pyramid: bool
     through_origin: bool | None = None
     identification: FaceIdentification | None = None
+    degenerate: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -677,6 +685,7 @@ def decorate_faces(
     *,
     nu: Mapping[int, int] | None = None,
     identify_codimension: int | None = 2,
+    degeneracy: bool = False,
 ) -> DecoratedFaceLattice:
     """Decorate every face of the Newton polytope of a Feynman integral.
 
@@ -696,13 +705,20 @@ def decorate_faces(
     identify_codimension
         The faces of codimension up to this carry their identification from
         ``fi.face_identification``; None for every face.
+    degeneracy
+        Whether each face carries whether it is degenerate at the generic
+        point of the kinematics, from ``fi.face_degeneracy()``, which needs
+        Singular for most faces and can take minutes for larger graphs.
 
     Raises
     ------
     ValidationError
         If the powers are not one integer per internal edge, d0 is not an
         integer or a Fraction, or identify_codimension is not None or a
-        non-negative integer.
+        non-negative integer; with degeneracy, also as
+        :meth:`~feynkit.integral.FeynmanIntegral.face_degeneracy` raises.
+    RuntimeError
+        With degeneracy, if a face needs Singular and it is not installed.
     """
     check_identify_codimension(identify_codimension)
     d0_value, source = choose_d0(d0, fi.dimension)
@@ -715,11 +731,19 @@ def decorate_faces(
     beta1 = [Fraction(1), *(Fraction(0) for _ in powers)]
     base = _decorate(columns, beta0, beta1, data.faces)
     identified = {face.point_indices: face for face in fi.face_identification(identify_codimension)}
+    verdicts: dict[frozenset[tuple[int, ...]], bool | None] = {}
+    if degeneracy:
+        analysis = fi.face_degeneracy()
+        verdicts = {
+            frozenset(analysis.points[i] for i in face.point_indices): face.degenerate
+            for face in analysis.faces
+        }
     faces = tuple(
         dataclasses.replace(
             face,
             through_origin=_through_origin([points[j] for j in face.point_indices]),
             identification=identified.get(face.point_indices),
+            degenerate=verdicts.get(frozenset(points[j] for j in face.point_indices)),
         )
         for face in base.faces
     )

@@ -68,6 +68,7 @@ fk analyse "12e|2e|e|:nzz" --latex triangle.tex --json --no-db
 fk analyse "11e|e|:nn" --torus-count           # candidate master count from point counts
 fk analyse "12e|22e|e|:nnnn" -f                # the graphs of the parachute's faces
 fk analyse "111e|e|:nzz" -L                    # resonance centres of the one-mass sunrise
+fk analyse "111e|e|:nnn" -D                    # faces where G has a singular point in the torus
 fk compare "12e|2e|e|:nzz" "12e|2e|e|:znz"     # the mass on two different propagators
 ```
 

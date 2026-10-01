@@ -69,6 +69,12 @@ markers = [
     "examples: runs every script in examples/; opt in with -m examples",
     "slow: long-running acceptance checks; opt in with -m slow",
 ]
+# A hung test fails after 300 s (the slowest default test takes about 45 s).
+# Slow and examples tests get 1200 s from tests/conftest.py (the slowest takes
+# about 165 s). Signal, not thread, so that the test fails and the suite goes on
+# instead of the xdist worker being killed. Override with --timeout=0.
+timeout = 300
+timeout_method = "signal"
 addopts = [
     "--strict-markers",
     "--strict-config",
@@ -171,4 +177,5 @@ dev = [
     "PyNormaliz>=2.24; sys_platform != 'win32'",
     "python-flint>=0.9",
     "pytest-xdist>=3.8.0",
+    "pytest-timeout>=2.4.0",
 ]

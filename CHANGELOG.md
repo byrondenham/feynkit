@@ -540,6 +540,9 @@
 
 ### Changed
 
+- Tests have a wall-clock limit from pytest-timeout (300 s, and 1200 s for the
+  slow and examples tiers), so that a hung computation fails the test instead
+  of stalling the suite; `--timeout=0` removes it.
 - `CayleyGKZSystem.restrict_to_f_block` warns with a `UserWarning` when the
   Cayley parameter does not lie in the span of the F~ block's columns, the
   condition under which the restriction is a true subsystem (Britto, Grimm and

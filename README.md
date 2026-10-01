@@ -427,6 +427,11 @@ uv run pytest --no-cov
 # The tests run in parallel by default (pytest-xdist, -n auto); use -n 0 to run
 # them in one process, for example under a debugger
 uv run pytest -n 0
+
+# Each test has a wall-clock limit (300 s, 1200 s for the slow and examples
+# tiers) so that a hung computation fails instead of stalling the suite;
+# remove it locally with --timeout=0
+uv run pytest --timeout=0
 ```
 
 ---

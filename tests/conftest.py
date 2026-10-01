@@ -18,6 +18,15 @@ settings.register_profile("feynkit-dev", max_examples=200, deadline=None)
 settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "feynkit"))
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Give the slow and examples tiers a longer limit than the default."""
+    for item in items:
+        if item.get_closest_marker("timeout") is None and (
+            item.get_closest_marker("slow") or item.get_closest_marker("examples")
+        ):
+            item.add_marker(pytest.mark.timeout(1200))
+
+
 @pytest.fixture  # type: ignore
 def sympy_seeded() -> Generator[None, None, None]:
     """SymPy's random generator seeded for the test, and its state restored afterwards.

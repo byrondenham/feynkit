@@ -13,3 +13,9 @@ https://creativecommons.org/licenses/by/4.0/).
 
 `tests/test_pld.py` reads U, F, the variables and `f_vector` from each file. Set
 `FEYNKIT_PLD_DATA` to the unpacked `database` directory to check all 114 entries.
+
+The headers of sixteen more entries, up to but not including their first component, serve
+`tests/test_degeneracy_table.py`: `A4`, `B4`, `par`, `acn`, `env`, `npltrb`, `tdetri`, `debox`,
+`tdebox`, `pltrb` and `dbox` with generic masses, `pentb_zero_zero`, and the custom entries
+`inner-dbox`, `outer-dbox`, `Bhabha-dbox` and `Bhabha2-dbox`. Their text is otherwise unchanged,
+and the licence above applies to it.

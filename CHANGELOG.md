@@ -526,6 +526,10 @@
   kinematic point of the point counts, which `--seed` chooses, and adds the
   `degeneracy` section to the reports. `fk analyse --json` with the section
   gains `degenerate_faces`.
+- `fk analyse --degeneracy-mode {point,generic}` chooses where `-D` decides
+  the faces: at the kinematic point, the default, or at the generic point of
+  the kinematics, which can take minutes. It needs `-D` or the `degeneracy`
+  section, and reaches the reports.
 - Section 10.6 of the mathematics reference, the guide and the design note
   `docs/design/2026-10-01-face-degeneracy.md` describe degenerate faces. The
   note proves the reduction to the face polynomial in lattice coordinates,

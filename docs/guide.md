@@ -107,7 +107,7 @@ under uv). It has two subcommands:
 
 ```
 fk analyse CNICKEL [--kinematics CLASS] [--set SYMBOL=VALUE ...] [section flags] [--d0 VALUE] [--latex FILE] [--text FILE]
-           [--json] [--sections NAMES] [--limits] [--seed N] [--torus-budget N] [--db PATH | --no-db]
+           [--json] [--sections NAMES] [--limits] [--seed N] [--torus-budget N] [--degeneracy-mode MODE] [--db PATH | --no-db]
            [--verbose]
 fk compare A B [--db PATH | --no-db] [--verbose]
 fk --version
@@ -220,6 +220,7 @@ not proofs.
 |--------|--------|
 | `--seed N` | seed for the kinematic point, 0 or more; 0 by default; `-D` and the `degeneracy` section use the same point |
 | `--torus-budget N` | maximum evaluations of $G$, 1 or more; $2 \times 10^9$ by default, enough for six propagators unless many small primes are left out, and never for seven |
+| `--degeneracy-mode MODE` | where `-D` decides the faces: `point`, the default, at the point of `--seed`, or `generic`, over the field of rational functions in the kinematic symbols, which can take minutes; needs `-D` or the `degeneracy` section |
 
 Both need `--torus-count`, or `torus` among the report sections of `--sections`; `--seed` also
 works with `-D` or the `degeneracy` section. `--json` does not
@@ -2483,7 +2484,8 @@ coordinates of the face, those of the lattice spanned by the differences of its 
 `fi.face_lattice(..., degeneracy=True)` gives each `DecoratedFace` its verdict at the generic point
 as `degenerate`. The report's `degeneracy` section, which `--sections` or `fk analyse -D` adds,
 decides the faces at the point of the torus counts, drawn with the same seed;
-`AnalysisReport.from_integral(fi, ["degeneracy"], degeneracy_mode="generic")` uses the generic
+`fk analyse -D --degeneracy-mode generic` and
+`AnalysisReport.from_integral(fi, ["degeneracy"], degeneracy_mode="generic")` use the generic
 point instead.
 
 ```python

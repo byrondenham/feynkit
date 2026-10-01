@@ -70,6 +70,55 @@ def test_runs_without_the_flag_leave_it_out(capsys: pytest.CaptureFixture[str]) 
     assert HEADING not in capsys.readouterr().out
 
 
+GENERIC_HEADING = "  Degenerate faces  (for generic kinematics)\n"
+
+
+def test_generic_mode_decides_at_the_generic_point(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyse", "111e|e|:nnn", "-D", "--degeneracy-mode", "generic", "--no-db"])
+    out = capsys.readouterr().out
+    assert HEADING not in out
+    rows = out.split(GENERIC_HEADING, 1)[1].splitlines()[1:]
+    analysis = FeynmanIntegral.from_cnickel("111e|e|:nnn").face_degeneracy()
+    assert analysis.mode == "generic"
+    assert _row("Kinematic point", "generic  (the symbols are kept)") in rows
+    assert _row("Normalised volume", analysis.volume) in rows
+    assert _row("Degenerate faces", len(analysis.degenerate_faces)) in rows
+
+
+def test_point_mode_is_the_default_and_can_be_named(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyse", "11e|e|:nn", "-D", "--no-db"])
+    default = re.sub(r"Done in [\d.]+s", "", capsys.readouterr().out)
+    main(["analyse", "11e|e|:nn", "-D", "--degeneracy-mode", "point", "--no-db"])
+    assert re.sub(r"Done in [\d.]+s", "", capsys.readouterr().out) == default
+    assert HEADING in default
+
+
+def test_generic_mode_reaches_the_report(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    txt = tmp_path / "bubble.txt"
+    main(
+        ["analyse", "11e|e|:nn", "-D", "--degeneracy-mode", "generic", "--text", str(txt)]
+        + ["--sections", "gkz", "--no-db"]
+    )
+    assert GENERIC_HEADING in capsys.readouterr().out
+    assert "generic point of the kinematics" in txt.read_text(encoding="utf-8")
+
+
+def test_the_mode_needs_the_section(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(["analyse", "11e|e|:nn", "--degeneracy-mode", "generic", "--no-db"])
+    assert excinfo.value.code == 2
+    assert "--degeneracy-mode applies to the degenerate faces" in capsys.readouterr().err
+
+
+def test_the_mode_is_one_of_two(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(["analyse", "11e|e|:nn", "-D", "--degeneracy-mode", "exact", "--no-db"])
+    assert excinfo.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
 def test_the_seed_chooses_the_point(capsys: pytest.CaptureFixture[str]) -> None:
     main(["analyse", "11e|e|:nn", "-D", "--seed", "1", "--no-db"])
     point = FeynmanIntegral.from_cnickel("11e|e|:nn").torus_count(seed=1).point

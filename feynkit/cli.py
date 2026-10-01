@@ -62,7 +62,12 @@ from feynkit.io.report import (
 )
 from feynkit.io.report_latex import render_latex
 from feynkit.io.report_text import render_text
-from feynkit.io.sections.degeneracy import Degeneracy, decide
+from feynkit.io.sections.degeneracy import (
+    DEFAULT_DEGENERACY_MODE,
+    Degeneracy,
+    DegeneracyMode,
+    decide,
+)
 from feynkit.io.sections.face_lattice import face_rows, kind_counts
 from feynkit.io.sections.faces import face_counts, facet_graph
 from feynkit.io.sections.resonance import epsilon_set
@@ -745,13 +750,21 @@ def _print_torus(count: TorusCount) -> None:
 
 
 def _print_degeneracy(section: Degeneracy) -> None:
-    """The degenerate faces at the point of the point counts, as the report section has them."""
-    _sec("Degenerate faces  (at the kinematic point of the point counts)")
+    """The degenerate faces at the point of the point counts, or at the generic point, as the
+    report section has them."""
     analysis = section.analysis
+    generic = section.seed is None
+    _sec(
+        "Degenerate faces  (for generic kinematics)"
+        if generic
+        else "Degenerate faces  (at the kinematic point of the point counts)"
+    )
     if analysis is None:
         print("  Not decided: faces of dimension 2 or more need Singular, which was not found.")
         return
-    if analysis.point:
+    if generic:
+        _kv("Kinematic point", "generic  (the symbols are kept)")
+    elif analysis.point:
         point = ", ".join(f"{key} = {value}" for key, value in analysis.point)
         _kv("Kinematic point", f"{point}  (seed {section.seed})")
     else:
@@ -808,6 +821,7 @@ class ReportOptions:
     limits: bool = False
     d0: Fraction | None = None
     check_schwinger: bool = False
+    degeneracy_mode: DegeneracyMode = DEFAULT_DEGENERACY_MODE
 
     @property
     def writes_files(self) -> bool:
@@ -1001,6 +1015,7 @@ def analyse_one(
                     limits=True if options.limits else None,
                     d0=options.d0,
                     check_schwinger=options.check_schwinger,
+                    degeneracy_mode=options.degeneracy_mode,
                 )
             )
         return built[0]
@@ -1056,7 +1071,12 @@ def analyse_one(
                     found = build().landau
                     shared = found.analysis if found is not None else None
                 if faces is None:
-                    faces = decide(fi, seed=options.torus_seed, landau=shared)
+                    faces = decide(
+                        fi,
+                        seed=options.torus_seed,
+                        landau=shared,
+                        generic=options.degeneracy_mode == "generic",
+                    )
                 _print_degeneracy(faces)
         if options.writes_files:
             with _stage("report", verbose):
@@ -1252,6 +1272,7 @@ _VALUE_OPTIONS = frozenset(
         "--sections",
         "--seed",
         "--torus-budget",
+        "--degeneracy-mode",
         "--kinematics",
         "--set",
         "--d0",
@@ -1453,6 +1474,15 @@ def _build_parser() -> _Parsers:
             "and adds the degeneracy section to reports whose --sections leave it out"
         ),
     )
+    shown.add_argument(
+        "--degeneracy-mode",
+        choices=("point", "generic"),
+        help=(
+            "where --degeneracy decides the faces: point, the default, at the kinematic point "
+            "of the point counts, or generic, over the field of rational functions in the "
+            "kinematic symbols, which can take minutes"
+        ),
+    )
     counting = analyse.add_argument_group(
         "point counts", "for --torus-count and the torus report section"
     )
@@ -1649,6 +1679,11 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
             "--seed applies to the point counts and the degenerate faces; add --torus-count "
             "or --degeneracy, or name torus or degeneracy in --sections"
         )
+    if args.degeneracy_mode is not None and not (args.degeneracy or "degeneracy" in named):
+        parser.error(
+            "--degeneracy-mode applies to the degenerate faces; add --degeneracy or name "
+            "degeneracy in --sections"
+        )
     for path, kind in ((args.latex, "LaTeX"), (args.text, "text")):
         if path is not None:
             _check_writable(path, kind)
@@ -1669,6 +1704,9 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         limits=args.limits,
         d0=args.d0,
         check_schwinger=args.face_lattice,
+        degeneracy_mode=(
+            DEFAULT_DEGENERACY_MODE if args.degeneracy_mode is None else args.degeneracy_mode
+        ),
     )
 
 

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from . import (
     conventions,
+    face_lattice,
     faces,
     gkz,
     identity,
@@ -42,6 +43,7 @@ SECTIONS: tuple[Section, ...] = (
     gkz.SECTION,
     resonance.SECTION,
     faces.SECTION,
+    face_lattice.SECTION,
     symmetries.SECTION,
     landau.SECTION,
     schwinger.SECTION,

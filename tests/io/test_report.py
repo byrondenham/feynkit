@@ -51,6 +51,8 @@ SUMMARY_LABELS = (
     "Normal configuration",
     "Unidentified faces",
     "Support product faces",
+    "Resonance centres at generic D",
+    "Reducible at generic D",
     "Polytope automorphisms",
     "Toric generators",
     "Landau surfaces",
@@ -854,3 +856,34 @@ class TestScaleless:
         assert labels[labels.index("Codimension") + 1] == "Scaleless"
         assert dict(report.summary())["Scaleless"] == scaleless
         assert report.polynomials.scaleless is (scaleless == "yes")
+
+
+class TestFaceLattice:
+    def test_the_section_holds_the_integral_s_face_lattice(self, triangle: FeynmanIntegral) -> None:
+        report = AnalysisReport.from_integral(triangle, ["face_lattice"])
+        section = report.face_lattice
+        assert section is not None
+        assert section.lattice is triangle.face_lattice(4, nu={1: 1, 2: 1, 3: 1})
+        assert section.unit_powers and section.d0_source == "default"
+        assert section.schwinger is None
+        assert ("Resonance centres at generic D", "3") in report.summary()
+        assert ("Reducible at generic D", "yes") in report.summary()
+
+    def test_d0_and_integer_powers(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn").with_(propagator_exponents={1: 1, 2: 2})
+        section = AnalysisReport.from_integral(fi, ["face_lattice"], d0=3).face_lattice
+        assert section is not None
+        assert (section.lattice.d0, section.lattice.nu) == (3, (1, 2))
+        assert section.d0_source == "given" and not section.unit_powers
+
+    def test_the_schwinger_side_is_checked_only_when_asked(self, triangle: FeynmanIntegral) -> None:
+        report = AnalysisReport.from_integral(triangle, ["face_lattice"], check_schwinger=True)
+        assert report.face_lattice is not None
+        assert report.face_lattice.schwinger is not None
+        assert report.face_lattice.schwinger.agrees
+
+    def test_below_full_rank_reducibility_is_not_decided(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematics="massless_on_shell")
+        report = AnalysisReport.from_integral(fi, ["face_lattice"])
+        assert ("Reducible at generic D", "not decided") in report.summary()
+        assert ("Resonance centres at generic D", "0") in report.summary()

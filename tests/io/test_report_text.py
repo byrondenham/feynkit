@@ -1589,3 +1589,70 @@ def test_substitutions_are_stated_under_the_title(triangle_report: AnalysisRepor
     assert lines[2:4] == ["", "With p1^2 = 0 and p2^2 = p3^2."]
     assert render_text(triangle_report).splitlines()[2] == ""
     assert not render_text(triangle_report).splitlines()[3].startswith("With p")
+
+
+# --- face lattice ------------------------------------------------------------
+
+FACE_LATTICE = "Face resonance and reducibility"
+DIGITS = ("-1", *(f"{k} " for k in range(10)))
+
+
+def test_face_lattice_section_of_the_massless_triangle() -> None:
+    fi = FeynmanIntegral.from_cnickel("12e|2e|e|:zzz")
+    text = render_text(AnalysisReport.from_integral(fi, ["face_lattice"]))
+    body = _section(text, FACE_LATTICE)
+    flat = _flat(body)
+    assert "D_0 = 4 by default" in flat and "nu_e = 1 on every edge" in flat
+    assert "[britto2026]" in flat and "[schulze2012]" in flat
+    rows = {line.split()[0]: line.split()[1:] for line in body.splitlines() if line[4:6] in DIGITS}
+    # Dimension, then faces resonant for every eps, on a progression, at one value, never.
+    assert rows["-1"] == ["1", "0", "1", "0", "0"]
+    assert rows["3"] == ["1", "1", "0", "0", "0"]
+    assert "At generic epsilon the resonance centres are" in flat
+    assert "so the GKZ system has reducible monodromy" in flat
+    assert "G(Gamma/{1})" in body
+    assert "At epsilon = 0 the resonance centre is" in flat
+    assert "the empty face" in flat
+    assert "lattice defect" in flat and "non-trivial lattice defect" not in flat
+    assert "pyramid over these faces" not in flat
+    assert "Cayley configuration" not in flat
+
+
+def test_face_lattice_section_of_the_massless_bubble() -> None:
+    """A is a pyramid over every face, so the system is irreducible at every eps."""
+    fi = FeynmanIntegral.from_cnickel("11e|e|:zz")
+    text = render_text(AnalysisReport.from_integral(fi, ["face_lattice"], check_schwinger=True))
+    flat = _flat(_section(text, FACE_LATTICE))
+    assert "A is a pyramid over it, so the GKZ system has irreducible monodromy" in flat
+    # The opening paragraph, then the centres at generic eps and at eps = 0.
+    assert flat.count("irreducible monodromy") == 3
+    assert "Besides P, A is a pyramid over these faces" in flat
+    assert "agrees with this lattice face by face" in flat
+
+
+def test_face_lattice_section_names_a_non_trivial_defect() -> None:
+    fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
+    report = AnalysisReport.from_integral(fi, ["face_lattice"])
+    assert report.face_lattice is not None
+    lattice = report.face_lattice.lattice
+    faces = (dataclasses.replace(lattice.faces[0], lattice_defect=2), *lattice.faces[1:])
+    section = dataclasses.replace(
+        report.face_lattice, lattice=dataclasses.replace(lattice, faces=faces)
+    )
+    flat = _flat(
+        _section(render_text(dataclasses.replace(report, face_lattice=section)), FACE_LATTICE)
+    )
+    assert "These faces have a non-trivial lattice defect" in flat
+
+
+def test_face_lattice_section_below_full_rank() -> None:
+    fi = FeynmanIntegral.from_cnickel("11e|e|:zz", kinematics="massless_on_shell")
+    flat = _flat(
+        _section(render_text(AnalysisReport.from_integral(fi, ["face_lattice"])), FACE_LATTICE)
+    )
+    assert "A does not have full rank, so the report does not decide reducibility" in flat
+    fi = FeynmanIntegral.from_cnickel("1ee|1|:zn")
+    flat = _flat(
+        _section(render_text(AnalysisReport.from_integral(fi, ["face_lattice"])), FACE_LATTICE)
+    )
+    assert "no face is resonant" in flat

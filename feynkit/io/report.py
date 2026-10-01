@@ -43,6 +43,7 @@ from ..polytope import PolytopeData, polytope_data
 from ..resonance import D0Source, choose_d0
 from .sections import SECTIONS, summary_rows
 from .sections.conventions import Conventions
+from .sections.face_lattice import FaceLattice
 from .sections.faces import FACE_CODIMENSION, Faces
 from .sections.gkz import GKZ
 from .sections.identity import Identity
@@ -67,6 +68,7 @@ __all__ = [
     "AnalysisReport",
     "BuildContext",
     "Conventions",
+    "FaceLattice",
     "Faces",
     "GKZ",
     "Identity",
@@ -108,6 +110,8 @@ class BuildContext:
         The arguments of :meth:`AnalysisReport.from_integral` of these names.
     d0, d0_source
         D_0 of the resonance section and where it came from.
+    check_schwinger
+        Whether the face-lattice section compares the Cayley side face by face.
     """
 
     integral: FeynmanIntegral
@@ -119,6 +123,7 @@ class BuildContext:
     limits: bool | str | None
     d0: Fraction
     d0_source: D0Source
+    check_schwinger: bool = False
     _data: PolytopeData | None = field(default=None, init=False, repr=False)
     _analysis: LandauAnalysis | None = field(default=None, init=False, repr=False)
 
@@ -165,6 +170,7 @@ class AnalysisReport:
     torus: TorusCount | None = None
     resonance: Resonance | None = None
     faces: Faces | None = None
+    face_lattice: FaceLattice | None = None
 
     @classmethod
     def from_integral(
@@ -178,6 +184,7 @@ class AnalysisReport:
         torus_budget: int = 2 * 10**9,
         limits: bool | str | None = None,
         d0: int | Fraction | None = None,
+        check_schwinger: bool = False,
     ) -> AnalysisReport:
         """Build the report for an integral.
 
@@ -209,7 +216,13 @@ class AnalysisReport:
             integer or a Fraction. None, the default, reads it from the
             dimension of the integral when that is D_0 - 2 eps with D_0 a
             number, and takes 4 otherwise; see
-            :func:`feynkit.resonance.choose_d0`.
+            :func:`feynkit.resonance.choose_d0`. The ``face_lattice`` section
+            uses the same D_0.
+        check_schwinger
+            Whether the ``face_lattice`` section decorates the Cayley
+            configuration of the Schwinger representation from its own columns
+            and compares it with the Lee-Pomeransky one face by face; off by
+            default, as it about doubles the cost of the section.
 
         Raises
         ------
@@ -247,6 +260,7 @@ class AnalysisReport:
             limits=limits,
             d0=d0_value,
             d0_source=d0_source,
+            check_schwinger=check_schwinger,
         )
         built: dict[str, Any] = {
             section.name: (

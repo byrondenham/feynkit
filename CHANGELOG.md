@@ -453,6 +453,19 @@
 - `FeynmanIntegral.face_lattice(d0=None, *, nu=None, identify_codimension=2)`
   gives `decorate_faces` for the integral, cached for each choice of the
   arguments, with D_0 chosen as for `facet_resonance`.
+- The analysis report has a `face_lattice` section, built by default after
+  the faces section. With the D_0 and powers of the resonance section it
+  counts the faces of each dimension, the empty face included, by where they
+  are resonant; gives the resonance centres at generic eps and at eps = 0,
+  named by the facets containing them and by their graph up to codimension 2,
+  and says whether the GKZ system is then reducible; and lists the faces
+  besides P over which A is a pyramid and those with a non-trivial lattice
+  defect, when there are any. `AnalysisReport.from_integral` takes
+  `check_schwinger`, off by default, which adds the face-by-face comparison
+  with the Cayley configuration. The summary gains `Resonance centres at
+  generic D` and `Reducible at generic D`. The report holds the section as
+  `AnalysisReport.face_lattice`, a `FaceLattice`, or None; it takes about
+  1.2 s on the massless double box.
 
 ### Changed
 

@@ -163,6 +163,7 @@ def test_every_section_present(latex: str) -> None:
         "Newton polytope",
         "GKZ system",
         "Resonance",
+        "Face resonance and reducibility",
         "Symmetries",
         "Landau surfaces",
         "Schwinger-representation system",
@@ -492,3 +493,13 @@ def test_substitutions_are_stated_in_the_date(triangle_report: AnalysisReport) -
         in latex
     )
     assert "\\date{}" in render_latex(triangle_report)
+
+
+def test_face_lattice_section(sunrise: FeynmanIntegral) -> None:
+    latex = render_latex(AnalysisReport.from_integral(sunrise, ["face_lattice"]))
+    body = latex.split("\\section{Face resonance and reducibility}")[1]
+    assert "Every $\\varepsilon$" in body
+    assert "$\\mathcal{G}_{\\Gamma/\\{1\\}}$" in body
+    assert "\\cite{schulze2012}" in body and "\\cite{britto2026}" in body
+    # The counts and the centres at generic eps; at eps = 0 the centre is the empty face.
+    assert body.count("\\begin{longtable}") == 2

@@ -20,6 +20,7 @@ from ..latex import to_latex
 from ._base import Section
 
 if TYPE_CHECKING:
+    from ...integral import FeynmanIntegral
     from ..report import AnalysisReport, BuildContext
 
 
@@ -64,17 +65,22 @@ class Resonance:
     full_dimensional: bool
 
 
+def integer_powers(fi: FeynmanIntegral) -> tuple[tuple[int, ...], bool]:
+    """The powers of the internal edges, in edge order, and whether they are all 1 because the
+    exponents of the integral are not all integers."""
+    exponents = [fi.propagator_exponents[e.idx] for e in fi.graph.get_internal_edges()]
+    try:
+        return tuple(_exact._as_int(x, "the exponents") for x in exponents), False
+    except ValidationError:
+        return (1,) * len(exponents), True
+
+
 def build(ctx: BuildContext) -> Resonance:
     fi = ctx.integral
     data = ctx.polytope_data()
     d0 = ctx.d0
     source = ctx.d0_source
-    exponents = [fi.propagator_exponents[e.idx] for e in fi.graph.get_internal_edges()]
-    try:
-        powers = tuple(_exact._as_int(x, "the exponents") for x in exponents)
-        unit = False
-    except ValidationError:
-        powers, unit = (1,) * len(exponents), True
+    powers, unit = integer_powers(fi)
     return Resonance(
         d0=d0,
         d0_source=source,

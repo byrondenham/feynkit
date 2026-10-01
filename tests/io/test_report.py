@@ -641,13 +641,15 @@ class TestFaces:
 
 
 class TestSections:
-    def test_default_builds_every_section_but_the_point_counts(
+    def test_default_builds_every_section_but_the_counts_and_the_degenerate_faces(
         self, triangle_report: AnalysisReport
     ) -> None:
-        assert tuple(name for name in SECTION_NAMES if name != "torus") == DEFAULT_SECTIONS
+        left_out = ("torus", "degeneracy")
+        assert tuple(name for name in SECTION_NAMES if name not in left_out) == DEFAULT_SECTIONS
         for name in DEFAULT_SECTIONS:
             assert getattr(triangle_report, name) is not None
         assert triangle_report.torus is None
+        assert triangle_report.degeneracy is None
 
     def test_one_section_leaves_the_others_empty(self, triangle: FeynmanIntegral) -> None:
         report = AnalysisReport.from_integral(triangle, ["gkz"])

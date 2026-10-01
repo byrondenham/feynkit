@@ -58,6 +58,14 @@ def test_report_with_point_counts_compiles(tmp_path: Path) -> None:
 
 
 @requires_pdflatex
+@requires_singular
+def test_report_with_degenerate_faces_compiles(tmp_path: Path) -> None:
+    # The massive sunrise has three degenerate faces, listed in a table.
+    sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+    _compile(sunrise.to_latex(["degeneracy"]), tmp_path)
+
+
+@requires_pdflatex
 @pytest.mark.parametrize("kind", ["check", "bound", "degree"])  # type: ignore[misc]
 def test_report_without_a_candidate_compiles(kind: str, tmp_path: Path) -> None:
     # The reasons write p = 41, [0, N! Vol] = [0, 2] and q^1, which the document sets as maths.

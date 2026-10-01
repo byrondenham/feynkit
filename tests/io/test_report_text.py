@@ -24,6 +24,7 @@ from feynkit.io.report import SECTION_NAMES, AnalysisReport
 from feynkit.io.report_latex import CITATIONS, render_latex
 from feynkit.io.report_text import render_text
 from feynkit.io.sections.polytope import NOT_COMPUTED
+from feynkit.landau import _singular_binary
 from feynkit.point_count import TorusCount, count_torus_points
 
 _KEY = r"[a-z]+\d{4}"
@@ -559,6 +560,20 @@ def test_dependent_rows_prose_matches_the_latex_word_for_word(cnickel: str) -> N
     assert _prose_diff(AnalysisReport.from_integral(fi))[1] == []
 
 
+@pytest.mark.skipif(_singular_binary() is None, reason="Singular not installed")
+@pytest.mark.parametrize("mode", ["point", "generic"])  # type: ignore[misc]
+@pytest.mark.parametrize("cnickel", ["12e|2e|e|:zzz", "111e|e|:nnn"])  # type: ignore[misc]
+def test_degeneracy_prose_matches_the_latex_word_for_word(cnickel: str, mode: str) -> None:
+    # The massless triangle has no degenerate face, the massive sunrise three.
+    fi = FeynmanIntegral.from_cnickel(cnickel)
+    report = AnalysisReport.from_integral(fi, ["degeneracy"], degeneracy_mode=mode)
+    assert report.degeneracy is not None
+    # The report has no Newton polytope section, so only the graph's figure is left out.
+    latex, diff = _prose_diff(report, _INTENDED[:2])
+    assert not diff
+    assert "Tjurina" in latex or "Theorem" in latex
+
+
 def test_skipped_face_prose_matches_the_latex_word_for_word() -> None:
     sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
     report = AnalysisReport.from_integral(sunrise, max_face_points=4)
@@ -844,9 +859,9 @@ _TORUS_INTENDED = (
 
 @pytest.fixture(scope="module")  # type: ignore[misc]
 def torus_report() -> AnalysisReport:
-    # Every section of the massive bubble, whose counts at seed 0 are p - 4, but the faces,
-    # which cite fmt2024 as the point counts do only for a drawn point.
-    sections = [name for name in SECTION_NAMES if name != "faces"]
+    # Every section of the massive bubble, whose counts at seed 0 are p - 4, but the faces and
+    # the degenerate faces, which cite fmt2024 as the point counts do only for a drawn point.
+    sections = [name for name in SECTION_NAMES if name not in ("faces", "degeneracy")]
     return AnalysisReport.from_integral(FeynmanIntegral.from_cnickel("11e|e|:nn"), sections)
 
 

@@ -43,6 +43,7 @@ from ..polytope import PolytopeData, polytope_data
 from ..resonance import D0Source, choose_d0
 from .sections import SECTIONS, summary_rows
 from .sections.conventions import Conventions
+from .sections.degeneracy import DEFAULT_DEGENERACY_MODE, Degeneracy, DegeneracyMode
 from .sections.face_lattice import FaceLattice
 from .sections.faces import FACE_CODIMENSION, Faces
 from .sections.gkz import GKZ
@@ -68,6 +69,7 @@ __all__ = [
     "AnalysisReport",
     "BuildContext",
     "Conventions",
+    "Degeneracy",
     "FaceLattice",
     "Faces",
     "GKZ",
@@ -86,8 +88,9 @@ __all__ = [
 SECTION_NAMES = tuple(section.name for section in SECTIONS)
 
 # The sections built when none are named: all but the point counts, which take seconds for
-# five propagators; seven exceed the default budget.
-DEFAULT_SECTIONS = tuple(name for name in SECTION_NAMES if name != "torus")
+# five propagators, seven exceeding the default budget, and the degenerate faces, which need
+# Singular and add its runs to every report.
+DEFAULT_SECTIONS = tuple(name for name in SECTION_NAMES if name not in ("torus", "degeneracy"))
 
 
 # --- the report --------------------------------------------------------------
@@ -112,6 +115,9 @@ class BuildContext:
         D_0 of the resonance section and where it came from.
     check_schwinger
         Whether the face-lattice section compares the Cayley side face by face.
+    degeneracy_mode
+        Where the degeneracy section decides the faces: "point", at the point
+        of the torus counts, or "generic".
     """
 
     integral: FeynmanIntegral
@@ -124,6 +130,7 @@ class BuildContext:
     d0: Fraction
     d0_source: D0Source
     check_schwinger: bool = False
+    degeneracy_mode: DegeneracyMode = DEFAULT_DEGENERACY_MODE
     _data: PolytopeData | None = field(default=None, init=False, repr=False)
     _analysis: LandauAnalysis | None = field(default=None, init=False, repr=False)
 
@@ -134,11 +141,12 @@ class BuildContext:
         return self._data
 
     def analysis(self) -> LandauAnalysis:
-        """The Landau analysis, computed once and shared by ``landau`` and ``torus``.
+        """The Landau analysis, computed once and shared by ``landau``, ``torus`` and
+        ``degeneracy``.
 
-        The point counts use the principal Landau determinant, not the limit
-        surfaces, so the analysis looks for limits only when ``landau`` is
-        wanted.
+        The point counts, and the degeneracy section at their point, use the
+        principal Landau determinant, not the limit surfaces, so the analysis
+        looks for limits only when ``landau`` is wanted.
         """
         if self._analysis is None:
             self._analysis = landau_analysis(
@@ -155,7 +163,8 @@ class AnalysisReport:
 
     The first three sections are always present; the rest are None when the
     caller did not ask for them. ``torus`` holds the finite-field point counts
-    of :meth:`FeynmanIntegral.torus_count`, whose candidates are not proven.
+    of :meth:`FeynmanIntegral.torus_count`, whose candidates are not proven,
+    and ``degeneracy`` the degenerate faces of the Newton polytope of G.
     """
 
     identity: Identity
@@ -171,6 +180,7 @@ class AnalysisReport:
     resonance: Resonance | None = None
     faces: Faces | None = None
     face_lattice: FaceLattice | None = None
+    degeneracy: Degeneracy | None = None
 
     @classmethod
     def from_integral(
@@ -185,6 +195,7 @@ class AnalysisReport:
         limits: bool | str | None = None,
         d0: int | Fraction | None = None,
         check_schwinger: bool = False,
+        degeneracy_mode: str = DEFAULT_DEGENERACY_MODE,
     ) -> AnalysisReport:
         """Build the report for an integral.
 
@@ -194,7 +205,7 @@ class AnalysisReport:
             The integral to describe.
         sections
             Names from :data:`SECTION_NAMES` to build; :data:`DEFAULT_SECTIONS`,
-            every section but ``torus``, by default. ``identity``,
+            every section but ``torus`` and ``degeneracy``, by default. ``identity``,
             ``conventions`` and ``polynomials`` are built whatever is asked for,
             since the rest of the report reads as a fragment without them.
         max_face_points
@@ -223,6 +234,12 @@ class AnalysisReport:
             configuration of the Schwinger representation from its own columns
             and compares it with the Lee-Pomeransky one face by face; off by
             default, as it about doubles the cost of the section.
+        degeneracy_mode
+            Where the ``degeneracy`` section decides the faces: "point", the
+            default, at the kinematic point the ``torus`` section counts at,
+            drawn with ``torus_seed``, which shares the Landau analysis; or
+            "generic", at the generic point of the kinematics, which takes
+            minutes for larger graphs.
 
         Raises
         ------
@@ -231,8 +248,11 @@ class AnalysisReport:
             :meth:`FeynmanIntegral.torus_count` raises for the ``torus`` section,
             for instance when the integral has kinematic constraints, which is
             checked before any section is built, or when counting needs more
-            than ``torus_budget`` evaluations of G; or if ``d0`` is not an
-            integer or a Fraction, also checked first.
+            than ``torus_budget`` evaluations of G; if the ``degeneracy``
+            section is asked for an integral with kinematic constraints, or
+            ``degeneracy_mode`` is neither "point" nor "generic", both also
+            checked first; or if ``d0`` is not an integer or a Fraction, also
+            checked first.
         """
         wanted = set(DEFAULT_SECTIONS) if sections is None else set(sections)
         unknown = sorted(wanted - set(SECTION_NAMES))
@@ -249,6 +269,15 @@ class AnalysisReport:
                 "the torus section does not apply kinematic_constraints; leave it out, or count "
                 "with FeynmanIntegral.torus_count and substitute them with on_shell"
             )
+        if "degeneracy" in wanted and integral.kinematic_constraints:
+            raise ValidationError(
+                "the degeneracy section does not apply kinematic_constraints; leave it out, or "
+                "substitute them in the momentum products"
+            )
+        if degeneracy_mode not in ("point", "generic"):
+            raise ValidationError(
+                f"degeneracy_mode must be 'point' or 'generic'; got {degeneracy_mode!r}"
+            )
 
         context = BuildContext(
             integral=integral,
@@ -261,6 +290,7 @@ class AnalysisReport:
             d0=d0_value,
             d0_source=d0_source,
             check_schwinger=check_schwinger,
+            degeneracy_mode="generic" if degeneracy_mode == "generic" else "point",
         )
         built: dict[str, Any] = {
             section.name: (

@@ -1551,6 +1551,10 @@ def test_faces_section_of_the_parachute() -> None:
     assert rows["F_2"].endswith("U({3,4}) G(Gamma/{3,4})")
     assert rows["F_9"].endswith("F(Gamma)")
     assert "[ahm2022]" in section and "[fmt2024]" in section and "[britto2026]" in section
+    flat = _flat(section)
+    assert "At generic kinematics, Arkani-Hamed, Hillman and Mizera label the facets" in flat
+    assert "on the QED triangle of Borinsky, Munch and Tellander, Newt(F) is a segment" in flat
+    assert "[bmt2023]" in section
     assert "UV product" in section
     assert "differs from the prediction" not in section
 

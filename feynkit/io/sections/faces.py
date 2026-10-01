@@ -180,6 +180,7 @@ _FACE_MATHS = {
     "u_e": ("u_e", "u_e"),
     "edge": ("G(Gamma/{e})", r"\mathcal{G}_{\Gamma/\{e\}}"),
     "F_quotient": ("F(Gamma/gamma)", r"\mathcal{F}_{\Gamma/\gamma}"),
+    "newt_F": ("Newt(F)", r"\operatorname{Newt}(\mathcal{F})"),
 }
 
 
@@ -216,9 +217,12 @@ def face_paragraphs(
         f"elsewhere, with every mass non-zero, the initial form is {x['uv']}"
         f"{cite('fmt2024')}, and the face of the terms free of {x['u_e']} gives "
         f"{x['edge']}{cite('britto2026')}. "
-        f"Arkani-Hamed, Hillman and Mizera label the facets of the Feynman polytope by "
-        f"subgraphs {x['gamma']}, ultraviolet when {x['F_quotient']} is not zero and infrared "
-        f"when it is{cite('ahm2022')}."
+        f"At generic kinematics, Arkani-Hamed, Hillman and Mizera label the facets of the "
+        f"Feynman polytope by subgraphs {x['gamma']}, ultraviolet when {x['F_quotient']} is not "
+        f"zero and infrared when it is{cite('ahm2022')}; there {x['newt_F']} is the polytope "
+        f"that their subgraph inequalities cut out{cite('bmt2023')}. At exceptional kinematics "
+        f"it need not be: on the QED triangle of Borinsky, Munch and Tellander, {x['newt_F']} "
+        f"is a segment while the inequalities cut out a polygon{cite('bmt2023')}."
     )
     paragraphs = [opening, known]
     if not section.full_dimensional:

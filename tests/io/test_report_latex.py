@@ -465,7 +465,9 @@ def test_faces_section(sunrise: FeynmanIntegral) -> None:
     latex = render_latex(AnalysisReport.from_integral(sunrise, ["faces"]))
     section = latex[latex.index("\\section{Faces as graphs}") :]
     assert r"$\mathcal{U}_{\{1,2\}}\,\mathcal{G}_{\Gamma/\{1,2\}}$" in section
-    assert r"\bibitem{ahm2022}" in latex
+    assert r"\bibitem{ahm2022}" in latex and r"\bibitem{bmt2023}" in latex
+    assert "At generic kinematics, Arkani-Hamed" in section
+    assert r"$\operatorname{Newt}(\mathcal{F})$ is a segment" in section
     assert "UV product" in section
 
 

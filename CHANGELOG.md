@@ -679,9 +679,10 @@
   `compute_graph_automorphisms` tries all V! vertex permutations; both now
   describe what the code does. The `nickel_index` docstring gave the box as
   `13e|2e|3e|e|`, which is not canonical; it is `12e|3e|3e|e|`.
-- Section 5.7 of the mathematics reference and the guide cited Arkani-Hamed,
-  Hillman and Mizera's description of the ultraviolet and infrared facets
-  without qualification. Both now restrict it to generic kinematics, after
+- Section 5.7 of the mathematics reference, the guide and the report's faces
+  section cited Arkani-Hamed, Hillman and Mizera's description of the
+  ultraviolet and infrared facets without qualification. All three now
+  restrict it to generic kinematics, after
   Theorem 3.6 of Borinsky, Munch and Tellander (arXiv:2302.08955), and cite
   their QED triangle, whose Newton polytope of F is a segment where the
   subgraph inequalities cut out a polygon, as an exception at exceptional

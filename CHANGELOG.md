@@ -474,6 +474,12 @@
   flags `fk analyse` prints the same, without the comparison.
   `fk analyse --json` gains `resonance_centres_at_generic_d` and
   `reducible_at_generic_d`, which is null when reducibility is not decided.
+- Section 4.9 of the mathematics reference, the guide and the design note
+  `docs/design/2026-09-30-face-lattice.md` describe the resonance of every
+  face. The note proves the face test for any lattice ZA, that the facets
+  containing a face decide its resonance for every beta exactly when its
+  lattice defect is 1, and that reducibility follows at full rank from
+  Theorems 4.1 and 5.1 and Proposition 3.8 of Schulze and Walther.
 
 ### Changed
 

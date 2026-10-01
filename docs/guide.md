@@ -1180,7 +1180,8 @@ $\varepsilon_F + (g_F/|b|)\mathbb{Z}$, $\varepsilon_F = D_0/2 - m \cdot \nu / b$
 needs $g_F > 1$: on $(0,0), (2,0), (0,1)$ with $\nu = (1, 0)$ the facet $x \ge 0$ is never resonant.
 `reducible` is True only for a resonant facet of a full-dimensional polytope with at least two
 columns off it; it is never False, since irreducibility is a question about faces of every
-dimension. Below full dimension $\beta$ must first lie in the span of $A$, and
+dimension, which [Resonance of every face](#resonance-of-every-face) answers. Below full dimension
+$\beta$ must first lie in the span of $A$, and
 `span_epsilons(data, nu, d0)` says for which $\varepsilon$ it does: for every value, for one, or for
 none. The facets' sets are then intersected with it.
 
@@ -1352,6 +1353,88 @@ print(u)                                 # a_1 + a_2
 
 The analysis report has a `faces` section, built by default, and `fk analyse` prints the facets and
 the counts on the terminal, as `-f` does alone.
+
+### Resonance of every face
+
+The facets alone decide resonance only for themselves, and reducibility only one way: a resonant
+facet with two columns off it makes the system reducible, but irreducibility depends on the
+resonance centres, faces of any dimension, the empty face included (Schulze and Walther,
+arXiv:1009.3569, Def. 3.2, p. 5). `fi.face_lattice()` decorates every face of the Newton polytope:
+
+```python
+from feynkit import FeynmanIntegral
+
+fi = FeynmanIntegral.from_cnickel("111e|e|:nnz")      # sunrise, m_3 = 0
+lattice = fi.face_lattice(nu={1: 1, 2: 1, 3: 1})       # D = 4 - 2 eps
+print(len(lattice.faces), len(lattice.facets))          # 26 6, the empty face included
+points = fi.newton_polytope.points
+f1 = lattice.face(j for j, p in enumerate(points) if p[0] == 0)
+print(f1.codimension, f1.resonant)
+# 2 EpsilonSet(kind='progression', offset=Fraction(0, 1), period=Fraction(1, 1))
+print([face.identification.name() for face in lattice.centres("generic")])   # ['G(Gamma/{3})']
+print(lattice.reducible("generic"), [face.dimension for face in lattice.centres(0)])
+# True [-1]: at eps = 0 the empty face is the centre
+print(lattice.check_schwinger().agrees)                 # True
+```
+
+The edge face $F_1$, the terms free of $u_1$, is no longer a facet and is resonant only for
+integer $\varepsilon$; Britto, Grimm and Hoefnagels find it not resonant for generic $D$ (p. 43).
+With $N_G$ the integer forms on $\mathbb{Z}A$ that vanish on the columns of a face $G$, $G$ is
+resonant exactly when $\beta$ lies in the span of $A$ and a basis of $N_G$ takes integer values on
+it, and admissible exactly when every form of the basis vanishes on it. The forms of the facets
+containing $G$ span a subgroup of $N_G$ of finite index $|T_G|$, the lattice defect, and $G$ is
+resonant wherever all its facets are, for every $\beta$, exactly when $|T_G| = 1$ (section 4.9 of
+the mathematics reference). On every Feynman graph in feynkit's tests $|T_G| = 1$. On Schulze and
+Walther's quadric cone it is 2 at the empty face (Ex. 3.3, p. 6), and
+`decorate_configuration(a_matrix, beta0, beta1=None)` shows it for any homogeneous configuration
+and $\beta_0 + \varepsilon\beta_1$:
+
+```python
+from fractions import Fraction
+from feynkit.face_lattice import decorate_configuration
+
+cone = decorate_configuration([[1, 1, 1], [0, 1, 2]], [Fraction(1, 2), 1])
+for face in cone.faces:
+    print(face.point_indices, face.resonant.kind, face.lattice_defect, face.pyramid)
+# () never 2 False
+# (0,) all 1 False
+# (2,) all 1 False
+# (0, 1, 2) all 1 True
+print([face.point_indices for face in cone.centres(0)], cone.reducible(0))
+# [(0,), (2,)] True: two centres, A a pyramid over neither
+```
+
+`centres(eps)` gives the minimal resonant faces at `eps`, an integer, a Fraction or `"generic"`,
+where exactly the faces resonant for every $\varepsilon$ are resonant. `reducible(eps)` is True when
+$A$ is a pyramid over no centre (Theorem 4.1) and False when it is a pyramid over one (Theorem 5.1),
+which is then the only centre. It is None when $A$ does not have full rank, as below full
+dimension, and where no face is resonant, off the span of $A$. On the massless bubble $A$ is a
+pyramid over every face, so `fi.face_lattice(nu={1: 1, 2: 1}).reducible(0)` is False: at $D = 4$
+every face is resonant, yet the system is irreducible, which the facets leave open.
+
+Each `DecoratedFace` holds:
+
+| Attribute | Description |
+|-----------|-------------|
+| `point_indices`, `dimension`, `codimension` | The face, as indices into `fi.newton_polytope.points`; dimension $-1$ for the empty face |
+| `facets` | The facets containing it, as positions in `lattice.facets`, the order of `classify_facets` |
+| `resonant`, `admissible` | `EpsilonSet`s, as for the facets; a progression's offset is the admissible value when there is one |
+| `lattice_defect` | $\vert T_G\vert$ |
+| `columns_off`, `pyramid` | The columns off the face, and whether $A$ is a pyramid over it (Def. 3.4) |
+| `through_origin` | Whether the origin lies in the affine hull of its points; for a facet, $b = 0$ |
+| `identification` | Its `FaceIdentification` up to codimension `identify_codimension`, 2 by default; None beyond |
+
+The lattice also holds `facet_resonance`, the facets as `classify_facets` gives them, and
+`gkz_columns` and `cayley_columns`, the column of `fi.gkz.a_matrix` and of
+`fi.schwinger_gkz.a_matrix` that each point gives, since `fi.gkz` orders its columns differently.
+`check_schwinger()` decorates the Cayley configuration from its own columns and compares it with
+this one face by face under $T$. `fi.face_lattice(d0=None, *, nu=None, identify_codimension=2)`
+chooses $D_0$ and the powers as `fi.facet_resonance` does and caches the result;
+`feynkit.decorate_faces` is the same without the cache. The massless double box has 2246 faces,
+decorated in about 0.8 s.
+
+The analysis report has a `face_lattice` section, built by default, and `fk analyse -L` prints it on
+the terminal and adds the comparison with the Cayley side to it.
 
 ### Lattice invariants
 

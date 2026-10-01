@@ -505,6 +505,58 @@ the Cayley system; `d0=None` reads $D_0$ from a dimension $D_0 - 2\varepsilon$ o
 takes 4 otherwise, and via `feynkit.resonance`: `classify_facets`, `classify_configuration`,
 `span_epsilons` and `admissible`.
 
+### 4.9 Resonance of Every Face
+
+*Ref:* Britto, Grimm, Hoefnagels (2026), arXiv:2606.09978, section 2.2; Schulze and Walther
+(2012), sections 2 to 5. The propositions below are proved in
+`docs/design/2026-09-30-face-lattice.md`.
+
+**Faces.** For a homogeneous $A$ of rank $r$, the faces are the empty face and those of
+$\operatorname{conv}(A)$; the empty face is one because $A$ is positive (Schulze and Walther,
+Def. 3.1, p. 5). Write $\Lambda = \mathbb{Z}A$, $V = \operatorname{span}_{\mathbb{C}} A$ and
+$V_G = \operatorname{span}_{\mathbb{C}} A_G$; a face $G$ is resonant when $\beta \in V_G + \Lambda$
+and admissible when $\beta \in V_G$ (section 4.8).
+
+**The face test.** Let $N_G$ be the group of linear forms on $V$ that are integers on $\Lambda$ and
+vanish on $A_G$, free of rank $k = r - \operatorname{rank} A_G$. For a $\mathbb{Z}$-basis
+$h_1, \ldots, h_k$ of $N_G$, $G$ is resonant exactly when $\beta \in V$ and every
+$h_i(\beta) \in \mathbb{Z}$, and admissible exactly when $\beta \in V$ and every $h_i(\beta) = 0$.
+For a facet this is the criterion of section 4.8; for the empty face it says $\beta \in \Lambda$.
+With $\beta = \beta_0 + \varepsilon\beta_1$, $H = (h_1, \ldots, h_k)$, $p = H\beta_0$ and
+$q = H\beta_1$, the resonant
+$\varepsilon$ are all or none when $q = 0$, and otherwise, writing $q = su$ with $s > 0$ and $u$ a
+primitive integer vector, $v \cdot u = 1$ and $t_0 = -v \cdot p$, the progression
+$(t_0 + \mathbb{Z})/s$ when $p + t_0 u$ is integral and none when it is not.
+
+**Faces against facets.** Resonance and admissibility pass from a face to every face containing
+it. A face is admissible exactly where every facet containing it is. The forms $l_F$ of the facets
+containing $G$ span a subgroup of $N_G$ of finite index; the quotient $T_G$ is the lattice defect.
+$G$ is resonant wherever all those facets are, for every $\beta \in V$, exactly when $T_G = 0$.
+Schulze and Walther's quadric cone, the columns $(1,0)$, $(1,1)$, $(1,2)$ at $\beta = (1/2, 1)$
+(Ex. 3.3, p. 6), has $T_\emptyset = \mathbb{Z}/2$: both rays are resonant and the empty face is not.
+
+**Centres and reducibility.** A resonance centre is a minimal face $F$ with
+$\beta \in \mathbb{Z}A + \mathbb{C}F$, and every $\beta$ has one (Schulze and Walther, Def. 3.2,
+p. 5). $A$ is a pyramid over $F$ when $\operatorname{rank}\mathbb{Z}A = |\bar F| +
+\operatorname{rank}\mathbb{Z}F$ (Def. 3.4, p. 6). A centre over which $A$ is a pyramid is the only
+centre (Prop. 3.8, p. 6); $M_A(\beta)$ is reducible when $A$ is not a pyramid over a centre
+(Thm 4.1, p. 7) and irreducible when it is (Thm 5.1, pp. 7-8). These hold for $\mathbb{Z}A$ of rank
+$d$ (Remark 2.1, p. 3). So when $\operatorname{rank} A = d$, the number of rows, reducibility is
+decided at every $\varepsilon$: the centres are the minimal resonant faces, and the system is
+irreducible exactly when $A$ is a pyramid over one of them. The rank is that of $A$, not the
+dimension of its columns as a point configuration, which is always less for a homogeneous $A$;
+for the Lee-Pomeransky $A$, full rank means that $P$ is full-dimensional. On the massless bubble
+$A$ is a pyramid over every face, so the system is irreducible at every $\varepsilon$, although at
+$D = 4$ every face is resonant.
+
+**The Cayley system.** The matrix $T$ of section 4.6 maps faces, $\Lambda$, the spans and the
+forms across, so the two systems have the same decorated face lattice.
+
+Accessed via `fi.face_lattice(d0=None, nu=..., identify_codimension=2)`, which decorates every
+face of the Newton polytope, indexed by `fi.newton_polytope.points`, and via
+`feynkit.face_lattice`: `decorate_faces`, `decorate_configuration`, `DecoratedFaceLattice` with
+`centres(eps)`, `reducible(eps)` and `check_schwinger()`.
+
 ---
 
 ## 5. Newton Polytope

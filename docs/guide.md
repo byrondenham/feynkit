@@ -650,7 +650,7 @@ prints
 | `masses` | `"zn"` | `"zn"`: each propagator massless or with a mass of its own; `"z"`: massless only; `"shared"`: equal masses as well, as letters |
 | `self_loops` | `False` | Allow propagators from a vertex to itself; massless ones are scaleless and still kept |
 | `max_legs_per_vertex` | `1` | The most legs at one vertex, `None` for no limit |
-| `one_vertex_irreducible` | `False` | Drop graphs whose propagators split into two sets sharing one vertex, whose integrals factorise |
+| `one_vertex_irreducible` | `False` | Drop graphs whose propagators split into two sets sharing one vertex, whose integrals factorise (the polynomial $\mathcal G$ itself need not factor) |
 
 The strings come in blocks of loops, propagators and legs in increasing order, sorted within a
 block, and the same arguments always give the same strings. With `"zn"` the colourings are

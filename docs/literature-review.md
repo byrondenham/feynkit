@@ -56,7 +56,7 @@ A scalar $L$-loop Feynman integral with $n$ propagators in $d$ space-time dimens
 $$
 I_\Gamma(\nu, d, p, m) \;=\; \frac{\Gamma(d/2)}{\Gamma(d/2 - \omega)\,\Gamma(\nu)} \int_{\mathbb{R}_+^n} dx\, x^{\nu - 1}\, G(x)^{-d/2},
 $$
-where $G = U + F$ is the sum of the first and second Symanzik polynomials. The crucial observation is that *all* the analytic structure is now packaged into a single polynomial $G$. Writing
+where $\omega = |\nu| - Ld/2$ (with $|\nu| = \sum_e \nu_e$ and $L$ the number of loops) and $G = U + F$ is the sum of the first and second Symanzik polynomials. The crucial observation is that *all* the analytic structure is now packaged into a single polynomial $G$. Writing
 $$
 G(x) \;=\; \sum_{a_j \in A} z_j\, x^{a_j},
 $$
@@ -253,6 +253,7 @@ What is already settled is that the GKZ approach has changed the way we think ab
 - R. Grinis, A. M. Kasprzyk, *Normal forms of convex lattice polytopes*, arXiv:1301.6641 (2013).
 - R. P. Klausen, *Hypergeometric series representations of Feynman integrals by GKZ hypergeometric systems*, JHEP 04 (2020) 121, arXiv:1910.08651.
 - R. P. Klausen, *Hypergeometric Feynman Integrals*, PhD thesis, Johannes Gutenberg University Mainz, arXiv:2302.13184 (2023).
+- R. N. Lee, A. A. Pomeransky, *Critical points and number of master integrals*, JHEP 11 (2013) 165, arXiv:1308.6676.
 - Q. Liu, Z. Cai, *On the Unimodular Isomorphism Problem of Convex Lattice Polytopes*, arXiv:2506.23846 (2025).
 - L. F. Matusevich, E. Miller, U. Walther, *Homological methods for hypergeometric families*, J. Amer. Math. Soc. 18 (2005) 919, arXiv:math/0406383.
 - M. Schulze, U. Walther, *Resonance equals reducibility for A-hypergeometric systems*, Algebra Number Theory 6 (2012) 527, arXiv:1009.3569.

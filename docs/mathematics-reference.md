@@ -127,8 +127,10 @@ where the Schwinger parameters have been renamed to **Lee-Pomeransky parameters*
 substitution $a_e \to u_e$.  The code uses the prefix `"u"`: symbol name `u_{e.\mathrm{idx}}`,
 non-negative, real; the list is `SymanzikPolynomials.lp_parameters`.
 
-$G$ is a polynomial in $n = E$ variables of degrees $L$ (from $U$) and $L+1$ (from $F$), with
-positive integer coefficients (for massless graphs with positive kinematic invariants).
+$G$ is a polynomial in $n = E$ variables of degrees $L$ (from $U$) and $L+1$ (from $F$), whose
+coefficients are $1$ for the terms of $U$ and, for the terms of $F$, integer combinations of the
+kinematic invariants and squared masses (for example $-s$). Lee and Pomeransky (2013) take
+$G = U + F$ without conditions on the kinematics.
 
 *Ref:* Lee & Pomeransky (2013).
 
@@ -177,8 +179,8 @@ $$\boxed{I_\Gamma \;=\; \frac{e^{L\varepsilon\gamma_E}\,\Gamma(D/2)}{\Gamma\!\le
 **Integrand:** $G(u)^{-D/2}$.
 **Domain:** $u_e \in (0,\infty)$.
 
-The simplification to a single polynomial $G$ is the key advantage: it packages all analytic structure
-into one object, making the GKZ structure transparent.
+Lee and Pomeransky's form puts $U$ and $F$ into the single polynomial $G = U + F$, so one Newton
+polytope and one set of exponents describe the integral.
 
 ### 3.4 Symbol Conventions for Parametrisations
 
@@ -1588,7 +1590,7 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 
 7. **Lee-Pomeransky (2013).** R.N. Lee, A.A. Pomeransky.
    *Critical points and number of master integrals.*
-   JHEP **11** (2013) 165.
+   JHEP **11** (2013) 165.  arXiv:1308.6676.
 
 8. **de la Cruz (2019).** L. de la Cruz.
    *Feynman integrals as A-hypergeometric functions.*

@@ -81,6 +81,15 @@ def test_json_summary_of_the_default_sections(capsys: pytest.CaptureFixture[str]
     assert data["summary"]["landau_surfaces"] == 1
     assert data["summary"]["unidentified_faces"] == 0
     assert data["summary"]["support_product_faces"] == 0
+    assert data["summary"]["resonance_centres_at_generic_d"] == 1
+    assert data["summary"]["reducible_at_generic_d"] is False
+
+
+def test_json_summary_when_reducibility_is_not_decided(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyse", "1ee|1|:zn", "--json", "--sections", "face_lattice", "--no-db"])
+    summary = json.loads(capsys.readouterr().out)["summary"]
+    assert summary["resonance_centres_at_generic_d"] == 0
+    assert summary["reducible_at_generic_d"] is None
 
 
 def test_json_summary_with_the_point_counts(capsys: pytest.CaptureFixture[str]) -> None:

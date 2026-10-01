@@ -466,6 +466,14 @@
   generic D` and `Reducible at generic D`. The report holds the section as
   `AnalysisReport.face_lattice`, a `FaceLattice`, or None; it takes about
   1.2 s on the massless double box.
+- `fk analyse -L` (`--face-lattice`) prints the faces of each dimension by
+  where they are resonant, the resonance centres at generic eps and at
+  eps = 0 and whether the GKZ system is reducible there, and compares the
+  Cayley side face by face. It adds the `face_lattice` section, with that
+  comparison, to the reports, and `--d0` applies to it. Without section
+  flags `fk analyse` prints the same, without the comparison.
+  `fk analyse --json` gains `resonance_centres_at_generic_d` and
+  `reducible_at_generic_d`, which is null when reducibility is not decided.
 
 ### Changed
 

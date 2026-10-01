@@ -131,6 +131,7 @@ fk analyse "12e|2e|e|"                  # bare topology: every propagator massle
 fk analyse "12e|2e|e|:nzz" -S           # symmetries of the one-mass triangle
 fk analyse "11e|e|:nn" -r --d0 3        # resonant facets of the massive bubble, D = 3 - 2 eps
 fk analyse "12e|22e|e|:nnnn" -f         # the graphs of the faces of the massive parachute
+fk analyse "111e|e|:nzz" -L             # resonance centres of the sunrise with one mass
 fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive bubble
 ```
 
@@ -143,13 +144,14 @@ fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive 
 | `-n` | `--newton` | Newton polytope: vertices, whether the integral is scaleless, normalised volume (the holonomic rank for generic $\beta$), Smith invariants, lattice invariants and whether $\mathbb{N}A$ is normal |
 | `-r` | `--resonance` | For each facet of the Newton polytope, its inequality, $l_F(\beta)$, where it is resonant and admissible as $D = D_0 - 2\varepsilon$ varies, and whether it makes the GKZ system reducible (see [Resonant and admissible facets](#resonant-and-admissible-facets)) |
 | `-f` | `--faces` | For each facet of the Newton polytope, its inequality and its graph, a product of Symanzik polynomials of minors, then the number of faces of each class up to codimension 2 (see [Graphs of the faces](#graphs-of-the-faces)). It also adds the `faces` section to a report whose `--sections` leave it out |
+| `-L` | `--face-lattice` | The faces of each dimension by where they are resonant, the resonance centres at generic $\varepsilon$ and at $\varepsilon = 0$, and whether the GKZ system is reducible there (see [Resonance of every face](#resonance-of-every-face)). It also compares the Cayley configuration of the Schwinger representation with the Lee-Pomeransky one face by face, and adds the `face_lattice` section, with that comparison, to the reports |
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
 | | `--torus-count` | Candidate Euler characteristic from finite-field point counts; left out when no flag is given |
 
-`--d0 VALUE` sets $D_0$, an integer or a fraction such as `7/2`, for `-r` and for the report's
-`resonance` section; it is 4 by default, since `fk` builds $D$ as a symbol. The powers are the integral's when they are integers, and
-1 on every edge otherwise, which is what `fk` builds. `--d0` needs `-r`, no section flag at all,
-or a report.
+`--d0 VALUE` sets $D_0$, an integer or a fraction such as `7/2`, for `-r`, `-L` and the report's
+`resonance` and `face_lattice` sections; it is 4 by default, since `fk` builds $D$ as a symbol. The
+powers are the integral's when they are integers, and 1 on every edge otherwise, which is what `fk`
+builds. `--d0` needs `-r`, `-L`, no section flag at all, or a report.
 
 The graph header (CNickel string, Nickel index, loop count, propagators, external legs,
 kinematic class) is printed whatever the section flags, and so is the database record unless

@@ -375,3 +375,56 @@ def test_faces_name_a_support_product(capsys: pytest.CaptureFixture[str]) -> Non
     out = capsys.readouterr().out
     assert "support product of G({2,4}) U(Gamma/{2,4})" in out
     assert "support product" in out.split("Class")[1]
+
+
+def test_face_lattice_prints_the_counts_and_centres(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyse", "11e|e|:zz", "-L", "--no-db"])
+    out = capsys.readouterr().out
+    flat = " ".join(out.split())
+    assert "Face resonance and reducibility (D = 4 - 2 epsilon)" in flat
+    assert "Euler equations" not in out and "Faces as graphs" not in out
+    # The massless bubble: P alone at generic eps, the empty face at eps = 0, both pyramids.
+    assert "Centres at generic epsilon 1; reducible: no" in flat
+    assert "Centres at epsilon = 0 the empty face; reducible: no" in flat
+    assert "Pyramid faces besides P 7" in flat
+    assert "Cayley side agrees face by face" in flat
+
+
+def test_face_lattice_is_printed_by_default_without_the_cayley_side(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    main(["analyse", "11e|e|:nn", "--no-db"])
+    out = capsys.readouterr().out
+    assert "Face resonance and reducibility" in out
+    assert "Centres at generic epsilon" in out
+    assert "Cayley side" not in out
+
+
+def test_face_lattice_takes_d0(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyse", "11e|e|:nn", "-L", "--d0", "3", "--no-db"])
+    flat = " ".join(capsys.readouterr().out.split())
+    assert "Face resonance and reducibility (D = 3 - 2 epsilon)" in flat
+    assert "D_0 3 (given by --d0)" in flat
+
+
+def test_face_lattice_adds_the_section_and_the_cayley_side_to_the_report(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    text = tmp_path / "r.txt"
+    main(["analyse", "11e|e|:nz", "-L", "--text", str(text), "--sections", "gkz", "--no-db"])
+    capsys.readouterr()
+    report = " ".join(text.read_text().split())
+    assert "Face resonance and reducibility" in report
+    assert "agrees with this lattice face by face" in report
+    plain = tmp_path / "plain.txt"
+    main(["analyse", "11e|e|:nz", "--text", str(plain), "--no-db"])
+    capsys.readouterr()
+    report = " ".join(plain.read_text().split())
+    assert "Face resonance and reducibility" in report
+    assert "agrees with this lattice face by face" not in report
+
+
+def test_face_lattice_below_full_rank(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["analyse", "1ee|1|:zn", "-L", "--no-db"])
+    flat = " ".join(capsys.readouterr().out.split())
+    assert "Centres at generic epsilon none: no face is resonant" in flat

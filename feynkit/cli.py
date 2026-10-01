@@ -49,6 +49,7 @@ from feynkit.core.exceptions import FeynkitError, ValidationError
 from feynkit.core.graph import Graph
 from feynkit.database import FeynkitDatabase
 from feynkit.face_identification import identify_faces
+from feynkit.face_lattice import DecoratedFaceLattice, Epsilon
 from feynkit.integral import FeynmanIntegral
 from feynkit.io.report import (
     DEFAULT_SECTIONS,
@@ -61,6 +62,7 @@ from feynkit.io.report import (
 )
 from feynkit.io.report_latex import render_latex
 from feynkit.io.report_text import render_text
+from feynkit.io.sections.face_lattice import face_rows, kind_counts
 from feynkit.io.sections.faces import face_counts
 from feynkit.io.sections.resonance import epsilon_set
 from feynkit.kinematics.classes import IMPOSABLE_CLASSES, KinematicClass
@@ -547,16 +549,18 @@ def _print_lattice_invariants(fi: FeynmanIntegral, full: bool) -> None:
     _kv("Normal configuration", f"no  ({'; '.join(reasons)})")
 
 
-def _print_resonance(fi: FeynmanIntegral, given: Fraction | None) -> None:
-    """Each facet: its inequality, l_F(beta), and where it is resonant and admissible."""
-    d0, source = choose_d0(given, fi.dimension)
-    _sec(f"Resonance  (D = {d0} - 2 epsilon)")
-    origin = {
-        "given": "given by --d0",
-        "dimension": "read from the dimension of the integral",
-        "default": "the default",
-    }
-    _kv("D_0", f"{d0}  ({origin[source]})")
+# Where D_0 comes from, as the terminal says it.
+_D0_ORIGIN = {
+    "given": "given by --d0",
+    "dimension": "read from the dimension of the integral",
+    "default": "the default",
+}
+
+
+def _print_d0_and_powers(fi: FeynmanIntegral, d0: Fraction, source: str) -> list[int]:
+    """Print D_0 and the powers, 1 on every edge when the exponents are not all integers, and
+    return the powers."""
+    _kv("D_0", f"{d0}  ({_D0_ORIGIN[source]})")
     edges = fi.graph.get_internal_edges()
     try:
         powers = [_exact._as_int(fi.propagator_exponents[e.idx], "") for e in edges]
@@ -564,6 +568,15 @@ def _print_resonance(fi: FeynmanIntegral, given: Fraction | None) -> None:
     except ValidationError:
         powers, note = [1] * len(edges), "  (the exponents are not all integers, so 1 is used)"
     _kv("Powers nu_e", f"({', '.join(map(str, powers))}){note}")
+    return powers
+
+
+def _print_resonance(fi: FeynmanIntegral, given: Fraction | None) -> None:
+    """Each facet: its inequality, l_F(beta), and where it is resonant and admissible."""
+    d0, source = choose_d0(given, fi.dimension)
+    _sec(f"Resonance  (D = {d0} - 2 epsilon)")
+    powers = _print_d0_and_powers(fi, d0, source)
+    edges = fi.graph.get_internal_edges()
     data = polytope_data(fi.newton_polytope.points)
     if not data.is_full_dimensional:
         _kv("beta in the span of A for", epsilon_set(span_epsilons(data, powers, d0), latex=False))
@@ -611,6 +624,61 @@ def _print_faces(fi: FeynmanIntegral) -> None:
         print(f"  {name:<14}{''.join(f'{n:>9}' for n in counts)}")
     if not all(face.verified for face in found):
         print("  The report (--latex or --text) writes out G|_F and the prediction.")
+
+
+def _centres(lattice: DecoratedFaceLattice, eps: Epsilon) -> str:
+    """The number of resonance centres at eps, or the empty face, and whether the system is
+    reducible there."""
+    centres = lattice.centres(eps)
+    if not centres:
+        return "none: no face is resonant, beta lies outside the span of A"
+    reducible = lattice.reducible(eps)
+    verdict = "not decided" if reducible is None else "yes" if reducible else "no"
+    found = "the empty face" if not centres[0].point_indices else str(len(centres))
+    return f"{found}; reducible: {verdict}"
+
+
+def _print_centres(lattice: DecoratedFaceLattice, eps: Epsilon) -> None:
+    """The resonance centres at eps, unless there are none or the empty face is the centre."""
+    centres = lattice.centres(eps)
+    if centres and centres[0].point_indices:
+        for dimension, facets, graph in face_rows(centres, latex=False):
+            print(f"    dimension {dimension:<3} facets {facets:<20} {graph}")
+
+
+def _print_face_lattice(fi: FeynmanIntegral, given: Fraction | None, check: bool) -> None:
+    """The faces by dimension and resonant set, the centres at generic eps and at eps = 0 with
+    the verdict on reducibility, and with check the comparison with the Cayley side."""
+    d0, source = choose_d0(given, fi.dimension)
+    _sec(f"Face resonance and reducibility  (D = {d0} - 2 epsilon)")
+    powers = _print_d0_and_powers(fi, d0, source)
+    edges = [e.idx for e in fi.graph.get_internal_edges()]
+    lattice = fi.face_lattice(
+        d0, nu=dict(zip(edges, powers, strict=True)), identify_codimension=FACE_CODIMENSION
+    )
+    columns = (("Faces", 7), ("every eps", 11), ("progression", 13), ("one value", 11), ("none", 6))
+    print(f"  {'Dimension':<11}" + "".join(f"{name:>{w}}" for name, w in columns))
+    for k, row in kind_counts(lattice):
+        cells = (sum(row), *row)
+        print(f"  {k:<11}" + "".join(f"{n:>{w}}" for n, (_, w) in zip(cells, columns, strict=True)))
+    _kv("Centres at generic epsilon", _centres(lattice, "generic"))
+    _print_centres(lattice, "generic")
+    _kv("Centres at epsilon = 0", _centres(lattice, 0))
+    _print_centres(lattice, 0)
+    if not lattice.full_rank:
+        print("  A does not have full rank, so reducibility is not decided.")
+    pyramids = sum(face.pyramid and face.codimension > 0 for face in lattice.faces)
+    if pyramids:
+        _kv("Pyramid faces besides P", pyramids)
+    defects = sum(face.lattice_defect != 1 for face in lattice.faces)
+    if defects:
+        _kv("Faces with a lattice defect", defects)
+    if check:
+        found = lattice.check_schwinger()
+        if found.agrees:
+            _kv("Cayley side", "agrees face by face")
+        else:
+            _kv("Cayley side", f"differs on {len(found.mismatches)} faces")
 
 
 def _print_symmetries(fi: FeynmanIntegral) -> None:
@@ -702,6 +770,7 @@ class ReportOptions:
     torus_budget: int = DEFAULT_TORUS_BUDGET
     limits: bool = False
     d0: Fraction | None = None
+    check_schwinger: bool = False
 
     @property
     def writes_files(self) -> bool:
@@ -819,8 +888,8 @@ def _write_reports(
 
 def _json_value(value: str) -> bool | int | str | None:
     """A summary value as an integer when it is one, a boolean for "yes" and "no", None for
-    "none", otherwise as given."""
-    if value in ("none", "not computed"):
+    "none", "not computed" and "not decided", otherwise as given."""
+    if value in ("none", "not computed", "not decided"):
         return None
     if value in ("yes", "no"):
         return value == "yes"
@@ -892,6 +961,7 @@ def analyse_one(
                     torus_budget=options.torus_budget,
                     limits=True if options.limits else None,
                     d0=options.d0,
+                    check_schwinger=options.check_schwinger,
                 )
             )
         return built[0]
@@ -918,6 +988,9 @@ def analyse_one(
         if not sections or "faces" in sections:
             with _stage("faces", verbose):
                 _print_faces(fi)
+        if not sections or "face_lattice" in sections:
+            with _stage("face lattice", verbose):
+                _print_face_lattice(fi, options.d0, "face_lattice" in sections)
         if "torus" in sections:
             with _stage("torus", verbose):
                 count = None
@@ -1300,6 +1373,17 @@ def _build_parser() -> _Parsers:
         ),
     )
     shown.add_argument(
+        "-L",
+        "--face-lattice",
+        action="store_true",
+        help=(
+            "where every face of the Newton polytope is resonant, the resonance centres at "
+            "generic epsilon and at epsilon = 0, and whether the GKZ system is reducible; it "
+            "also compares the Cayley configuration of the Schwinger representation face by "
+            "face, and adds the face_lattice section, with that comparison, to the reports"
+        ),
+    )
+    shown.add_argument(
         "-S", "--symmetries", action="store_true", help="polytope automorphisms and symmetry pairs"
     )
     shown.add_argument(
@@ -1458,10 +1542,11 @@ def _parse_args(parsers: _Parsers, argv: Sequence[str]) -> argparse.Namespace:
 
 
 def _section_flags(args: argparse.Namespace) -> set[str]:
-    """The sections that the section flags of analyse choose; --faces chooses "faces" and
-    --torus-count "torus"."""
+    """The sections that the section flags of analyse choose; --faces chooses "faces",
+    --face-lattice "face_lattice" and --torus-count "torus"."""
     chosen = {name for name in SECTION_FLAGS if getattr(args, name)}
     chosen |= {"faces"} if args.faces else set()
+    chosen |= {"face_lattice"} if args.face_lattice else set()
     return chosen | {"torus"} if args.torus_count else chosen
 
 
@@ -1478,9 +1563,12 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
     if args.limits and not (args.latex or args.text or args.json):
         parser.error("--limits changes the report; add --latex, --text or --json")
     flags = _section_flags(args)
-    printed = not flags or "resonance" in flags
+    printed = not flags or bool({"resonance", "face_lattice"} & flags)
     if args.d0 is not None and not (printed or args.latex or args.text or args.json):
-        parser.error("--d0 applies to the resonance section; add -r, --latex, --text or --json")
+        parser.error(
+            "--d0 applies to the resonance and face-lattice sections; add -r, -L, --latex, "
+            "--text or --json"
+        )
     counts = args.torus_count or (args.sections is not None and "torus" in args.sections)
     for option, value in (("--seed", args.seed), ("--torus-budget", args.torus_budget)):
         if value is not None and not counts:
@@ -1494,6 +1582,8 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
     sections = DEFAULT_SECTIONS if args.sections is None else args.sections
     if args.faces and "faces" not in sections:
         sections = (*sections, "faces")
+    if args.face_lattice and "face_lattice" not in sections:
+        sections = (*sections, "face_lattice")
     return ReportOptions(
         sections=sections,
         latex=args.latex,
@@ -1503,6 +1593,7 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         torus_budget=DEFAULT_TORUS_BUDGET if args.torus_budget is None else args.torus_budget,
         limits=args.limits,
         d0=args.d0,
+        check_schwinger=args.face_lattice,
     )
 
 

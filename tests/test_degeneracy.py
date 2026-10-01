@@ -648,3 +648,15 @@ def test_exports() -> None:
     assert feynkit.face_degeneracy_from_polynomial is face_degeneracy_from_polynomial
     assert feynkit.DegeneracyAnalysis is DegeneracyAnalysis
     assert feynkit.FaceDegeneracy is FaceDegeneracy
+
+
+def test_identically_zero_coefficient_is_not_a_vertex() -> None:
+    a, b, x, y = sp.symbols("a b x y")
+    g = (a / (a - b) - b / (a - b) - 1) * x**2 * y**2 + 1 + x + y
+    generic = face_degeneracy_from_polynomial(g, [x, y])
+    assert generic.volume == 1
+    assert (2, 2) not in generic.points
+    assert all(face.degenerate is False for face in generic.faces)
+    at_point = face_degeneracy_from_polynomial(g, [x, y], point={a: 3, b: 1})
+    assert at_point.volume == 1
+    assert at_point.support_loss == 0

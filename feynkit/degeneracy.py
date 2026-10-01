@@ -242,6 +242,13 @@ def _even(polys: Sequence[sp.Poly], k: int) -> bool:
     return all(m[k] % 2 == 0 for poly in polys for m in poly.monoms())
 
 
+def _nonzero(
+    terms: Sequence[tuple[tuple[int, ...], sp.Expr]],
+) -> list[tuple[tuple[int, ...], sp.Expr]]:
+    """The terms whose coefficient is not identically zero as a rational function."""
+    return [(e, c) for e, c in terms if sp.fraction(sp.together(sp.sympify(c)))[0].expand() != 0]
+
+
 def _support(
     polynomial: sp.Expr,
     variables: tuple[sp.Symbol, ...],
@@ -254,12 +261,17 @@ def _support(
     g = sp.expand(sp.sympify(polynomial))
     if g == 0:
         raise ValidationError("the polynomial is zero")
-    terms = extract_monomial_support(g, list(variables))
+    everything = extract_monomial_support(g, list(variables))
+    terms = _nonzero(everything)
     unit = scale is not None and (point is not None or _unit_scale_is_exact(terms, scale))
     if unit and scale in g.free_symbols:
-        terms = [(e, sp.sympify(c).subs(scale, 1)) for e, c in terms]
+        terms = _nonzero([(e, sp.sympify(c).subs(scale, 1)) for e, c in terms])
+    if not terms:
+        raise ValidationError("the polynomial is zero")
+    # The symbols of a coefficient that cancels still count as parameters of the polynomial.
+    listed = [(e, sp.sympify(c).subs(scale, 1) if unit else sp.sympify(c)) for e, c in everything]
     parameters = tuple(
-        sorted(set().union(*(sp.sympify(c).free_symbols for _, c in terms)), key=lambda x: x.name)
+        sorted(set().union(*(c.free_symbols for _, c in listed)), key=lambda x: x.name)
     )
     fractions = [_fraction(c, parameters) for _, c in terms]
     family_volume = _volume_bound(polytope_data([e for e, _ in terms]))

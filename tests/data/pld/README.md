@@ -19,3 +19,7 @@ The headers of sixteen more entries, up to but not including their first compone
 `tdebox`, `pltrb` and `dbox` with generic masses, `pentb_zero_zero`, and the custom entries
 `inner-dbox`, `outer-dbox`, `Bhabha-dbox` and `Bhabha2-dbox`. Their text is otherwise unchanged,
 and the licence above applies to it.
+
+The headers of six more, cut in the same way, serve `tests/test_regression_tables.py`:
+`Hj-npl-dbox`, `Bhabha-npl-dbox` and `Hj-npl-pentb` with custom kinematics, and `dpent`,
+`npl-dpent` and `npl-dpent2` with massless propagators and legs.

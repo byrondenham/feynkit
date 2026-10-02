@@ -537,6 +537,20 @@
   criterion at the generic point of a family, and, from Gelfand, Kapranov
   and Zelevinsky, that the principal A-determinant vanishes exactly when some
   face is degenerate.
+- `tests/test_regression_tables.py` checks published tables against what
+  feynkit computes, citing the page of each row: Table 1 of Klausen
+  (arXiv:1910.08651), with N, the corank, the volume, |U|, |F| and the number
+  of master integrals C of 28 graphs, and whether some face is degenerate; dim
+  E and the f-vectors of Table 3 of Fevola, Mizera and Telen
+  (arXiv:2311.16219), and the degrees of its components for inner-dbox, which
+  run with `-m slow`; the triangle's face discriminants and the dunce's cap's
+  leading Landau variety from Klausen (arXiv:2109.07584); C in Tables 1 and 2,
+  Props. 54 to 56 and Exs. 57 and 59 of Bitoun, Bogner, Klausen and Panzer;
+  and the GKZ ranks and their restrictions of Chestnov, Matsubara-Heo, Munch
+  and Takayama (arXiv:2305.01585), now in the guide's references. C is not
+  checked for Klausen's three amputated cap rows. The headers of six more
+  entries of the Landau determinant database are committed under
+  `tests/data/pld/`.
 
 ### Changed
 

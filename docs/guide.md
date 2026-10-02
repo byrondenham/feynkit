@@ -3154,3 +3154,7 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
 25. Borinsky, M., Munch, H.J. and Tellander, F. (2023). Tropical Feynman integration in the
     Minkowski regime. *Comput. Phys. Commun.* **292**, 108874.
     [arXiv:2302.08955](https://arxiv.org/abs/2302.08955)
+
+26. Chestnov, V., Matsubara-Heo, S.J., Munch, H.J. and Takayama, N. (2023). Restrictions of
+    Pfaffian systems for Feynman integrals. *JHEP* **11**, 202.
+    [arXiv:2305.01585](https://arxiv.org/abs/2305.01585)

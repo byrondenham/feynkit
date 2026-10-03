@@ -1521,9 +1521,11 @@ The full lattice of the double box has 2246 faces, so `hasse_tikz(lattice, "all"
 and the default view, codimension 2, has under 200. A filtered view joins two faces when one
 contains the other and no chosen face lies between them.
 
-An infrared facet, in feynkit's term, is a facet whose face is a product $G(\gamma)\,U(\Gamma/\gamma)$
-with a scaleless factor of at least two edges, as at a massless corner of the box; a facet whose
-scaleless factor is a single line is soft only, and is not counted. A soft-collinear cone is a face of
+An infrared facet, in feynkit's term, is a facet whose flag deletes edges and has a later level
+whose minor has $F = 0$ and at least two edges, as at a massless corner of the box; a level of a
+single line is soft only, and does not count. $G$ on the facet need not be the product
+$G(\gamma)\,U(\Gamma/\gamma)$ of the flag, and at the massless box it is not, so these facets
+are reported as unidentified. A soft-collinear cone is a face of
 codimension 2 on two infrared facets and on neither layer of the polytope. The massless box with two
 neighbouring massless corners has 1 cone, with three has 2, and with four has 4, one for each pair of
 neighbouring corners; two opposite corners have none, since their facets meet only in the layer of

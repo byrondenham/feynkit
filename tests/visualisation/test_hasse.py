@@ -340,6 +340,17 @@ def test_soft_collinear_cones_of_the_massless_box(
     assert sum(1 for k in marked if lattice.faces[k].codimension == 2) == cones
 
 
+def test_an_infrared_facet_need_not_be_identified() -> None:
+    """The flag of the facet (0, 1, 4, 5) of the massless box deletes edges and has a bubble
+    with F = 0, so it is infrared, though G on it is not the product of its flag: it is
+    unidentified."""
+    lattice = _lattice(_box((1, 2, 3, 4)))
+    face = lattice.face((0, 1, 4, 5))
+    assert face.identification is not None
+    assert face.identification.kind == "unidentified"
+    assert face in infrared_facets(lattice)
+
+
 def test_the_ir_filter_shows_only_ir_facets_and_cones() -> None:
     lattice = _lattice(_box((1, 2, 3, 4)))
     found = hasse_faces(lattice, "filter", filter="ir")

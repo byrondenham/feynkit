@@ -19,11 +19,12 @@ shows a view of it: every face, the faces up to a codimension, the faces above
 or below one face, or the faces a filter selects. A view of more than
 ``max_faces`` faces raises instead of drawing.
 
-An infrared facet, in feynkit's term, is a facet whose face is a product of
-polynomials of minors with a scaleless factor of at least two edges, such as
-U(Gamma/{1,3}) at a massless corner of the box; a purely soft facet, whose
-scaleless factor is a single line, is not one. A soft-collinear cone is a face
-of codimension 2 on two infrared facets, and on neither the U layer nor the F
+An infrared facet, in feynkit's term, is a facet whose flag deletes edges and has a
+later level whose minor has F = 0 and at least two edges, as at a massless corner of
+the box; a level of a single edge is a soft region only, and does not count. The
+polynomial G on the facet need not be the product G(gamma) U(Gamma/gamma) of the flag:
+at the massless box it is not, and the facets are unidentified. A soft-collinear cone is
+a face of codimension 2 on two infrared facets, and on neither the U layer nor the F
 layer of the polytope, which two opposite infrared facets of the box share.
 """
 
@@ -102,11 +103,11 @@ def _is_infrared(face: DecoratedFace) -> bool:
 def infrared_facets(lattice: DecoratedFaceLattice) -> tuple[DecoratedFace, ...]:
     """The infrared facets of the polytope, in the order of the lattice.
 
-    A facet F is infrared when its flag deletes edges and a later level, the
-    quotient of the product G(gamma) U(Gamma/gamma) it is, has F-polynomial
-    zero and at least two edges. This is the collinear region at a massless
-    corner of a box; a facet whose scaleless level is a single line is a soft
-    region and is left out. Facets that are not identified are not infrared.
+    A facet is infrared when its flag deletes edges and a later level has a
+    minor with F = 0 and at least two edges. This is the collinear region at a
+    massless corner of a box; a facet whose only such level is a single line is
+    a soft region and is left out. G on the facet need not equal the product of
+    the flag, and the facet is often unidentified.
     """
     return tuple(lattice.faces[k] for k in lattice.facets if _is_infrared(lattice.faces[k]))
 

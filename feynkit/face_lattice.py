@@ -200,6 +200,70 @@ class DecoratedConfiguration:
             raise ValidationError(f"the columns {key} are not a face")
         return found
 
+    @cached_property
+    def _cover_table(
+        self,
+    ) -> tuple[
+        dict[tuple[int, ...], tuple[DecoratedFace, ...]],
+        dict[tuple[int, ...], tuple[DecoratedFace, ...]],
+    ]:
+        """The faces one dimension up and one down, for each face, in the order of ``faces``."""
+        masks = {face.point_indices: sum(1 << j for j in face.point_indices) for face in self.faces}
+        by_dimension: dict[int, list[DecoratedFace]] = {}
+        for face in self.faces:
+            by_dimension.setdefault(face.dimension, []).append(face)
+        up: dict[tuple[int, ...], list[DecoratedFace]] = {f.point_indices: [] for f in self.faces}
+        down: dict[tuple[int, ...], list[DecoratedFace]] = {f.point_indices: [] for f in self.faces}
+        for dimension, lower in by_dimension.items():
+            upper = by_dimension.get(dimension + 1, [])
+            # A face above G contains the least point of G, so only those are tested.
+            holding: dict[int, list[DecoratedFace]] = {}
+            for big in upper:
+                for j in big.point_indices:
+                    holding.setdefault(j, []).append(big)
+            for small in lower:
+                mask = masks[small.point_indices]
+                candidates = (
+                    holding.get(small.point_indices[0], []) if small.point_indices else upper
+                )
+                for big in candidates:
+                    if masks[big.point_indices] & mask == mask:
+                        up[small.point_indices].append(big)
+                        down[big.point_indices].append(small)
+        return (
+            {key: tuple(value) for key, value in up.items()},
+            {key: tuple(value) for key, value in down.items()},
+        )
+
+    def covers(self, face: DecoratedFace | Iterable[int]) -> tuple[DecoratedFace, ...]:
+        """The faces one dimension up that contain this one, in the order of ``faces``.
+
+        These are the faces covering it in the face lattice, the edges of its
+        Hasse diagram going up. The empty face is covered by the vertices and
+        the whole of A by nothing. ``face`` is a face or its columns, as for
+        :meth:`face`.
+
+        Raises
+        ------
+        ValidationError
+            As :meth:`face`.
+        """
+        return self._cover_table[0][self._key(face)]
+
+    def lower_covers(self, face: DecoratedFace | Iterable[int]) -> tuple[DecoratedFace, ...]:
+        """The faces one dimension down that this one contains, in the order of ``faces``.
+
+        Raises
+        ------
+        ValidationError
+            As :meth:`face`.
+        """
+        return self._cover_table[1][self._key(face)]
+
+    def _key(self, face: DecoratedFace | Iterable[int]) -> tuple[int, ...]:
+        points = face.point_indices if isinstance(face, DecoratedFace) else face
+        return self.face(points).point_indices
+
     def resonance(self, points: Iterable[int]) -> EpsilonSet:
         """The eps at which the face on these columns is resonant; see :meth:`face`."""
         return self.face(points).resonant

@@ -640,3 +640,47 @@ def test_exported_from_the_package() -> None:
     assert feynkit.DecoratedFaceLattice is DecoratedFaceLattice
     assert feynkit.DecoratedFace is DecoratedFace
     assert feynkit.decorate_faces is decorate_faces
+
+
+# --- the cover relation ----------------------------------------------------------------------
+
+
+def _brute_covers(lattice: DecoratedConfiguration) -> dict[tuple[int, ...], set[tuple[int, ...]]]:
+    """The faces strictly above each face with no face between them, by set containment."""
+    sets = {face.point_indices: set(face.point_indices) for face in lattice.faces}
+    found: dict[tuple[int, ...], set[tuple[int, ...]]] = {}
+    for low, small in sets.items():
+        above = [key for key, big in sets.items() if small < big]
+        found[low] = {key for key in above if not any(sets[key] > sets[other] for other in above)}
+    return found
+
+
+@pytest.mark.parametrize("name", ["bubble", "triangle", "box, massive", "sunrise"])
+def test_covers_agree_with_containment(name: str) -> None:
+    fi, lattice = _lattice(name)
+    brute = _brute_covers(lattice)
+    pairs = 0
+    for face in lattice.faces:
+        found = lattice.covers(face)
+        assert {c.point_indices for c in found} == brute[face.point_indices]
+        assert all(c.dimension == face.dimension + 1 for c in found)
+        assert list(found) == sorted(found, key=lambda c: c.point_indices)
+        assert lattice.covers(face.point_indices) == found
+        pairs += len(found)
+    assert pairs == sum(len(v) for v in brute.values())
+    lower = {face.point_indices: set() for face in lattice.faces}
+    for face in lattice.faces:
+        for above in lattice.covers(face):
+            lower[above.point_indices].add(face.point_indices)
+    for face in lattice.faces:
+        assert {c.point_indices for c in lattice.lower_covers(face)} == lower[face.point_indices]
+
+
+def test_covers_of_a_segment() -> None:
+    lattice = decorate_configuration(_matrix(QUADRIC_CONE), [F(1, 2), F(1)])
+    assert [c.point_indices for c in lattice.covers(())] == [(0,), (2,)]
+    assert [c.point_indices for c in lattice.covers((0,))] == [(0, 1, 2)]
+    assert lattice.covers((0, 1, 2)) == ()
+    assert [c.point_indices for c in lattice.lower_covers((0, 1, 2))] == [(0,), (2,)]
+    with pytest.raises(ValidationError, match="not a face"):
+        lattice.covers((0, 1))

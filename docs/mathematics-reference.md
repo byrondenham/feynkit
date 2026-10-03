@@ -559,6 +559,16 @@ $M_A(\beta) \cong \boxtimes_j D/(x\partial - \gamma_j)$ is reducible as a D-modu
 **The Cayley system.** The matrix $T$ of section 4.6 maps faces, $\Lambda$, the spans and the
 forms across, so the two systems have the same decorated face lattice.
 
+**The Hasse diagram.** The face lattice is ordered by inclusion, and $H$ covers $G$ when $G \subset H$
+and no face lies strictly between them. For the faces of a polytope this holds exactly when
+$\dim H = \dim G + 1$ and $G \subset H$, and the empty face is covered by the vertices. The Hasse
+diagram has the faces as nodes and the covers as edges; feynkit draws it with a row to a dimension
+and colours each node by the set of $\varepsilon$ at which the face is resonant, which is all of
+them, a progression or none, so that resonance, which passes to larger faces, can be read along
+the edges. A facet is infrared in feynkit's term when its flag is a product $G(\gamma)\,U(\Gamma/\gamma)$
+whose factor on a minor with at least two edges is scaleless, that is has $F = 0$; a soft-collinear
+cone is a face of codimension 2 on two such facets and on neither the $U$ layer nor the $F$ layer.
+
 Accessed via `fi.face_lattice(d0=None, nu=..., identify_codimension=2)`, which decorates every
 face of the Newton polytope, indexed by `fi.newton_polytope.points`, and via
 `feynkit.face_lattice`: `decorate_faces`, `decorate_configuration`, `DecoratedFaceLattice` with

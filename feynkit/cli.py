@@ -70,12 +70,13 @@ from feynkit.io.sections.degeneracy import (
 )
 from feynkit.io.sections.face_lattice import face_rows, kind_counts
 from feynkit.io.sections.faces import face_counts, facet_graph
-from feynkit.io.sections.resonance import epsilon_set
+from feynkit.io.sections.resonance import epsilon_set, integer_powers
 from feynkit.kinematics.classes import IMPOSABLE_CLASSES, KinematicClass
 from feynkit.landau import LandauAnalysis
 from feynkit.point_count import TorusCount
 from feynkit.polytope import polytope_data
 from feynkit.resonance import choose_d0, classify_facets, span_epsilons
+from feynkit.visualisation.hasse import HASSE_FILTERS, HASSE_VIEWS, MAX_FACES, hasse_document
 
 SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "resonance", "symmetries")
 # The seed and budget of the point counts when --seed and --torus-budget are not given.
@@ -687,6 +688,30 @@ def _print_face_lattice(fi: FeynmanIntegral, given: Fraction | None, check: bool
             _kv("Cayley side", f"differs on {len(found.mismatches)} faces")
 
 
+def _write_hasse(fi: FeynmanIntegral, options: ReportOptions) -> None:
+    """Write the Hasse diagram of the face lattice, at the D_0 and powers of the face-lattice
+    section, as a standalone LaTeX document."""
+    assert options.hasse is not None
+    d0, _ = choose_d0(options.d0, fi.dimension)
+    powers, _ = integer_powers(fi)
+    edges = [e.idx for e in fi.graph.get_internal_edges()]
+    lattice = fi.face_lattice(
+        d0, nu=dict(zip(edges, powers, strict=True)), identify_codimension=FACE_CODIMENSION
+    )
+    _sec("Hasse diagram")
+    document = hasse_document(
+        lattice,
+        options.hasse_view,
+        options.hasse_codim,
+        face=options.hasse_face,
+        filter=options.hasse_filter,
+        highlight=options.hasse_highlight,
+        max_faces=options.hasse_max_faces,
+    )
+    _write(options.hasse, document, "Hasse diagram")
+    print(f"  Wrote the Hasse diagram to {options.hasse}")
+
+
 def _print_symmetries(fi: FeynmanIntegral) -> None:
     _sec("Symmetries")
     cfg = AConfiguration(fi.gkz.a_matrix, is_homogenized=True)
@@ -822,6 +847,13 @@ class ReportOptions:
     d0: Fraction | None = None
     check_schwinger: bool = False
     degeneracy_mode: DegeneracyMode = DEFAULT_DEGENERACY_MODE
+    hasse: Path | None = None
+    hasse_view: str = "codim"
+    hasse_codim: int = FACE_CODIMENSION
+    hasse_face: tuple[int, ...] | None = None
+    hasse_filter: str | None = None
+    hasse_highlight: str | None = None
+    hasse_max_faces: int = MAX_FACES
 
     @property
     def writes_files(self) -> bool:
@@ -842,6 +874,21 @@ def _integer(text: str, least: int) -> int:
 def _seed(text: str) -> int:
     """Parse --seed, 0 or more: random.Random seeds with the absolute value of an integer, so
     -1 would draw the point of seed 1 and report it as seed -1."""
+    return _integer(text, 0)
+
+
+def _point_list(text: str) -> tuple[int, ...]:
+    """Parse --hasse-face: comma-separated non-negative point indices."""
+    try:
+        return tuple(_integer(word, 0) for word in text.split(","))
+    except argparse.ArgumentTypeError:
+        raise argparse.ArgumentTypeError(
+            f"expected comma-separated point indices such as 0,1,4; got {text!r}"
+        ) from None
+
+
+def _codim(text: str) -> int:
+    """Parse --hasse-codim, 0 or more."""
     return _integer(text, 0)
 
 
@@ -1045,6 +1092,9 @@ def analyse_one(
         if not sections or "face_lattice" in sections:
             with _stage("face lattice", verbose):
                 _print_face_lattice(fi, options.d0, "face_lattice" in sections)
+        if options.hasse is not None:
+            with _stage("hasse", verbose):
+                _write_hasse(fi, options)
         if "torus" in sections:
             with _stage("torus", verbose):
                 count = None
@@ -1273,6 +1323,13 @@ _VALUE_OPTIONS = frozenset(
         "--seed",
         "--torus-budget",
         "--degeneracy-mode",
+        "--hasse",
+        "--hasse-view",
+        "--hasse-codim",
+        "--hasse-face",
+        "--hasse-filter",
+        "--hasse-highlight",
+        "--hasse-max-faces",
         "--kinematics",
         "--set",
         "--d0",
@@ -1483,6 +1540,51 @@ def _build_parser() -> _Parsers:
             "kinematic symbols, which can take minutes"
         ),
     )
+    drawing = analyse.add_argument_group(
+        "Hasse diagram", "the face lattice drawn as a standalone LaTeX document with TikZ"
+    )
+    drawing.add_argument(
+        "--hasse",
+        type=Path,
+        metavar="FILE",
+        help=(
+            "write the Hasse diagram of the face lattice, coloured by resonance, to FILE; "
+            f"it has at most --hasse-max-faces faces, {MAX_FACES} by default"
+        ),
+    )
+    drawing.add_argument(
+        "--hasse-view",
+        choices=HASSE_VIEWS,
+        help=(
+            "the faces to draw: all, codim (up to --hasse-codim, the default), upset or "
+            "downset (of --hasse-face), or filter (those of --hasse-filter)"
+        ),
+    )
+    drawing.add_argument(
+        "--hasse-codim",
+        type=_codim,
+        metavar="K",
+        help=f"largest codimension of the codim view, {FACE_CODIMENSION} by default",
+    )
+    drawing.add_argument(
+        "--hasse-face",
+        type=_point_list,
+        metavar="POINTS",
+        help="the face of the upset and downset views, as comma-separated point indices",
+    )
+    drawing.add_argument(
+        "--hasse-filter",
+        choices=HASSE_FILTERS,
+        help="the faces of the filter view",
+    )
+    drawing.add_argument(
+        "--hasse-highlight",
+        choices=HASSE_FILTERS,
+        help="draw the faces of this filter with a heavy outline",
+    )
+    drawing.add_argument(
+        "--hasse-max-faces", type=_budget, metavar="N", help="the most faces to draw"
+    )
     counting = analyse.add_argument_group(
         "point counts", "for --torus-count and the torus report section"
     )
@@ -1684,7 +1786,17 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
             "--degeneracy-mode applies to the degenerate faces; add --degeneracy or name "
             "degeneracy in --sections"
         )
-    for path, kind in ((args.latex, "LaTeX"), (args.text, "text")):
+    given = {
+        "--hasse-view": args.hasse_view,
+        "--hasse-codim": args.hasse_codim,
+        "--hasse-face": args.hasse_face,
+        "--hasse-filter": args.hasse_filter,
+        "--hasse-highlight": args.hasse_highlight,
+        "--hasse-max-faces": args.hasse_max_faces,
+    }
+    if args.hasse is None and any(v is not None for v in given.values()):
+        parser.error("the --hasse-* options draw the diagram; add --hasse FILE")
+    for path, kind in ((args.latex, "LaTeX"), (args.text, "text"), (args.hasse, "Hasse diagram")):
         if path is not None:
             _check_writable(path, kind)
     sections = DEFAULT_SECTIONS if args.sections is None else args.sections
@@ -1707,6 +1819,13 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         degeneracy_mode=(
             DEFAULT_DEGENERACY_MODE if args.degeneracy_mode is None else args.degeneracy_mode
         ),
+        hasse=args.hasse,
+        hasse_view="codim" if args.hasse_view is None else args.hasse_view,
+        hasse_codim=FACE_CODIMENSION if args.hasse_codim is None else args.hasse_codim,
+        hasse_face=args.hasse_face,
+        hasse_filter=args.hasse_filter,
+        hasse_highlight=args.hasse_highlight,
+        hasse_max_faces=MAX_FACES if args.hasse_max_faces is None else args.hasse_max_faces,
     )
 
 

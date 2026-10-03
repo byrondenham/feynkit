@@ -126,6 +126,17 @@
 
 ### Added
 
+- Hasse diagrams of the face lattice. `DecoratedConfiguration.covers` and `lower_covers` give the
+  faces one dimension up and down. `feynkit.visualisation.hasse` draws a view of the lattice as
+  TikZ, with each face coloured by its resonance, ringed when degenerate and labelled by its
+  identification: `hasse_tikz`, `hasse_document` and `save_hasse_tikz`, with views of every face,
+  the faces up to a codimension, the faces above or below one face, and the faces a filter selects.
+  A view over 200 faces raises with its size. `infrared_facets` and `soft_collinear_cones` find
+  the collinear facets of a massless box and the faces where two of them meet. `fk analyse --hasse
+  FILE` writes the diagram, and the optional `hasse` report section puts it in the LaTeX report.
+  The levels of a face's flag record whether their minor is scaleless. The LaTeX report loads
+  `graphicx`.
+
 - `fk analyze` is an alias of `fk analyse`.
 - An optional extra `backends`, `pip install "feynkit[backends]"`, installs
   PyNormaliz (Linux and macOS) and python-flint, which the development

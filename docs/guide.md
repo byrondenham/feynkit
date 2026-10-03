@@ -107,8 +107,9 @@ under uv). It has two subcommands:
 
 ```
 fk analyse CNICKEL [--kinematics CLASS] [--set SYMBOL=VALUE ...] [section flags] [--d0 VALUE] [--latex FILE] [--text FILE]
-           [--json] [--sections NAMES] [--limits] [--seed N] [--torus-budget N] [--degeneracy-mode MODE] [--db PATH | --no-db]
-           [--verbose]
+           [--json] [--sections NAMES] [--limits] [--seed N] [--torus-budget N] [--degeneracy-mode MODE]
+           [--hasse FILE [--hasse-view VIEW] [--hasse-codim K] [--hasse-face POINTS] [--hasse-filter NAME] [--hasse-highlight NAME] [--hasse-max-faces N]]
+           [--db PATH | --no-db] [--verbose]
 fk compare A B [--db PATH | --no-db] [--verbose]
 fk --version
 ```
@@ -208,6 +209,30 @@ line on stderr and status 1. A `--set` without `=` or with an empty side is a us
 date, the text report in a line under its title, and the JSON lists them under `substitutions`
 when there are any. The kinematic class of the result is usually `other`.
 
+#### Hasse diagrams
+
+`--hasse FILE` writes the Hasse diagram of the face lattice as a standalone LaTeX document, at the
+$D_0$ and powers of the face-lattice section (see [Hasse diagrams of the face
+lattice](#hasse-diagrams-of-the-face-lattice)). Without a section flag the usual printout comes
+too, as with `--latex`.
+
+| Option | Effect |
+|--------|--------|
+| `--hasse FILE` | write the diagram to FILE |
+| `--hasse-view VIEW` | the faces drawn: `all`, `codim` (the default), `upset` or `downset` (of `--hasse-face`), or `filter` (those of `--hasse-filter`) |
+| `--hasse-codim K` | largest codimension of the `codim` view; 2 by default |
+| `--hasse-face POINTS` | the face of `upset` and `downset`, as comma-separated point indices |
+| `--hasse-filter NAME` | the faces of the `filter` view: `resonant`, `degenerate`, `contraction` or `ir` |
+| `--hasse-highlight NAME` | draw the faces of that filter with a heavy outline |
+| `--hasse-max-faces N` | the most faces to draw; 200 by default |
+
+These need `--hasse`. A view with more faces than the limit stops with status 1 and a message that
+gives its size and the codimension views that fit.
+
+```bash
+fk analyse "12e|3e|3e|e|:nnnn" --hasse box.tex --hasse-highlight contraction --no-db
+```
+
 #### Point counts
 
 `--torus-count` counts the points of $G = 0$ in the torus over finite fields $\mathbb{F}_p$ at one
@@ -245,7 +270,7 @@ the options are given, and checks that it can write each file before the analysi
 |--------|--------|
 | `--latex FILE` | write the report as a LaTeX document |
 | `--text FILE` | write the report as plain text |
-| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `face_lattice`, `symmetries`, `landau`, `degeneracy` and `schwinger`; all but `torus` and `degeneracy` by default |
+| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `face_lattice`, `hasse`, `symmetries`, `landau`, `degeneracy` and `schwinger`; all but `torus`, `degeneracy` and `hasse` by default |
 | `--limits` | look for limit surfaces in the Landau section, which analyses the parent family as well (see [Specialised kinematics](#specialised-kinematics)) |
 | `--json` | print a JSON summary of the report on stdout, and nothing else |
 
@@ -1451,6 +1476,60 @@ decorated in about 0.8 s.
 
 The analysis report has a `face_lattice` section, built by default, and `fk analyse -L` prints it on
 the terminal and adds the comparison with the Cayley side to it.
+
+### Hasse diagrams of the face lattice
+
+`lattice.covers(face)` gives the faces one dimension up that contain `face`, and
+`lattice.lower_covers(face)` those one down; each takes a `DecoratedFace` or its point indices.
+These are the edges of the Hasse diagram of the lattice, in the order of `lattice.faces`.
+`feynkit.visualisation.hasse` draws it:
+
+```python
+from feynkit import FeynmanIntegral
+from feynkit.visualisation.hasse import hasse_document, infrared_facets, soft_collinear_cones
+
+box = FeynmanIntegral.from_cnickel("12e|3e|3e|e|:zzzz")
+symbols = {s.name: s for v in box.momentum_products.values() for s in v.free_symbols}
+corners = {symbols[f"p{j}^2"]: 0 for j in (1, 2, 3)}      # three massless corners
+box = box.with_(momentum_products={k: v.subs(corners) for k, v in box.momentum_products.items()})
+lattice = box.face_lattice(nu={1: 1, 2: 1, 3: 1, 4: 1})
+print(len(infrared_facets(lattice)), len(soft_collinear_cones(lattice)))   # 3 2
+open("box.tex", "w").write(hasse_document(lattice, "codim", 2, highlight="ir"))
+```
+
+`lualatex box.tex` compiles the file. `hasse_tikz` returns the bare `tikzpicture`, and
+`save_hasse_tikz` writes either. Each face is a node, one row to a dimension with the empty face at
+the bottom, in the order of the lattice, so that a second run gives the same file byte for byte.
+The label is the name of the face's identification, such as $G(\Gamma/\{4\})$, with a question mark
+when the face is not verified, and otherwise its points. The colour is the face's resonance at the
+lattice's $D_0$ and powers: red for every $\varepsilon$, yellow for a progression, green for none. With
+`eps=0` the faces resonant at $\varepsilon = 0$ are in bold. A ring marks a degenerate face and a
+dashed outline one that the analysis left undecided; they appear when the lattice carries verdicts,
+from `fi.face_lattice(..., degeneracy=True)`, or when `degeneracy=True` is passed with an integral,
+which decorates it.
+
+| Argument | Description |
+|----------|-------------|
+| `lattice` | a `DecoratedFaceLattice`, or an integral, which is decorated at `d0` and `nu` |
+| `view`, `k` | `"all"`; `"codim"`, the faces of codimension at most `k`, 2 by default; `"upset"` and `"downset"`, the faces containing or contained in `face`; `"filter"`, the faces of `filter` |
+| `filter` | `"resonant"` (resonant for every $\varepsilon$), `"degenerate"`, `"contraction"` or `"ir"` |
+| `highlight` | a filter whose faces get a heavy outline |
+| `eps`, `degeneracy` | the bold faces, and whether to mark degeneracy; None marks it when the lattice has verdicts |
+| `max_faces` | 200 by default; a larger view raises `ValidationError` with its size and the codimension views that fit |
+
+The full lattice of the double box has 2246 faces, so `hasse_tikz(lattice, "all")` raises there,
+and the default view, codimension 2, has under 200. A filtered view joins two faces when one
+contains the other and no chosen face lies between them.
+
+An infrared facet, in feynkit's term, is a facet whose face is a product $G(\gamma)\,U(\Gamma/\gamma)$
+with a scaleless factor of at least two edges, as at a massless corner of the box; a facet whose
+scaleless factor is a single line is soft only, and is not counted. A soft-collinear cone is a face of
+codimension 2 on two infrared facets and on neither layer of the polytope. The massless box with two
+neighbouring massless corners has 1 cone, with three has 2, and with four has 4, one for each pair of
+neighbouring corners; two opposite corners have none, since their facets meet only in the layer of
+$F$. The report's `hasse` section, off by default, puts the diagram in the LaTeX report, drawn to a
+smaller codimension if the default would have more than 200 faces. The diagram is on the page at
+the width of the text, so a wide one is small.
 
 ### Lattice invariants
 
@@ -2771,10 +2850,10 @@ Both methods take the same arguments:
 | `d0` | None | $D_0$ of the `resonance` section, which takes $D = D_0 - 2\varepsilon$: an integer or a `Fraction`; None reads it from the dimension of the integral when that is $D_0 - 2\varepsilon$ with $D_0$ a number, and takes 4 otherwise |
 
 The section names, in `feynkit.io.report.SECTION_NAMES`, are `identity`, `conventions`,
-`polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `symmetries`,
+`polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `face_lattice`, `hasse`, `symmetries`,
 `landau` and `schwinger`. The first three are always built. The rest are built only when named, so a
 survey can ask for a short report without the automorphism and Landau computations. Without
-`sections` every section but `torus` is built, the tuple `DEFAULT_SECTIONS`. The point counts of `torus` take seconds
+`sections` every section but `torus`, `degeneracy` and `hasse` is built, the tuple `DEFAULT_SECTIONS`. The point counts of `torus` take seconds
 for five propagators, and seven exceed the default budget (see
 [Torus point counts](#torus-point-counts)); `to_latex` and `to_text` count with seed 0 and the
 default budget, and raise `ValidationError` when the count cannot run, as for an integral with

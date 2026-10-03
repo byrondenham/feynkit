@@ -134,7 +134,7 @@
   A view over 200 faces raises with its size. `infrared_facets` and `soft_collinear_cones` find
   the collinear facets of a massless box and the faces where two of them meet. `fk analyse --hasse
   FILE` writes the diagram, and the optional `hasse` report section puts it in the LaTeX report.
-  The levels of a face's flag record whether their minor is scaleless. The LaTeX report loads
+  The levels of a face's flag record whether F vanishes on their minor. The LaTeX report loads
   `graphicx`.
 
 - `fk analyze` is an alias of `fk analyse`.

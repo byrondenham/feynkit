@@ -96,7 +96,7 @@ def _is_infrared(face: DecoratedFace) -> bool:
         return False
     if not found.levels[0].deleted:
         return False
-    return any(level.scaleless and len(level.edges) >= 2 for level in found.levels[1:])
+    return any(level.f_vanishes and len(level.edges) >= 2 for level in found.levels[1:])
 
 
 def infrared_facets(lattice: DecoratedFaceLattice) -> tuple[DecoratedFace, ...]:

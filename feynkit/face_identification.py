@@ -99,8 +99,10 @@ class FlagLevel:
         Which polynomial of H_j the prediction takes: "U", "F" or "G".
     loops
         The loop number of H_j.
-    scaleless
-        Whether F(H_j) is the zero polynomial, so that H_j carries no scale.
+    f_vanishes
+        Whether F(H_j) is the zero polynomial. For a minor with loops this implies that
+        H_j is scaleless by Lee's criterion, but not conversely: a massless tadpole on a
+        massive line has F different from 0 and is scaleless.
     """
 
     edges: tuple[int, ...]
@@ -109,7 +111,7 @@ class FlagLevel:
     weight: int
     kind: Literal["U", "F", "G"]
     loops: int
-    scaleless: bool = False
+    f_vanishes: bool = False
 
     @property
     def trivial(self) -> bool:
@@ -374,7 +376,7 @@ class _Flags:
                     weight=t,
                     kind=kind,
                     loops=loops,
-                    scaleless=not f,
+                    f_vanishes=not f,
                 )
             )
         return tuple(levels), factors

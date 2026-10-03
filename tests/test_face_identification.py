@@ -18,7 +18,7 @@ from hypothesis import strategies as st
 from feynkit import FeynmanIntegral
 from feynkit.core import Edge, Graph
 from feynkit.core.exceptions import ValidationError
-from feynkit.face_identification import FaceIdentification, identify_faces
+from feynkit.face_identification import FaceIdentification, _Flags, identify_faces
 from feynkit.polynomials import minor_polynomials
 from feynkit.polytope import polytope_data
 
@@ -408,11 +408,20 @@ def test_class_counts_do_not_depend_on_edge_labels(cnickel: str, rng) -> None:  
     assert counts(other) == counts(graph)
 
 
-def test_levels_say_which_minors_are_scaleless() -> None:
+def test_levels_say_which_minors_have_f_zero() -> None:
     """F vanishes on the quotient of the three-mass box's IR facet, a bubble whose external
     momentum is the massless one, and not on the hard factor G({2,4})."""
     fi = _three_mass_box()
     (face,) = [f for f in _facets(identify_faces(fi)) if f.facet.normal == (1, 0, 1, 0)]
-    assert [level.scaleless for level in face.levels] == [False, True]
+    assert [level.f_vanishes for level in face.levels] == [False, True]
     whole = identify_faces(fi, max_codimension=0)[0]
-    assert [level.scaleless for level in whole.levels] == [False]
+    assert [level.f_vanishes for level in whole.levels] == [False]
+
+
+def test_f_vanishes_is_not_scalelessness() -> None:
+    """A massless tadpole on a massive line has F different from 0, though it is scaleless by
+    Lee's criterion; the field records F = 0 only."""
+    fi = FeynmanIntegral.from_cnickel("1e|11|e|:nzz")
+    levels, _ = _Flags(fi).predict((1, 1, 0))
+    assert levels[0].edges == (1, 2) and levels[0].loops == 1
+    assert levels[0].f_vanishes is False

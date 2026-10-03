@@ -819,6 +819,69 @@ def test_a_parent_that_skipped_faces_is_said_to_leave_the_limits_incomplete() ->
     assert dict(report.summary())["Parent skipped faces"] == "1"
 
 
+def _sunrise_skipping(timed_out: set[int], unattempted: set[int]) -> AnalysisReport:
+    """The massive sunrise's report with its faces of 7 and 10 points skipped, those with the
+    given numbers of points past the time limit or left when the budget ran out."""
+    sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
+    report = AnalysisReport.from_integral(sunrise, ["landau"], max_face_points=4)
+    assert report.landau is not None
+    order = [points for _, points, _ in report.landau.skipped]
+    assert sorted(order) == [7, 10]
+    landau = dataclasses.replace(
+        report.landau,
+        timed_out=tuple(p in timed_out for p in order),
+        unattempted=tuple(p in unattempted for p in order),
+    )
+    return dataclasses.replace(report, landau=landau)
+
+
+def test_faces_left_when_the_budget_ran_out_are_named_by_size() -> None:
+    report = _sunrise_skipping(set(), {7, 10})
+    for document in (render_text(report), render_latex(report)):
+        assert (
+            "The faces were attempted smallest first within a time budget of 300 s, which ran "
+            "out with 2 faces left, so their discriminants are missing from the list: 1 with 7 "
+            "points and the whole polytope, 10 points."
+        ) in " ".join(document.split())
+        assert "skipped" not in document
+
+
+def test_faces_past_the_time_limit_and_past_the_budget() -> None:
+    report = _sunrise_skipping({7}, {10})
+    for document in (render_text(report), render_latex(report)):
+        assert (
+            "1 face ran past the time limit of 60 s for a face, and its discriminant is missing "
+            "from the list: a face of dimension 2 with 7 points. The faces were attempted "
+            "smallest first within a time budget of 300 s, which ran out with 1 face left, so "
+            "its discriminant is missing from the list as well: the whole polytope, 10 points."
+        ) in " ".join(document.split())
+
+
+def test_a_parent_that_ran_out_of_time_is_said_to_leave_the_limits_incomplete() -> None:
+    fi = FeynmanIntegral.from_cnickel("12e|2e|e|:nnn")
+    p1 = sp.Symbol("p1^2", real=True)
+    fi = fi.with_(
+        momentum_products={
+            k: sp.expand(sp.sympify(v).subs(p1, 0)) for k, v in fi.momentum_products.items()
+        }
+    )
+    report = AnalysisReport.from_integral(fi, ["landau"], limits=True)
+    assert report.landau is not None and report.landau.analysis.parent is not None
+    analysis = report.landau.analysis
+    face = (((1, 0, 0),),)
+    parent = dataclasses.replace(analysis.parent, skipped_faces=face, unattempted_faces=face)
+    landau = dataclasses.replace(
+        report.landau, analysis=dataclasses.replace(analysis, parent=parent)
+    )
+    report = dataclasses.replace(report, landau=landau)
+    for document in (render_text(report), render_latex(report)):
+        assert (
+            "The analysis of the generic family skipped 1 face, too large to eliminate, past "
+            "the time limit or left when the time budget ran out, so the limit surfaces may be "
+            "incomplete."
+        ) in " ".join(document.split())
+
+
 def test_skipped_faces_are_named() -> None:
     sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
     for document in (

@@ -507,6 +507,40 @@ class TestLandau:
         assert bubble_report.landau is not None
         assert bubble_report.landau.skipped == ()
 
+    def test_the_faces_have_a_time_budget_and_no_size_limit(
+        self, bubble: FeynmanIntegral, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen: list[dict[str, object]] = []
+        analyse = report_module.landau_analysis
+
+        def spy(integral: FeynmanIntegral, **kwargs: object) -> landau_module.LandauAnalysis:
+            seen.append(kwargs)
+            return analyse(integral, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(report_module, "landau_analysis", spy)
+        report = AnalysisReport.from_integral(bubble, ["landau"])
+        assert report.landau is not None and report.landau.budget == 300
+        report = AnalysisReport.from_integral(
+            bubble, ["landau"], max_face_points=9, landau_budget=None
+        )
+        assert report.landau is not None and report.landau.budget is None
+        limits = [(kwargs["max_face_points"], kwargs["total_timeout"]) for kwargs in seen]
+        assert limits == [(None, report_module.LANDAU_BUDGET), (9, None)]
+        assert report_module.LANDAU_BUDGET == 300
+
+    def test_the_skipped_faces_are_told_apart(
+        self, bubble: FeynmanIntegral, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        analysis = landau_module.landau_analysis(bubble, max_face_points=2)
+        edge, whole = sorted(analysis.skipped_faces, key=len)
+        told = dataclasses.replace(analysis, timed_out_faces=(edge,), unattempted_faces=(whole,))
+        monkeypatch.setattr(report_module, "landau_analysis", lambda integral, **kwargs: told)
+        landau = AnalysisReport.from_integral(bubble, ["landau"]).landau
+        assert landau is not None
+        order = [len(face) for face in told.skipped_faces]
+        assert landau.timed_out == tuple(points == 3 for points in order)
+        assert landau.unattempted == tuple(points == 5 for points in order)
+
 
 class TestSchwinger:
     def test_the_f_block_admissibility(self, bubble: FeynmanIntegral) -> None:

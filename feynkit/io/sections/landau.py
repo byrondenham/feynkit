@@ -12,6 +12,7 @@ import sympy as sp
 
 from ... import _exact
 from ...landau import (
+    DEFAULT_FACE_TIMEOUT,
     LandauAnalysis,
     LimitSurface,
     one_loop_bridge_poles,
@@ -25,6 +26,11 @@ from ._base import Section, SummaryPart
 
 if TYPE_CHECKING:
     from ..report import AnalysisReport, BuildContext
+
+# The seconds the report's Landau analysis gives its faces together, its total_timeout. The
+# faces are attempted smallest first, each within DEFAULT_FACE_TIMEOUT, so a report spends at
+# most this long on them, and names the faces left when it runs out.
+LANDAU_BUDGET = 300
 
 
 @dataclass(frozen=True)
@@ -44,16 +50,20 @@ class Landau:
         graph with bridges they are those of its cycle.
     skipped
         One (dimension, number of points, whether it is P itself) triple per
-        face left out as too large to eliminate, in the order of
-        ``analysis.skipped_faces``.
+        face left out, in the order of ``analysis.skipped_faces``.
     bridge_poles
         The factors of the poles m_b^2 = q_b^2 of the bridges of a one-loop
         graph, from :func:`~feynkit.landau.one_loop_bridge_poles`; empty
         without bridges or for more than one loop.
     timed_out
-        For each entry of ``skipped``, whether the face had few enough points
-        to be eliminated and was skipped because its elimination ran past the
-        time limit.
+        For each entry of ``skipped``, whether its elimination ran past the
+        time limit for a face.
+    unattempted
+        For each entry of ``skipped``, whether it was left when the time
+        budget ran out.
+    budget
+        The time budget of the faces in seconds, the ``total_timeout`` of the
+        analysis, or None for none.
     """
 
     analysis: LandauAnalysis
@@ -63,12 +73,13 @@ class Landau:
     skipped: tuple[tuple[int, int, bool], ...] = ()
     bridge_poles: tuple[sp.Expr, ...] = ()
     timed_out: tuple[bool, ...] = ()
+    unattempted: tuple[bool, ...] = ()
+    budget: float | None = None
 
 
 def build(ctx: BuildContext) -> Landau:
     fi = ctx.integral
     analysis = ctx.analysis()
-    max_face_points = ctx.max_face_points
     grouped: dict[int, list[sp.Expr]] = {}
     for face in analysis.face_discriminants:
         if face.discriminant == 1:
@@ -95,7 +106,9 @@ def build(ctx: BuildContext) -> Landau:
             for d, face in zip(dimensions, analysis.skipped_faces, strict=True)
         ),
         bridge_poles=poles,
-        timed_out=tuple(len(face) <= max_face_points for face in analysis.skipped_faces),
+        timed_out=tuple(face in analysis.timed_out_faces for face in analysis.skipped_faces),
+        unattempted=tuple(face in analysis.unattempted_faces for face in analysis.skipped_faces),
+        budget=ctx.landau_budget,
     )
 
 
@@ -191,11 +204,14 @@ class LimitFactors(NamedTuple):
         The limit surfaces and the candidates, each sorted by its factor.
     parent_skipped
         How many faces the analysis of the parent family skipped.
+    parent_unattempted
+        How many of them were left when its time budget ran out.
     """
 
     surfaces: list[LimitSurface]
     candidates: list[LimitSurface]
     parent_skipped: int
+    parent_unattempted: int = 0
 
 
 def limit_factors(landau: Landau) -> LimitFactors | None:
@@ -211,6 +227,7 @@ def limit_factors(landau: Landau) -> LimitFactors | None:
         surfaces=ordered(analysis.limit_surfaces),
         candidates=ordered(analysis.limit_candidates),
         parent_skipped=len(analysis.parent.skipped_faces),
+        parent_unattempted=len(analysis.parent.unattempted_faces),
     )
 
 
@@ -266,40 +283,87 @@ def limit_sentences(limits: LimitFactors) -> LimitSentences:
         )
     if limits.parent_skipped:
         n = limits.parent_skipped
+        why = (
+            "too large to eliminate, past the time limit or left when the time budget ran out"
+            if limits.parent_unattempted
+            else "too large to eliminate or past the time limit"
+        )
         skipped = (
-            f"The analysis of the generic family skipped {count_noun(n, 'face')}, too large to "
-            "eliminate or past the time limit, so the limit surfaces may be incomplete."
+            f"The analysis of the generic family skipped {count_noun(n, 'face')}, {why}, so the "
+            "limit surfaces may be incomplete."
         )
         closing = skipped if closing is None else f"{closing} {skipped}"
     return LimitSentences(intro, surfaces, counts, candidates, reasons, closing)
 
 
 def skipped_faces(landau: Landau) -> str | None:
-    """The sentence naming the faces the Landau analysis skipped, or None if none was."""
-    timed_out = landau.timed_out or (False,) * len(landau.skipped)
-    skipped = sorted(zip(landau.skipped, timed_out, strict=True))
-    if not skipped:
-        return None
-    names = [
-        (
-            f"the whole polytope, {points} points"
-            if whole
-            else f"a face of dimension {dimension} with {points} points"
+    """The sentences naming the faces the Landau analysis skipped, or None if it skipped none.
+
+    The faces too large to eliminate or past the time limit for a face are
+    named one by one; those left when the time budget ran out, the largest,
+    are counted by size.
+    """
+    n_skipped = len(landau.skipped)
+    timed_out = landau.timed_out or (False,) * n_skipped
+    unattempted = landau.unattempted or (False,) * n_skipped
+    flags = list(zip(landau.skipped, timed_out, unattempted, strict=True))
+    skipped = sorted((face, late) for face, late, gone in flags if not gone)
+    left = sorted(face for face, _, gone in flags if gone)
+    sentences: list[str] = []
+    if skipped:
+        n = len(skipped)
+        whose = "its discriminant is" if n == 1 else "their discriminants are"
+        every = all(late for _, late in skipped)
+        names = [
+            (
+                f"the whole polytope, {points} points"
+                if whole
+                else f"a face of dimension {dimension} with {points} points"
+            )
+            + (" (past the time limit)" if late and not every else "")
+            for (dimension, points, whole), late in skipped
+        ]
+        if every:
+            sentences.append(
+                f"{count_noun(n, 'face')} ran past the time limit of "
+                f"{_seconds(DEFAULT_FACE_TIMEOUT)} for a face, and {whose} missing from the "
+                f"list: {join_words(names)}."
+            )
+        else:
+            why = (
+                ", too large to eliminate or past the time limit,"
+                if any(late for _, late in skipped)
+                else " as too large to eliminate,"
+            )
+            sentences.append(
+                f"{count_noun(n, 'face')} {'was' if n == 1 else 'were'} skipped{why} and "
+                f"{whose} missing from the list: {join_words(names)}."
+            )
+    if left:
+        n = len(left)
+        sizes: dict[int, int] = {}
+        for _, points, whole in left:
+            if not whole:
+                sizes[points] = sizes.get(points, 0) + 1
+        names = [f"{count} with {points} points" for points, count in sorted(sizes.items())]
+        names += [f"the whole polytope, {points} points" for _, points, whole in left if whole]
+        budget = (
+            f"a time budget of {_seconds(landau.budget)}"
+            if landau.budget is not None
+            else "its time budget"
         )
-        + (" (past the time limit)" if late else "")
-        for (dimension, points, whole), late in skipped
-    ]
-    n = len(skipped)
-    why = (
-        ", too large to eliminate or past the time limit,"
-        if any(timed_out)
-        else " as too large to eliminate,"
-    )
-    return (
-        f"{count_noun(n, 'face')} {'was' if n == 1 else 'were'} skipped{why} and "
-        f"{'its discriminant is' if n == 1 else 'their discriminants are'} missing from the "
-        f"list: {join_words(names)}."
-    )
+        whose = "its discriminant is" if n == 1 else "their discriminants are"
+        sentences.append(
+            f"The faces were attempted smallest first within {budget}, which ran out with "
+            f"{count_noun(n, 'face')} left, so {whose} missing from the list"
+            f"{' as well' if skipped else ''}: {join_words(names)}."
+        )
+    return " ".join(sentences) or None
+
+
+def _seconds(value: float) -> str:
+    """A time in seconds, as 60 s or 0.5 s."""
+    return f"{value:g} s"
 
 
 def _text_factor_list(kind: str, factors: Sequence[sp.Expr]) -> tuple[str, str | None]:

@@ -49,7 +49,7 @@ from .sections.faces import FACE_CODIMENSION, Faces
 from .sections.gkz import GKZ
 from .sections.hasse import Hasse
 from .sections.identity import Identity
-from .sections.landau import Landau
+from .sections.landau import LANDAU_BUDGET, Landau
 from .sections.polynomials import Polynomials, ZEntry
 from .sections.polytope import LATTICE_BUDGET, NORMALIZ_TIMEOUT, Polytope
 from .sections.representations import Representations
@@ -63,6 +63,7 @@ if TYPE_CHECKING:
 __all__ = [
     "DEFAULT_SECTIONS",
     "FACE_CODIMENSION",
+    "LANDAU_BUDGET",
     "LATTICE_BUDGET",
     "NORMALIZ_TIMEOUT",
     "RESONANCE_WINDOW",
@@ -115,6 +116,9 @@ class BuildContext:
         The names of the sections asked for.
     max_face_points, figure_max_vertices, torus_seed, torus_budget, limits
         The arguments of :meth:`AnalysisReport.from_integral` of these names.
+    landau_budget
+        The ``total_timeout`` of the Landau analysis, the argument of
+        :meth:`AnalysisReport.from_integral` of this name.
     d0, d0_source
         D_0 of the resonance section and where it came from.
     check_schwinger
@@ -126,7 +130,7 @@ class BuildContext:
 
     integral: FeynmanIntegral
     wanted: frozenset[str]
-    max_face_points: int
+    max_face_points: int | None
     figure_max_vertices: int
     torus_seed: int
     torus_budget: int
@@ -135,6 +139,7 @@ class BuildContext:
     d0_source: D0Source
     check_schwinger: bool = False
     degeneracy_mode: DegeneracyMode = DEFAULT_DEGENERACY_MODE
+    landau_budget: float | None = LANDAU_BUDGET
     _data: PolytopeData | None = field(default=None, init=False, repr=False)
     _analysis: LandauAnalysis | None = field(default=None, init=False, repr=False)
 
@@ -156,6 +161,7 @@ class BuildContext:
             self._analysis = landau_analysis(
                 self.integral,
                 max_face_points=self.max_face_points,
+                total_timeout=self.landau_budget,
                 limits=self.limits if "landau" in self.wanted else False,
             )
         return self._analysis
@@ -193,7 +199,7 @@ class AnalysisReport:
         integral: FeynmanIntegral,
         sections: Collection[str] | None = None,
         *,
-        max_face_points: int = 14,
+        max_face_points: int | None = None,
         figure_max_vertices: int = 12,
         torus_seed: int = 0,
         torus_budget: int = 2 * 10**9,
@@ -201,6 +207,7 @@ class AnalysisReport:
         d0: int | Fraction | None = None,
         check_schwinger: bool = False,
         degeneracy_mode: str = DEFAULT_DEGENERACY_MODE,
+        landau_budget: float | None = LANDAU_BUDGET,
     ) -> AnalysisReport:
         """Build the report for an integral.
 
@@ -215,7 +222,8 @@ class AnalysisReport:
             since the rest of the report reads as a fragment without them.
         max_face_points
             Faces of the Newton polytope with more monomials than this are
-            left out of the Landau analysis and listed as skipped.
+            left out of the Landau analysis and listed as skipped; None, the
+            default, sets no limit.
         figure_max_vertices
             Polytopes with more vertices than this get no figure.
         torus_seed, torus_budget
@@ -245,6 +253,12 @@ class AnalysisReport:
             drawn with ``torus_seed``, which shares the Landau analysis; or
             "generic", at the generic point of the kinematics, which takes
             minutes for larger graphs.
+        landau_budget
+            The most seconds the Landau analysis gives the faces together, its
+            ``total_timeout``: :data:`LANDAU_BUDGET` (300) by default, None for
+            no limit. The faces are attempted smallest first, and the section
+            names those left when it runs out. The ``torus`` and
+            ``degeneracy`` sections share the analysis.
 
         Raises
         ------
@@ -296,6 +310,7 @@ class AnalysisReport:
             d0_source=d0_source,
             check_schwinger=check_schwinger,
             degeneracy_mode="generic" if degeneracy_mode == "generic" else "point",
+            landau_budget=landau_budget,
         )
         built: dict[str, Any] = {
             section.name: (

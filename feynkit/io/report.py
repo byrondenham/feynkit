@@ -47,6 +47,7 @@ from .sections.degeneracy import DEFAULT_DEGENERACY_MODE, Degeneracy, Degeneracy
 from .sections.face_lattice import FaceLattice
 from .sections.faces import FACE_CODIMENSION, Faces
 from .sections.gkz import GKZ
+from .sections.hasse import Hasse
 from .sections.identity import Identity
 from .sections.landau import Landau
 from .sections.polynomials import Polynomials, ZEntry
@@ -73,6 +74,7 @@ __all__ = [
     "FaceLattice",
     "Faces",
     "GKZ",
+    "Hasse",
     "Identity",
     "Landau",
     "Polynomials",
@@ -89,8 +91,10 @@ SECTION_NAMES = tuple(section.name for section in SECTIONS)
 
 # The sections built when none are named: all but the point counts, which take seconds for
 # five propagators, seven exceeding the default budget, and the degenerate faces, which need
-# Singular and add its runs to every report.
-DEFAULT_SECTIONS = tuple(name for name in SECTION_NAMES if name not in ("torus", "degeneracy"))
+# Singular and add its runs to every report, and the Hasse diagram, which is drawn only on request.
+DEFAULT_SECTIONS = tuple(
+    name for name in SECTION_NAMES if name not in ("torus", "degeneracy", "hasse")
+)
 
 
 # --- the report --------------------------------------------------------------
@@ -181,6 +185,7 @@ class AnalysisReport:
     faces: Faces | None = None
     face_lattice: FaceLattice | None = None
     degeneracy: Degeneracy | None = None
+    hasse: Hasse | None = None
 
     @classmethod
     def from_integral(

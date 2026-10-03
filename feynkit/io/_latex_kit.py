@@ -76,6 +76,7 @@ class LatexDocument(Citations):
                 f"\\setcounter{{MaxMatrixCols}}{{{columns}}}",
                 "\\usepackage[margin=2.5cm]{geometry}",
                 "\\usepackage{booktabs,array,longtable}",
+                "\\usepackage{graphicx}",
                 "\\usepackage{tikz}",
                 "\\usetikzlibrary{calc}",
                 "\\usepackage{tikz-3dplot}",

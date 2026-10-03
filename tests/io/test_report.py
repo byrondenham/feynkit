@@ -641,10 +641,10 @@ class TestFaces:
 
 
 class TestSections:
-    def test_default_builds_every_section_but_the_counts_and_the_degenerate_faces(
+    def test_default_builds_every_section_but_the_counts_the_degenerate_faces_and_the_diagram(
         self, triangle_report: AnalysisReport
     ) -> None:
-        left_out = ("torus", "degeneracy")
+        left_out = ("torus", "degeneracy", "hasse")
         assert tuple(name for name in SECTION_NAMES if name not in left_out) == DEFAULT_SECTIONS
         for name in DEFAULT_SECTIONS:
             assert getattr(triangle_report, name) is not None

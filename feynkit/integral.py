@@ -687,7 +687,7 @@ class FeynmanIntegral:
         sections: Collection[str] | None = None,
         *,
         title: str | None = None,
-        max_face_points: int = 14,
+        max_face_points: int | None = None,
         limits: bool | str | None = None,
         d0: int | Fraction | None = None,
     ) -> str:
@@ -707,7 +707,11 @@ class FeynmanIntegral:
             CNickel string.
         max_face_points
             Faces of the Newton polytope with more monomials than this are
-            left out of the Landau analysis and listed as skipped.
+            left out of the Landau analysis and listed as skipped; None, the
+            default, sets no limit. The faces are attempted smallest first
+            within the report's time budget,
+            :data:`~feynkit.io.report.LANDAU_BUDGET` (300 s), and those left
+            when it runs out are listed too.
         limits
             Whether the Landau section looks for limit surfaces, as the
             ``limits`` of :func:`~feynkit.landau.landau_analysis`; None, the
@@ -744,7 +748,7 @@ class FeynmanIntegral:
         sections: Collection[str] | None = None,
         *,
         title: str | None = None,
-        max_face_points: int = 14,
+        max_face_points: int | None = None,
         limits: bool | str | None = None,
         d0: int | Fraction | None = None,
     ) -> str:

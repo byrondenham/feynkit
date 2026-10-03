@@ -181,6 +181,23 @@ class TestAnalysisFacade:
             assert "2 faces were skipped as too large to eliminate" in " ".join(document.split())
         assert "skipped" not in massive_bubble.to_text(["landau"])
 
+    def test_no_face_is_too_large_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The report's time budget limits the faces instead.
+        from feynkit.io import report as report_module
+
+        seen: list[object] = []
+        analyse = report_module.landau_analysis
+
+        def spy(integral: FeynmanIntegral, **kwargs: object) -> object:
+            seen.append(kwargs["max_face_points"])
+            return analyse(integral, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(report_module, "landau_analysis", spy)
+        massive_bubble = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        massive_bubble.to_latex(["landau"])
+        massive_bubble.to_text(["landau"])
+        assert seen == [None, None]
+
     def test_old_keyword_arguments_are_rejected(self, bubble: FeynmanIntegral) -> None:
         with pytest.raises(TypeError):
             bubble.to_latex(author="someone")  # type: ignore[call-arg]

@@ -55,6 +55,7 @@ from feynkit.landau import (
     one_loop_principal_a_determinant,
 )
 from feynkit.point_count import critical_point_count
+from feynkit.polytope import faces as polytope_faces
 from feynkit.polytope import lattice_coordinates
 from feynkit.systems.monomial import extract_monomial_support
 from tests.test_pld import _NAME, FIXTURES, _python
@@ -958,7 +959,7 @@ class TestLimitSurfaces:
         analysis = landau_module._analysis
 
         def spy(g: sp.Expr, *args: object) -> LandauAnalysis:
-            timeouts.append(args[-1])
+            timeouts.append(args[-2])
             return analysis(g, *args)  # type: ignore[arg-type]
 
         monkeypatch.setattr(landau_module, "_analysis", spy)
@@ -1833,6 +1834,164 @@ class TestFlintFactorLists:
         a, b = sp.symbols("a b")
         expression = sp.expand((a - b) * (a + 2 * b))
         assert _factor_lists([expression], {a, b}) == [_factor_list(expression, {a, b})]
+
+
+class _Clock:
+    """A stand-in for ``landau.time`` whose clock moves only when told to."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+
+def _faces_of(fi: FeynmanIntegral) -> list[tuple[int, tuple[tuple[int, ...], ...]]]:
+    """The faces of the Newton polytope of G as (dimension, exponents), in the order of
+    :func:`feynkit.polytope.faces`."""
+    symanzik = fi.symanzik
+    support = extract_monomial_support(sp.expand(symanzik.g), list(symanzik.lp_parameters))
+    exps = np.array([e for e, _ in support], dtype=int)
+    return [
+        (dimension, tuple(tuple(int(x) for x in exps[i]) for i in idx))
+        for dimension, idx in polytope_faces(exps)
+    ]
+
+
+class TestFaceOrderAndBudget:
+    """Every face is attempted, smallest first, each within ``timeout`` and all within
+    ``total_timeout``. The massless kite's polytope has 16 points."""
+
+    KITE = "12e|23|3|e|:zzzzz"
+
+    def _spy(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        seconds: float = 0.0,
+        clock: _Clock | None = None,
+        late: int | None = None,
+    ) -> list[tuple[int, int, float | None]]:
+        """Replace the elimination of a face by one that gives no factor and takes ``seconds``
+        on ``clock``. It runs past its time limit when that is shorter, or when the face has
+        ``late`` points. Returns (points, dimension, time limit) for each call."""
+        calls: list[tuple[int, int, float | None]] = []
+
+        def spy(
+            coeffs: list[sp.Expr],
+            exps: list[tuple[int, ...]],
+            kinematic_syms: set[sp.Symbol],
+            backend: str = "auto",
+            *,
+            scale: sp.Symbol | None = None,
+            timeout: float | None = None,
+        ) -> object:
+            calls.append((len(coeffs), len(exps[0]), timeout))
+            if clock is not None:
+                clock.now += seconds
+            if len(coeffs) == late or (timeout is not None and timeout < seconds):
+                raise landau_module._EliminationTimeout("past the limit")
+            return landau_module._Elimination([], True, False)
+
+        monkeypatch.setattr(landau_module, "_singular_binary", lambda: "Singular")
+        monkeypatch.setattr(landau_module, "_elimination_discriminant", spy)
+        if clock is not None:
+            monkeypatch.setattr(landau_module, "time", clock)
+        return calls
+
+    def _eliminated(self, fi: FeynmanIntegral) -> list[tuple[tuple[int, ...], ...]]:
+        """The faces of dimension two or more that are not simplices, in the polytope's order."""
+        return [
+            face
+            for dimension, face in _faces_of(fi)
+            if dimension >= 2 and len(face) > dimension + 1
+        ]
+
+    def test_faces_are_attempted_smallest_first_and_listed_in_order(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls = self._spy(monkeypatch)
+        fi = FeynmanIntegral.from_cnickel(self.KITE)
+        analysis = landau_analysis(fi)
+        order = [(points, dimension) for points, dimension, _ in calls]
+        assert order == sorted(order)
+        assert len(order) == len(self._eliminated(fi))
+        # No face is too large by default: the polytope itself is attempted, last.
+        assert order[-1] == (16, 5)
+        assert not analysis.skipped_faces
+        assert [f.exponents for f in analysis.face_discriminants] == [
+            face for _, face in _faces_of(fi)
+        ]
+
+    def test_max_face_points_still_limits_the_faces(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls = self._spy(monkeypatch)
+        analysis = landau_analysis(FeynmanIntegral.from_cnickel(self.KITE), max_face_points=14)
+        assert max(points for points, _, _ in calls) <= 14
+        assert analysis.skipped_faces
+        assert all(len(face) > 14 for face in analysis.skipped_faces)
+        assert analysis.timed_out_faces == analysis.unattempted_faces == ()
+
+    def test_a_face_past_its_time_limit_is_timed_out(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._spy(monkeypatch, late=16)
+        analysis = landau_analysis(FeynmanIntegral.from_cnickel(self.KITE))
+        assert [len(face) for face in analysis.skipped_faces] == [16]
+        assert analysis.timed_out_faces == analysis.skipped_faces
+        assert analysis.unattempted_faces == ()
+
+    def test_the_faces_left_when_the_total_time_runs_out_are_not_attempted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Each face takes 10 s: the first two finish, and the third is cut short at 25 s.
+        clock = _Clock()
+        calls = self._spy(monkeypatch, seconds=10, clock=clock)
+        fi = FeynmanIntegral.from_cnickel(self.KITE)
+        analysis = landau_analysis(fi, timeout=12, total_timeout=25)
+        assert [limit for _, _, limit in calls] == [12, 12, 5]
+        dimension = {face: d for d, face in _faces_of(fi)}
+        eliminated = self._eliminated(fi)
+        first = sorted(eliminated, key=lambda face: (len(face), dimension[face]))[:2]
+        left = tuple(face for face in eliminated if face not in first)
+        assert analysis.unattempted_faces == analysis.skipped_faces == left
+        assert analysis.timed_out_faces == ()
+        # The vertices and edges need no elimination, and are all there.
+        low = [face for face in analysis.face_discriminants if face.dimension < 2]
+        assert len(low) == len([face for d, face in _faces_of(fi) if d < 2])
+
+    def test_the_parent_has_the_same_total_time(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        landau_module._parent_analysis.cache_clear()
+        limits: list[object] = []
+        analysis = landau_module._analysis
+
+        def spy(g: sp.Expr, *args: object) -> LandauAnalysis:
+            limits.append(args[-1])
+            return analysis(g, *args)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(landau_module, "_analysis", spy)
+        on_shell = _massless_legs("12e|2e|e|:nnn", (1,))
+        landau_analysis(on_shell, confirm=False, limits=True)
+        assert limits == [None, None]
+        landau_analysis(on_shell, confirm=False, total_timeout=100, limits=True)
+        assert limits[2:] == [100, 100]
+
+    @pytest.mark.parametrize("total", [0, -1, True, float("inf"), float("nan"), "5", 3e6])
+    def test_total_timeout_must_be_a_number_of_seconds(
+        self, total: object, massive_bubble: FeynmanIntegral
+    ) -> None:
+        with pytest.raises(
+            ValidationError, match="total_timeout must be None or a number of seconds"
+        ):
+            landau_analysis(massive_bubble, total_timeout=total)  # type: ignore[arg-type]
+
+    def test_without_singular_faces_stop_at_14_points(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # SymPy's elimination cannot be stopped, so it keeps the limit the analysis had.
+        calls = self._spy(monkeypatch)
+        monkeypatch.setattr(landau_module, "_singular_binary", lambda: None)
+        analysis = landau_analysis(FeynmanIntegral.from_cnickel(self.KITE))
+        assert max(points for points, _, _ in calls) <= 14
+        assert analysis.skipped_faces
+        assert all(len(face) > 14 for face in analysis.skipped_faces)
 
 
 class TestFaceLimit:

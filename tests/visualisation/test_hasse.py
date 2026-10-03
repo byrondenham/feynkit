@@ -340,6 +340,21 @@ def test_soft_collinear_cones_of_the_massless_box(
     assert sum(1 for k in marked if lattice.faces[k].codimension == 2) == cones
 
 
+def test_opposite_corners_have_no_cone_with_facets_identified_only() -> None:
+    """The layers are found by the degrees of the points, not by the identifications of faces of
+    codimension 2, which identify_codimension = 1 leaves out."""
+    lattice = _lattice(_box((1, 4)), identify_codimension=1)
+    assert len(infrared_facets(lattice)) == 2
+    assert soft_collinear_cones(lattice) == ()
+
+
+@pytest.mark.parametrize("function", [infrared_facets, soft_collinear_cones])
+def test_infrared_facets_need_the_identifications_of_facets(function) -> None:  # type: ignore[no-untyped-def]
+    lattice = _lattice(_box((1, 2, 3, 4)), identify_codimension=0)
+    with pytest.raises(ValidationError, match="identify_codimension"):
+        function(lattice)
+
+
 def test_an_infrared_facet_need_not_be_identified() -> None:
     """The flag of the facet (0, 1, 4, 5) of the massless box deletes edges and has a bubble
     with F = 0, so it is infrared, though G on it is not the product of its flag: it is

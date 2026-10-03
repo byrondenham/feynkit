@@ -108,33 +108,51 @@ def infrared_facets(lattice: DecoratedFaceLattice) -> tuple[DecoratedFace, ...]:
     massless corner of a box; a facet whose only such level is a single line is
     a soft region and is left out. G on the facet need not equal the product of
     the flag, and the facet is often unidentified.
+
+    Raises
+    ------
+    ValidationError
+        If the lattice was decorated with identify_codimension = 0, so that
+        its facets carry no flags.
     """
-    return tuple(lattice.faces[k] for k in lattice.facets if _is_infrared(lattice.faces[k]))
+    facets = [lattice.faces[k] for k in lattice.facets]
+    if any(f.identification is None for f in facets):
+        raise ValidationError(
+            "the facets carry no identifications; decorate the lattice with "
+            "identify_codimension of at least 1"
+        )
+    return tuple(f for f in facets if _is_infrared(f))
+
+
+def _in_layer(lattice: DecoratedFaceLattice, face: DecoratedFace) -> bool:
+    """Whether every point of the face has degree L, or every one has degree L + 1.
+
+    The points of U have degree L and those of F degree L + 1, so L is the least degree.
+    """
+    degrees = {sum(lattice.data.points[j]) for j in face.point_indices}
+    least = min(sum(p) for p in lattice.data.points)
+    return degrees == {least} or degrees == {least + 1}
 
 
 def soft_collinear_cones(lattice: DecoratedFaceLattice) -> tuple[DecoratedFace, ...]:
     """The faces of codimension 2 on two infrared facets, in the order of the lattice.
 
-    A face on the U layer or the F layer of the polytope is left out: two
-    opposite infrared facets of the massless box meet in the F layer, and
-    their intersection is not a cone of the Feynman polytope.
+    A face on the U layer or the F layer of the polytope, that is with all its
+    points of degree L or all of degree L + 1, is left out: two opposite
+    infrared facets of the massless box meet in the F layer, and their
+    intersection is not a cone of the Feynman polytope.
+
+    Raises
+    ------
+    ValidationError
+        As :func:`infrared_facets`.
     """
     infrared = {lattice.faces.index(f) for f in infrared_facets(lattice)}
-    layered = ("u_layer", "f_layer")
     found = []
     for face in lattice.faces:
-        if face.codimension != 2:
+        if face.codimension != 2 or _in_layer(lattice, face):
             continue
-        if face.identification is not None and face.identification.kind in layered:
-            continue
-        on = [lattice.facets[k] for k in face.facets]
-        if any(
-            lattice.faces[k].identification is not None
-            and lattice.faces[k].identification.kind in layered  # type: ignore[union-attr]
-            for k in on
-        ):
-            continue
-        if sum(1 for k in on if k in infrared) >= 2:
+        if sum(1 for k in face.facets if lattice.facets[k] in infrared) >= 2:
             found.append(face)
     return tuple(found)
 

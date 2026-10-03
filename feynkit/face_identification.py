@@ -99,6 +99,8 @@ class FlagLevel:
         Which polynomial of H_j the prediction takes: "U", "F" or "G".
     loops
         The loop number of H_j.
+    scaleless
+        Whether F(H_j) is the zero polynomial, so that H_j carries no scale.
     """
 
     edges: tuple[int, ...]
@@ -107,6 +109,7 @@ class FlagLevel:
     weight: int
     kind: Literal["U", "F", "G"]
     loops: int
+    scaleless: bool = False
 
     @property
     def trivial(self) -> bool:
@@ -371,6 +374,7 @@ class _Flags:
                     weight=t,
                     kind=kind,
                     loops=loops,
+                    scaleless=not f,
                 )
             )
         return tuple(levels), factors

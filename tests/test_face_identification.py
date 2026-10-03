@@ -406,3 +406,13 @@ def test_class_counts_do_not_depend_on_edge_labels(cnickel: str, rng) -> None:  
         return Counter(face.kind for face in identify_faces(FeynmanIntegral(g)))
 
     assert counts(other) == counts(graph)
+
+
+def test_levels_say_which_minors_are_scaleless() -> None:
+    """F vanishes on the quotient of the three-mass box's IR facet, a bubble whose external
+    momentum is the massless one, and not on the hard factor G({2,4})."""
+    fi = _three_mass_box()
+    (face,) = [f for f in _facets(identify_faces(fi)) if f.facet.normal == (1, 0, 1, 0)]
+    assert [level.scaleless for level in face.levels] == [False, True]
+    whole = identify_faces(fi, max_codimension=0)[0]
+    assert [level.scaleless for level in whole.levels] == [False]

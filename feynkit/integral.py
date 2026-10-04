@@ -708,8 +708,8 @@ class FeynmanIntegral:
         max_face_points
             Faces of the Newton polytope with more monomials than this are
             left out of the Landau analysis and listed as skipped; None, the
-            default, sets no limit. The faces are attempted smallest first
-            within the report's time budget,
+            default, sets no limit. The faces of more than 14 points are
+            attempted, smallest first, within the report's time budget,
             :data:`~feynkit.io.report.LANDAU_BUDGET`, and those left when it
             runs out are listed too.
         limits

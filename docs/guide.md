@@ -2171,13 +2171,13 @@ misses its own factor, since its polytope, of 15 points, runs past the probe. `t
 longer to decompose than to eliminate: one of 26 points of the massive kite takes 18 s to
 eliminate and over two minutes to decompose.
 
-`total_timeout` limits the faces together, counted from the start of the analysis; it is None by
-default. Each face then gets its own limit or the time left, whichever is shorter, and when the
-time runs out the face under way and those not yet attempted are skipped and listed in
-`la.unattempted_faces`. Since the faces go smallest first, these are the largest. The report
-gives its Landau analysis a budget of 120 s, `LANDAU_BUDGET` of `feynkit.io.report`, as a safety
-cap; `AnalysisReport.from_integral` takes another as `landau_budget`, and the section names the
-faces left, counted by size. `max_face_points` skips every face with more monomials and lists it
+`total_timeout` limits the faces of more than 14 points together; it is None by default. Each of
+them then gets its own limit or the time left, whichever is shorter, and when the time runs out
+the face under way and those not yet attempted are skipped and listed in `la.unattempted_faces`.
+Since the faces go smallest first, these are the largest. The faces of up to 14 points do not
+count against it and are treated exactly as without it. The report gives its Landau analysis
+60 s for the large faces, `LANDAU_BUDGET` of `feynkit.io.report`; `AnalysisReport.from_integral`
+takes another as `landau_budget`, and the section names the faces left, counted by size. `max_face_points` skips every face with more monomials and lists it
 in `la.skipped_faces`; it is None by default. Without Singular it is 14, since SymPy's elimination
 cannot be stopped. An elimination that fails or prints output feynkit cannot read raises
 `ComputationError`; a factorisation that fails is left to SymPy. The limits apply to the
@@ -2229,8 +2229,8 @@ polynomial. A restricted surface that vanishes identically gives nothing, and a 
 parent, listed in `la.parent.skipped_faces`, gives nothing either. The parent is analysed with the
 same `max_face_points` and time limits, and when it skips faces the limit surfaces may be
 incomplete; the report says so. With `total_timeout` it has a budget of its own, so the parent
-and the family together can take twice as long: a report with `limits=True` can spend up to 240 s
-on the faces. The parent's analysis is kept for the next integral of the same family, so
+and the family together can take twice as long: a report with `limits=True` can spend up to 120 s
+on the faces of more than 14 points. The parent's analysis is kept for the next integral of the same family, so
 that a sweep over the sets of massless legs of one graph analyses its generic family once.
 Kinematics that are the generic ones in renamed invariants, related to them by an invertible
 linear map, have no parent.
@@ -2884,8 +2884,9 @@ latex = fi.to_latex(["polytope", "gkz"], title="Massive triangle")
 
 The Landau section dominates the build time: the kite `12e|23|3|e|:zzzzz` takes about 7 s in all,
 6 s of it in the Landau analysis, and the massive box `12e|3e|3e|e|:nnnn` about 7 s, 5 s of it in
-the analysis. The analysis spends at most 120 s on the faces, `LANDAU_BUDGET` of
-`feynkit.io.report`, and the section names the faces left when the budget runs out (see
+the analysis. The analysis spends at most 60 s on the faces of more than 14 points,
+`LANDAU_BUDGET` of `feynkit.io.report`, and the section names the faces left when the budget runs
+out (see
 [Landau singularities](#landau-singularities)). With `limits=True`, at kinematics that specialise
 the generic ones, the analysis of the parent family, with a budget of its own, and the counts of
 the limit surfaces come on top (see [Specialised kinematics](#specialised-kinematics)).

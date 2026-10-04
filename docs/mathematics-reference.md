@@ -1391,8 +1391,9 @@ which covers every one-loop box, whose polytope has at most $4 + 10$ points, and
 `large_face_timeout`, a probe of 5 s by default, for a larger face. The number of points is a poor
 measure of the cost: the massless pentagon's polytope, of 15 points, runs past the probe and its
 own factor is lost, while faces of 20 and 28 points of a two-loop box give a component in under a
-second. The faces left when `total_timeout`, None by default and 120 s in the report, runs out
-are skipped too, and so, when it is given, are those with more points than `max_face_points`.
+second. `total_timeout`, None by default and 60 s in the report, limits the faces of more than 14
+points together, and the smaller faces do not count against it. The faces left when it runs out
+are skipped too, as, when it is given, are those with more points than `max_face_points`.
 
 ### 10.5 Known Results
 

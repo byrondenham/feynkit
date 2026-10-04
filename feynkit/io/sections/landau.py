@@ -29,10 +29,11 @@ from ._base import Section, SummaryPart
 if TYPE_CHECKING:
     from ..report import AnalysisReport, BuildContext
 
-# The seconds the report's Landau analysis gives its faces together, its total_timeout: a safety
-# cap, since each face of more than 14 points gets only a probe of 5 s. The faces are attempted
-# smallest first, and the section names those left when it runs out.
-LANDAU_BUDGET = 120
+# The seconds the report's Landau analysis gives its faces of more than 14 points together, its
+# total_timeout. The faces are attempted smallest first, each larger face within a probe of 5 s,
+# and the section names those left when it runs out; the smaller faces are treated as without
+# it. On the graphs measured, every large face that gave a component took under a second.
+LANDAU_BUDGET = 60
 
 
 @dataclass(frozen=True)
@@ -64,8 +65,8 @@ class Landau:
         For each entry of ``skipped``, whether it was left when the time
         budget ran out.
     budget
-        The time budget of the faces in seconds, the ``total_timeout`` of the
-        analysis, or None for none.
+        The time budget of the faces of more than 14 points in seconds, the
+        ``total_timeout`` of the analysis, or None for none.
     """
 
     analysis: LandauAnalysis
@@ -360,9 +361,9 @@ def skipped_faces(landau: Landau) -> str | None:
         )
         whose = "its discriminant is" if n == 1 else "their discriminants are"
         sentences.append(
-            f"The faces were attempted smallest first within {budget}, which ran out with "
-            f"{count_noun(n, 'face')} left, so {whose} missing from the list"
-            f"{' as well' if skipped else ''}: {join_words(names)}."
+            f"The faces of more than {LARGE_FACE_POINTS} points were attempted smallest first "
+            f"within {budget}, which ran out with {count_noun(n, 'face')} left, so {whose} "
+            f"missing from the list{' as well' if skipped else ''}: {join_words(names)}."
         )
     return " ".join(sentences) or None
 

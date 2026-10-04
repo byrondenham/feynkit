@@ -821,7 +821,8 @@ def test_a_parent_that_skipped_faces_is_said_to_leave_the_limits_incomplete() ->
 
 def _sunrise_skipping(timed_out: set[int], unattempted: set[int]) -> AnalysisReport:
     """The massive sunrise's report with its faces of 7 and 10 points skipped, those with the
-    given numbers of points past the time limit or left when the budget ran out."""
+    given numbers of points marked by hand as past the time limit or left when the budget ran
+    out."""
     sunrise = FeynmanIntegral.from_cnickel("111e|e|:nnn")
     report = AnalysisReport.from_integral(sunrise, ["landau"], max_face_points=4)
     assert report.landau is not None
@@ -839,9 +840,9 @@ def test_faces_left_when_the_budget_ran_out_are_named_by_size() -> None:
     report = _sunrise_skipping(set(), {7, 10})
     for document in (render_text(report), render_latex(report)):
         assert (
-            "The faces were attempted smallest first within a time budget of 120 s, which ran "
-            "out with 2 faces left, so their discriminants are missing from the list: 1 with 7 "
-            "points and the whole polytope, 10 points."
+            "The faces of more than 14 points were attempted smallest first within a time budget "
+            "of 60 s, which ran out with 2 faces left, so their discriminants are missing from the "
+            "list: 1 with 7 points and the whole polytope, 10 points."
         ) in " ".join(document.split())
         assert "skipped" not in document
 
@@ -852,9 +853,9 @@ def test_faces_past_the_time_limit_and_past_the_budget() -> None:
         assert (
             "1 face ran past its time limit, 60 s for a face of up to 14 points and 5 s for a "
             "larger one, and its discriminant is missing from the list: a face of dimension 2 "
-            "with 7 points. The faces were attempted smallest first within a time budget of "
-            "120 s, which ran out with 1 face left, so its discriminant is missing from the list "
-            "as well: the whole polytope, 10 points."
+            "with 7 points. The faces of more than 14 points were attempted smallest first "
+            "within a time budget of 60 s, which ran out with 1 face left, so its discriminant is "
+            "missing from the list as well: the whole polytope, 10 points."
         ) in " ".join(document.split())
 
 

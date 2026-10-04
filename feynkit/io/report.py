@@ -254,12 +254,13 @@ class AnalysisReport:
             "generic", at the generic point of the kinematics, which takes
             minutes for larger graphs.
         landau_budget
-            The most seconds the Landau analysis gives the faces together, its
-            ``total_timeout``: :data:`LANDAU_BUDGET` (120) by default, None for
-            no limit. The faces are attempted smallest first, and the section
-            names those left when it runs out. The ``torus`` and
-            ``degeneracy`` sections share the analysis. With ``limits``, the
-            parent family's analysis has a budget of its own.
+            The most seconds the Landau analysis gives its faces of more than
+            14 points together, its ``total_timeout``: :data:`LANDAU_BUDGET`
+            (60) by default, None for no limit. The faces are attempted
+            smallest first, and the section names those left when it runs
+            out; the smaller faces are treated as without it. The ``torus``
+            and ``degeneracy`` sections share the analysis. With ``limits``,
+            the parent family's analysis has a budget of its own.
 
         Raises
         ------

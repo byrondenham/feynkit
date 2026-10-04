@@ -889,7 +889,9 @@ class TestSeveralGenerators:
         # three other components come from HyperInt alone. Its face of 26 points takes over
         # two minutes to decompose, past the default time limit.
         g, variables, components = pld_entry(name)
-        analysis = landau_analysis_from_polynomial(g, variables, max_face_points=30, timeout=None)
+        analysis = landau_analysis_from_polynomial(
+            g, variables, max_face_points=30, timeout=None, large_face_timeout=None
+        )
         assert set(analysis.landau_surfaces) == components
 
 
@@ -959,15 +961,16 @@ class TestLimitSurfaces:
         analysis = landau_module._analysis
 
         def spy(g: sp.Expr, *args: object) -> LandauAnalysis:
-            timeouts.append(args[-2])
+            timeouts.append(args[-3:-1])
             return analysis(g, *args)  # type: ignore[arg-type]
 
         monkeypatch.setattr(landau_module, "_analysis", spy)
         on_shell = _massless_legs("12e|2e|e|:nnn", (1,))
         landau_analysis(on_shell, confirm=False, limits=True)
-        assert timeouts == [landau_module.DEFAULT_FACE_TIMEOUT] * 2
-        landau_analysis(on_shell, confirm=False, timeout=30, limits=True)
-        assert timeouts[2:] == [30, 30]
+        default = (landau_module.DEFAULT_FACE_TIMEOUT, landau_module.DEFAULT_LARGE_FACE_TIMEOUT)
+        assert timeouts == [default] * 2
+        landau_analysis(on_shell, confirm=False, timeout=30, large_face_timeout=3, limits=True)
+        assert timeouts[2:] == [(30, 3), (30, 3)]
 
     def test_renamed_generic_kinematics_have_no_parent(self) -> None:
         # Invariants renamed by an invertible linear map are the generic family itself.
@@ -1981,6 +1984,29 @@ class TestFaceOrderAndBudget:
             ValidationError, match="total_timeout must be None or a number of seconds"
         ):
             landau_analysis(massive_bubble, total_timeout=total)  # type: ignore[arg-type]
+
+    def test_faces_of_more_than_14_points_get_a_short_time_limit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls = self._spy(monkeypatch)
+        fi = FeynmanIntegral.from_cnickel(self.KITE)
+        landau_analysis(fi)
+        assert landau_module.LARGE_FACE_POINTS == 14
+        assert landau_module.DEFAULT_LARGE_FACE_TIMEOUT == 5
+        limits = {(points > 14, limit) for points, _, limit in calls}
+        assert limits == {(False, 60), (True, 5)}
+        calls.clear()
+        landau_analysis(fi, timeout=30, large_face_timeout=None)
+        assert {(points > 14, limit) for points, _, limit in calls} == {(False, 30), (True, None)}
+
+    @pytest.mark.parametrize("probe", [0, -1, True, float("inf"), float("nan"), "5", 3e6])
+    def test_large_face_timeout_must_be_a_number_of_seconds(
+        self, probe: object, massive_bubble: FeynmanIntegral
+    ) -> None:
+        with pytest.raises(
+            ValidationError, match="large_face_timeout must be None or a number of seconds"
+        ):
+            landau_analysis(massive_bubble, large_face_timeout=probe)  # type: ignore[arg-type]
 
     def test_without_singular_faces_stop_at_14_points(
         self, monkeypatch: pytest.MonkeyPatch

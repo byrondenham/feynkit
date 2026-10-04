@@ -33,9 +33,11 @@ Faces contribute as follows.
   Fevola, Mizera and Telen (2024, definition 3.5): the hypersurfaces onto
   which components of the faces' incidence varieties in the torus
   project. The faces are eliminated smallest first, by number of points
-  and then by dimension. A face whose elimination runs past ``timeout``,
-  a face with more points than ``max_face_points`` when that is given, and
-  the faces left when ``total_timeout`` runs out are skipped and listed in
+  and then by dimension. A face whose elimination runs past its time
+  limit, ``timeout`` or, for a face of more than ``LARGE_FACE_POINTS``
+  points, ``large_face_timeout``, a face with more points than
+  ``max_face_points`` when that is given, and the faces left when
+  ``total_timeout`` runs out are skipped and listed in
   ``LandauAnalysis.skipped_faces``; the factors of those faces are then
   missing from the result, at generic kinematics too.
 
@@ -114,7 +116,9 @@ if TYPE_CHECKING:
 
 __all__ = [
     "DEFAULT_FACE_TIMEOUT",
+    "DEFAULT_LARGE_FACE_TIMEOUT",
     "DEFAULT_LIMITS",
+    "LARGE_FACE_POINTS",
     "FaceDiscriminant",
     "LandauAnalysis",
     "LimitSurface",
@@ -249,11 +253,11 @@ class LandauAnalysis:
     skipped_faces
         Exponent sets of the faces whose discriminants are left out, in the
         order of the faces of the polytope: those whose elimination ran past
-        ``timeout``, those with more points than ``max_face_points``, and
-        those left when ``total_timeout`` ran out. ``landau_surfaces`` and
-        ``principal_a_determinant`` are then incomplete, whatever the
+        its time limit, those with more points than ``max_face_points``,
+        and those left when ``total_timeout`` ran out. ``landau_surfaces``
+        and ``principal_a_determinant`` are then incomplete, whatever the
         kinematics: the massless pentagon's polytope, of 15 points, runs
-        past the default ``timeout``, and its factor is missing.
+        past its time limit, and its factor is missing.
     limit_surfaces
         The factors of the parent family's surfaces, restricted to these
         kinematics, that are not in ``landau_surfaces`` and at whose random
@@ -268,8 +272,8 @@ class LandauAnalysis:
         generic external kinematics, or None when there is no parent. When
         it skipped faces the limit surfaces may be incomplete.
     timed_out_faces
-        The faces of ``skipped_faces`` whose elimination ran past
-        ``timeout``, in the same order.
+        The faces of ``skipped_faces`` whose elimination ran past its time
+        limit, ``timeout`` or ``large_face_timeout``, in the same order.
     unattempted_faces
         The faces of ``skipped_faces`` left when ``total_timeout`` ran out,
         the one it cut short included, in the same order.
@@ -357,15 +361,20 @@ def _singular_binary() -> str | None:
 # subprocess.run waits through a C int of milliseconds, which holds about 2.1e6 s.
 _MAX_TIMEOUT = 2_000_000
 
-# The seconds Singular gets for each face by default, several times the longest a face has
-# taken on the graphs the tests and the report exercise at the default max_face_points; a face
-# past it is skipped.
+# Faces with more points than this are large: they get large_face_timeout instead of timeout,
+# and without Singular, whose SymPy fallback cannot be stopped, they are skipped when
+# max_face_points is None. Every one-loop box has at most 14 points.
+LARGE_FACE_POINTS = 14
+
+# The seconds Singular gets for each face of at most LARGE_FACE_POINTS points by default, several
+# times the longest such a face has taken on the graphs the tests and the report exercise, about
+# 9 s; a face past it is skipped.
 DEFAULT_FACE_TIMEOUT = 60
 
-# Without Singular the faces are eliminated by SymPy, which cannot be stopped, so when
-# max_face_points is None faces with more points than this are skipped; it covers every one-loop
-# box.
-_SYMPY_FACE_POINTS = 14
+# The seconds Singular gets for each larger face by default: a probe. On the graphs measured, the
+# large faces that gave a component took under a second, those that took longer added nothing,
+# and many never finish.
+DEFAULT_LARGE_FACE_TIMEOUT = 5
 
 # Whether landau_analysis looks for limit surfaces when not told: True, False, or "one-loop"
 # for one-loop integrals only.
@@ -1327,6 +1336,7 @@ def landau_analysis_from_polynomial(
     max_face_points: int | None = None,
     scale: sp.Symbol | None = None,
     timeout: float | None = DEFAULT_FACE_TIMEOUT,
+    large_face_timeout: float | None = DEFAULT_LARGE_FACE_TIMEOUT,
     total_timeout: float | None = None,
     parent: sp.Expr | None = None,
     restriction: Mapping[sp.Symbol, sp.Expr] | None = None,
@@ -1346,11 +1356,8 @@ def landau_analysis_from_polynomial(
         Faces with more monomials than this are not eliminated and are
         reported in ``skipped_faces``; the surfaces and their product then
         lack those faces' factors. None, the default, sets no limit, and
-        the time limits decide instead: the number of points is a poor
-        measure of the cost, since faces of 20 and 28 points of a two-loop
-        box eliminate in under a second, while one of 14 points of the
-        generic massive parachute had not finished after 400 s. Without
-        Singular, None stands for 14, which covers every one-loop box,
+        the time limits decide instead. Without Singular, None stands for
+        :data:`LARGE_FACE_POINTS`, 14, which covers every one-loop box,
         since SymPy's elimination cannot be stopped.
     scale
         The energy scale mu, if ``g_poly`` carries one. When every
@@ -1369,18 +1376,28 @@ def landau_analysis_from_polynomial(
         where it occurs, for instance a vertex coefficient m_1^2 / mu^2 is
         still that coefficient.
     timeout
-        The most seconds to give Singular for each face it eliminates, at
-        most 2,000,000, :data:`DEFAULT_FACE_TIMEOUT` (60) by default; None
-        sets no limit. A face that runs past it is skipped and listed in
-        ``skipped_faces`` and ``timed_out_faces``. It limits each face, its
+        The most seconds to give Singular for each face it eliminates of at
+        most :data:`LARGE_FACE_POINTS` (14) points, at most 2,000,000,
+        :data:`DEFAULT_FACE_TIMEOUT` (60) by default; None sets no limit. A
+        face that runs past it is skipped and listed in ``skipped_faces``
+        and ``timed_out_faces``: one of 14 points of the generic massive
+        parachute had not finished after 400 s. It limits each face, its
         decomposition into minimal primes included; the other steps are not
         limited, namely the SymPy fallback, the discriminants of edges and
         the factorisations, which SymPy can take minutes over.
+    large_face_timeout
+        The same for each larger face, :data:`DEFAULT_LARGE_FACE_TIMEOUT`
+        (5) by default: a short probe. The number of points is a poor
+        measure of the cost. Faces of 20 and 28 points of a two-loop box
+        give a component in under a second, and the polytope of the
+        generic massive parachute, 19 points, gives one in 0.2 s, while on
+        the graphs measured the large faces that took longer added nothing,
+        and many never finish.
     total_timeout
         The most seconds to give the faces together, counted from the start
         of the analysis, at most 2,000,000; None, the default, sets no
         limit. The faces are attempted smallest first, by number of points
-        and then by dimension, each within ``timeout`` or the time left,
+        and then by dimension, each within its time limit or the time left,
         whichever is shorter. When it runs out, the face under way and
         those not yet attempted are skipped and listed in ``skipped_faces``
         and ``unattempted_faces``. Vertices, simplices and edges need no
@@ -1390,9 +1407,9 @@ def landau_analysis_from_polynomial(
         restriction, and the map from its kinematic symbols to expressions
         in those of ``g_poly`` that restricts it: substituted, ``parent``
         must be ``g_poly``. The restriction defaults to no substitution.
-        The parent is analysed with the same ``max_face_points``, ``scale``,
-        ``timeout`` and ``total_timeout``, the last a total of its own, and
-        the irreducible factors of its surfaces,
+        The parent is analysed with the same ``max_face_points``, ``scale``
+        and time limits, ``total_timeout`` a total of its own, and the
+        irreducible factors of its surfaces,
         restricted, that are not among ``landau_surfaces`` and do not
         vanish identically, are tested and listed in ``limit_surfaces`` or
         ``limit_candidates``. Without a parent both are empty.
@@ -1410,9 +1427,9 @@ def landau_analysis_from_polynomial(
     Raises
     ------
     ValidationError
-        If ``timeout`` or ``total_timeout`` is neither None nor a number
-        greater than 0 and at most 2,000,000, or ``confirm_timeout`` is not
-        such a number; if
+        If ``timeout``, ``large_face_timeout`` or ``total_timeout`` is
+        neither None nor a number greater than 0 and at most 2,000,000, or
+        ``confirm_timeout`` is not such a number; if
         ``restriction`` is given without ``parent``; or if ``parent`` does
         not restrict to ``g_poly``.
     ComputationError
@@ -1420,6 +1437,7 @@ def landau_analysis_from_polynomial(
         elimination ideal.
     """
     _check_timeout(timeout)
+    _check_timeout(large_face_timeout, name="large_face_timeout")
     _check_timeout(total_timeout, name="total_timeout")
     _check_timeout(confirm_timeout, optional=False, name="confirm_timeout")
     if parent is None and restriction is not None:
@@ -1432,11 +1450,12 @@ def landau_analysis_from_polynomial(
             raise ValidationError(
                 "the parent polynomial does not restrict to the polynomial under the restriction"
             )
-    analysis = _analysis(g_poly, lp_parameters, max_face_points, scale, timeout, total_timeout)
+    limits = (timeout, large_face_timeout, total_timeout)
+    analysis = _analysis(g_poly, lp_parameters, max_face_points, scale, *limits)
     if parent_g is None or restriction is None:
         return analysis
     parent_analysis = _parent_analysis(
-        parent_g, tuple(lp_parameters), max_face_points, scale, timeout, total_timeout
+        parent_g, tuple(lp_parameters), max_face_points, scale, *limits
     )
     g_poly = sp.expand(g_poly)
     kinematic_syms = g_poly.free_symbols - set(lp_parameters)
@@ -1472,12 +1491,14 @@ def _parent_analysis(
     max_face_points: int | None,
     scale: sp.Symbol | None,
     timeout: float | None,
+    large_face_timeout: float | None,
     total_timeout: float | None,
 ) -> LandauAnalysis:
     """The principal Landau determinant of a parent family, kept for the next restriction
     of the same family: analysing the kinematics of one graph in turn, each with every
     set of massless legs, analyses its generic family once. The analysis is immutable."""
-    return _analysis(parent_g, list(lp_parameters), max_face_points, scale, timeout, total_timeout)
+    limits = (timeout, large_face_timeout, total_timeout)
+    return _analysis(parent_g, list(lp_parameters), max_face_points, scale, *limits)
 
 
 def _analysis(
@@ -1486,6 +1507,7 @@ def _analysis(
     max_face_points: int | None,
     scale: sp.Symbol | None,
     timeout: float | None,
+    large_face_timeout: float | None,
     total_timeout: float | None,
 ) -> LandauAnalysis:
     """The principal Landau determinant of :func:`landau_analysis_from_polynomial`.
@@ -1506,7 +1528,7 @@ def _analysis(
     unit_scale = scale if scale is not None and _unit_scale_is_exact(support, scale) else None
     exps = np.array([list(e) for e, _ in support], dtype=int)
     if max_face_points is None and _singular_binary() is None:
-        max_face_points = _SYMPY_FACE_POINTS
+        max_face_points = LARGE_FACE_POINTS
     deadline = None if total_timeout is None else start + total_timeout
 
     listed = [
@@ -1519,7 +1541,7 @@ def _analysis(
     for k in sorted(range(len(listed)), key=lambda k: (len(listed[k][1]), listed[k][0])):
         dimension, face_exps, face_coeffs = listed[k]
         points = len(face_exps)
-        limit, cut = timeout, False
+        limit, cut = (timeout if points <= LARGE_FACE_POINTS else large_face_timeout), False
         eliminated = dimension >= 2 and points > dimension + 1
         if max_face_points is not None and points > max_face_points:
             eliminated = False
@@ -1592,6 +1614,7 @@ def landau_analysis(
     *,
     max_face_points: int | None = None,
     timeout: float | None = DEFAULT_FACE_TIMEOUT,
+    large_face_timeout: float | None = DEFAULT_LARGE_FACE_TIMEOUT,
     total_timeout: float | None = None,
     limits: bool | str | None = None,
     confirm: bool = True,
@@ -1612,9 +1635,9 @@ def landau_analysis(
     ones in invariants renamed by an invertible linear map, there is no
     parent, and ``limit_surfaces`` and ``limit_candidates`` are empty, and
     there is none unless ``limits`` asks for it. The parent is analysed
-    with the same ``max_face_points``, ``timeout`` and ``total_timeout``;
-    when it skips faces, listed in ``parent.skipped_faces``, the limit
-    surfaces may be incomplete.
+    with the same ``max_face_points`` and time limits, and a
+    ``total_timeout`` of its own; when it skips faces, listed in
+    ``parent.skipped_faces``, the limit surfaces may be incomplete.
 
     ``limits`` is True to look for limit surfaces, False not to, and
     "one-loop" to look for them only at one loop; None, the default, takes
@@ -1633,6 +1656,7 @@ def landau_analysis(
         max_face_points=max_face_points,
         scale=integral.graph.energy_scale,
         timeout=timeout,
+        large_face_timeout=large_face_timeout,
         total_timeout=total_timeout,
         parent=found[0].symanzik.g if found is not None else None,
         restriction=found[1] if found is not None else None,

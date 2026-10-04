@@ -21,10 +21,13 @@ N! Vol of the Newton polytope relative to Z^N.
   components of the Euler discriminant are checked for inner-dbox, with -m slow, against those
   of the principal Landau determinant, which is all feynkit computes of it. Left out: outer-dbox,
   Hj-npl-dbox, Bhabha-dbox, Bhabha2-dbox, kite and par, where the table counts components that
-  HyperInt alone found (FMT, Sec. 5.4, p. 57); and the others, which took more than 120 s.
+  HyperInt alone found (FMT, Sec. 5.4, p. 57); and the others, which took more than 120 s. The
+  component M_2 - s of Hj-npl-dbox, which their database computes from faces of 20 and 28
+  points, is checked with -m slow.
 - Klausen, arXiv:2109.07584 (Kla21 below): the triangle's 21 face discriminants, App. A, p. 36;
   its proper mixed faces, Ex. 4.3, p. 28; and the two parametrisations of the leading Landau
-  variety of the dunce's cap, Eqs. 6.6 and 6.7, pp. 33-34.
+  variety of the dunce's cap, Eqs. 6.6 and 6.7, pp. 33-34, of which the first gives a
+  component that the whole Newton polytope of G yields, with -m slow.
 - BBKP: C in Table 1, p. 33, Prop. 54, p. 33, Props. 55 and 56, pp. 34-35, Ex. 57, p. 36,
   Table 2, p. 37, and Ex. 59, p. 38, for the graphs that the figures there define unambiguously.
 - Chestnov, Matsubara-Heo, Munch and Takayama, arXiv:2305.01585 (CMMT below): the GKZ rank, the
@@ -198,13 +201,31 @@ def test_fevola_mizera_telen_table_3(entry: str, dimension: int, f_vector: tuple
 @pytest.mark.slow
 def test_fevola_mizera_telen_table_3_inner_dbox_degrees() -> None:
     # The table gives [1^7, 2]_1 for inner-dbox: seven components of degree 1 and one of degree
-    # 2. The principal Landau determinant finds all eight, though it skips the 126 faces with
-    # more than 14 points; about a minute.
+    # 2. The principal Landau determinant finds all eight; each of the 126 faces with more than
+    # 14 points takes under a second. About a minute.
     g, variables = read_polynomial(FIXTURES / "inner-dbox_custom.txt", (False, False))
     analysis = landau_analysis_from_polynomial(g, variables)
     symbols = sorted(g.free_symbols - set(variables), key=lambda x: x.name)
     degrees = sorted(sp.Poly(s, *symbols).total_degree() for s in analysis.landau_surfaces)
     assert degrees == [1] * 7 + [2]
+
+
+@requires_singular
+@pytest.mark.slow
+def test_fevola_mizera_telen_hj_npl_dbox_gets_m2_minus_s_from_large_faces() -> None:
+    # The database lists M_2 - s among the components of Hj-npl-dbox computed from faces. Two
+    # faces of 20 points and two of 28 give it, each within the probe of a few seconds that a
+    # face of more than 14 points gets; no smaller face does. About two minutes.
+    g, variables = read_polynomial(FIXTURES / "Hj-npl-dbox_custom.txt", (False, False))
+    analysis = landau_analysis_from_polynomial(g, variables)
+    m2, s = sp.symbols("M2 s")
+    assert {m2 - s, s - m2} & set(analysis.landau_surfaces)
+    carriers = sorted(
+        (face.dimension, len(face.exponents))
+        for face in analysis.face_discriminants
+        if face.discriminant.xreplace({m2: s}) == 0
+    )
+    assert carriers == [(4, 20), (4, 20), (5, 28), (5, 28)]
 
 
 # --- Klausen 2022 (arXiv:2109.07584) ------------------------------------------
@@ -333,6 +354,34 @@ def test_klausen_dunces_cap_off_the_landau_variety() -> None:
     analysis = face_degeneracy_from_polynomial(f, x, point, check=False, timeout=60)
     (top,) = [face for face in analysis.faces if face.dimension == 3]
     assert top.degenerate is False
+
+
+@requires_singular
+@pytest.mark.slow
+def test_klausen_dunces_cap_component_from_the_whole_polytope() -> None:
+    # The whole polytope of G = U + F, 19 points, gives the Gram determinant of the three legs,
+    # lambda(p_a^2, p_b^2, p_c^2) with the p^2 below, within the probe a face of more than 14
+    # points gets. The points of Eq. 6.6 lie on it and those of Eq. 6.7 do not, so it is the
+    # component of the leading Landau variety that Eq. 6.6 parametrises. The polytope of F, of
+    # 14 points, runs past its time limit of a minute. U has the terms in x_i that M_i
+    # multiplies in F.
+    f, x, kinematics = _dunces_cap_f()
+    s1, s2, s3, m1, m2, m3, m4 = kinematics
+    u = (x[0] + x[1]) * (x[2] + x[3]) + x[2] * x[3]
+    analysis = landau_analysis_from_polynomial(sp.expand(u + f), x)
+    (whole,) = [face for face in analysis.face_discriminants if len(face.exponents) == 19]
+    a, b, c = m1 + m3 + m4 - s2, m2 + m3 + m4 - s3, m1 + m2 - s1
+    gram = sp.expand(a**2 + b**2 + c**2 - 2 * a * b - 2 * a * c - 2 * b * c)
+    assert sp.expand(whole.discriminant**2 - gram**2) == 0
+    for parametrisation, on in [(_eq_6_6, True), (_eq_6_7, False)]:
+        for t in [(2, 3, -1, 5, 7, -4), (-3, 1, 4, -2, 5, 3)]:
+            values = parametrisation(*(Fraction(v) for v in t))
+            point = {
+                k: sp.Rational(v.numerator, v.denominator)
+                for k, v in zip(kinematics, values, strict=True)
+            }
+            assert (gram.xreplace(point) == 0) is on
+    assert [len(face) for face in analysis.timed_out_faces] == [14]
 
 
 # --- Bitoun, Bogner, Klausen and Panzer ---------------------------------------

@@ -2021,16 +2021,23 @@ class TestFaceOrderAndBudget:
 
 
 class TestFaceLimit:
-    """The default max_face_points covers every one-loop box."""
+    """Every face of a one-loop box gets the full time limit for a face; a larger face gets a
+    probe."""
 
     @requires_singular
     @pytest.mark.slow
-    def test_the_massive_parachute_skips_a_face_past_the_time_limit(self) -> None:
-        # Singular had not eliminated the face of 14 points after 400 s; the others take
-        # seconds.
+    def test_the_massive_parachute_gets_a_kallen_function_from_its_polytope(self) -> None:
+        # The polytope, 19 points, gives lambda(p_3^2, p_4^2, s_12) within its probe: the
+        # component lambda(M_3, M_4, s) that the database of Fevola, Mizera and Telen computes
+        # from faces for par on its full kinematic space. Singular had not eliminated the face
+        # of 14 points after 400 s, and it runs past its time limit.
         fi = FeynmanIntegral.from_cnickel("12ee|22e|e|:nnnn")
         analysis = landau_analysis(fi)
-        assert sorted(len(face) for face in analysis.skipped_faces) == [14, 19]
+        assert [len(face) for face in analysis.skipped_faces] == [14]
+        assert analysis.timed_out_faces == analysis.skipped_faces
+        p3, p4, s12 = (sp.Symbol(name, real=True) for name in ("p3^2", "p4^2", "s12"))
+        kallen = p3**2 + p4**2 + s12**2 - 2 * p3 * p4 - 2 * p3 * s12 - 2 * p4 * s12
+        assert _monic(kallen) in {_monic(h) for h in analysis.landau_surfaces}
 
     @requires_singular
     def test_the_default_limit_covers_the_box(self) -> None:

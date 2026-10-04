@@ -710,8 +710,8 @@ class FeynmanIntegral:
             left out of the Landau analysis and listed as skipped; None, the
             default, sets no limit. The faces are attempted smallest first
             within the report's time budget,
-            :data:`~feynkit.io.report.LANDAU_BUDGET` (300 s), and those left
-            when it runs out are listed too.
+            :data:`~feynkit.io.report.LANDAU_BUDGET`, and those left when it
+            runs out are listed too.
         limits
             Whether the Landau section looks for limit surfaces, as the
             ``limits`` of :func:`~feynkit.landau.landau_analysis`; None, the

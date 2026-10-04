@@ -26,7 +26,7 @@ from feynkit.generate import generate_graphs
 
 ZERO = sp.Integer(0)
 
-# The five instances of the design, and three more: masses on every line, an off-shell
+# Five standard instances, and three more: masses on every line, an off-shell
 # vertex and a three-loop ladder.
 BOX = ("13e|2e|3e|e|:zzzz", "massless_on_shell")
 SUNRISE = ("111e|e|:nnn", None)

@@ -264,7 +264,7 @@ fk analyse "12e|2e|e|:zzz" --json --sections polytope,torus --no-db
 #### Reports and JSON
 
 With these options, `fk analyse` also writes the analysis report of `FeynmanIntegral.to_latex`
-and `to_text` (section 22), or summarises it as JSON. It builds the report once, however many of
+and `to_text` (section 23), or summarises it as JSON. It builds the report once, however many of
 the options are given, and checks that it can write each file before the analysis starts.
 
 | Option | Effect |
@@ -459,7 +459,7 @@ exponent of propagator `e`, and `D` is the spacetime dimension.
 The monomial support of `G` defines the **Newton polytope**. Its column-homogenised form is the
 **GKZ A-matrix**. The kernel of the monomial map `z -> u^A` is the **toric ideal**. Each of its
 binomials gives a differential operator in the coefficients `z_j` that annihilates the integral
-(section 12).
+(section 13).
 
 ---
 
@@ -781,10 +781,10 @@ from feynkit import polytope_data
 from feynkit.io import AnalysisReport
 
 polytope_data(fi.newton_polytope.points)   # PolytopeData: faces, facets, volume (section 11)
-fi.torus_count()                           # TorusCount: point counts and candidates (section 18)
+fi.torus_count()                           # TorusCount: point counts and candidates (section 19)
 fi.facet_resonance(nu={1: 1, 2: 1, 3: 1})  # FacetResonance per facet, D = 4 - 2 eps (section 11)
 fi.face_identification()                   # FaceIdentification per face up to codim 2 (section 11)
-AnalysisReport.from_integral(fi)           # every fact the analysis report states (section 22)
+AnalysisReport.from_integral(fi)           # every fact the analysis report states (section 23)
 fi.to_latex()                              # the report as a LaTeX document
 fi.to_text()                               # the report as plain text
 ```
@@ -1104,7 +1104,7 @@ lies outside the affine hull of the polytope, so that rescaling the $u_e$ multip
 by a power of $\lambda$ that involves $D$, and dimensional regularisation sets it to zero. A
 massless self-loop makes an integral scaleless; `1ee|1|:zn`, whose massless line carries no
 momentum, is not full-dimensional but does not satisfy the criterion either. The analysis report
-(section 22) lists one such expression per facet:
+(section 23) lists one such expression per facet:
 
 ```python
 from feynkit.io import AnalysisReport

@@ -31,7 +31,12 @@ and completing the square gives
 Lee's Eqs. 8-9 with the signs of a Minkowski -q^2. G = U + F is the Lee-Pomeransky
 polynomial of the family. Its parameters are the u_e of the integral, then z_1, z_2, ...
 for the ISPs, and F carries the factor 1/mu^2 of the energy scale, as feynkit's does, so
-that G at z = 0 is the G of the graph.
+that G at z = 0 is the G of the graph and the graph's Newton polytope is the face of the
+family's on which every ISP exponent vanishes.
+
+A family belongs to one graph: an ISP is never a denominator. The sector of n is theta(n),
+theta_alpha = 1 exactly when n_alpha > 0, numbered by Weinzierl's
+N_id = sum_j 2^(j-1) Theta(n_j - 1/2) (Feynman Integrals, Springer 2022, Eq. 6.16).
 """
 
 from __future__ import annotations
@@ -97,8 +102,11 @@ def _rational(value: Fraction) -> sp.Rational:
 
 
 def _momentum_label(loop: Sequence[Fraction], external: Sequence[Fraction]) -> str:
-    """The momentum as l1 - l2 + p1."""
+    """The momentum as l1 - l2 + p1, up to its sign: the first coefficient is positive."""
     text = ""
+    first = next((c for c in (*loop, *external) if c), 1)
+    if first < 0:
+        loop, external = [-c for c in loop], [-c for c in external]
     names = [f"l{i}" for i in range(1, len(loop) + 1)]
     names += [f"p{k}" for k in range(1, len(external) + 1)]
     for c, name in zip((*loop, *external), names, strict=True):
@@ -237,7 +245,7 @@ class FamilyFunction:
         if label is None:
             label = f"-({_momentum_label(lam, kap)})^2"
             if mass != 0:
-                label += f" + {mass}"
+                label += f" + {sp.sstr(mass).replace('**', '^')}"
         return cls(
             label=label,
             quadratic=tuple(tuple(-x * y for y in lam) for x in lam),
@@ -359,7 +367,7 @@ def momentum_routing(fi: FeynmanIntegral, chords: Sequence[int] | None = None) -
                 parent[a] = b
                 tree.append(e.idx)
     else:
-        chosen = [int(c) for c in chords]
+        chosen = [_integer(c, "a chord") for c in chords]
         if len(set(chosen)) != len(chosen) or not set(chosen) <= set(indices):
             raise ValidationError(f"the chords {tuple(chords)} are not distinct internal edges")
         if len(chosen) != loops:
@@ -458,6 +466,34 @@ def _gram(fi: FeynmanIntegral, n: int) -> list[list[sp.Expr]]:
                 gram[j - 1][k - 1] = product(j, k)
         gram[j - 1][j - 1] = sp.expand(-sum(product(j, k) for k in range(1, n + 1) if k != j))
     return gram
+
+
+def _dependent(routing: MomentumRouting, rank: int) -> str:
+    """Why the propagators are linearly dependent in the scalar products."""
+    size = len(routing.edge_momenta)
+    head = f"the {size} propagators span only {rank} dimensions in the scalar products"
+    seen: dict[tuple[int, ...], int] = {}
+    for edge, loop, external in routing.edge_momenta:
+        if not any(loop):
+            return f"{head}: edge {edge} carries no loop momentum, so its propagator is a constant"
+        vector = (*loop, *external)
+        twin = seen.get(vector, seen.get(tuple(-c for c in vector)))
+        if twin is not None:
+            return (
+                f"{head}: edges {twin} and {edge} are in series and carry the same momentum, so "
+                "no complete basis holds both; merge them into one propagator with a higher "
+                "power when their masses are equal, or split them by partial fractions when "
+                "they differ"
+            )
+        seen[vector] = edge
+    return f"{head}, so no complete basis holds them"
+
+
+def _integer(value: object, where: str) -> int:
+    """value as an int; integers only, never a float, a Fraction or a bool."""
+    if isinstance(value, numbers.Integral) and not isinstance(value, bool):
+        return int(value)
+    raise ValidationError(f"{where} must be an integer; got {value!r}")
 
 
 @dataclass(frozen=True)
@@ -612,11 +648,7 @@ class IntegralFamily:
         rows = [f.coefficients() for f in propagators]
         rank = _rank(rows)
         if rank < len(rows):
-            raise ValidationError(
-                f"the {len(rows)} propagators span only {rank} dimensions in the scalar "
-                "products, so no basis that holds them is complete; edges in series or a "
-                "bridge make propagators dependent"
-            )
+            raise ValidationError(_dependent(routing, rank))
         if isinstance(isps, str):
             if isps != "auto":
                 raise ValidationError(f"isps must be 'auto' or a sequence of ISPs; got {isps!r}")
@@ -755,3 +787,114 @@ class IntegralFamily:
     def newton_polytope(self) -> NewtonPolytope:
         """The Newton polytope of the family's G, with its support and GKZ matrix."""
         return self._newton_polytope
+
+    def numerator_layer(self, height: int) -> tuple[tuple[tuple[int, ...], sp.Expr], ...]:
+        """
+        The terms of G whose exponents of the ISP parameters add up to height.
+
+        Height 0 is the G of the graph. An ISP with index -k enters through the k-th
+        derivative at z = 0 of its parameter (Lee, arXiv:1310.1145, Eq. 11). G has degree at
+        most 2 in that parameter when every function is -q^2 + m^2 or l_i . p_k, so a power
+        of one ISP reaches the layers at heights 1 and 2, and a product of several ISPs can
+        reach higher ones. Each term is (exponent, coefficient), the exponent over all the
+        parameters of the family, in increasing order.
+
+        Raises
+        ------
+        ValidationError
+            If height is not a non-negative integer.
+        """
+        h = _integer(height, "the height")
+        if h < 0:
+            raise ValidationError(f"the height must be non-negative; got {h}")
+        start = self._propagator_count
+        return tuple(
+            sorted(
+                (term for term in self.newton_polytope().support if sum(term[0][start:]) == h),
+                key=lambda term: term[0],
+            )
+        )
+
+    @property
+    def _propagator_count(self) -> int:
+        return len(self.integral.graph.get_internal_edges())
+
+    def _indices(self, n: Sequence[int]) -> tuple[int, ...]:
+        if not isinstance(n, Sequence) or len(n) != self.size:
+            raise ValidationError(f"the family needs {self.size} indices, one per function")
+        indices = tuple(_integer(x, "an index") for x in n)
+        for f, index in zip(self.functions, indices, strict=True):
+            if f.kind == "isp" and index > 0:
+                raise ValidationError(
+                    f"the ISP {f.label} has index {index}; an ISP is a numerator, with index <= 0"
+                )
+        return indices
+
+    def sector(self, n: Sequence[int]) -> tuple[int, ...]:
+        """
+        theta(n), with theta_alpha = 1 exactly when n_alpha > 0 (Lee, arXiv:1310.1145).
+
+        Raises
+        ------
+        ValidationError
+            If n is not one integer per function, or gives an ISP a positive index.
+        """
+        return tuple(int(x > 0) for x in self._indices(n))
+
+    def sector_id(self, n: Sequence[int]) -> int:
+        """
+        The sector identity N_id = sum_j 2^(j-1) Theta(n_j - 1/2) (Weinzierl, Eq. 6.16).
+
+        The first propagator is the least significant bit, as in Kira's top-level sectors;
+        Lee and Pomeransky's numbering takes the reverse order. Raises as :meth:`sector`.
+        """
+        return sum(1 << j for j, bit in enumerate(self.sector(n)) if bit)
+
+    def corner(self, sector_id: int) -> tuple[int, ...]:
+        """
+        The corner point of a sector, n = theta, from its identity N_id.
+
+        Raises
+        ------
+        ValidationError
+            If sector_id is not an integer with 0 <= N_id < 2^P for P propagators: a
+            higher bit would make an ISP a denominator.
+        """
+        nid = _integer(sector_id, "the sector identity")
+        count = self._propagator_count
+        if not 0 <= nid < 1 << count:
+            raise ValidationError(
+                f"the sector identity must lie in [0, 2^{count}) for {count} propagators; "
+                f"got {nid}"
+            )
+        return tuple((nid >> j) & 1 for j in range(count)) + (0,) * (self.size - count)
+
+    def beta(
+        self, n: Sequence[int], d0: int | Fraction | None = None
+    ) -> tuple[tuple[Fraction, ...], tuple[Fraction, ...]]:
+        """
+        beta = (-D/2, -n_1, ..., -n_N), the parameter of the family's GKZ system.
+
+        At D = D_0 - 2 eps it is beta0 + eps beta1, returned as (beta0, beta1) for
+        :func:`feynkit.face_lattice.decorate_configuration` with the family's A-matrix.
+
+        Parameters
+        ----------
+        n
+            One integer index per function.
+        d0
+            D_0, an integer or a Fraction; None reads it from the dimension of the integral
+            as :meth:`FeynmanIntegral.facet_resonance` does, and takes 4 otherwise.
+
+        Raises
+        ------
+        ValidationError
+            As :meth:`sector` raises, or if d0 is not an integer or a Fraction.
+        """
+        from .resonance import choose_d0
+
+        indices = self._indices(n)
+        d0_value, _ = choose_d0(d0, self.integral.dimension)
+        beta0 = (-d0_value / 2, *(Fraction(-x) for x in indices))
+        beta1 = (Fraction(1), *(Fraction(0) for _ in indices))
+        return beta0, beta1

@@ -93,6 +93,13 @@ from feynkit.degeneracy import (
 )
 from feynkit.face_identification import FaceIdentification, FlagLevel, identify_faces
 from feynkit.face_lattice import DecoratedFace, DecoratedFaceLattice, decorate_faces
+from feynkit.family import (
+    FamilyFunction,
+    FamilyPolynomials,
+    IntegralFamily,
+    MomentumRouting,
+    momentum_routing,
+)
 from feynkit.generate import generate_graphs
 from feynkit.integral import FeynmanIntegral
 from feynkit.io.report import AnalysisReport
@@ -186,6 +193,12 @@ __all__ = [
     "DecoratedFace",
     "DecoratedFaceLattice",
     "decorate_faces",
+    # Integral families
+    "FamilyFunction",
+    "FamilyPolynomials",
+    "IntegralFamily",
+    "MomentumRouting",
+    "momentum_routing",
     # Degenerate faces
     "DegeneracyAnalysis",
     "FaceDegeneracy",

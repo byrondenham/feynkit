@@ -22,19 +22,20 @@ diagram given by its CNickel string.
 9. [GKZ system](#gkz-system)
 10. [Schwinger-representation GKZ system](#schwinger-representation-gkz-system)
 11. [Newton polytope](#newton-polytope)
-12. [Toric ideal](#toric-ideal)
-13. [Polytope equivalence](#polytope-equivalence)
-14. [Automorphism groups and symmetry pairs](#automorphism-groups-and-symmetry-pairs)
-15. [Deriving modified integrals](#deriving-modified-integrals)
-16. [AConfiguration: arbitrary GKZ inputs](#aconfiguration-arbitrary-gkz-inputs)
-17. [Landau singularities](#landau-singularities)
-18. [Torus point counts](#torus-point-counts)
-19. [Degenerate faces](#degenerate-faces)
-20. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
-21. [The database](#the-database)
-22. [Visualisation and export](#visualisation-and-export)
-23. [Standard diagram library](#standard-diagram-library)
-24. [References](#references)
+12. [Integral families](#integral-families)
+13. [Toric ideal](#toric-ideal)
+14. [Polytope equivalence](#polytope-equivalence)
+15. [Automorphism groups and symmetry pairs](#automorphism-groups-and-symmetry-pairs)
+16. [Deriving modified integrals](#deriving-modified-integrals)
+17. [AConfiguration: arbitrary GKZ inputs](#aconfiguration-arbitrary-gkz-inputs)
+18. [Landau singularities](#landau-singularities)
+19. [Torus point counts](#torus-point-counts)
+20. [Degenerate faces](#degenerate-faces)
+21. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
+22. [The database](#the-database)
+23. [Visualisation and export](#visualisation-and-export)
+24. [Standard diagram library](#standard-diagram-library)
+25. [References](#references)
 
 ---
 
@@ -1629,6 +1630,130 @@ $2 \times 10^7$ steps or about five seconds, and `NORMALIZ_TIMEOUT`, 60 s, both 
 `feynkit.io.report`, and say "not computed" for what is left out. With a timeout PyNormaliz runs in
 a child process, which is ended when the time is up. The result is cached on the
 integral for each choice of the arguments, so the report and the CLI compute it once.
+
+---
+
+## Integral families
+
+Integration-by-parts reduction works on a family of integrals rather than on one graph. A family
+(Lee, arXiv:1310.1145, section 2) has $L$ loop momenta $l_i$, $E$ independent external momenta
+$p_k$ and a complete basis of $N = L(L+1)/2 + LE$ quadratic functions
+
+$$D_\alpha = a_\alpha^{ij}\, l_i \cdot l_j + 2\, b_\alpha^{ik}\, l_i \cdot p_k + c_\alpha ,$$
+
+complete meaning that every scalar product $l_i \cdot l_j$ and $l_i \cdot p_k$ is a unique affine
+combination of them. Its integrals are $J(n) = \int \prod_\alpha D_\alpha^{-n_\alpha}$ for
+$n \in \mathbb Z^N$. The functions that are not propagators of the graph are irreducible
+numerators (ISPs), with $n_\alpha \le 0$. A diagram with $E + 1$ legs has at most $E + 3L - 2$
+propagators, so it needs at least $(L - 1)(L + 2E - 4)/2$ ISPs: two for the planar double box.
+
+```python
+from feynkit import FeynmanIntegral, IntegralFamily
+
+fi = FeynmanIntegral.from_cnickel("15e|24|3e|4e|5|e|:zzzzzzz", kinematics="massless_on_shell")
+family = IntegralFamily.from_integral(fi)
+print(family.size, family.complete)            # 9 True
+for f in family.functions:
+    print(f.kind, f.edge, f.label)
+# propagator 1 -(l2 - p2 - p3)^2
+# propagator 2 -(l2 - p1 - p2 - p3)^2
+# propagator 3 -(l1 - p2 - p3)^2
+# propagator 4 -(l1 - l2)^2
+# propagator 5 -(l1 - p3)^2
+# propagator 6 -(l1)^2
+# propagator 7 -(l2)^2
+# isp None -(l1 + p1)^2
+# isp None -(l2 + p2)^2
+```
+
+The conventions:
+
+- `momentum_routing(fi, chords=None)`, which the family stores as `family.routing`, grows a
+  spanning tree in edge-index order. Its chords carry $l_1, \dots, l_L$ from `v1` to `v2`, in
+  index order unless `chords` names them. The legs are incoming, legs $1, \dots, n - 1$ carry the
+  independent momenta and $p_n = -(p_1 + \dots + p_{n-1})$, and the momenta of the tree edges
+  follow from conservation. `routing.momentum(e)` gives the integer coefficients of $l$ and $p$ for
+  edge $e$.
+- The functions come in a fixed order: the propagators $D_e = -q_e^2 + m_e^2$, in feynkit's sign,
+  by edge index, then the ISPs. Their parameters, `family.variables`, are the integral's $u_e$ and
+  then $z_1, z_2, \dots$
+- With `isps="auto"`, the default, the ISPs are chosen greedily from $-(l_i + p_k)^2$, by $i$ and
+  then $k$, and then $-(l_i - l_j)^2$, each kept when it raises the rank. Otherwise pass them:
+  `FamilyFunction.squared(loop, external, mass_squared=0)` is $-q^2 + m^2$ for the momentum with
+  those coefficients, and `FamilyFunction.product(i, k, loops=L, externals=E)` is $l_i \cdot p_k$.
+  A basis that is not complete, or a function that repeats another, raises `ValidationError`.
+- Two edges in series carry the same momentum, so no complete basis holds both propagators, and
+  `from_integral` raises for a graph with a self-energy insertion until its equal-mass edges in
+  series are merged into one propagator with a higher power, or unequal ones split by partial
+  fractions.
+
+With $z_\alpha$ the parameter of $D_\alpha$, write
+$\sum_\alpha z_\alpha D_\alpha = l^{\mathsf T} A\, l + 2\, l \cdot B + C$. Completing the square gives
+
+$$\mathcal U = (-1)^L \det A, \qquad
+\mathcal F = (-1)^L \Big(C \det A - \sum_{i,j} \mathrm{adj}(A)_{ij}\, B_i \cdot B_j\Big),$$
+
+Lee's Eqs. 8-9 in feynkit's signs, and $\mathcal G = \mathcal U + \mathcal F$.
+`family.polynomials()` returns $\mathcal U$, $\mathcal F$ and $\mathcal G$, with the factor
+$1/\mu^2$ in $\mathcal F$ that `fi.symanzik` has. At $z = 0$ they are the graph's polynomials, so the
+graph's Newton polytope is the face of the family's on which every ISP exponent vanishes:
+
+```python
+import sympy as sp
+
+polys = family.polynomials()
+isp = family.variables[7:]
+print(sp.expand(polys.g.subs({z: 0 for z in isp}) - fi.symanzik.g))      # 0
+print(len(family.newton_polytope().points), len(fi.newton_polytope.points))  # 56 26
+```
+
+The family's polytope is much larger than the graph's, and feynkit builds no GKZ system or face
+lattice for it. An index $n_\alpha \le 0$ turns the integral over $z_\alpha$ into
+$(-1)^{n_\alpha} \partial_{z_\alpha}^{-n_\alpha}$ at $z_\alpha = 0$ (Lee's Eq. 11), so a numerator
+brings in the terms of $\mathcal G$ that carry ISP parameters. `numerator_layer(h)` gives the terms
+whose ISP exponents add up to $h$, as (exponent, coefficient) pairs; height 0 is the graph's
+$\mathcal G$. $\mathcal G$ has degree at most 2 in each ISP parameter, so a power of one ISP reaches
+the layers at heights 1 and 2:
+
+```python
+print([len(family.numerator_layer(h)) for h in range(4)])   # [26, 25, 5, 0]
+beta0, beta1 = family.beta((1, 1, 1, 1, 1, 1, 1, -1, 0), 4)
+```
+
+`beta(n, d0)` gives the parameter $\beta = (-D/2, -n_1, \dots, -n_N)$ of the family's
+Lee-Pomeransky GKZ system at $D = D_0 - 2\varepsilon$ as $\beta = \beta_0 + \varepsilon \beta_1$,
+the pair that `feynkit.face_lattice.decorate_configuration` takes; with `d0=None` it reads $D_0$
+from the dimension, as `fi.facet_resonance` does.
+
+A family belongs to one graph, so an ISP is never a denominator, and `beta`, `sector` and
+`sector_id` raise for an ISP with a positive index. The sector of $n$ is $\theta(n)$, with
+$\theta_\alpha = 1$ exactly when $n_\alpha > 0$, and its corner integral is $J(\theta)$. `sector_id`
+numbers it as Weinzierl (2022, Eq. 6.16) and Kira do,
+$N_{\mathrm{id}} = \sum_j 2^{j-1} \Theta(n_j - 1/2)$, with the first propagator as the least
+significant bit; Lee and Pomeransky (arXiv:1308.6676, section 5) read the indices as a binary
+number with the first propagator as the most significant bit. `corner(N_id)` gives $\theta$ back.
+The numbers depend on the order of the edges, so to compare with a published family, build the
+graph with its labels and pass its routing and ISPs. Weinzierl's double box (Exercise 44) has
+$k_1 = q_3$, $k_2 = q_6$, outgoing legs and the ISPs $-(k_1 - p_1 - p_3)^2$ and
+$-(k_2 + p_1 + p_3)^2$; feynkit's legs are incoming, which flips the sign of each $p_j$:
+
+```python
+from feynkit import Edge, FamilyFunction, Graph
+
+ends = [(1, 2), (2, 4), (3, 1), (4, 3), (6, 4), (3, 5), (5, 6)]   # q_1, ..., q_7
+edges = [Edge(idx=e, v1=a, v2=b, is_internal=True, mass=0) for e, (a, b) in enumerate(ends, 1)]
+edges += [Edge(idx=7 + j, v1=v, v2=6 + j, is_internal=False) for j, v in enumerate([1, 2, 6, 5], 1)]
+graph = Graph(internal_vertices=6, external_legs=4, edges=edges)
+fi = FeynmanIntegral(graph).with_kinematics("massless_on_shell")
+isps = [FamilyFunction.squared((1, 0), (1, 0, 1)), FamilyFunction.squared((0, 1), (-1, 0, -1))]
+family = IntegralFamily.from_integral(fi, isps=isps, chords=(3, 6))
+print(family.sector_id((0, 0, 1, 1, 1, 0, 0, 0, 0)))   # 28
+print(family.corner(127))                              # (1, 1, 1, 1, 1, 1, 1, 0, 0)
+```
+
+Sector 28 holds the first of Weinzierl's eight masters and sector 127 the last two (his Eq. 6.83).
+Building the family and its polynomials takes 0.05 s for the double box and about 2 s for the
+off-shell three-loop ladder, with fifteen functions.
 
 ---
 

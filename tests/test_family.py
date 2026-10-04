@@ -8,6 +8,7 @@ arXiv:2201.03593. Equations are cited by number.
 from __future__ import annotations
 
 from fractions import Fraction
+from pathlib import Path
 
 import pytest
 import sympy as sp
@@ -124,6 +125,14 @@ def _conserved(fi: FeynmanIntegral, routing: MomentumRouting) -> bool:
     return True
 
 
+def test_exported() -> None:
+    import feynkit
+
+    for name in ("FamilyFunction", "FamilyPolynomials", "IntegralFamily", "MomentumRouting"):
+        assert name in feynkit.__all__
+    assert feynkit.momentum_routing is momentum_routing
+
+
 class TestFamilyFunction:
     def test_squared_is_minus_q_squared_plus_m_squared(self) -> None:
         """-(l1 - l2 + p1)^2 + m^2 in Lee14's form a l.l + 2 b l.p + c (Eq. 2)."""
@@ -134,7 +143,8 @@ class TestFamilyFunction:
         assert f.external == ((-1, 0), (0, 0))
         assert f.constant == m**2
         assert (f.kind, f.edge) == ("isp", None)
-        assert f.label == "-(l1 - l2 + p1)^2 + m**2"
+        assert f.label == "-(l1 - l2 + p1)^2 + m^2"
+        assert FamilyFunction.squared((-1, 1), (-1, 0), m**2).label == f.label
         assert all(isinstance(x, Fraction) for row in f.quadratic for x in row)
 
     def test_product(self) -> None:
@@ -200,7 +210,7 @@ class TestMomentumRouting:
         assert {e: routing.momentum(e) for e in range(1, 8)} == expected
         assert _conserved(fi, routing)
 
-    @pytest.mark.parametrize("chords", [(3,), (3, 6, 7), (1, 3), (3, 3), (3, 99)])
+    @pytest.mark.parametrize("chords", [(3,), (3, 6, 7), (1, 3), (3, 3), (3, 99), ("3", 6.0)])
     def test_rejects_bad_chords(self, chords: tuple[int, ...]) -> None:
         """Chords number L, are distinct internal edges, and leave a spanning tree."""
         with pytest.raises(ValidationError):
@@ -330,12 +340,21 @@ class TestBasis:
         with pytest.raises(ValidationError):
             IntegralFamily.from_integral(fi, isps="manual")  # type: ignore[arg-type]
 
-    def test_dependent_propagators(self) -> None:
+    def test_edges_in_series(self) -> None:
         """Two propagators in series carry one momentum, so no basis is complete."""
         graph = _graph(3, [(1, 2), (2, 3), (3, 1), (1, 3)], [1, 3])
-        fi = FeynmanIntegral(graph)
-        with pytest.raises(ValidationError, match="propagators"):
-            IntegralFamily.from_integral(fi)
+        with pytest.raises(ValidationError, match="propagators") as raised:
+            IntegralFamily.from_integral(FeynmanIntegral(graph))
+        message = str(raised.value)
+        assert "edges 1 and 2 are in series" in message
+        assert "higher power" in message
+        assert "partial fractions" in message
+
+    def test_bridge(self) -> None:
+        """A bridge carries no loop momentum, so its propagator is a constant."""
+        graph = _graph(4, [(1, 2), (2, 1), (2, 3), (3, 4), (4, 3)], [1, 4])
+        with pytest.raises(ValidationError, match="edge 3 carries no loop momentum"):
+            IntegralFamily.from_integral(FeynmanIntegral(graph))
 
 
 class TestPolynomials:
@@ -389,3 +408,222 @@ class TestPolynomials:
         assert polys.u == u1 + u2
         expected = ((u1 + u2) * (m1**2 * u1 + m2**2 * u2) - s * u1 * u2) / mu**2
         assert sp.expand(polys.f - expected) == 0
+
+
+def _weinzierl_family() -> IntegralFamily:
+    """Wei22's family of the double box (Exercise 44, p. 707): q_8 = k_1 - p_1 - p_3 and
+    q_9 = k_2 + p_1 + p_3 with outgoing legs, so l_1 + p_1 + p_3 and l_2 - p_1 - p_3 here."""
+    isps = [
+        FamilyFunction.squared((1, 0), (1, 0, 1)),
+        FamilyFunction.squared((0, 1), (-1, 0, -1)),
+    ]
+    return IntegralFamily.from_integral(_weinzierl_double_box(), isps=isps, chords=(3, 6))
+
+
+class TestSectors:
+    def test_weinzierl_functions(self) -> None:
+        """The nine functions are Wei22's -q_j^2, in his order (Eq. 2.32, p. 707)."""
+        family = _weinzierl_family()
+        momenta = [
+            ((1, 0), (1, 0, 0)),
+            ((1, 0), (1, 1, 0)),
+            ((1, 0), (0, 0, 0)),
+            ((1, 1), (0, 0, 0)),
+            ((0, 1), (-1, -1, 0)),
+            ((0, 1), (0, 0, 0)),
+            ((0, 1), (-1, -1, -1)),
+            ((1, 0), (1, 0, 1)),
+            ((0, 1), (-1, 0, -1)),
+        ]
+        assert [f.form for f in family.functions] == [
+            FamilyFunction.squared(*q).form for q in momenta
+        ]
+
+    def test_weinzierl_masters(self) -> None:
+        """The sectors of the double box's masters (Wei22, Eq. 6.83)."""
+        family = _weinzierl_family()
+        masters = {
+            "001110000": 28,
+            "100100100": 73,
+            "011011000": 54,
+            "100111000": 57,
+            "111100100": 79,
+            "101110100": 93,
+            "111111100": 127,
+        }
+        for word, nid in masters.items():
+            n = tuple(int(c) for c in word)
+            assert family.sector_id(n) == nid
+            assert family.sector(n) == n
+            assert family.corner(nid) == n
+        assert family.sector_id((1, 1, 1, 1, 1, 1, 1, -1, 0)) == 127
+
+    def test_sector_of_any_indices(self) -> None:
+        family = IntegralFamily.from_integral(_integral(SUNRISE))
+        assert family.sector((2, 0, -3, -1, 0)) == (1, 0, 0, 0, 0)
+        assert family.sector_id((2, 0, -3, -1, 0)) == 1
+        assert family.sector_id((1, 1, 1, 0, -2)) == 7
+        assert [family.corner(k) for k in range(8)] == [
+            tuple((k >> j) & 1 for j in range(3)) + (0, 0) for k in range(8)
+        ]
+
+    @pytest.mark.parametrize(
+        "n", [(1, 1, 1, 1, 0), (1, 1, 1, 0), (1, 1, 1, 0, 0, 0), (1, 1, Fraction(1, 2), 0, 0)]
+    )
+    def test_rejects_bad_indices(self, n: tuple) -> None:
+        """An ISP is never a denominator, and indices are integers, one per function."""
+        family = IntegralFamily.from_integral(_integral(SUNRISE))
+        for method in (family.sector_id, family.sector, family.beta):
+            with pytest.raises(ValidationError):
+                method(n)
+
+    @pytest.mark.parametrize("nid", [-1, 8, 16, 1.0])
+    def test_rejects_bad_ids(self, nid: object) -> None:
+        family = IntegralFamily.from_integral(_integral(SUNRISE))
+        with pytest.raises(ValidationError):
+            family.corner(nid)  # type: ignore[arg-type]
+
+    def test_beta(self) -> None:
+        """beta = (-D/2, -n) at D = d0 - 2 eps, as beta0 + eps beta1."""
+        family = IntegralFamily.from_integral(_integral(SUNRISE))
+        beta0, beta1 = family.beta((1, 2, 1, -1, 0), 4)
+        assert beta0 == (-2, -1, -2, -1, 1, 0)
+        assert beta1 == (1, 0, 0, 0, 0, 0)
+        assert all(isinstance(x, Fraction) for x in (*beta0, *beta1))
+        assert family.beta((1, 1, 1, 0, 0), Fraction(3))[0][0] == Fraction(-3, 2)
+        eps = sp.Symbol("epsilon")
+        fi = FeynmanIntegral.from_cnickel(SUNRISE[0], dimension=6 - 2 * eps)
+        assert IntegralFamily.from_integral(fi).beta((1, 1, 1, 0, 0))[0][0] == -3
+
+
+class TestNumeratorLayers:
+    @pytest.mark.parametrize(
+        ("instance", "size"),
+        [(SUNRISE, 14), (KITE, 36), (DOUBLE_BOX, 25), (DOUBLE_BOX_OFF_SHELL, 44)],
+    )
+    def test_height_one(self, instance: tuple[str, str | None], size: int) -> None:
+        assert len(IntegralFamily.from_integral(_integral(instance)).numerator_layer(1)) == size
+
+    @pytest.mark.parametrize("instance", [SUNRISE, KITE, DOUBLE_BOX])
+    def test_layers_partition_the_support(self, instance: tuple[str, str | None]) -> None:
+        """Height 0 is the graph's G, and the layers are the terms by their ISP degree."""
+        fi = _integral(instance)
+        family = IntegralFamily.from_integral(fi)
+        n = len(fi.graph.get_internal_edges())
+        graph = {(*p, *(0,) * (family.size - n)): c for p, c in fi.newton_polytope.support}
+        layer = dict(family.numerator_layer(0))
+        assert layer.keys() == graph.keys()
+        assert all(sp.expand(layer[p] - graph[p]) == 0 for p in graph)
+        support = dict(family.newton_polytope().support)
+        layers = [family.numerator_layer(h) for h in range(fi.loop_count + 2)]
+        assert sum(len(x) for x in layers) == len(support)
+        for h, terms in enumerate(layers):
+            assert [p for p, _ in terms] == sorted(p for p, _ in terms)
+            for p, c in terms:
+                assert sum(p[n:]) == h
+                assert c == support[p]
+        assert family.numerator_layer(fi.loop_count + 2) == ()
+
+    def test_rejects_bad_heights(self) -> None:
+        family = IntegralFamily.from_integral(_integral(SUNRISE))
+        for height in (-1, 1.5, True):
+            with pytest.raises(ValidationError):
+                family.numerator_layer(height)  # type: ignore[arg-type]
+
+
+def _one_loop_numerator(g: sp.Expr, u: sp.Symbol, z: sp.Symbol, d: sp.Expr) -> sp.Expr:
+    """J with index 1 on u and -1 on z at one loop, by Lee14's Eq. 12.
+
+    Eq. 11 makes the z-integration -d/dz at z = 0, which leaves
+    Gamma(D/2)/Gamma(D) (D/2) int_0^oo G_0^(-D/2-1) G_1 du with G_0 = u + M u^2 and
+    G_1 = dG/dz at z = 0, a sum of Beta functions.
+    """
+    g0 = sp.expand(g.subs(z, 0))
+    g1 = sp.expand(sp.diff(g, z).subs(z, 0))
+    mass = g0.coeff(u, 2)
+    assert sp.expand(g0 - u - mass * u**2) == 0
+    s = d / 2 + 1
+    total = sum(
+        c * mass ** (s - k - 1) * sp.beta(k + 1 - s, 2 * s - k - 1)
+        for (k,), c in sp.Poly(g1, u).terms()
+    )
+    return sp.gamma(d / 2) / sp.gamma(d) * d / 2 * total
+
+
+class TestNumeratorSign:
+    """Lee14's Eq. 11: an index n <= 0 becomes (-1)^n (d/dz)^(-n) at z = 0."""
+
+    d = sp.Rational(13, 5)
+    point = {sp.Symbol("mu", positive=True): 1}
+
+    @staticmethod
+    def _tadpole(d: sp.Expr, mass_squared: sp.Expr) -> sp.Expr:
+        """int d^Dl/(i pi^(D/2)) (-l^2 + m^2)^(-1)."""
+        return sp.gamma(1 - d / 2) * mass_squared ** (d / 2 - 1)
+
+    def test_bubble(self) -> None:
+        """J(-1, 1) = int D_1/D_2 = (m_1^2 - m_2^2 - p^2) T(m_2^2) after a shift of l."""
+        fi = FeynmanIntegral.from_cnickel("11e|e|:nn")
+        family = IntegralFamily.from_integral(fi)
+        u1, u2 = family.variables
+        m1, m2 = (e.get_mass() for e in fi.graph.get_internal_edges())
+        s = -fi.momentum_products[(1, 2)]
+        values = {fi.graph.energy_scale: 1, m1: 2, m2: 3, s: sp.Rational(7, 5)}
+        g = family.polynomials().g.subs(values)
+        found = _one_loop_numerator(g, u2, u1, self.d)
+        expected = (4 - 9 - sp.Rational(7, 5)) * self._tadpole(self.d, 9)
+        assert abs(sp.N(found - expected, 40)) < sp.Float(10) ** -30
+        assert abs(sp.N(expected, 40)) > 1
+
+    def test_tadpole_with_an_isp(self) -> None:
+        """J(1, -1) = int -(l + p)^2/(-l^2 + m^2) = -(m^2 + p^2) T(m^2)."""
+        m = sp.Symbol("m", positive=True)
+        graph = Graph(
+            internal_vertices=1,
+            external_legs=2,
+            edges=[
+                Edge(idx=1, v1=1, v2=1, is_internal=True, mass=m),
+                Edge(idx=2, v1=1, v2=2, is_internal=False),
+                Edge(idx=3, v1=1, v2=3, is_internal=False),
+            ],
+        )
+        fi = FeynmanIntegral(graph)
+        family = IntegralFamily.from_integral(fi)
+        assert [f.label for f in family.functions] == ["-(l1)^2 + m^2", "-(l1 + p1)^2"]
+        u, z = family.variables
+        s = -fi.momentum_products[(1, 2)]
+        values = {fi.graph.energy_scale: 1, m: 2, s: sp.Rational(7, 5)}
+        g = family.polynomials().g.subs(values)
+        found = _one_loop_numerator(g, u, z, self.d)
+        expected = -(4 + sp.Rational(7, 5)) * self._tadpole(self.d, 4)
+        assert abs(sp.N(found - expected, 40)) < sp.Float(10) ** -30
+
+
+def test_guide_examples_print_what_the_guide_says(capsys: pytest.CaptureFixture[str]) -> None:
+    """The code blocks of the guide's section on integral families, run in turn."""
+    guide = (Path(__file__).resolve().parents[1] / "docs" / "guide.md").read_text(encoding="utf-8")
+    heading = "\n## Integral families\n"
+    assert heading in guide
+    section = guide.split(heading, 1)[1].split("\n## ", 1)[0]
+    blocks = [block.split("```", 1)[0] for block in section.split("```python\n")[1:]]
+    assert len(blocks) == 4
+    namespace: dict[str, object] = {}
+    for block in blocks:
+        exec(compile(block, "docs/guide.md", "exec"), namespace)
+    assert capsys.readouterr().out.splitlines() == [
+        "9 True",
+        "propagator 1 -(l2 - p2 - p3)^2",
+        "propagator 2 -(l2 - p1 - p2 - p3)^2",
+        "propagator 3 -(l1 - p2 - p3)^2",
+        "propagator 4 -(l1 - l2)^2",
+        "propagator 5 -(l1 - p3)^2",
+        "propagator 6 -(l1)^2",
+        "propagator 7 -(l2)^2",
+        "isp None -(l1 + p1)^2",
+        "isp None -(l2 + p2)^2",
+        "0",
+        "56 26",
+        "[26, 25, 5, 0]",
+        "28",
+        "(1, 1, 1, 1, 1, 1, 1, 0, 0)",
+    ]

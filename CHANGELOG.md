@@ -171,6 +171,20 @@
 
 ### Added
 
+- Integral families, `feynkit.family`. `IntegralFamily.from_integral(fi, isps="auto",
+  chords=None)` routes the momenta through a spanning tree in edge-index order
+  (`momentum_routing`, `MomentumRouting`), takes the propagators -q^2 + m^2 by edge index and
+  completes them with irreducible numerators, given as `FamilyFunction.squared` and
+  `FamilyFunction.product` or chosen greedily from -(l_i + p_k)^2 and -(l_i - l_j)^2, into a
+  complete basis of L(L + 1)/2 + L E functions. It raises on an incomplete basis, a repeated
+  function or propagators in series. `polynomials()` gives U, F and G of the family from the
+  quadratic form (Lee, arXiv:1310.1145, Eqs. 8-9); at z = 0 they equal `fi.symanzik` exactly, so
+  the graph's Newton polytope is the face of `newton_polytope()` with no ISP exponent.
+  `numerator_layer(h)` gives the terms of G of total ISP degree h, `beta(n, d0)` the parameter
+  (-D/2, -n) as beta0 + eps beta1, and `sector`, `sector_id` and `corner` number sectors by
+  Weinzierl's N_id, the first propagator the least significant bit. A family belongs to one
+  graph: an ISP with a positive index raises. The package exports the new names.
+
 - Hasse diagrams of the face lattice. `DecoratedConfiguration.covers` and `lower_covers` give the
   faces one dimension up and down. `feynkit.visualisation.hasse` draws a view of the lattice as
   TikZ, with each face coloured by its resonance, ringed when degenerate and labelled by its

@@ -189,6 +189,7 @@ polytope and one set of exponents describe the integral.
 | $\alpha_e$ | Schwinger parameter in the Schwinger representation | `alpha_{e.idx}` | nonneg, real |
 | $x_e$ | Feynman parameter | `a_{e.idx}` | nonneg, real, simplex |
 | $u_e$ | Lee-Pomeransky parameter | `u_{e.idx}` | nonneg, real |
+| $z_k$ | parameter of the $k$-th ISP of a family | `z_{k}` | nonneg, real |
 | $\nu_e$ | propagator exponent | `nu_{e.idx}` | positive, real |
 | $D$ | spacetime dimension | `D` | positive, real |
 | $\varepsilon$ | reg. parameter ($D = 4-2\varepsilon$) | `epsilon` | real |
@@ -199,6 +200,101 @@ polytope and one set of exponents describe the integral.
 $U$ and $F$ are written in the Schwinger parameters $a_e$ of `graph.schwinger_parameters`
 (section 1.2), symbols `a_{e.idx}`, which the Feynman representation keeps as its $x_e$ and the
 Schwinger representation renames to `alpha_{e.idx}`.
+
+### 3.5 Integral Families
+
+*Ref:* Lee (2013) sections 2-3; Weinzierl (2022) Eqs. 6.16 and 6.83; Lee & Pomeransky (2013)
+section 5.
+
+**Definition.** An integral family has $L$ loop momenta $l_i$, $E$ independent external momenta
+$p_k$ and functions $D_1, \dots, D_N$, $N = L(L+1)/2 + LE$, of the form
+
+$$D_\alpha = a_\alpha^{ij}\, l_i \cdot l_j + 2\, b_\alpha^{ik}\, l_i \cdot p_k + c_\alpha ,$$
+
+with $a_\alpha$ symmetric. It is complete when every scalar product $l_i \cdot l_j$ and
+$l_i \cdot p_k$ is a unique affine combination of the $D_\alpha$, that is when the $N \times N$
+matrix $M$ whose row $\alpha$ holds the coefficients of $D_\alpha$ in the scalar products
+($a_\alpha^{ii}$, then $2a_\alpha^{ij}$ for $i < j$, then $2b_\alpha^{ik}$) is invertible. The
+family's integrals are $J(n) = \int \prod_\alpha D_\alpha^{-n_\alpha}$ for $n \in \mathbb Z^N$.
+Functions that are not propagators of the graph are irreducible numerators (ISPs) and occur only
+with $n_\alpha \le 0$. A diagram with $E + 1$ legs has at most $M_{\max} = E + 3L - 2$ propagators,
+so $N - M_{\max} = (L-1)(L+2E-4)/2$ functions of a maximal diagram are ISPs. Lee's basis for the
+two-loop vertex (his Eq. 17), $l^2$, $r^2$, $(p-l)^2$, $(q-r)^2$, $(p+r-l)^2$, $(l+q-r)^2$ and
+$(l-r)^2$, is complete, with $|\det M| = 32$.
+
+In the code, `FamilyFunction` stores $a_\alpha$ (`quadratic`), $b_\alpha$ (`linear`) and
+$c_\alpha = e_\alpha^{km}\, p_k \cdot p_m + c_\alpha^0$ split into $e_\alpha$ (`external`) and
+$c_\alpha^0$ (`constant`), so that a function is defined before the kinematics are;
+`IntegralFamily.coefficient_matrix` is $M$.
+
+**Momentum routing.** A spanning tree $T$ is grown in edge-index order, and its chords
+$c_1, \dots, c_L$ carry $l_1, \dots, l_L$ from `v1` to `v2`. The legs are incoming, legs
+$1, \dots, n-1$ carry the independent momenta and $p_n = -(p_1 + \dots + p_{n-1})$, so $E = n - 1$.
+For a tree edge $t$ from $v_1$ to $v_2$, let $S$ be the vertices on the side of $v_1$ in $T - t$.
+Summing momentum conservation over $S$ gives
+
+$$q_t \;=\; \sum_{j:\ v(j) \in S} p_j \;+\; \sum_{c_i \text{ into } S} l_i \;-\; \sum_{c_i \text{ out of } S} l_i ,$$
+
+with integer coefficients. The functions are the propagators $D_e = -q_e^2 + m_e^2$ in edge order,
+then the ISPs, with the parameters $u_e$ and then $z_1, z_2, \dots$ The automatic ISPs are
+$-(l_i + p_k)^2$ and then $-(l_i - l_j)^2$, each kept when it raises the rank of $M$. These
+suffice: the chord $c_i$ gives $l_i^2$, so $-(l_i + p_k)^2$ gives $l_i \cdot p_k$ and
+$-(l_i - l_j)^2$ gives $l_i \cdot l_j$. Two edges in series carry the same momentum, so their
+propagators differ by a constant, and no complete basis holds both.
+
+**The family polynomial.** With $A = \sum_\alpha z_\alpha a_\alpha$,
+$B_i = \sum_\alpha z_\alpha b_\alpha^{ik} p_k$ and $C = \sum_\alpha z_\alpha c_\alpha$,
+$\sum_\alpha z_\alpha D_\alpha = l^{\mathsf T} A\, l + 2\, l \cdot B + C$, and completing the square
+gives
+
+$$\boxed{U = (-1)^L \det A, \qquad F = (-1)^L \Big(C \det A - \sum_{i,j} \mathrm{adj}(A)_{ij}\; B_i \cdot B_j\Big), \qquad G = U + F.}$$
+
+This is Lee's Eqs. 8-9, $U = \det a$ and $F = c \det a - (a^{\mathrm{adj}})^{ij}\, b^i \cdot b^j$ for
+Euclidean functions $q^2 + m^2$. A Wick rotation turns feynkit's $-q^2 + m^2$ into $q_E^2 + m^2$, so
+$a = -A$ and $b = -B$ with Euclidean products, $\det a = (-1)^L \det A$,
+$\mathrm{adj}(a) = (-1)^{L-1} \mathrm{adj}(A)$ and $b^i \cdot_E b^j = -B_i \cdot B_j$; that gives the
+signs above, with Minkowski products. In the code, $F$ also carries the factor $1/\mu^2$ of the
+energy scale, as $F$ of section 2.2 does.
+
+At $z = 0$ the propagators alone remain, $U$ and $F$ are those of the graph, and
+$G|_{z=0} = G_\Gamma$ coefficient by coefficient. Every exponent is non-negative, so
+$\mathrm{Newt}(G_\Gamma)$ is the face of $\mathrm{Newt}(G)$ on which the functional
+$\sum_{\mathrm{ISP}} a_\alpha$ takes its least value 0. For $D_\alpha = -q^2 + m^2$, $z_\alpha$
+enters $A$ through the rank-one matrix $-z_\alpha \lambda\lambda^{\mathsf T}$, so $U$ is linear in
+$z_\alpha$. Each term of the sum in $F$ is a combination of bordered determinants
+$-\det\begin{pmatrix} A & x \\ x^{\mathsf T} & 0 \end{pmatrix} = x^{\mathsf T}\mathrm{adj}(A)\, x$,
+and the bordered matrix depends on $z_\alpha$ through a matrix of rank at most 2, so $G$ has degree
+at most 2 in $z_\alpha$. For $D_\alpha = l_i \cdot p_k$, $A$ does not depend on $z_\alpha$ and the
+same bound holds.
+
+**Numerators.** In Lee-Pomeransky form, with the measure $d^Dl/(i\pi^{D/2})$ per loop,
+
+$$J(n) = \frac{\Gamma(D/2)}{\Gamma\big((L+1)D/2 - \Sigma n\big)} \prod_\alpha \hat n_\alpha\, G^{-D/2}, \qquad
+\hat n_\alpha[\varphi] = \begin{cases} \displaystyle\int_0^\infty \frac{dz_\alpha\, z_\alpha^{n_\alpha-1}}{\Gamma(n_\alpha)}\, \varphi & n_\alpha > 0, \\[2mm]
+(-1)^{n_\alpha}\, \partial_{z_\alpha}^{-n_\alpha} \varphi \big|_{z_\alpha = 0} & n_\alpha \le 0, \end{cases}$$
+
+(Lee's Eqs. 10-12). Since $G$ has degree at most 2 in $z$, $\partial_z^k G^{-D/2}$ at $z = 0$
+involves only $G$, $\partial_z G$ and $\partial_z^2 G$ there, so a power of one ISP reaches the terms
+of $G$ of degree 1 and 2 in its parameter. `numerator_layer(h)` gives the terms whose ISP exponents
+add up to $h$. The tests check the sign of $\hat n_\alpha$ on $\int D_1/D_2$ for the massive
+bubble, which a shift of $l$ gives as $(m_1^2 - m_2^2 - p^2)\,\Gamma(1 - D/2)\,(m_2^2)^{D/2-1}$, and
+on the tadpole with the ISP $-(l + p)^2$.
+
+**The GKZ parameter.** The family's Lee-Pomeransky system has
+$\beta = (-D/2, -n_1, \dots, -n_N)$, as in section 4.2. At $D = D_0 - 2\varepsilon$,
+`IntegralFamily.beta` returns it as $\beta_0 + \varepsilon\beta_1$ with
+$\beta_0 = (-D_0/2, -n)$ and $\beta_1 = (1, 0, \dots, 0)$.
+
+**Sectors.** The sector of $n$ is $\theta(n) \in \{0, 1\}^N$, with $\theta_\alpha = 1$ exactly when
+$n_\alpha > 0$, and its corner integral is $J(\theta)$ (Lee). Its identity is
+
+$$N_{\mathrm{id}} = \sum_{j=1}^{N} 2^{j-1}\, \Theta\!\left(n_j - \tfrac12\right),$$
+
+with the first propagator as the least significant bit (Weinzierl, Eq. 6.16), as in Kira.
+Lee & Pomeransky (2013) read the string of indices as a binary number, the first propagator the
+most significant bit. A family in feynkit belongs to one graph, so an ISP is never a denominator
+and $0 \le N_{\mathrm{id}} < 2^P$ for $P$ propagators. With Weinzierl's routing and ISPs, the
+masters of the planar double box lie in the sectors 28, 73, 54, 57, 79, 93 and 127 (his Eq. 6.83).
 
 ---
 

@@ -519,14 +519,14 @@ class TestLandau:
 
         monkeypatch.setattr(report_module, "landau_analysis", spy)
         report = AnalysisReport.from_integral(bubble, ["landau"])
-        assert report.landau is not None and report.landau.budget == 300
+        assert report.landau is not None and report.landau.budget == 120
         report = AnalysisReport.from_integral(
             bubble, ["landau"], max_face_points=9, landau_budget=None
         )
         assert report.landau is not None and report.landau.budget is None
         limits = [(kwargs["max_face_points"], kwargs["total_timeout"]) for kwargs in seen]
         assert limits == [(None, report_module.LANDAU_BUDGET), (9, None)]
-        assert report_module.LANDAU_BUDGET == 300
+        assert report_module.LANDAU_BUDGET == 120
 
     def test_the_skipped_faces_are_told_apart(
         self, bubble: FeynmanIntegral, monkeypatch: pytest.MonkeyPatch

@@ -255,10 +255,11 @@ class AnalysisReport:
             minutes for larger graphs.
         landau_budget
             The most seconds the Landau analysis gives the faces together, its
-            ``total_timeout``: :data:`LANDAU_BUDGET` (300) by default, None for
+            ``total_timeout``: :data:`LANDAU_BUDGET` (120) by default, None for
             no limit. The faces are attempted smallest first, and the section
             names those left when it runs out. The ``torus`` and
-            ``degeneracy`` sections share the analysis.
+            ``degeneracy`` sections share the analysis. With ``limits``, the
+            parent family's analysis has a budget of its own.
 
         Raises
         ------

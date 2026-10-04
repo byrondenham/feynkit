@@ -839,7 +839,7 @@ def test_faces_left_when_the_budget_ran_out_are_named_by_size() -> None:
     report = _sunrise_skipping(set(), {7, 10})
     for document in (render_text(report), render_latex(report)):
         assert (
-            "The faces were attempted smallest first within a time budget of 300 s, which ran "
+            "The faces were attempted smallest first within a time budget of 120 s, which ran "
             "out with 2 faces left, so their discriminants are missing from the list: 1 with 7 "
             "points and the whole polytope, 10 points."
         ) in " ".join(document.split())
@@ -850,10 +850,11 @@ def test_faces_past_the_time_limit_and_past_the_budget() -> None:
     report = _sunrise_skipping({7}, {10})
     for document in (render_text(report), render_latex(report)):
         assert (
-            "1 face ran past the time limit of 60 s for a face, and its discriminant is missing "
-            "from the list: a face of dimension 2 with 7 points. The faces were attempted "
-            "smallest first within a time budget of 300 s, which ran out with 1 face left, so "
-            "its discriminant is missing from the list as well: the whole polytope, 10 points."
+            "1 face ran past its time limit, 60 s for a face of up to 14 points and 5 s for a "
+            "larger one, and its discriminant is missing from the list: a face of dimension 2 "
+            "with 7 points. The faces were attempted smallest first within a time budget of "
+            "120 s, which ran out with 1 face left, so its discriminant is missing from the list "
+            "as well: the whole polytope, 10 points."
         ) in " ".join(document.split())
 
 

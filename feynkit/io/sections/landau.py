@@ -13,6 +13,8 @@ import sympy as sp
 from ... import _exact
 from ...landau import (
     DEFAULT_FACE_TIMEOUT,
+    DEFAULT_LARGE_FACE_TIMEOUT,
+    LARGE_FACE_POINTS,
     LandauAnalysis,
     LimitSurface,
     one_loop_bridge_poles,
@@ -27,10 +29,10 @@ from ._base import Section, SummaryPart
 if TYPE_CHECKING:
     from ..report import AnalysisReport, BuildContext
 
-# The seconds the report's Landau analysis gives its faces together, its total_timeout. The
-# faces are attempted smallest first, each within DEFAULT_FACE_TIMEOUT, so a report spends at
-# most this long on them, and names the faces left when it runs out.
-LANDAU_BUDGET = 300
+# The seconds the report's Landau analysis gives its faces together, its total_timeout: a safety
+# cap, since each face of more than 14 points gets only a probe of 5 s. The faces are attempted
+# smallest first, and the section names those left when it runs out.
+LANDAU_BUDGET = 120
 
 
 @dataclass(frozen=True)
@@ -324,9 +326,13 @@ def skipped_faces(landau: Landau) -> str | None:
             for (dimension, points, whole), late in skipped
         ]
         if every:
+            limits = (
+                f"{_seconds(DEFAULT_FACE_TIMEOUT)} for a face of up to {LARGE_FACE_POINTS} points "
+                f"and {_seconds(DEFAULT_LARGE_FACE_TIMEOUT)} for a larger one"
+            )
+            own = "its time limit" if n == 1 else "their time limits"
             sentences.append(
-                f"{count_noun(n, 'face')} ran past the time limit of "
-                f"{_seconds(DEFAULT_FACE_TIMEOUT)} for a face, and {whose} missing from the "
+                f"{count_noun(n, 'face')} ran past {own}, {limits}, and {whose} missing from the "
                 f"list: {join_words(names)}."
             )
         else:

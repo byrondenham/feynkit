@@ -1383,11 +1383,16 @@ them may or may not be singular on the physical sheet, and the list is not guara
 (Fevola, Mizera, Telen 2024, section 2). Beyond one loop the principal A-determinant with generic
 coefficients can vanish identically after specialising to physical kinematics, and the face-by-face
 computation here specialises first; this is the "principal Landau determinant" of Fevola, Mizera and
-Telen rather than $E_A$ of the generic polynomial. Multiplicities are dropped. A face with more
-lattice points than `max_face_points`, or whose elimination runs past `timeout` (60 s by default),
-is skipped and its factors are missing from the result, at generic kinematics too. The default limit of 14 covers
-every one-loop box, whose polytope has at most $4 + 10$ points; the massless pentagon's has 15, and
-its own factor is lost.
+Telen rather than $E_A$ of the generic polynomial. Multiplicities are dropped. The faces are
+attempted smallest first, by number of lattice points and then by dimension. A face whose
+elimination runs past its time limit is skipped, and its factors are missing from the result, at
+generic kinematics too. The limit is `timeout`, 60 s by default, for a face of at most 14 points,
+which covers every one-loop box, whose polytope has at most $4 + 10$ points, and
+`large_face_timeout`, a probe of 5 s by default, for a larger face. The number of points is a poor
+measure of the cost: the massless pentagon's polytope, of 15 points, runs past the probe and its
+own factor is lost, while faces of 20 and 28 points of a two-loop box give a component in under a
+second. The faces left when `total_timeout`, None by default and 120 s in the report, runs out
+are skipped too, and so, when it is given, are those with more points than `max_face_points`.
 
 ### 10.5 Known Results
 

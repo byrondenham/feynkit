@@ -309,9 +309,10 @@ print(la.face_discriminants)       # one FaceDiscriminant per face, all dimensio
 
 For one-loop graphs `one_loop_landau_surfaces(fi)` gives the same factors in closed form from the
 modified Cayley matrix (Dlapa, Helmer, Papathanasiou, Tellander 2023), for generic kinematics and
-when no face is skipped as too large: at the default `max_face_points` the face computation misses
-1 of the massless pentagon's 32 factors and 8 of the hexagon's 79. Faces of dimension two or more
-use a Gröbner elimination; install Singular for speed.
+when no face is skipped: the faces that run past their time limits, 60 s for a face of up to 14
+points and a probe of 5 s for a larger one, cost the face computation 1 of the massless pentagon's
+32 factors and 8 of the hexagon's 79. Faces of dimension two or more use a Gröbner elimination;
+install Singular for speed.
 
 ---
 

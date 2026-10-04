@@ -123,6 +123,47 @@
   later row down by four, and the JSON summary of `fk analyse --json` gains
   the keys `lattice_points`, `interior_lattice_points`, `gorenstein_index`
   (null when the polytope is not Gorenstein) and `normal_configuration`.
+- `landau_analysis` and `landau_analysis_from_polynomial` attempt every face,
+  smallest first, by number of points and then by dimension, and list the
+  faces in the polytope's order as before. `max_face_points` is None by
+  default, no limit, where it was 14; without Singular it is still 14, since
+  SymPy's elimination cannot be stopped. A face of up to 14 points,
+  `LARGE_FACE_POINTS`, still gets `timeout`, 60 s by default; a larger one
+  gets the new `large_face_timeout`, a probe of 5 s by default,
+  `DEFAULT_LARGE_FACE_TIMEOUT`. The number of points is a poor measure of the
+  cost: on the graphs measured, the large faces that gave a component took
+  under a second, and those that took longer gave nothing new. A face past
+  its limit is listed in `skipped_faces` and in the new `timed_out_faces`.
+  The new `total_timeout`, None by default, limits the faces together; the
+  faces left when it runs out, the one it cut short included, are listed in
+  `skipped_faces` and in the new `unattempted_faces`. A parent family gets the
+  same limits and a total of its own. Results gain the factors of faces above
+  14 points: the generic massive parachute `12ee|22e|e|:nnnn` gains
+  lambda(p_3^2, p_4^2, s_12) from its polytope, of 19 points, the component
+  lambda(M_3, M_4, s) of par in the principal Landau determinant database of
+  Fevola, Mizera and Telen; the massive dunce's cap `12e|22e|e|:nnnn` gains
+  lambda(p_1^2, p_2^2, p_3^2), the component of its leading Landau variety
+  that Eq. 6.6 of Klausen (arXiv:2109.07584) parametrises; and the database's
+  Hj-npl-dbox gains M_2 - s, which completes its components computed from
+  faces; its analysis takes about 100 s where it took 40 s. The massless
+  pentagon and hexagon still miss 1 and 8 factors of the one-loop closed
+  form, since their faces of 15 and 21 points run past the probe. Other
+  analyses take 5 s more for each large face that does not finish.
+  `count_torus_points` and the degeneracy section's point, when they are not
+  given an analysis, run theirs at the new defaults;
+  `FeynmanIntegral.torus_count` still passes `max_face_points=14`.
+- The report's Landau analysis has no face limit by default and a time budget
+  of 120 s for the faces, `LANDAU_BUDGET` of `feynkit.io.report`, which
+  `AnalysisReport.from_integral` takes as `landau_budget`. `to_latex`,
+  `to_text` and `AnalysisReport.from_integral` default `max_face_points` to
+  None, where it was 14. The section names the faces left when the budget
+  runs out, counted by size, and states both time limits when faces run past
+  them; with `limits`, the parent family's analysis has a budget of its own.
+  The Landau section of the massless pentagon takes about 8 s where it took
+  4 s, the massless hexagon about 60 s where it took 24 s, the massive kite
+  `12e|23|3|e|:nnnnn` about 18 s where it took 7 s, and the massless double
+  box `15e|24|3e|4e|5|e|:zzzzzzz` reaches the budget, about 120 s where it
+  took 100 s, leaving six faces of 29 to 46 points, without losing a factor.
 
 ### Added
 

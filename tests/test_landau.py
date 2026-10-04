@@ -1872,12 +1872,14 @@ class TestFaceOrderAndBudget:
         monkeypatch: pytest.MonkeyPatch,
         *,
         seconds: float = 0.0,
+        large_seconds: float | None = None,
         clock: _Clock | None = None,
         late: int | None = None,
     ) -> list[tuple[int, int, float | None]]:
         """Replace the elimination of a face by one that gives no factor and takes ``seconds``
-        on ``clock``. It runs past its time limit when that is shorter, or when the face has
-        ``late`` points. Returns (points, dimension, time limit) for each call."""
+        on ``clock``, or ``large_seconds`` for a face of more than 14 points. It runs past its
+        time limit when that is shorter, or when the face has ``late`` points. Returns
+        (points, dimension, time limit) for each call."""
         calls: list[tuple[int, int, float | None]] = []
 
         def spy(
@@ -1890,9 +1892,10 @@ class TestFaceOrderAndBudget:
             timeout: float | None = None,
         ) -> object:
             calls.append((len(coeffs), len(exps[0]), timeout))
+            cost = seconds if large_seconds is None or len(coeffs) <= 14 else large_seconds
             if clock is not None:
-                clock.now += seconds
-            if len(coeffs) == late or (timeout is not None and timeout < seconds):
+                clock.now += cost
+            if len(coeffs) == late or (timeout is not None and timeout < cost):
                 raise landau_module._EliminationTimeout("past the limit")
             return landau_module._Elimination([], True, False)
 
@@ -1941,24 +1944,28 @@ class TestFaceOrderAndBudget:
         assert analysis.timed_out_faces == analysis.skipped_faces
         assert analysis.unattempted_faces == ()
 
-    def test_the_faces_left_when_the_total_time_runs_out_are_not_attempted(
+    def test_only_faces_of_more_than_14_points_count_against_the_total_time(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # Each face takes 10 s: the first two finish, and the third is cut short at 25 s.
+        # Each face of up to 14 points takes 10 s, far past the total of 7 s, and each still gets
+        # the full time limit for a face, as without a total. Each larger face takes 3 s: the
+        # first two finish, the third is cut short at 7 s, and the rest are not attempted.
         clock = _Clock()
-        calls = self._spy(monkeypatch, seconds=10, clock=clock)
-        fi = FeynmanIntegral.from_cnickel(self.KITE)
-        analysis = landau_analysis(fi, timeout=12, total_timeout=25)
-        assert [limit for _, _, limit in calls] == [12, 12, 5]
+        calls = self._spy(monkeypatch, seconds=10, large_seconds=3, clock=clock)
+        fi = FeynmanIntegral.from_cnickel("12e|23|3|e|:nnnnn")
+        analysis = landau_analysis(fi, total_timeout=7)
+        small = [limit for points, _, limit in calls if points <= 14]
+        assert small and set(small) == {landau_module.DEFAULT_FACE_TIMEOUT}
+        assert [limit for points, _, limit in calls if points > 14] == [5, 4, 1]
         dimension = {face: d for d, face in _faces_of(fi)}
-        eliminated = self._eliminated(fi)
-        first = sorted(eliminated, key=lambda face: (len(face), dimension[face]))[:2]
-        left = tuple(face for face in eliminated if face not in first)
-        assert analysis.unattempted_faces == analysis.skipped_faces == left
+        large = sorted(
+            (face for face in self._eliminated(fi) if len(face) > 14),
+            key=lambda face: (len(face), dimension[face]),
+        )
+        assert len(large) == 9
+        assert set(analysis.unattempted_faces) == set(large[2:])
+        assert analysis.skipped_faces == analysis.unattempted_faces
         assert analysis.timed_out_faces == ()
-        # The vertices and edges need no elimination, and are all there.
-        low = [face for face in analysis.face_discriminants if face.dimension < 2]
-        assert len(low) == len([face for d, face in _faces_of(fi) if d < 2])
 
     def test_the_parent_has_the_same_total_time(self, monkeypatch: pytest.MonkeyPatch) -> None:
         landau_module._parent_analysis.cache_clear()

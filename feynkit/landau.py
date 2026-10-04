@@ -1394,14 +1394,16 @@ def landau_analysis_from_polynomial(
         the graphs measured the large faces that took longer added nothing,
         and many never finish.
     total_timeout
-        The most seconds to give the faces together, counted from the start
-        of the analysis, at most 2,000,000; None, the default, sets no
-        limit. The faces are attempted smallest first, by number of points
-        and then by dimension, each within its time limit or the time left,
-        whichever is shorter. When it runs out, the face under way and
-        those not yet attempted are skipped and listed in ``skipped_faces``
-        and ``unattempted_faces``. Vertices, simplices and edges need no
-        elimination and are always computed.
+        The most seconds to give the faces of more than
+        :data:`LARGE_FACE_POINTS` points together, at most 2,000,000; None,
+        the default, sets no limit. The faces are attempted smallest first,
+        by number of points and then by dimension, so these come last, each
+        within its time limit or the time left, whichever is shorter. When
+        it runs out, the face under way and those not yet attempted are
+        skipped and listed in ``skipped_faces`` and ``unattempted_faces``.
+        It never cuts short a face of up to :data:`LARGE_FACE_POINTS`
+        points, which is treated as without it, nor a vertex, a simplex or
+        an edge, which need no elimination.
     parent, restriction
         A polynomial in the same variables of which ``g_poly`` is a
         restriction, and the map from its kinematic symbols to expressions
@@ -1516,7 +1518,6 @@ def _analysis(
     ``total_timeout`` runs out are the largest, and listed in the order of
     :func:`feynkit.polytope.faces`.
     """
-    start = time.monotonic()
     g_poly = sp.expand(g_poly)
     if g_poly == 0:
         return LandauAnalysis((), sp.Integer(1), ())
@@ -1529,7 +1530,9 @@ def _analysis(
     exps = np.array([list(e) for e, _ in support], dtype=int)
     if max_face_points is None and _singular_binary() is None:
         max_face_points = LARGE_FACE_POINTS
-    deadline = None if total_timeout is None else start + total_timeout
+    # The seconds the faces of more than LARGE_FACE_POINTS points have taken, which alone count
+    # against total_timeout.
+    spent = 0.0
 
     listed = [
         (dimension, [tuple(int(x) for x in exps[i]) for i in idx], [support[i][1] for i in idx])
@@ -1545,14 +1548,16 @@ def _analysis(
         eliminated = dimension >= 2 and points > dimension + 1
         if max_face_points is not None and points > max_face_points:
             eliminated = False
-        if deadline is not None and eliminated:
-            left = deadline - time.monotonic()
+        charged = eliminated and points > LARGE_FACE_POINTS
+        if charged and total_timeout is not None:
+            left = total_timeout - spent
             if left <= 0:
                 results[k] = None
                 unattempted.add(k)
                 continue
             if limit is None or left < limit:
                 limit, cut = left, True
+        began = time.monotonic()
         try:
             results[k] = _face_discriminant(
                 face_coeffs,
@@ -1566,6 +1571,8 @@ def _analysis(
         except _EliminationTimeout:
             results[k] = None
             (unattempted if cut else timed_out).add(k)
+        if charged:
+            spent += time.monotonic() - began
 
     faces: list[FaceDiscriminant] = []
     factors_by_face: list[list[sp.Expr]] = []

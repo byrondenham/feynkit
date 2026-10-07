@@ -281,9 +281,11 @@ def kira_job(
         The bounds on the sum of the positive indices and on minus the sum of the negative
         ones. By default r is the larger of P + 1, for P propagators, and the largest
         positive sum among the integrals, and s the largest negative sum among them, but at
-        least 1 when the family has ISPs. A range that is too small overcounts the masters: the
-        double box lists 13 at s = 0 and its 8 at s = 1, as integrals at the edge of the range
-        stay unreduced and Kira lists them. Raise r and s until the list stops changing.
+        least 1, since a subsector needs numerators of its absent lines. A range that is too
+        small overcounts the masters: the double box lists 13 at s = 0 and its 8 at s = 1, and
+        the massless two-point kite 3 at s = 0 and its 2 at s = 1, as integrals at the edge of
+        the range stay unreduced and Kira lists them. Raise r and s until the list stops
+        changing.
     replace_by_one
         An invariant that Kira sets to one; its dependence is then reconstructed back.
 
@@ -342,8 +344,7 @@ def kira_job(
 
     rows = [family._indices(n) for n in integrals]
     r = max([count + 1, *(sum(x for x in n if x > 0) for n in rows)]) if r is None else int(r)
-    isps = family.size - count
-    s = max([int(isps > 0), *(-sum(x for x in n if x < 0) for n in rows)]) if s is None else int(s)
+    s = max([1, *(-sum(x for x in n if x < 0) for n in rows)]) if s is None else int(s)
     if r < 0 or s < 0:
         raise ValidationError(f"r and s must be non-negative; got r = {r}, s = {s}")
     bounds = f"{{topologies: [{name}], sectors: [{', '.join(map(str, sectors))}], r: {r}, s: {s}}}"

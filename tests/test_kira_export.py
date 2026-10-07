@@ -433,7 +433,7 @@ class TestVacuum:
     def test_inputs_are_the_recorded_run(self) -> None:
         """Kira 3.1 reduced vac(2,1,1) with these files to (d-2)/(4 m^4) vac(1,1,0)."""
         recorded = Path(__file__).parent / "data" / "kira" / "vac"
-        job = kira_job(self._family(), name="vac", integrals=[(2, 1, 1)])
+        job = kira_job(self._family(), name="vac", integrals=[(2, 1, 1)], s=0)
         assert job.jobs == (recorded / "jobs.yaml").read_text()
         assert job.integrals == (recorded / "integrals").read_text()
         assert job.integralfamilies == (recorded / "config" / "integralfamilies.yaml").read_text()
@@ -460,11 +460,14 @@ class TestJobs:
         assert "sectors: [127, 28], r: 8, s: 1}" in job.jobs
         assert job.integrals is None and "kira2form" not in job.jobs
 
-    def test_default_seed_range_has_a_numerator_for_isps(self) -> None:
-        """Too small an s lists spurious masters: the double box gives 13 at s = 0, 8 at s = 1."""
+    def test_default_seed_range_has_a_numerator(self) -> None:
+        """Too small an s lists spurious masters: the double box gives 13 at s = 0, 8 at s = 1,
+        and the massless kite, with no ISPs, 3 at s = 0 and 2 at s = 1 (Kira 3.1)."""
         assert "r: 8, s: 1}" in kira_job(_weinzierl()).jobs
         assert "r: 8, s: 3}" in kira_job(_weinzierl(), integrals=[(1,) * 7 + (-1, -2)]).jobs
-        assert "r: 5, s: 0}" in kira_job(_family(BOX)).jobs
+        assert "r: 5, s: 1}" in kira_job(_family(BOX)).jobs
+        kite = IntegralFamily.from_integral(FeynmanIntegral.from_cnickel("12e|23|3|e|:zzzzz"))
+        assert "r: 6, s: 1}" in kira_job(kite).jobs
         assert "r: 8, s: 0}" in kira_job(_weinzierl(), s=0).jobs
 
     def test_bad_arguments(self) -> None:

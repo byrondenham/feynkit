@@ -166,10 +166,12 @@ relationship to LP Feynman graphs is mediated only at n=3.
 
 ## References
 
-- Bzowski, McFadden, Skenderis (2021). "Implications of conformal invariance in momentum
-  space." JHEP 03, 091. arXiv:1304.7760
-- Caloro (2024). "A-hypergeometric functions in conformal field theory." arXiv:2401.XXXXX
-- de la Cruz (2024). "Symmetry pairs of Feynman integrals." Phys. Lett. B.
+- Bzowski, McFadden, Skenderis (2021). "Conformal correlators as simplex integrals in
+  momentum space." JHEP 01, 192. arXiv:2008.07543
+- Caloro (2024). "Shift operators and momentum-space conformal field theory." PhD thesis,
+  Newcastle University. arXiv:2409.04548
+- de la Cruz (2024). "Polytope symmetries of Feynman integrals." Phys. Lett. B 854, 138744.
+  arXiv:2404.03564
 - Gelfand, Kapranov, Zelevinsky (1994). "Discriminants, Resultants and Multidimensional
   Determinants." Birkhäuser.
 - Klausen (2020). "Hypergeometric series representations of Feynman integrals by

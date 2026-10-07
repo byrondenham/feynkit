@@ -246,7 +246,7 @@ What is already settled is that the GKZ approach has changed the way we think ab
 - N. Arkani-Hamed, P. Benincasa, A. Postnikov, *Cosmological Polytopes and the Wavefunction of the Universe*, arXiv:1709.02813 (2017).
 - T. Bitoun, C. Bogner, R. P. Klausen, E. Panzer, *Feynman integral relations from parametric annihilators*, Lett. Math. Phys. 109 (2019) 497, arXiv:1712.09215.
 - A. Bzowski, P. McFadden, K. Skenderis, *Conformal correlators as simplex integrals in momentum space*, JHEP 01 (2021) 192, arXiv:2008.07543.
-- D. Caloro, *Shift operators and momentum-space conformal field theory*, PhD thesis (2024).
+- F. Caloro, *Shift operators and momentum-space conformal field theory*, PhD thesis, Newcastle University (2024), arXiv:2409.04548.
 - L. de la Cruz, *Feynman integrals as A-hypergeometric functions*, JHEP 12 (2019) 123, arXiv:1907.00507.
 - L. de la Cruz, *Polytope symmetries of Feynman integrals*, Phys. Lett. B 854 (2024) 138744, arXiv:2404.03564.
 - J. Forsgård, L. F. Matusevich, A. Sobieska, *On transformations of A-hypergeometric functions*, Funkcialaj Ekvacioj 62 (2019) 319, arXiv:1703.03036.

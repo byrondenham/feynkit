@@ -1795,9 +1795,9 @@ All papers cited in the feynkit source and directly relevant to the implemented 
     *Conformal correlators as simplex integrals in momentum space.*
     JHEP **01** (2021) 192.  arXiv:2008.07543.
 
-16. **Caloro (2024).** D. Caloro.
+16. **Caloro (2024).** F. Caloro.
     *Shift operators and momentum-space conformal field theory.*
-    PhD thesis (2024).
+    PhD thesis, Newcastle University (2024).  arXiv:2409.04548.
 
 17. **ABP (2017).** N. Arkani-Hamed, P. Benincasa, A. Postnikov.
     *Cosmological Polytopes and the Wavefunction of the Universe.*  arXiv:1709.02813.

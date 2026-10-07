@@ -1759,6 +1759,80 @@ Sector 28 holds the first of Weinzierl's eight masters and sector 127 the last t
 Building the family and its polynomials takes 0.05 s for the double box and about 2 s for the
 off-shell three-loop ladder, with fifteen functions.
 
+### Exporting a family to Kira
+
+`kira_job(family, name="family", top_sectors=None, integrals=(), r=None, s=None, replace_by_one=None)`
+writes the input of the reduction program Kira (Maierhoefer, Usovitsch and Uwer, arXiv:1705.05610;
+Klappert, Lange, Maierhoefer and Usovitsch, arXiv:2008.06494) as a `KiraJob`. It holds the text of
+`jobs.yaml`, `config/integralfamilies.yaml` and `config/kinematics.yaml`, and, when integrals are
+given, of a list `integrals` with one `name[n1,...,nN]` per line. feynkit does not run Kira.
+
+```python
+from feynkit import kira_job, read_masters
+
+job = kira_job(family, name="doublebox", r=8, s=2, replace_by_one="s12")
+job.write("doublebox_run")                 # refuses to overwrite; overwrite=True allows it
+print(job.integralfamilies)
+# integralfamilies:
+#   - name: "doublebox"
+#     loop_momenta: [l1, l2]
+#     top_level_sectors: [127]
+#     propagators:
+#       - ["l1+p1", 0]
+#       - ["l1+p1+p2", 0]
+#       - ["l1", 0]
+#       - ["l1+l2", 0]
+#       - ["l2-p1-p2", 0]
+#       - ["l2", 0]
+#       - ["l2-p1-p2-p3", 0]
+#       - ["l1+p1+p3", 0]
+#       - ["l2-p1-p3", 0]
+print(job.signs)                           # (-1, -1, -1, -1, -1, -1, -1, -1, -1)
+```
+
+Here `family` is Weinzierl's double box from above. Compared with his Kira files (Wei22, Appendix J,
+Exercise 44) each propagator is his with $p_j \mapsto -p_j$, because feynkit's legs are incoming and
+his outgoing. The loop momenta are `l1`, ..., `lL` of the routing, the legs `p1`, ..., `pn` are all
+incoming with `pn` removed by momentum conservation, and the scalar-product rules are the integral's
+momentum products. The invariants are the free symbols of the products and masses. A symbol that only
+occurs in even powers, such as a mass, gets mass dimension 1 and the others 2. A name that Kira
+cannot parse is changed where that is possible, `p1^2` into `p1sq`, and `job.symbols` lists the
+pairs; `d`, `I`, `Pi` and the names of the momenta are reserved, and a clash raises `ValidationError`.
+
+Signs. Kira writes a propagator `[q, m^2]` as $1/(q^2 - m^2)$ (Wei22, Eq. J.259), feynkit as
+$1/(-q^2 + m^2)$. Each function is exported as $D^K_\alpha = s_\alpha D_\alpha$, with
+$s_\alpha = -1$ for $-q^2 + m^2$ and for $-l_i \cdot p_k$, and $s_\alpha = +1$ for $l_i \cdot p_k$,
+written as Kira's `bilinear`. The integrals Kira computes, $J^K$, then relate to feynkit's by
+$J(n) = \prod_\alpha s_\alpha^{n_\alpha} J^K(n)$. Any other function raises `ValidationError`.
+
+The job reduces the top sectors, by default the sector of all propagators, with $r$ and $s$ the bounds
+on the sum of the positive indices and on minus the sum of the negative ones. By default $r$ is the
+larger of $P + 1$ and the largest positive sum among the given integrals, and $s$ the largest negative
+sum among them, or 0. With `integrals`, Kira selects the equations that suffice for them and writes
+their reductions for FORM to `results/<name>/kira_integrals.inc`; without, it selects those for the
+whole range and lists the masters. It uses Fermat for the algebra, so Kira needs a Fermat executable,
+found through the environment variable `FERMATPATH`, even for the first step. With Kira 3.1 and
+Fermat 7.9b the job above ran in 49 s, with `replace_by_one="s12"` and `kira --silent jobs.yaml`.
+
+Three readers turn a run's output into feynkit's numbering. Kira numbers sectors as
+`family.sector_id` does and counts the ISPs among its functions, so it lists some sectors with an
+ISP in a denominator; `propagators=P` keeps those below $2^P$.
+
+```python
+masters = read_masters("doublebox_run", "doublebox")           # index tuples, in Kira's order
+print(sorted(family.sector_id(n) for n in masters))            # [42, 54, 57, 73, 79, 107, 127, 127]
+```
+
+- `read_trivial_sectors(directory, name)` gives the zero sectors, `sectormappings/<name>/trivialsector`.
+  For the double box those below 128 are exactly the 85 zero sectors of `fi.sectors()`.
+- `read_sector_mappings(directory, name)` gives `{sector: representative}` from `sectorRelations`: the
+  integrals of the first are expressed by those of the second.
+- `read_masters(directory, name)` gives the masters of `results/<name>/masters.final`.
+
+Kira chooses its masters by its own ordering and maps symmetric sectors to a representative, so its
+eight masters of the double box lie in the sectors 42 and 107 where Weinzierl's (Eq. 6.83) lie in 28
+and 93. Kira maps 28 to 42 and 93 to 107, and the other six sectors agree.
+
 ---
 
 ## The sector hierarchy

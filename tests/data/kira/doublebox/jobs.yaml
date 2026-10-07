@@ -1,0 +1,11 @@
+jobs:
+  - reduce_sectors:
+      reduce:
+        - {topologies: [doublebox], sectors: [127], r: 8, s: 2}
+      select_integrals:
+        select_mandatory_recursively:
+          - {topologies: [doublebox], sectors: [127], r: 8, s: 2}
+      run_symmetries: true
+      run_initiate: true
+      run_triangular: true
+      run_back_substitution: true

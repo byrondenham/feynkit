@@ -171,6 +171,18 @@
 
 ### Added
 
+- The Kira export, `feynkit.exporters`. `kira_job(family, name, top_sectors, integrals, r, s,
+  replace_by_one)` returns a `KiraJob` holding the text of `jobs.yaml`, `config/integralfamilies.yaml`,
+  `config/kinematics.yaml` and a list of integrals, and `KiraJob.write(directory)` writes them
+  without overwriting. Kira's propagator is 1/(q^2 - m^2), so each function is exported as
+  s D with s = -1 for -q^2 + m^2 and for -l_i . p_k, and s = +1 for l_i . p_k (Kira's
+  `bilinear`); `KiraJob.signs` holds s, and `KiraJob.symbols` the invariants renamed to fit Kira
+  (`p1^2` becomes `p1sq`). A function Kira cannot express, a reserved or unparsable invariant
+  name and kinematics that are not homogeneous of mass dimension 2 raise `ValidationError`.
+  `read_trivial_sectors`, `read_sector_mappings` and `read_masters` read what a Kira 3.1 run
+  writes into sector identities and index tuples. Running Kira needs Fermat. The package
+  exports the new names.
+
 - The sector hierarchy, `feynkit.sectors`. `sector_hierarchy(fi)` reads every one of the 2^N
   sectors of an integral off the support of G, numbered by Weinzierl's N_id, as cut by a cycle,
   scaleless by Lee's criterion (arXiv:1310.1145) or non-zero, with the face of the Newton

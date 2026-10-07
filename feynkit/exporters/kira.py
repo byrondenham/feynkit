@@ -28,7 +28,13 @@ import sympy as sp
 from ..core.exceptions import ValidationError
 from ..family import FamilyFunction, IntegralFamily, _gram
 
-__all__ = ["KiraJob", "kira_job"]
+__all__ = [
+    "KiraJob",
+    "kira_job",
+    "read_masters",
+    "read_sector_mappings",
+    "read_trivial_sectors",
+]
 
 # Names that Kira or its algebra system read as something else.
 RESERVED = frozenset({"d", "I", "Pi", "Euler", "Catalan", "pi", "e", "E", "den"})
@@ -243,6 +249,9 @@ def kira_job(
     *,
     name: str = "family",
     top_sectors: Sequence[int] | None = None,
+    integrals: Sequence[Sequence[int]] = (),
+    r: int | None = None,
+    s: int | None = None,
     replace_by_one: str | None = None,
 ) -> KiraJob:
     """
@@ -263,6 +272,15 @@ def kira_job(
     top_sectors
         The sector identities N_id to reduce, by default only the sector of every
         propagator.
+    integrals
+        Integrals n = (n_1, ..., n_N) to reduce; their reductions are written by Kira to
+        ``results/<name>/kira_integrals.inc``, for FORM. Kira then selects only the equations
+        that suffice for them. Without any, it selects those that suffice for every integral
+        of the top sectors within the bounds r and s, and the masters are what remains.
+    r, s
+        The bounds on the sum of the positive indices and on minus the sum of the negative
+        ones. By default r is the larger of P + 1, for P propagators, and the largest
+        positive sum among the integrals, and s the largest negative sum among them, or 0.
     replace_by_one
         An invariant that Kira sets to one; its dependence is then reconstructed back.
 
@@ -318,12 +336,140 @@ def kira_job(
         kin.append(f"  symbol_to_replace_by_one: {replace_by_one}")
     kinematics = "\n".join(kin) + "\n"
 
+    rows = [family._indices(n) for n in integrals]
+    r = max([count + 1, *(sum(x for x in n if x > 0) for n in rows)]) if r is None else int(r)
+    s = max([0, *(-sum(x for x in n if x < 0) for n in rows)]) if s is None else int(s)
+    if r < 0 or s < 0:
+        raise ValidationError(f"r and s must be non-negative; got r = {r}, s = {s}")
+    bounds = f"{{topologies: [{name}], sectors: [{', '.join(map(str, sectors))}], r: {r}, s: {s}}}"
+    job = [
+        "jobs:",
+        "  - reduce_sectors:",
+        "      reduce:",
+        f"        - {bounds}",
+        "      select_integrals:",
+    ]
+    if rows:
+        job += ["        select_mandatory_list:", f"          - [{name}, integrals]"]
+    else:
+        job += ["        select_mandatory_recursively:", f"          - {bounds}"]
+    job += [
+        "      run_symmetries: true",
+        "      run_initiate: true",
+        "      run_triangular: true",
+        "      run_back_substitution: true",
+    ]
+    if rows:
+        job += ["  - kira2form:", "      target:", f"        - [{name}, integrals]"]
+        if replace_by_one is not None:
+            job.append("      reconstruct_mass: true")
     return KiraJob(
         name=name,
         integralfamilies=families,
         kinematics=kinematics,
-        jobs="",
-        integrals=None,
+        jobs="\n".join(job) + "\n",
+        integrals="".join(f"{name}[{','.join(map(str, n))}]\n" for n in rows) if rows else None,
         signs=signs,
         symbols=changed,
     )
+
+
+def _read(directory: str | Path, *parts: str) -> str:
+    path = Path(directory).joinpath(*parts)
+    try:
+        return path.read_text()
+    except OSError as err:
+        raise ValidationError(f"cannot read the Kira output {path}: {err.strerror}") from err
+
+
+def _below(ids: Iterable[int], propagators: int | None) -> Iterable[int]:
+    if propagators is None:
+        return ids
+    return (i for i in ids if i < 1 << propagators)
+
+
+def read_trivial_sectors(
+    directory: str | Path, name: str, *, propagators: int | None = None
+) -> frozenset[int]:
+    """
+    The zero sectors of a family that a Kira run found, as sector identities N_id.
+
+    Reads ``sectormappings/<name>/trivialsector`` under the job directory. Kira counts the
+    ISPs among the functions, so it also lists sectors with an ISP in a denominator; with
+    ``propagators`` = P only the identities below 2^P are kept.
+
+    Raises
+    ------
+    ValidationError
+        If the file is missing or is not a comma-separated list of integers.
+    """
+    text = _read(directory, "sectormappings", name, "trivialsector").strip()
+    try:
+        ids = [int(x) for x in text.split(",")] if text else []
+    except ValueError as err:
+        raise ValidationError(f"{name}: the trivialsector file is not a list of integers") from err
+    return frozenset(_below(ids, propagators))
+
+
+def read_sector_mappings(
+    directory: str | Path, name: str, *, propagators: int | None = None
+) -> dict[int, int]:
+    """
+    The sector mappings of a Kira run: each sector it maps to an equivalent one.
+
+    Reads ``sectormappings/<name>/sectorRelations``, whose lines start with the mapped
+    sector and hold the sector it is mapped to in the seventh column. Integrals of the
+    first are expressed by those of the second, which is the one that holds the masters:
+    in the double box, sector 28 maps to 42 and the masters are in 42. ``propagators`` keeps
+    only the sectors below 2^P, as in :func:`read_trivial_sectors`.
+
+    Raises
+    ------
+    ValidationError
+        If the file is missing or malformed, or a sector is mapped to two others.
+    """
+    out: dict[int, int] = {}
+    for number, line in enumerate(
+        _read(directory, "sectormappings", name, "sectorRelations").splitlines(), 1
+    ):
+        if not line.strip():
+            continue
+        fields = line.split()
+        try:
+            source, target = int(fields[0]), int(fields[6])
+        except (IndexError, ValueError) as err:
+            raise ValidationError(
+                f"{name}: line {number} of sectorRelations is not a sector relation"
+            ) from err
+        if out.setdefault(source, target) != target:
+            raise ValidationError(
+                f"{name}: sector {source} is mapped to {out[source]} and {target}"
+            )
+    keep = set(_below(out, propagators))
+    return {s: t for s, t in out.items() if s in keep}
+
+
+def read_masters(directory: str | Path, name: str) -> tuple[tuple[int, ...], ...]:
+    """
+    The master integrals of a Kira run, as index tuples in the order Kira lists them.
+
+    Reads ``results/<name>/masters.final``, or ``masters`` when that is missing. Pass an
+    index tuple to :meth:`~feynkit.family.IntegralFamily.sector_id` for its sector.
+
+    Raises
+    ------
+    ValidationError
+        If neither file exists or a line is not ``name[n1,...,nN]  # sector``.
+    """
+    root = Path(directory) / "results" / name
+    path = "masters.final" if (root / "masters.final").exists() else "masters"
+    out = []
+    pattern = re.compile(r"^(\w+)\[(-?\d+(?:,-?\d+)*)\]\s*#\s*\d+\s*$")
+    for line in _read(directory, "results", name, path).splitlines():
+        if not line.strip():
+            continue
+        match = pattern.match(line)
+        if match is None or match.group(1) != name:
+            raise ValidationError(f"{name}: {path} has a line that is not a master: {line!r}")
+        out.append(tuple(int(x) for x in match.group(2).split(",")))
+    return tuple(out)

@@ -17,7 +17,13 @@ import sympy as sp
 from feynkit import FeynmanIntegral
 from feynkit.core import Edge, Graph
 from feynkit.core.exceptions import ValidationError
-from feynkit.exporters import KiraJob, kira_job
+from feynkit.exporters import (
+    KiraJob,
+    kira_job,
+    read_masters,
+    read_sector_mappings,
+    read_trivial_sectors,
+)
 from feynkit.family import FamilyFunction, IntegralFamily
 
 BOX = ("13e|2e|3e|e|:zzzz", "massless_on_shell")
@@ -315,3 +321,99 @@ class TestRefusals:
             job.write(tmp_path / "run")
         job.write(tmp_path / "run", overwrite=True)
         assert isinstance(job, KiraJob)
+
+
+RECORDED = Path(__file__).parent / "data" / "kira" / "doublebox"
+
+
+class TestRecordedRun:
+    """Kira 3.1 on the exported double box, r = 8, s = 2 and s12 set to one.
+
+    The fixtures are the files that run wrote (the inputs, the zero sectors, the sector
+    relations and the masters); the run took 49 s with Fermat 7.9b.
+    """
+
+    def test_inputs_are_the_export(self) -> None:
+        job = kira_job(_weinzierl(), name="doublebox", r=8, s=2, replace_by_one="s12")
+        assert job.jobs == (RECORDED / "jobs.yaml").read_text()
+        assert job.integralfamilies == (RECORDED / "config" / "integralfamilies.yaml").read_text()
+        assert job.kinematics == (RECORDED / "config" / "kinematics.yaml").read_text()
+
+    def test_trivial_sectors_are_the_zero_sectors(self) -> None:
+        family = _weinzierl()
+        trivial = read_trivial_sectors(RECORDED, "doublebox", propagators=7)
+        assert trivial == {s.id for s in family.integral.sectors().zero()}
+        assert len(trivial) == 85
+        assert max(read_trivial_sectors(RECORDED, "doublebox")) > 127
+
+    def test_sector_mappings(self) -> None:
+        mappings = read_sector_mappings(RECORDED, "doublebox")
+        assert mappings[28] == 42 and mappings[93] == 107 and mappings[29] == 43
+        assert all(0 < s < 128 and 0 < t < 128 for s, t in mappings.items())
+        assert read_sector_mappings(RECORDED, "doublebox", propagators=5) == {
+            s: t for s, t in mappings.items() if s < 32
+        }
+
+    def test_masters_are_in_weinzierls_sectors(self) -> None:
+        """Wei22 Eq. 6.83: sectors 28, 73, 54, 57, 79, 93 and 127 twice, up to the mappings."""
+        family = _weinzierl()
+        masters = read_masters(RECORDED, "doublebox")
+        assert len(masters) == 8
+        assert masters[-2:] == ((1, 1, 1, 1, 1, 1, 1, 0, 0), (1, 1, 1, 1, 1, 1, 1, -1, 0))
+        sectors = [family.sector_id(n) for n in masters]
+        mappings = read_sector_mappings(RECORDED, "doublebox")
+        his = [28, 73, 54, 57, 79, 93, 127, 127]
+        assert sorted(sectors) == sorted(mappings.get(s, s) for s in his)
+        assert sorted(sectors) == [42, 54, 57, 73, 79, 107, 127, 127]
+
+    def test_bad_outputs(self, tmp_path: Path) -> None:
+        with pytest.raises(ValidationError, match="cannot read"):
+            read_masters(tmp_path, "doublebox")
+        results = tmp_path / "results" / "doublebox"
+        results.mkdir(parents=True)
+        (results / "masters").write_text("other[1,1]  # 3\n")
+        with pytest.raises(ValidationError, match="not a master"):
+            read_masters(tmp_path, "doublebox")
+        (results / "masters").write_text("doublebox[1,1]  # 3\n")
+        assert read_masters(tmp_path, "doublebox") == ((1, 1),)
+        mapping = tmp_path / "sectormappings" / "doublebox"
+        mapping.mkdir(parents=True)
+        (mapping / "sectorRelations").write_text("1 a b c d 1 2 3\n1 a b c d 1 4 3\n")
+        with pytest.raises(ValidationError, match="mapped to 2 and 4"):
+            read_sector_mappings(tmp_path, "doublebox")
+        (mapping / "sectorRelations").write_text("junk\n")
+        with pytest.raises(ValidationError, match="not a sector relation"):
+            read_sector_mappings(tmp_path, "doublebox")
+        (mapping / "trivialsector").write_text("1,x\n")
+        with pytest.raises(ValidationError, match="not a list"):
+            read_trivial_sectors(tmp_path, "doublebox")
+        (mapping / "trivialsector").write_text("\n")
+        assert read_trivial_sectors(tmp_path, "doublebox") == frozenset()
+
+
+class TestJobs:
+    def test_integrals_job(self) -> None:
+        family = _weinzierl()
+        job = kira_job(family, name="db", integrals=[(1, 1, 1, 1, 1, 1, 1, -1, -1)])
+        assert job.integrals == "db[1,1,1,1,1,1,1,-1,-1]\n"
+        assert "r: 8, s: 2}" in job.jobs
+        assert "select_mandatory_list:\n          - [db, integrals]" in job.jobs
+        assert "kira2form" in job.jobs and "reconstruct_mass" not in job.jobs
+        assert (
+            "reconstruct_mass: true"
+            in kira_job(family, integrals=[(1,) * 7 + (0, 0)], replace_by_one="s12").jobs
+        )
+
+    def test_defaults_and_sectors(self) -> None:
+        job = kira_job(_weinzierl(), top_sectors=[127, 28])
+        assert "sectors: [127, 28], r: 8, s: 0}" in job.jobs
+        assert job.integrals is None and "kira2form" not in job.jobs
+
+    def test_bad_arguments(self) -> None:
+        family = _weinzierl()
+        with pytest.raises(ValidationError, match="non-negative"):
+            kira_job(family, r=-1)
+        with pytest.raises(ValidationError, match="ISP"):
+            kira_job(family, integrals=[(1,) * 8 + (1,)])
+        with pytest.raises(ValidationError, match="indices"):
+            kira_job(family, integrals=[(1, 1)])

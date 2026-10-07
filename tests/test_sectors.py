@@ -9,14 +9,23 @@ the page of the statement.
 from __future__ import annotations
 
 import itertools
+from collections.abc import Callable
 
 import pytest
 import sympy as sp
 
 from feynkit import FeynmanIntegral
-from feynkit.core.exceptions import ValidationError
+from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.landau import _singular_binary
-from feynkit.sectors import Sector, SectorHierarchy, sector_hierarchy
+from feynkit.sectors import (
+    FixedPointClass,
+    Sector,
+    SectorHierarchy,
+    fixed_point_euler_characteristic,
+    parameter_permutations,
+    sector_hierarchy,
+    stabiliser,
+)
 
 requires_singular = pytest.mark.skipif(_singular_binary() is None, reason="Singular not installed")
 
@@ -355,6 +364,283 @@ class TestPointCounts:
         assert not h.totals().negative
 
 
+class TestPointCheck:
+    @pytest.fixture
+    def install(self, monkeypatch: pytest.MonkeyPatch) -> Callable[[], list[object]]:
+        """Patch the sector count to raise by one at every point after the first.
+
+        Returns a function that installs the patch and gives the list of the points the
+        count was called at.
+        """
+        import feynkit.sectors as module
+
+        real = module._sector_count
+
+        def install() -> list[object]:
+            seen: list[object] = []
+
+            def wrapper(point: object, *args: object, **kwargs: object) -> int:
+                seen.append(point)
+                value = real(point, *args, **kwargs)  # type: ignore[arg-type]
+                return value + 1 if point is not seen[0] else value
+
+            monkeypatch.setattr(module, "_sector_count", wrapper)
+            return seen
+
+        return install
+
+    def test_the_top_count_is_checked_at_a_second_point(
+        self, install: Callable[[], list[object]]
+    ) -> None:
+        seen = install()
+        with pytest.raises(ComputationError, match="second point") as excinfo:
+            sector_hierarchy(_integral(SUNRISE), counts="critical", symmetries=False, timeout=120)
+        assert "7" in str(excinfo.value) and "8" in str(excinfo.value)
+        assert len({id(p) for p in seen}) == 2
+
+    def test_a_given_point_is_used_as_given(self, install: Callable[[], list[object]]) -> None:
+        fi = _integral(SUNRISE)
+        point = dict(sector_hierarchy(fi, counts="critical", symmetries=False).point or ())
+        seen = install()
+        h = sector_hierarchy(fi, counts="critical", point=point, symmetries=False, timeout=120)
+        assert len({id(p) for p in seen}) == 1
+        assert h.sector(7).count == 7
+
+    def test_the_drawn_point_is_wide(self) -> None:
+        h = sector_hierarchy(_integral(SUNRISE), counts="critical", symmetries=False, timeout=120)
+        assert h.point is not None
+        assert max(abs(v) for _, v in h.point) > 1000
+        assert all(1 <= abs(v) <= 2**20 for _, v in h.point)
+
+
+class TestPermutations:
+    X = sp.symbols("x0:3")
+    Y = sp.symbols("y0:3")
+
+    def test_the_symmetric_polynomial_has_the_whole_group(self) -> None:
+        x = self.X
+        f = x[0] * x[1] + x[1] * x[2] + x[0] * x[2]
+        maps = parameter_permutations(f, x, f, x)
+        assert len(maps) == 6
+        assert sorted(maps) == sorted(itertools.permutations(range(3)))
+
+    def test_a_map_between_two_polynomials(self) -> None:
+        x, y = self.X, self.Y
+        f = 2 * x[0] * x[1] + x[1] * x[2] + 3 * x[2]
+        # x_0, x_1, x_2 go to y_1, y_2, y_0, and sigma[i] is where x_i goes.
+        g = 2 * y[1] * y[2] + y[2] * y[0] + 3 * y[0]
+        assert parameter_permutations(f, x, g, y) == [(1, 2, 0)]
+
+    def test_coefficients_are_compared_exactly(self) -> None:
+        x = self.X
+        a = sp.Symbol("a")
+        f = x[0] * x[1] + a * x[1] * x[2]
+        assert parameter_permutations(f, x, x[0] * x[1] + 2 * x[1] * x[2], x) == []
+        assert parameter_permutations(f, x, x[1] * x[2] + a * x[0] * x[1], x) == [(2, 1, 0)]
+
+    def test_different_sizes_have_no_map(self) -> None:
+        x = self.X
+        assert parameter_permutations(x[0] + x[1], x[:2], x[0] + x[1] + x[2], x) == []
+
+    def test_the_stabiliser_is_the_maps_to_itself(self) -> None:
+        x = self.X
+        f = x[0] * x[1] + x[2]
+        assert stabiliser(f, x) == parameter_permutations(f, x, f, x)
+        assert len(stabiliser(f, x)) == 2
+
+
+class TestOrbits:
+    def test_the_massless_box(self) -> None:
+        h = sector_hierarchy(_integral(BOX), counts=None)
+        top = h.stabiliser(15)
+        assert len(top) == 4
+        assert h.sector(15).stabiliser_order == 4
+        # The bubbles are alone; the triangles fall into two orbits of two.
+        assert h.orbits() == {6: (6,), 7: (7, 14), 9: (9,), 11: (11, 13), 15: (15,)}
+        assert h.orbit(h.sector((1, 2, 3)).id) == h.orbit(h.sector((2, 3, 4)).id)
+
+    def test_orbits_hold_equal_size_sectors_and_start_at_the_least_id(self) -> None:
+        h = sector_hierarchy(_integral(DOUBLE_BOX), counts=None)
+        orbits = h.orbits()
+        assert sum(len(m) for m in orbits.values()) == 43
+        for rep, members in orbits.items():
+            assert rep == min(members)
+            assert len({len(h.sector(i).propagators) for i in members}) == 1
+            assert all(h.sector(i).orbit == rep for i in members)
+        assert len(orbits) == 18
+        assert all(s.orbit is None for s in h.zero())
+
+    def test_maps_between_sectors_are_bijections_of_their_propagators(self) -> None:
+        h = sector_hierarchy(_integral(BOX), counts=None)
+        a, b = h.sector((1, 2, 3)), h.sector((2, 3, 4))
+        maps = h.maps(a.id, b.id)
+        assert maps and all(
+            set(m) == set(a.propagators) and set(m.values()) == set(b.propagators) for m in maps
+        )
+        assert h.maps(h.sector((1, 4)).id, h.sector((2, 3)).id) == []
+        assert h.maps(a.id, h.sector(15).id) == []
+
+    def test_a_zero_sector_has_no_maps(self) -> None:
+        h = sector_hierarchy(_integral(BOX), counts=None)
+        with pytest.raises(ValidationError, match="non-zero"):
+            h.maps(0, 15)
+
+    def test_no_symmetries(self) -> None:
+        h = sector_hierarchy(_integral(BOX), counts=None, symmetries=False)
+        assert all(s.orbit is None and s.stabiliser_order is None for s in h.sectors)
+        assert h.totals().unique is None
+        with pytest.raises(ValidationError):
+            h.orbits()
+
+    def test_equal_mass_box_has_seven_unique_sectors(self) -> None:
+        # The top group is Z_2 x Z_2, and the groupoid has 7 orbits where the top group alone
+        # has 8 (Sec. 3.6, Eq. 3.60 of DMSS26).
+        fi = _on_shell("13e|2e|3e|e|:aaaa", ["p1^2", "p2^2", "p3^2", "p4^2"])
+        h = sector_hierarchy(fi, counts=None)
+        assert h.totals().non_zero == 15
+        assert h.totals().unique == 7
+        group = h.stabiliser(15)
+        assert len(group) == 4
+        assert all(sorted(g.values()) == [1, 2, 3, 4] for g in group)
+        # Z_2 x Z_2: every element squares to the identity.
+        assert all(g[g[e]] == e for g in group for e in g)
+        non_zero = [s.propagators for s in h.non_zero()]
+        seen: set[frozenset[int]] = set()
+        classes = 0
+        for t in non_zero:
+            if frozenset(t) in seen:
+                continue
+            classes += 1
+            for g in group:
+                seen.add(frozenset(g[e] for e in t))
+        assert classes == 8
+
+    def test_double_box_matches_weinzierl_numbering(self) -> None:
+        # Wei22, Eq. 6.83: with his labels the masters sit in sectors 28, 73, 54, 57, 79, 93
+        # and 127. Each belongs to an orbit, and the top is alone.
+        from tests.test_family import _weinzierl_double_box
+
+        h = sector_hierarchy(_weinzierl_double_box(), counts=None)
+        for nid in (28, 73, 54, 57, 79, 93, 127):
+            assert h.sector(nid).kind == "non_zero"
+        assert h.sector(127).orbit == 127
+        assert len(h.orbits()[127]) == 1
+        assert h.totals().unique == 18
+
+
+@requires_singular
+class TestSymmetricCounts:
+    def test_equal_mass_sunrise(self) -> None:
+        # DMSS26, Eqs. 2.82-2.84, p. 30: the top has 2 masters, the family 3 (Wei22, Eq. 6.85).
+        h = sector_hierarchy(
+            FeynmanIntegral.from_cnickel("111e|e|:aaa"), counts="critical", timeout=120
+        )
+        top = h.sector(7)
+        assert top.stabiliser_order == 6
+        assert sorted((c.cycle_type, c.size, c.euler_characteristic) for c in top.fixed_points) == [
+            ((1, 1, 1), 1, -4),
+            ((2, 1), 3, 2),
+            ((3,), 2, -1),
+        ]
+        assert top.symmetric_count == 2 and top.signed_symmetric_count == 2
+        assert top.signs_consistent is True
+        assert h.totals().symmetric == 3
+        assert h.totals().unique == 2
+
+    def test_two_equal_masses(self) -> None:
+        h = sector_hierarchy(
+            FeynmanIntegral.from_cnickel("111e|e|:aab"), counts="critical", timeout=120
+        )
+        assert h.sector(7).symmetric_count == 3
+        assert h.totals().symmetric == 5
+
+    def test_massless_box(self) -> None:
+        h = sector_hierarchy(_integral(BOX), counts="critical", timeout=120)
+        assert h.totals().symmetric == 3 and h.totals().signed_symmetric == 3
+        assert h.sector(15).stabiliser_order == 4
+
+    def test_equal_mass_box_signs(self) -> None:
+        # Eq. 8.18 gives 7 for the family and the signed form 6: the four adjacent bubbles
+        # have chi = -1, the wrong sign for c = 2, so the two forms disagree there.
+        fi = _on_shell("13e|2e|3e|e|:aaaa", ["p1^2", "p2^2", "p3^2", "p4^2"])
+        h = sector_hierarchy(fi, counts="critical", timeout=120)
+        totals = h.totals()
+        assert (totals.symmetric, totals.signed_symmetric) == (7, 6)
+        assert totals.signs_consistent is False
+        bad = {s.id for s in h.sectors if s.signs_consistent is False}
+        assert bad == {h.sector(t).orbit for t in [(1, 2), (1, 3), (2, 4), (3, 4)]}
+        assert all(
+            h.sector(i).symmetric_count == 1 and h.sector(i).signed_symmetric_count == 0
+            for i in bad
+        )
+        assert h.sector(15).signs_consistent is True
+
+    def test_double_box(self) -> None:
+        # CMMT23, Sec. 5.5.4, p. 52: eight with symmetries. Six unique sectors with one
+        # master each, of sizes 3, 3, 4, 4, 5, 5, and the top with two.
+        h = sector_hierarchy(_integral(DOUBLE_BOX), counts="critical", timeout=120)
+        counted = {s.id: s for s in h.sectors if s.symmetric_count}
+        sizes = sorted(len(s.propagators) for s in counted.values() if s.symmetric_count == 1)
+        assert sizes == [3, 3, 4, 4, 5, 5]
+        assert counted[127].symmetric_count == 2
+        assert h.totals().symmetric == 8 and h.totals().signed_symmetric == 8
+        assert h.totals().signs_consistent is True
+        assert h.totals().sector_count == 12
+
+    def test_the_helper_agrees_with_the_hierarchy(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("111e|e|:aaa")
+        h = sector_hierarchy(fi, counts="critical", timeout=120)
+        g = fi.symanzik.g.subs(fi.graph.energy_scale, 1)
+        variables = list(fi.symanzik.lp_parameters)
+        point = dict(h.point or ())
+        assert fixed_point_euler_characteristic(g, variables, (0, 1, 2), point, timeout=120) == -4
+        assert fixed_point_euler_characteristic(g, variables, (1, 0, 2), point, timeout=120) == 2
+        assert fixed_point_euler_characteristic(g, variables, (1, 2, 0), point, timeout=120) == -1
+
+    def test_a_non_symmetry_is_refused(self) -> None:
+        fi = FeynmanIntegral.from_cnickel("111e|e|:aab")
+        g = fi.symanzik.g.subs(fi.graph.energy_scale, 1)
+        variables = list(fi.symanzik.lp_parameters)
+        point = dict(
+            sector_hierarchy(fi, counts="critical", symmetries=False, timeout=120).point or ()
+        )
+        with pytest.raises(ValidationError, match="symmetry"):
+            fixed_point_euler_characteristic(g, variables, (2, 1, 0), point, timeout=120)
+
+
+BANANA_3 = [
+    ("1111e|e|:aaaa", 3),
+    ("1111e|e|:aaab", 5),
+    ("1111e|e|:aabb", 6),
+    ("1111e|e|:aabc", 8),
+    ("1111e|e|:abcd", 11),
+]
+BANANA_4 = [
+    ("11111e|e|:aaaaa", 4),
+    ("11111e|e|:aaaab", 7),
+    ("11111e|e|:aaabb", 9),
+    ("11111e|e|:aaabc", 12),
+    ("11111e|e|:aabbc", 14),
+    ("11111e|e|:aabcd", 19),
+    ("11111e|e|:abcde", 26),
+]
+
+
+@requires_singular
+@pytest.mark.slow
+class TestBananas:
+    # DMSS26, Tables 1 and 2, p. 31: the masters of the top sector with symmetries.
+    @pytest.mark.parametrize(("cnickel", "masters"), BANANA_3)
+    def test_three_loops(self, cnickel: str, masters: int) -> None:
+        h = sector_hierarchy(FeynmanIntegral.from_cnickel(cnickel), counts="critical", timeout=120)
+        assert h.sector(15).symmetric_count == masters
+
+    @pytest.mark.parametrize(("cnickel", "masters"), BANANA_4)
+    def test_four_loops(self, cnickel: str, masters: int) -> None:
+        h = sector_hierarchy(FeynmanIntegral.from_cnickel(cnickel), counts="critical", timeout=120)
+        assert h.sector(31).symmetric_count == masters
+
+
 def test_a_sector_is_a_frozen_value() -> None:
     h = sector_hierarchy(_integral(BOX), counts=None)
     s = h.sector(0b1111)
@@ -362,3 +648,4 @@ def test_a_sector_is_a_frozen_value() -> None:
     with pytest.raises(AttributeError):
         s.kind = "cycle"  # type: ignore[misc]
     assert s.symmetric_count is None
+    assert FixedPointClass((1,), 1, 0).size == 1

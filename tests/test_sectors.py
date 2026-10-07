@@ -649,3 +649,25 @@ def test_a_sector_is_a_frozen_value() -> None:
         s.kind = "cycle"  # type: ignore[misc]
     assert s.symmetric_count is None
     assert FixedPointClass((1,), 1, 0).size == 1
+
+
+class TestAccessor:
+    def test_the_integral_caches_its_hierarchy_for_each_choice_of_arguments(self) -> None:
+        fi = _integral(BOX)
+        first = fi.sectors()
+        assert first is fi.sectors()
+        assert first.totals() == sector_hierarchy(fi).totals()
+        assert fi.sectors(symmetries=False) is not first
+        assert fi.sectors(counts=None) is not first
+        assert fi.sectors(counts=None) is fi.sectors(counts=None)
+
+    @requires_singular
+    def test_a_point_is_part_of_the_key(self) -> None:
+        fi = _integral(SUNRISE)
+        drawn = fi.sectors(counts="critical", symmetries=False, timeout=120)
+        point = dict(drawn.point or ())
+        given = fi.sectors(counts="critical", point=point, symmetries=False, timeout=120)
+        assert given is fi.sectors(
+            counts="critical", point=dict(point), symmetries=False, timeout=120
+        )
+        assert given.sector(7).count == 7

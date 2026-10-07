@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from .lattice_invariants import Lattice, LatticeInvariants
     from .point_count import TorusCount
     from .resonance import FacetResonance
+    from .sectors import CountsSource, SectorHierarchy
 
 from . import _exact
 from .algebra.toric import compute_toric_ideal_generators
@@ -191,6 +192,16 @@ class FeynmanIntegral:
         self._face_degeneracies: dict[
             tuple[frozenset[tuple[sp.Expr, int | Fraction]] | None, bool, float],
             DegeneracyAnalysis,
+        ] = {}
+        self._sector_hierarchies: dict[
+            tuple[
+                frozenset[tuple[sp.Expr, int | Fraction]] | None,
+                CountsSource | None,
+                bool,
+                int,
+                float,
+            ],
+            SectorHierarchy,
         ] = {}
 
     # -------- Read-only views of the input data --------
@@ -1104,6 +1115,52 @@ class FeynmanIntegral:
                 degeneracy=bool(degeneracy),
             )
         return self._face_lattices[key]
+
+    def sectors(
+        self,
+        *,
+        point: Mapping[sp.Expr, int | Fraction] | None = None,
+        counts: CountsSource | None = "generic",
+        symmetries: bool = True,
+        seed: int = 0,
+        timeout: float = 300,
+    ) -> SectorHierarchy:
+        """
+        Every sector of the integral: its kind, face, counts and symmetries.
+
+        The sectors are read off the support of G, as non-zero, scaleless by
+        Lee's criterion or cut by a cycle, with the generic count of each from
+        the volume of its face and, with a count at a point, the counts t and
+        m and, with symmetries, the counts with symmetries. See
+        :func:`feynkit.sectors.sector_hierarchy`, whose arguments these are.
+        The result is cached for each choice of the arguments.
+
+        Raises
+        ------
+        ValidationError
+            As :func:`feynkit.sectors.sector_hierarchy` raises.
+        ComputationError
+            As :func:`feynkit.sectors.sector_hierarchy` raises.
+        """
+        from .sectors import sector_hierarchy
+
+        key = (
+            None if point is None else frozenset(point.items()),
+            counts,
+            bool(symmetries),
+            seed,
+            timeout,
+        )
+        if key not in self._sector_hierarchies:
+            self._sector_hierarchies[key] = sector_hierarchy(
+                self,
+                point=point,
+                counts=counts,
+                symmetries=symmetries,
+                seed=seed,
+                timeout=timeout,
+            )
+        return self._sector_hierarchies[key]
 
     def face_degeneracy(
         self,

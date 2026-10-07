@@ -296,6 +296,74 @@ most significant bit. A family in feynkit belongs to one graph, so an ISP is nev
 and $0 \le N_{\mathrm{id}} < 2^P$ for $P$ propagators. With Weinzierl's routing and ISPs, the
 masters of the planar double box lie in the sectors 28, 73, 54, 57, 79, 93 and 127 (his Eq. 6.83).
 
+### 3.6 The Sector Hierarchy
+
+*Ref:* Lee (2013) sections 2-3; Bitoun et al. (2019) corollary 37, theorem 44 and remark 60; Duhr,
+Maggio, Semper and Stawinski (2026) Eqs. 2.27, 2.28, 8.3 and 8.18.
+
+**Sectors.** For a graph with internal edges $E$, a sector is a set $T \subseteq E$, the propagators
+with a positive index, and $S = E \setminus T$ is contracted. Its identity is $N_{\mathrm{id}}$ of
+section 3.5 over the edges in index order. Let $G_T$ be $G$ with every term involving $u_e$, $e \in S$,
+removed. It is the Lee-Pomeransky polynomial of $\Gamma / S$, term by term, and its support is the
+face $F_S$ of $\mathrm{Newt}(G)$ on which the exponents of $S$ vanish. A sector is
+
+- *cut by a cycle* when $S$ contains a cycle: then $F_S = \emptyset$;
+- *scaleless* when $S$ is a forest and $0 \notin \operatorname{aff}\operatorname{supp} G_T$, which is
+  Lee's criterion (the one `is_scaleless` states for $S = \emptyset$);
+- *non-zero* otherwise.
+
+A subsector of a zero sector is zero, because $\operatorname{supp} G_{T'} \subseteq \operatorname{supp}
+G_T$ for $T' \subseteq T$ and the origin lies off the larger affine hull. A scaleless sector never has
+$\dim F_S = |T|$, since the affine hull of such a face is $\mathbb{R}^T$.
+
+**Counts.** With $X_T = (\mathbb{C}^*)^T \setminus \{G_T = 0\}$,
+
+$$t(T) = (-1)^{|T|}\chi(X_T), \qquad
+m(T) = \sum_{T' \subseteq T}(-1)^{|T \setminus T'|}\,t(T'), \qquad
+\sum_{T \subseteq E} m(T) = t(E).$$
+
+$t(T)$ is the number of master integrals of $T$ with its subsectors (Bitoun et al. corollary 37)
+and $m(T)$ that of $T$ alone (their remark 60), which is negative on some sectors and then no
+dimension. $t(T)$ is 0 when $\operatorname{supp} G_T$ has dimension below $|T|$, because $G_T$ is then
+quasi-homogeneous for a non-zero weight (their proposition 41). The generic count is
+$t_{\mathrm{gen}}(T) = |T|!\,\mathrm{Vol}(F_S)$ in $\mathbb{R}^T$ when $\dim F_S = |T|$ and 0 otherwise
+(their theorem 44, after Kouchnirenko); it equals the normalised volume of $F_S$ times the index
+of the lattice its points generate in $\mathbb{Z}^T$, and bounds $t(T)$ above. `sector_hierarchy`
+takes $t(T)$ at one rational kinematic point, the same for every sector, by `critical_point_count`
+or `count_torus_points`.
+
+**Symmetries.** For non-zero $T_1, T_2$ with $|T_1| = |T_2|$, let $S(G_{T_1}, G_{T_2})$ be the
+bijections $\sigma: T_1 \to T_2$ with $G_{T_1}(\sigma x) = G_{T_2}(x)$ term by term, with exactly
+equal coefficients (Duhr et al. Eqs. 2.27 and 2.28). They form a groupoid. Its orbits are the unique
+sectors, and the stabiliser of $T$ is the group $G(G_T)$ of permutations of $T$ that fix $G_T$.
+The search refines each variable by the multiset of (its exponent, the degree of the term, the
+coefficient) over the terms that contain it, then assigns variables one at a time, keeping a prefix
+only when the terms of both polynomials have the same multiset of exponents on the variables
+assigned.
+
+**The count with symmetries.** Let $X = \mathbb{C}^T \setminus \{G_T = 0\}$ and $X_\sigma$ the points
+of $X$ that $\sigma \in G(G_T)$ fixes: those with equal coordinates on each cycle. Stratifying by the
+cycles on which the coordinates vanish,
+
+$$\chi(X_\sigma) = \sum_{\sigma\text{-stable } T'}(-1)^{c(\sigma|_{T'})}\,\kappa(G_{T'} \circ \iota_\sigma),$$
+
+where $\iota_\sigma$ sets the variables of each cycle equal and $\kappa$ is the number of critical
+points of $\sum_e \nu_e \log y_e - \tfrac{D}{2}\log G$ on the torus, which is $|\chi|$ for generic
+exponents (Fevola, Mizera and Telen 2024, proof of theorem 3.1). Duhr et al. then give, for a unique
+sector with $G = G(G_T)$,
+
+$$N_T = \frac{1}{|G|}\sum_{\sigma \in G}\big|\chi(X_\sigma)\big|
+\qquad\text{and}\qquad
+N_T^{\pm} = \frac{(-1)^{|T|}}{|G|}\sum_{\sigma \in G}\mathrm{sign}(\sigma)\,\chi(X_\sigma)$$
+
+(their Eqs. 8.18 and 8.3, p. 110 and p. 108). The first assumes the vanishing theorem for every
+$X_\sigma$, the second only for $X$. If $\mathrm{sign}\,\chi(X_\sigma) = (-1)^{c(\sigma)}$ they agree.
+Conjugate permutations have equal $\chi(X_\sigma)$, so feynkit computes one per conjugacy class of
+$G$. Their sum over the unique sectors is the number of master integrals of the family with symmetries.
+
+**Code.** `feynkit.sectors`: `sector_hierarchy`, `Sector`, `SectorHierarchy`, `parameter_permutations`,
+`stabiliser` and `fixed_point_euler_characteristic`.
+
 ---
 
 ## 4. GKZ A-Hypergeometric System
@@ -1910,3 +1978,6 @@ All papers cited in the feynkit source and directly relevant to the implemented 
 44. **Borinsky-Munch-Tellander (2023).** M. Borinsky, H.J. Munch, F. Tellander.
     *Tropical Feynman integration in the Minkowski regime.*
     Comput.\ Phys.\ Commun.\ **292** (2023) 108874.  arXiv:2302.08955.
+
+45. **Duhr-Maggio-Semper-Stawinski (2026).** C. Duhr, S. Maggio, C. Semper, S.F. Stawinski.
+    *Discrete symmetries of Feynman integrals.*  arXiv:2604.08332.

@@ -51,6 +51,7 @@ from feynkit.database import FeynkitDatabase
 from feynkit.face_identification import identify_faces
 from feynkit.face_lattice import DecoratedFaceLattice, Epsilon
 from feynkit.integral import FeynmanIntegral
+from feynkit.io._text_kit import _table
 from feynkit.io.report import (
     DEFAULT_SECTIONS,
     FACE_CODIMENSION,
@@ -71,11 +72,13 @@ from feynkit.io.sections.degeneracy import (
 from feynkit.io.sections.face_lattice import face_rows, kind_counts
 from feynkit.io.sections.faces import face_counts, facet_graph
 from feynkit.io.sections.resonance import epsilon_set, integer_powers
+from feynkit.io.sections.sectors import Sectors, notes, opening, table_data
 from feynkit.kinematics.classes import IMPOSABLE_CLASSES, KinematicClass
 from feynkit.landau import LandauAnalysis
 from feynkit.point_count import TorusCount
 from feynkit.polytope import polytope_data
 from feynkit.resonance import choose_d0, classify_facets, span_epsilons
+from feynkit.sectors import CountsSource
 from feynkit.visualisation.hasse import HASSE_FILTERS, HASSE_VIEWS, MAX_FACES, hasse_document
 
 SECTION_FLAGS = ("symanzik", "params", "gkz", "toric", "newton", "resonance", "symmetries")
@@ -818,6 +821,23 @@ def _print_degeneracy(section: Degeneracy) -> None:
         _kv("Check over F_p", f"{verdict}  (p = {analysis.prime})")
 
 
+def _print_sectors(section: Sectors) -> None:
+    """The sector hierarchy as the report section has it."""
+    _sec("Sector hierarchy")
+    if section.hierarchy is None:
+        print(
+            f"  The graph has {section.propagators} propagators, more than the {section.limit} "
+            "for which the hierarchy is built."
+        )
+        return
+    print(f"  {opening(section)}")
+    for note in notes(section, latex=False):
+        print(f"  {note}")
+    header, rows = table_data(section, latex=False)
+    print()
+    print(_table(header, rows))
+
+
 _PRINTERS: dict[str, Callable[[FeynmanIntegral], None]] = {
     "symanzik": _print_symanzik,
     "params": _print_params,
@@ -847,6 +867,7 @@ class ReportOptions:
     d0: Fraction | None = None
     check_schwinger: bool = False
     degeneracy_mode: DegeneracyMode = DEFAULT_DEGENERACY_MODE
+    sectors_counts: CountsSource = "generic"
     hasse: Path | None = None
     hasse_view: str = "codim"
     hasse_codim: int = FACE_CODIMENSION
@@ -1063,6 +1084,7 @@ def analyse_one(
                     d0=options.d0,
                     check_schwinger=options.check_schwinger,
                     degeneracy_mode=options.degeneracy_mode,
+                    sectors_counts=options.sectors_counts,
                 )
             )
         return built[0]
@@ -1095,6 +1117,20 @@ def analyse_one(
         if options.hasse is not None:
             with _stage("hasse", verbose):
                 _write_hasse(fi, options)
+        if "sectors" in sections:
+            with _stage("sectors", verbose):
+                found_sectors: Sectors | None = None
+                if options.writes_files and "sectors" in options.sections:
+                    found_sectors = build().sectors
+                if found_sectors is None:
+                    found_sectors = AnalysisReport.from_integral(
+                        fi,
+                        ["sectors"],
+                        torus_seed=options.torus_seed,
+                        sectors_counts=options.sectors_counts,
+                    ).sectors
+                assert found_sectors is not None
+                _print_sectors(found_sectors)
         if "torus" in sections:
             with _stage("torus", verbose):
                 count = None
@@ -1323,6 +1359,7 @@ _VALUE_OPTIONS = frozenset(
         "--seed",
         "--torus-budget",
         "--degeneracy-mode",
+        "--sectors-counts",
         "--hasse",
         "--hasse-view",
         "--hasse-codim",
@@ -1365,6 +1402,7 @@ examples:
   fk analyse "12e|3e|3e|e|:zzzz" --kinematics massless_on_shell -n
   fk analyse "12e|22e|e|:nnnn" -f              the graphs of the parachute's faces
   fk analyse "111e|e|:nnn" -D                  the degenerate faces of the massive sunrise
+  fk analyse "12e|3e|3e|e|:zzzz" --sectors     the sectors of the massless box
 
 Quote every CNickel string: an unquoted | is a shell pipe.
 """
@@ -1538,6 +1576,25 @@ def _build_parser() -> _Parsers:
             "where --degeneracy decides the faces: point, the default, at the kinematic point "
             "of the point counts, or generic, over the field of rational functions in the "
             "kinematic symbols, which can take minutes"
+        ),
+    )
+    shown.add_argument(
+        "--sectors",
+        action="store_true",
+        help=(
+            "the sector hierarchy: which sectors are zero, the face and count of each non-zero "
+            "one, and the symmetries between them; it adds the sectors section to reports whose "
+            "--sections leave it out"
+        ),
+    )
+    shown.add_argument(
+        "--sectors-counts",
+        choices=("generic", "torus", "critical"),
+        help=(
+            "the counts of --sectors: generic, the default, from the volume of each face; or "
+            "critical, by counting critical points with Singular, or torus, by finite-field "
+            "point counts, which add the masters of each sector at the kinematic point of "
+            "--seed and those with symmetries"
         ),
     )
     drawing = analyse.add_argument_group(
@@ -1747,6 +1804,7 @@ def _section_flags(args: argparse.Namespace) -> set[str]:
     chosen |= {"faces"} if args.faces else set()
     chosen |= {"face_lattice"} if args.face_lattice else set()
     chosen |= {"degeneracy"} if args.degeneracy else set()
+    chosen |= {"sectors"} if args.sectors else set()
     return chosen | {"torus"} if args.torus_count else chosen
 
 
@@ -1776,7 +1834,15 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
             "--torus-budget applies to the point counts; add --torus-count or name torus in "
             "--sections"
         )
-    if args.seed is not None and not (counts or args.degeneracy or "degeneracy" in named):
+    if args.sectors_counts is not None and not (args.sectors or "sectors" in named):
+        parser.error(
+            "--sectors-counts applies to the sector hierarchy; add --sectors or name sectors "
+            "in --sections"
+        )
+    at_point = args.sectors_counts in ("torus", "critical")
+    if args.seed is not None and not (
+        counts or args.degeneracy or "degeneracy" in named or at_point
+    ):
         parser.error(
             "--seed applies to the point counts and the degenerate faces; add --torus-count "
             "or --degeneracy, or name torus or degeneracy in --sections"
@@ -1806,6 +1872,8 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         sections = (*sections, "face_lattice")
     if args.degeneracy and "degeneracy" not in sections:
         sections = (*sections, "degeneracy")
+    if args.sectors and "sectors" not in sections:
+        sections = (*sections, "sectors")
     return ReportOptions(
         sections=sections,
         latex=args.latex,
@@ -1819,6 +1887,7 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         degeneracy_mode=(
             DEFAULT_DEGENERACY_MODE if args.degeneracy_mode is None else args.degeneracy_mode
         ),
+        sectors_counts="generic" if args.sectors_counts is None else args.sectors_counts,
         hasse=args.hasse,
         hasse_view="codim" if args.hasse_view is None else args.hasse_view,
         hasse_codim=FACE_CODIMENSION if args.hasse_codim is None else args.hasse_codim,

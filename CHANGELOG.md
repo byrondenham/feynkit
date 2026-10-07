@@ -171,6 +171,23 @@
 
 ### Added
 
+- The sector hierarchy, `feynkit.sectors`. `sector_hierarchy(fi)` reads every one of the 2^N
+  sectors of an integral off the support of G, numbered by Weinzierl's N_id, as cut by a cycle,
+  scaleless by Lee's criterion (arXiv:1310.1145) or non-zero, with the face of the Newton
+  polytope it spans. Each sector gets the count for generic coefficients from the volume of that
+  face and, with `counts="critical"` or `"torus"`, the number of master integrals with its
+  subsectors and alone at one rational kinematic point (Bitoun, Bogner, Klausen and Panzer,
+  arXiv:1712.09215), the second signed and flagged where it is negative. A point that is not given
+  is drawn from [1, 2^20], and the top sector's count is checked at a second point. The non-zero
+  sectors are grouped into orbits by the bijections of propagators that map the terms of one
+  sector polynomial onto those of another with equal coefficients (`parameter_permutations`,
+  `stabiliser`, `SectorHierarchy.maps`), each with its stabiliser and, with a count at a point,
+  the Euler characteristics of its fixed sets (`fixed_point_euler_characteristic`) and the count
+  with symmetries in the absolute and the signed form of Duhr, Maggio, Semper and Stawinski
+  (arXiv:2604.08332), with a flag where they differ. The optional `sectors` report section lists
+  the non-zero sectors beside the resonance of their faces, `fk analyse --sectors` prints it and
+  `--sectors-counts` asks for counts at a point. The package exports the new names.
+
 - Integral families, `feynkit.family`. `IntegralFamily.from_integral(fi, isps="auto",
   chords=None)` routes the momenta through a spanning tree in edge-index order
   (`momentum_routing`, `MomentumRouting`), takes the propagators -q^2 + m^2 by edge index and

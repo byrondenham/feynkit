@@ -23,19 +23,20 @@ diagram given by its CNickel string.
 10. [Schwinger-representation GKZ system](#schwinger-representation-gkz-system)
 11. [Newton polytope](#newton-polytope)
 12. [Integral families](#integral-families)
-13. [Toric ideal](#toric-ideal)
-14. [Polytope equivalence](#polytope-equivalence)
-15. [Automorphism groups and symmetry pairs](#automorphism-groups-and-symmetry-pairs)
-16. [Deriving modified integrals](#deriving-modified-integrals)
-17. [AConfiguration: arbitrary GKZ inputs](#aconfiguration-arbitrary-gkz-inputs)
-18. [Landau singularities](#landau-singularities)
-19. [Torus point counts](#torus-point-counts)
-20. [Degenerate faces](#degenerate-faces)
-21. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
-22. [The database](#the-database)
-23. [Visualisation and export](#visualisation-and-export)
-24. [Standard diagram library](#standard-diagram-library)
-25. [References](#references)
+13. [The sector hierarchy](#the-sector-hierarchy)
+14. [Toric ideal](#toric-ideal)
+15. [Polytope equivalence](#polytope-equivalence)
+16. [Automorphism groups and symmetry pairs](#automorphism-groups-and-symmetry-pairs)
+17. [Deriving modified integrals](#deriving-modified-integrals)
+18. [AConfiguration: arbitrary GKZ inputs](#aconfiguration-arbitrary-gkz-inputs)
+19. [Landau singularities](#landau-singularities)
+20. [Torus point counts](#torus-point-counts)
+21. [Degenerate faces](#degenerate-faces)
+22. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
+23. [The database](#the-database)
+24. [Visualisation and export](#visualisation-and-export)
+25. [Standard diagram library](#standard-diagram-library)
+26. [References](#references)
 
 ---
 
@@ -124,8 +125,8 @@ without a `|` is read as a command, never as a CNickel string. `fk analyze` is t
 ### Analysing one diagram
 
 With no section flags, `fk analyse` prints every section except the point counts of
-`--torus-count`, which can take minutes, and the degenerate faces of `-D`, which need the Landau
-analysis. Pass one or more flags to choose.
+`--torus-count`, which can take minutes, the degenerate faces of `-D`, which need the Landau
+analysis, and the sectors of `--sectors`. Pass one or more flags to choose.
 
 ```bash
 fk analyse "12e|2e|e|:zzz"              # every section of the massless triangle
@@ -138,6 +139,7 @@ fk analyse "12e|22e|e|:nnnn" -f         # the graphs of the faces of the massive
 fk analyse "111e|e|:nzz" -L             # resonance centres of the sunrise with one mass
 fk analyse "11e|e|:nn" --torus-count    # candidate master count of the massive bubble
 fk analyse "111e|e|:nnn" -D             # degenerate faces of the massive sunrise
+fk analyse "13e|2e|3e|e|:zzzz" --kinematics massless_on_shell --sectors   # sectors of the massless box
 ```
 
 | Flag | Long form | Section |
@@ -153,6 +155,8 @@ fk analyse "111e|e|:nnn" -D             # degenerate faces of the massive sunris
 | `-S` | `--symmetries` | Polytope automorphisms and symmetry pairs |
 | | `--torus-count` | Candidate Euler characteristic from finite-field point counts; left out when no flag is given |
 | `-D` | `--degeneracy` | The faces of the Newton polytope on which $G$ has a singular point in the torus, decided exactly at the kinematic point of `--torus-count` (see [Degenerate faces](#degenerate-faces)); left out when no flag is given. It needs Singular, and adds the `degeneracy` section to a report whose `--sections` leave it out |
+| | `--sectors` | The sector hierarchy: which sectors are zero, the face, its resonance and the generic count of each non-zero sector, and the orbits under the symmetries between sectors (see [The sector hierarchy](#the-sector-hierarchy)); left out when no flag is given. It adds the `sectors` section to a report whose `--sections` leave it out |
+| | `--sectors-counts` | `generic`, the default, or `critical` (Singular) or `torus`: the counts of `--sectors`; the last two add the masters of each sector and those with symmetries, at the kinematic point of `--seed` |
 
 `--d0 VALUE` sets $D_0$, an integer or a fraction such as `7/2`, for `-r`, `-L` and the report's
 `resonance` and `face_lattice` sections; it is 4 by default, since `fk` builds $D$ as a symbol. The
@@ -271,7 +275,7 @@ the options are given, and checks that it can write each file before the analysi
 |--------|--------|
 | `--latex FILE` | write the report as a LaTeX document |
 | `--text FILE` | write the report as plain text |
-| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `face_lattice`, `hasse`, `symmetries`, `landau`, `degeneracy` and `schwinger`; all but `torus`, `degeneracy` and `hasse` by default |
+| `--sections NAMES` | comma-separated report sections from `identity`, `conventions`, `polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `face_lattice`, `hasse`, `sectors`, `symmetries`, `landau`, `degeneracy` and `schwinger`; all but `torus`, `degeneracy`, `hasse` and `sectors` by default |
 | `--limits` | look for limit surfaces in the Landau section, which analyses the parent family as well, with a time budget of its own (see [Specialised kinematics](#specialised-kinematics)) |
 | `--json` | print a JSON summary of the report on stdout, and nothing else |
 
@@ -1757,6 +1761,154 @@ off-shell three-loop ladder, with fifteen functions.
 
 ---
 
+## The sector hierarchy
+
+Integration-by-parts reduction treats the sectors of a graph one by one. A sector is a set $T$ of
+propagators, those with a positive index; the others, $S = E \setminus T$, are contracted.
+`sector_hierarchy(fi)` lists all $2^N$ sectors of a `FeynmanIntegral` with $N$ propagators, numbered
+by $N_{\mathrm{id}}$ as in [Integral families](#integral-families), the first propagator the least
+significant bit. It reads every sector off the support of $G$ at the integral's own kinematics: the
+polynomial $G_T$ of a sector keeps the terms of $G$ with every contracted exponent zero, which are
+the terms of the Lee-Pomeransky polynomial of the graph with $S$ contracted. Nothing is contracted
+and no polynomial is rebuilt.
+
+A sector has one of three kinds:
+
+| `kind` | Meaning |
+|--------|---------|
+| `"cycle"` | $S$ contains a cycle, so some loop momentum is in no denominator; the sector has no face and is zero |
+| `"scaleless"` | $S$ is a forest, but the origin lies outside the affine hull of the support of $G_T$: Lee's criterion (R. N. Lee, arXiv:1310.1145, section 3), the test of `fi.is_scaleless`. The sector is zero |
+| `"non_zero"` | every other sector |
+
+The zero sectors form a down-set: a subsector of a zero sector is zero. A sector whose polytope is
+not full-dimensional but which passes Lee's criterion, such as a massless line that carries no
+momentum, stays `"non_zero"` and gets the generic count 0.
+
+```python
+from feynkit import FeynmanIntegral, sector_hierarchy
+
+fi = FeynmanIntegral.from_cnickel("13e|2e|3e|e|:zzzz", kinematics="massless_on_shell")
+h = sector_hierarchy(fi)
+print(h.totals().non_zero, h.totals().scaleless, h.totals().cycle)   # 7 8 1
+s = h.sector((1, 4))              # by propagators; h.sector(9) is the same sector
+print(s.id, s.kind, s.dimension, s.generic_count)                    # 9 non_zero 2 1
+print([x.propagators for x in h.non_zero()][:3])        # [(2, 3), (1, 2, 3), (1, 4)]
+```
+
+A `Sector` holds its `id`, `propagators` and `contracted` edges, its `kind`, the face $F_S$ it
+spans (`point_indices`, indices into `fi.newton_polytope.points`, and `dimension`, $-1$ for a sector
+with a cycle) and the counts below. `h.subsectors(id)` gives the non-zero sectors inside one and
+`h.covers(id)` the largest of them. `h.faces(lattice)` maps each sector to its face in the decorated
+face lattice of `fi.face_lattice(...)`, so a sector's face and where it is resonant can be read side
+by side; it raises if some $F_S$ is not a face of the lattice.
+
+### Counts per sector
+
+For a sector $T$ let $X_T$ be the complement of $\{G_T = 0\}$ in the torus $(\mathbb{C}^*)^T$.
+
+- `generic_count` is $t_{\mathrm{gen}}(T) = |T|!\,\mathrm{Vol}(F_S)$ when $F_S$ has dimension $|T|$
+  and 0 otherwise. It is the number of master integrals of $T$ with its subsectors for generic
+  coefficients on the same support, and an upper bound for $t(T)$ (Bitoun, Bogner, Klausen and
+  Panzer 2019, theorem 44). It is exact, needs no kinematics and is the default.
+- `count` is $t(T) = (-1)^{|T|}\chi(X_T)$, the number of master integrals of $T$ with its
+  subsectors (corollary 37 of the same paper), at one rational kinematic point.
+- `sector_count` is $m(T) = \sum_{T' \subseteq T}(-1)^{|T \setminus T'|}\,t(T')$, the number of $T$
+  alone, by inclusion and exclusion over its subsectors (their remark 60). It can be negative; they
+  warn that it is then not a dimension. feynkit reports it signed and `Sector.negative_sector_count`
+  flags it. The $m(T)$ of all sectors sum to $t(E)$.
+
+Counts at a point are opt-in: `counts="critical"` counts critical points with Singular (see
+[Torus point counts](#torus-point-counts)), and `counts="torus"` uses the finite-field counts of
+`count_torus_points`, which give no result for some sectors and then raise. A cycle or scaleless
+sector, or one whose support at the point has dimension below $|T|$, gets 0 without a computation.
+The point is the same for every sector, since each $G_T$ is a face of the same $G$. Without
+`point=` it is drawn with `seed` from the integers in $[1, 2^{20}]$ with every coefficient of $G$
+non-zero, and the count of the top sector is recomputed at a second point, drawn with `seed + 1`;
+if the two differ, `ComputationError` gives both. A `point=` that you give, keyed as
+`TorusCount.point` is, is used as given and is not checked.
+
+```python
+h = sector_hierarchy(fi, counts="critical")
+print(h.sector(15).count, h.totals().sector_count)     # 3 3
+for s in h.non_zero():
+    print(s.propagators, s.sector_count)                # the box, the s- and t-bubbles 1; triangles 0
+```
+
+The three-mass sunrise gives $7 = 4 + 1 + 1 + 1$ (Bitoun et al. 2019, proposition 55). On the
+massless planar double box the top has $t(E) = 12$ with ten sectors of 1 and the top with 2
+(Chestnov, Matsubara-Heo, Munch and Takayama 2023, section 5.5.4). In the box with equal masses
+and $p_i^2 = 0$ the four bubbles on adjacent lines have $m(T) = -1$.
+
+### Symmetries
+
+With `symmetries=True`, the default, the non-zero sectors are grouped by the bijections of their
+propagators that map the terms of one $G_T$ onto those of another with exactly equal coefficients.
+These are the symmetries of Feynman parameters of Duhr, Maggio, Semper and Stawinski (2026,
+arXiv:2604.08332, Eqs. 2.27 and 2.28). The coefficients are compared at the integral's symbolic
+kinematics, or at `point` when one is given. The variables are refined by invariants and the
+bijections found by backtracking. The orbits are the unique sectors, each represented by its least
+$N_{\mathrm{id}}$:
+
+```python
+print(h.orbits())            # {6: (6,), 7: (7, 14), 9: (9,), 11: (11, 13), 15: (15,)}
+print(len(h.stabiliser(15)))                 # 4: the group of G_T of the box
+print(h.maps(7, 14))      # [{1: 4, 2: 2, 3: 3}, {1: 4, 2: 3, 3: 2}]: propagators 1, 2, 3 to 2, 3, 4
+```
+
+`h.maps(id1, id2)` gives every bijection between two non-zero sectors, `h.stabiliser(id)` the group
+of $G_T$, and `Sector.orbit` and `Sector.stabiliser_order` the same for each sector. Sectors are
+identified by maps between different sector polynomials, so there can be fewer orbits than orbits
+of the top sector's group: on the box with equal masses and $p_i^2 = 0$ the 15 non-zero sectors
+fall into 7 orbits under the groupoid and into 8 under the top group $\mathbb{Z}_2 \times
+\mathbb{Z}_2$ alone.
+
+With a count at a point, each unique sector with $m(T) \ne 0$ also gets the count with symmetries
+$N_T$ of Duhr et al. They compute it from the Euler characteristics $\chi(X_\sigma)$ of the sets
+of points that each $\sigma$ of the group of $G_T$ fixes, found by stratifying by the cycles of
+$\sigma$ and counting critical points:
+
+$$N_T = \frac{1}{|G|}\sum_{\sigma \in G}\big|\chi(X_\sigma)\big|
+\qquad\text{and}\qquad
+N_T^{\pm} = \frac{(-1)^{|T|}}{|G|}\sum_{\sigma \in G}\mathrm{sign}(\sigma)\,\chi(X_\sigma),$$
+
+their Eqs. 8.18 and 8.3. The first needs the vanishing theorem on every fixed set; the second only
+on $X_T$. They agree when $\mathrm{sign}\,\chi(X_\sigma) = (-1)^{c(\sigma)}$, where $c$ is the number
+of cycles of $\sigma$, and `Sector.signs_consistent` says whether they do. `symmetric_count` and
+`signed_symmetric_count` hold the two forms, `fixed_points` the conjugacy classes of $G$ with
+their cycle type, size and $\chi$, and the totals are in `h.totals()`:
+
+```python
+fi = FeynmanIntegral.from_cnickel("111e|e|:aaa")
+h = sector_hierarchy(fi, counts="critical")
+top = h.sector(7)
+print(top.stabiliser_order, top.symmetric_count)                 # 6 2
+print([(c.cycle_type, c.size, c.euler_characteristic) for c in top.fixed_points])
+# [((1, 1, 1), 1, -4), ((2, 1), 3, 2), ((3,), 2, -1)]
+print(h.totals().symmetric, h.totals().unique)                    # 3 2
+```
+
+The equal-mass sunrise has 2 masters in its top sector and 3 in the family (Duhr et al., Eqs.
+2.82-2.84; Weinzierl 2022, Eq. 6.85), and the planar double box 8 in all: six unique sectors of
+sizes 3, 3, 4, 4, 5 and 5 with one each, and the top with two. On the box with equal masses and
+$p_i^2 = 0$ the absolute form gives 7 for the family and the signed form 6: the four adjacent
+bubbles have $\chi(X) = -1$, the wrong sign for $c = 2$, and `signs_consistent` is `False` for them.
+A unique sector with $m(T) = 0$ is skipped and gets $N_T = 0$ with `signs_consistent` `None`.
+The fixed-point characteristics need Singular whichever counts are asked for.
+
+The hierarchy costs little. On the planar double box the 128 sectors with generic counts and
+symmetries take about 0.4 s, and with critical-point counts and the second point about 6 s, on one machine. The report section and `fk analyse --sectors` build it up to 10 propagators.
+
+### In the report and on the command line
+
+`fk analyse "13e|2e|3e|e|:zzzz" --kinematics massless_on_shell --sectors` prints the non-zero
+sectors by size, with the dimension of each face and where it is resonant, the generic count, the
+orbit and the order of its group. `--sectors-counts critical` or `torus` adds $t$, $m$ and $N_T$ at
+the kinematic point of `--seed`. `AnalysisReport.from_integral(fi, ["sectors"],
+sectors_counts="critical")` builds the `sectors` section, which is off by default and left out,
+with a note, for graphs with more than `feynkit.io.sections.sectors.MAX_PROPAGATORS` propagators.
+
+---
+
 ## Toric ideal
 
 The toric ideal is the ideal of polynomial relations among the monomials of G. Each binomial
@@ -2994,10 +3146,10 @@ Both methods take the same arguments:
 | `d0` | None | $D_0$ of the `resonance` section, which takes $D = D_0 - 2\varepsilon$: an integer or a `Fraction`; None reads it from the dimension of the integral when that is $D_0 - 2\varepsilon$ with $D_0$ a number, and takes 4 otherwise |
 
 The section names, in `feynkit.io.report.SECTION_NAMES`, are `identity`, `conventions`,
-`polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `face_lattice`, `hasse`, `symmetries`,
+`polynomials`, `representations`, `polytope`, `torus`, `gkz`, `resonance`, `faces`, `face_lattice`, `hasse`, `sectors`, `symmetries`,
 `landau` and `schwinger`. The first three are always built. The rest are built only when named, so a
 survey can ask for a short report without the automorphism and Landau computations. Without
-`sections` every section but `torus`, `degeneracy` and `hasse` is built, the tuple `DEFAULT_SECTIONS`. The point counts of `torus` take seconds
+`sections` every section but `torus`, `degeneracy`, `hasse` and `sectors` is built, the tuple `DEFAULT_SECTIONS`. The point counts of `torus` take seconds
 for five propagators, and seven exceed the default budget (see
 [Torus point counts](#torus-point-counts)); `to_latex` and `to_text` count with seed 0 and the
 default budget, and raise `ValidationError` when the count cannot run, as for an integral with
@@ -3386,3 +3538,6 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
 26. Chestnov, V., Matsubara-Heo, S.J., Munch, H.J. and Takayama, N. (2023). Restrictions of
     Pfaffian systems for Feynman integrals. *JHEP* **11**, 202.
     [arXiv:2305.01585](https://arxiv.org/abs/2305.01585)
+
+27. Duhr, C., Maggio, S., Semper, C. and Stawinski, S.F. (2026). Discrete symmetries of Feynman
+    integrals. [arXiv:2604.08332](https://arxiv.org/abs/2604.08332)

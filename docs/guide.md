@@ -1798,6 +1798,8 @@ momentum products. The invariants are the free symbols of the products and masse
 occurs in even powers, such as a mass, gets mass dimension 1 and the others 2. A name that Kira
 cannot parse is changed where that is possible, `p1^2` into `p1sq`, and `job.symbols` lists the
 pairs; `d`, `I`, `Pi` and the names of the momenta are reserved, and a clash raises `ValidationError`.
+A family with no external legs, a vacuum diagram, is exported without momentum conservation and with
+`scalarproduct_rules: []`.
 
 Signs. Kira writes a propagator `[q, m^2]` as $1/(q^2 - m^2)$ (Wei22, Eq. J.259), feynkit as
 $1/(-q^2 + m^2)$. Each function is exported as $D^K_\alpha = s_\alpha D_\alpha$, with
@@ -1808,14 +1810,15 @@ $J(n) = \prod_\alpha s_\alpha^{n_\alpha} J^K(n)$. Any other function raises `Val
 The job reduces the top sectors, by default the sector of all propagators, with $r$ and $s$ the bounds
 on the sum of the positive indices and on minus the sum of the negative ones. By default $r$ is the
 larger of $P + 1$ and the largest positive sum among the given integrals, and $s$ the largest negative
-sum among them, but at least 1 when the family has ISPs. With `integrals`, Kira selects the equations that suffice for them and writes
-their reductions for FORM to `results/<name>/kira_integrals.inc`; without, it selects those for the
-whole range and lists the masters. Too small a range overcounts them: the double box lists 13
-at $s = 0$ and its 8 at $s = 1$, because integrals at the edge of the range stay unreduced, so raise $r$ and
-$s$ until the list stops changing. A family with no external legs, a vacuum diagram, is exported without
-momentum conservation and with `scalarproduct_rules: []`. It uses Fermat for the algebra, so Kira needs a Fermat executable,
-found through the environment variable `FERMATPATH`, even for the first step. With Kira 3.1 and
-Fermat 7.9b the job above ran in 49 s, with `replace_by_one="s12"` and `kira --silent jobs.yaml`.
+sum among them, but at least 1 when the family has ISPs. With `integrals`, Kira selects the equations
+that suffice for them and writes their reductions for FORM to `results/<name>/kira_integrals.inc`;
+without, it selects those for the whole range and lists the masters. Too small a range overcounts
+them, since integrals at its edge stay unreduced: the double box lists 13 at $s = 0$ and its 8 at
+$s = 1$. Raise $r$ and $s$ until the list stops changing.
+
+Kira does its algebra with Fermat and needs a Fermat executable, found through the environment
+variable `FERMATPATH`, even for the first step. With Kira 3.1 and Fermat 7.9b the job above ran in
+49 s, with `replace_by_one="s12"` and `kira --silent jobs.yaml`.
 
 Three readers turn a run's output into feynkit's numbering. Kira numbers sectors as
 `family.sector_id` does and counts the ISPs among its functions, so it lists some sectors with an

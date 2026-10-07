@@ -124,6 +124,7 @@ from feynkit.normal_forms import PairingMatrixResult
 from feynkit.parametrisations import ParametrisationResult
 from feynkit.polytope import Facet, PolytopeData, polytope_data
 from feynkit.resonance import EpsilonSet, FacetResonance, classify_facets
+from feynkit.sectors import Sector, SectorHierarchy, SectorTotals, sector_hierarchy
 from feynkit.systems import CayleyGKZSystem, GKZSystem
 from feynkit.types import (
     NewtonPolytope,
@@ -199,6 +200,11 @@ __all__ = [
     "IntegralFamily",
     "MomentumRouting",
     "momentum_routing",
+    # The sector hierarchy
+    "Sector",
+    "SectorHierarchy",
+    "SectorTotals",
+    "sector_hierarchy",
     # Degenerate faces
     "DegeneracyAnalysis",
     "FaceDegeneracy",

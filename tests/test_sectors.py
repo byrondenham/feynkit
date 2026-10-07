@@ -651,6 +651,38 @@ def test_a_sector_is_a_frozen_value() -> None:
     assert FixedPointClass((1,), 1, 0).size == 1
 
 
+@requires_singular
+class TestGivenPoint:
+    def test_a_point_that_kills_a_coefficient_is_refused(self) -> None:
+        # The legs are off shell, and the point puts them on shell: four bubbles become
+        # scaleless there, which the symbolic support does not know.
+        fi = _integral(BOX_OFF_SHELL)
+        names = {str(x): x for x in fi.symanzik.g.free_symbols}
+        point = {
+            names[n]: v
+            for n, v in {"p1^2": 0, "p2^2": 0, "p3^2": 0, "p4^2": 0, "s12": 7, "s23": 8}.items()
+        }
+        with pytest.raises(ValidationError, match="with_"):
+            sector_hierarchy(fi, counts="critical", point=point, timeout=120)
+
+    def test_a_point_that_keeps_every_coefficient_is_used(self) -> None:
+        fi = _integral(BOX_OFF_SHELL)
+        names = {str(x): x for x in fi.symanzik.g.free_symbols}
+        point = {
+            names[n]: v
+            for n, v in {
+                "p1^2": 3,
+                "p2^2": 5,
+                "p3^2": 11,
+                "p4^2": 13,
+                "s12": 101,
+                "s23": 103,
+            }.items()
+        }
+        h = sector_hierarchy(fi, counts="critical", point=point, timeout=120)
+        assert h.totals().non_zero == 11
+
+
 class TestAccessor:
     def test_the_integral_caches_its_hierarchy_for_each_choice_of_arguments(self) -> None:
         fi = _integral(BOX)

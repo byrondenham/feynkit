@@ -434,6 +434,7 @@ class _Point:
 
     numeric: dict[tuple[int, ...], Fraction]
     given: dict[sp.Symbol, tuple[bool, Fraction]]
+    values: dict[sp.Symbol, sp.Expr]
 
 
 def _specialise(
@@ -481,7 +482,7 @@ def _specialise(
         monomial: Fraction(int(c.p), int(c.q))
         for monomial, c in sp.Poly(specialised, *variables).terms()
     }
-    return _Point(numeric, given)
+    return _Point(numeric, given, values)
 
 
 def _draw(
@@ -922,6 +923,17 @@ def sector_hierarchy(
         else:
             used = point
         at_point = _specialise(symanzik.g, variables, scale, used)
+        if point is not None:
+            vanishing = [
+                m for m, c in symbolic if sp.expand(c.subs(scale, 1).subs(at_point.values)) == 0
+            ]
+            if vanishing:
+                raise ValidationError(
+                    f"{len(vanishing)} coefficients of G vanish at the point, so its sectors "
+                    "differ from those at the integral's kinematics: specialise the integral "
+                    "to those kinematics first, for example with with_, rather than pass such "
+                    "a point"
+                )
         if drawn is None:
             drawn = tuple((sp.sympify(k), Fraction(v)) for k, v in used.items())
         for mask in range(1 << n):

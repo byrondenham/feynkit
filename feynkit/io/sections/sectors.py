@@ -293,11 +293,14 @@ def summary(section: Sectors) -> list[tuple[str, str]]:
     if totals.unique is not None:
         rows.append(("Unique sectors", str(totals.unique)))
     if totals.generic is not None:
-        rows.append(("Generic masters of the top sector", str(totals.generic)))
+        rows.append(("Generic masters of the top sector with subsectors", str(totals.generic)))
     if totals.count is not None:
-        rows.append(("Masters of the top sector", str(totals.count)))
+        rows.append(("Masters of the top sector with subsectors", str(totals.count)))
     if totals.symmetric is not None:
-        rows.append(("Masters with symmetries", str(totals.symmetric)))
+        value = str(totals.symmetric)
+        if totals.signs_consistent is False:
+            value += f" / {totals.signed_symmetric} (signed)"
+        rows.append(("Masters with symmetries", value))
     return rows
 
 

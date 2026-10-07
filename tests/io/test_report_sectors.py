@@ -78,7 +78,12 @@ def test_counts_at_a_point_add_the_columns_and_the_flags() -> None:
     text = render_text(report)
     assert "m(T)" in text and "N_T" in text
     top = section.hierarchy.sector(15)
-    assert dict(report.summary())["Masters of the top sector"] == str(top.count)
+    rows = dict(report.summary())
+    assert rows["Masters of the top sector with subsectors"] == str(top.count)
+    assert "Masters of the top sector" not in rows
+    assert rows["Generic masters of the top sector with subsectors"] == "15"
+    # The two forms of the count with symmetries differ here, and both are given.
+    assert rows["Masters with symmetries"] == "7 / 6 (signed)"
 
 
 @pytest.mark.skipif(shutil.which("pdflatex") is None, reason="pdflatex not installed")

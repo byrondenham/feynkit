@@ -417,3 +417,18 @@ class TestJobs:
             kira_job(family, integrals=[(1,) * 8 + (1,)])
         with pytest.raises(ValidationError, match="indices"):
             kira_job(family, integrals=[(1, 1)])
+
+
+def test_guide_example(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first code block of the guide's Kira subsection, run on the guide's family."""
+    guide = (Path(__file__).resolve().parents[1] / "docs" / "guide.md").read_text(encoding="utf-8")
+    section = guide.split("\n### Exporting a family to Kira\n", 1)[1].split("\n## ", 1)[0]
+    block = section.split("```python\n", 1)[1].split("```", 1)[0]
+    monkeypatch.chdir(tmp_path)
+    namespace: dict[str, object] = {"family": _weinzierl()}
+    exec(compile(block, "docs/guide.md", "exec"), namespace)
+    job = namespace["job"]
+    assert isinstance(job, KiraJob)
+    shown = [line[2:] for line in block.splitlines() if line.startswith("# ")]
+    assert shown == job.integralfamilies.splitlines()
+    assert (tmp_path / "doublebox_run" / "jobs.yaml").read_text() == job.jobs

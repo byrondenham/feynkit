@@ -604,7 +604,7 @@ def test_guide_examples_print_what_the_guide_says(capsys: pytest.CaptureFixture[
     guide = (Path(__file__).resolve().parents[1] / "docs" / "guide.md").read_text(encoding="utf-8")
     heading = "\n## Integral families\n"
     assert heading in guide
-    section = guide.split(heading, 1)[1].split("\n## ", 1)[0]
+    section = guide.split(heading, 1)[1].split("\n## ", 1)[0].split("\n### Exporting", 1)[0]
     blocks = [block.split("```", 1)[0] for block in section.split("```python\n")[1:]]
     assert len(blocks) == 4
     namespace: dict[str, object] = {}

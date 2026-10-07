@@ -25,6 +25,7 @@ from . import (
     representations,
     resonance,
     schwinger,
+    sectors,
     symmetries,
     torus,
 )
@@ -47,6 +48,7 @@ SECTIONS: tuple[Section, ...] = (
     faces.SECTION,
     face_lattice.SECTION,
     hasse.SECTION,
+    sectors.SECTION,
     symmetries.SECTION,
     landau.SECTION,
     degeneracy.SECTION,

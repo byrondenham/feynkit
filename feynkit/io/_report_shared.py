@@ -150,6 +150,10 @@ CITATIONS: dict[str, str] = {
         "N. Arkani-Hamed, A. Hillman and S. Mizera, \\emph{Feynman polytopes and the tropical "
         "geometry of UV and IR divergences}, Phys. Rev. D 105 (2022) 125013, arXiv:2202.12296."
     ),
+    "duhr2026": (
+        "C. Duhr, S. Maggio, C. Semper and S.F. Stawinski, \\emph{Discrete symmetries of "
+        "Feynman integrals}, arXiv:2604.08332 (2026)."
+    ),
     "bmt2023": (
         "M. Borinsky, H.J. Munch and F. Tellander, \\emph{Tropical Feynman integration in the "
         "Minkowski regime}, Comput. Phys. Commun. 292 (2023) 108874, arXiv:2302.08955."

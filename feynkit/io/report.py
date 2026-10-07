@@ -41,6 +41,7 @@ from ..landau import LandauAnalysis, landau_analysis
 from ..point_count import TorusCount
 from ..polytope import PolytopeData, polytope_data
 from ..resonance import D0Source, choose_d0
+from ..sectors import CountsSource
 from .sections import SECTIONS, summary_rows
 from .sections.conventions import Conventions
 from .sections.degeneracy import DEFAULT_DEGENERACY_MODE, Degeneracy, DegeneracyMode
@@ -55,6 +56,7 @@ from .sections.polytope import LATTICE_BUDGET, NORMALIZ_TIMEOUT, Polytope
 from .sections.representations import Representations
 from .sections.resonance import RESONANCE_WINDOW, Resonance
 from .sections.schwinger import Schwinger
+from .sections.sectors import Sectors
 from .sections.symmetries import Symmetries
 
 if TYPE_CHECKING:
@@ -82,6 +84,7 @@ __all__ = [
     "Polytope",
     "Representations",
     "Resonance",
+    "Sectors",
     "Schwinger",
     "Symmetries",
     "ZEntry",
@@ -92,9 +95,10 @@ SECTION_NAMES = tuple(section.name for section in SECTIONS)
 
 # The sections built when none are named: all but the point counts, which take seconds for
 # five propagators, seven exceeding the default budget, and the degenerate faces, which need
-# Singular and add its runs to every report, and the Hasse diagram, which is drawn only on request.
+# Singular and add its runs to every report, the Hasse diagram, which is drawn only on request,
+# and the sectors, which are 2^N for N propagators and ask for symmetries and counts.
 DEFAULT_SECTIONS = tuple(
-    name for name in SECTION_NAMES if name not in ("torus", "degeneracy", "hasse")
+    name for name in SECTION_NAMES if name not in ("torus", "degeneracy", "hasse", "sectors")
 )
 
 
@@ -123,6 +127,8 @@ class BuildContext:
         D_0 of the resonance section and where it came from.
     check_schwinger
         Whether the face-lattice section compares the Cayley side face by face.
+    sectors_counts
+        The counts of the sectors section: "generic", "torus" or "critical".
     degeneracy_mode
         Where the degeneracy section decides the faces: "point", at the point
         of the torus counts, or "generic".
@@ -140,6 +146,7 @@ class BuildContext:
     check_schwinger: bool = False
     degeneracy_mode: DegeneracyMode = DEFAULT_DEGENERACY_MODE
     landau_budget: float | None = LANDAU_BUDGET
+    sectors_counts: CountsSource | None = "generic"
     _data: PolytopeData | None = field(default=None, init=False, repr=False)
     _analysis: LandauAnalysis | None = field(default=None, init=False, repr=False)
 
@@ -192,6 +199,7 @@ class AnalysisReport:
     face_lattice: FaceLattice | None = None
     degeneracy: Degeneracy | None = None
     hasse: Hasse | None = None
+    sectors: Sectors | None = None
 
     @classmethod
     def from_integral(
@@ -208,6 +216,7 @@ class AnalysisReport:
         check_schwinger: bool = False,
         degeneracy_mode: str = DEFAULT_DEGENERACY_MODE,
         landau_budget: float | None = LANDAU_BUDGET,
+        sectors_counts: CountsSource | None = "generic",
     ) -> AnalysisReport:
         """Build the report for an integral.
 
@@ -217,7 +226,7 @@ class AnalysisReport:
             The integral to describe.
         sections
             Names from :data:`SECTION_NAMES` to build; :data:`DEFAULT_SECTIONS`,
-            every section but ``torus`` and ``degeneracy``, by default. ``identity``,
+            every section but ``torus``, ``degeneracy``, ``hasse`` and ``sectors``, by default. ``identity``,
             ``conventions`` and ``polynomials`` are built whatever is asked for,
             since the rest of the report reads as a fragment without them.
         max_face_points
@@ -261,6 +270,12 @@ class AnalysisReport:
             out; the smaller faces are treated as without it. The ``torus``
             and ``degeneracy`` sections share the analysis. With ``limits``,
             the parent family's analysis has a budget of its own.
+        sectors_counts
+            The counts of the ``sectors`` section: "generic", the default, for the count of
+            generic coefficients on each sector's support; "critical" or "torus" add the counts
+            of each sector with its subsectors and alone, and the counts with symmetries, at
+            the kinematic point drawn with ``torus_seed``; see
+            :func:`feynkit.sectors.sector_hierarchy`.
 
         Raises
         ------
@@ -313,6 +328,7 @@ class AnalysisReport:
             check_schwinger=check_schwinger,
             degeneracy_mode="generic" if degeneracy_mode == "generic" else "point",
             landau_budget=landau_budget,
+            sectors_counts=sectors_counts,
         )
         built: dict[str, Any] = {
             section.name: (

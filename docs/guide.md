@@ -1808,9 +1808,12 @@ $J(n) = \prod_\alpha s_\alpha^{n_\alpha} J^K(n)$. Any other function raises `Val
 The job reduces the top sectors, by default the sector of all propagators, with $r$ and $s$ the bounds
 on the sum of the positive indices and on minus the sum of the negative ones. By default $r$ is the
 larger of $P + 1$ and the largest positive sum among the given integrals, and $s$ the largest negative
-sum among them, or 0. With `integrals`, Kira selects the equations that suffice for them and writes
+sum among them, but at least 1 when the family has ISPs. With `integrals`, Kira selects the equations that suffice for them and writes
 their reductions for FORM to `results/<name>/kira_integrals.inc`; without, it selects those for the
-whole range and lists the masters. It uses Fermat for the algebra, so Kira needs a Fermat executable,
+whole range and lists the masters. Too small a range overcounts them: the double box lists 13
+at $s = 0$ and its 8 at $s = 1$, because integrals at the edge of the range stay unreduced, so raise $r$ and
+$s$ until the list stops changing. A family with no external legs, a vacuum diagram, is exported without
+momentum conservation and with `scalarproduct_rules: []`. It uses Fermat for the algebra, so Kira needs a Fermat executable,
 found through the environment variable `FERMATPATH`, even for the first step. With Kira 3.1 and
 Fermat 7.9b the job above ran in 49 s, with `replace_by_one="s12"` and `kira --silent jobs.yaml`.
 

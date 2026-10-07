@@ -280,7 +280,10 @@ def kira_job(
     r, s
         The bounds on the sum of the positive indices and on minus the sum of the negative
         ones. By default r is the larger of P + 1, for P propagators, and the largest
-        positive sum among the integrals, and s the largest negative sum among them, or 0.
+        positive sum among the integrals, and s the largest negative sum among them, but at
+        least 1 when the family has ISPs. A range that is too small overcounts the masters: the
+        double box lists 13 at s = 0 and its 8 at s = 1, as integrals at the edge of the range
+        stay unreduced and Kira lists them. Raise r and s until the list stops changing.
     replace_by_one
         An invariant that Kira sets to one; its dependence is then reconstructed back.
 
@@ -323,11 +326,12 @@ def kira_job(
     legs_text = ", ".join(f"p{k}" for k in range(1, legs + 1))
     rest = "-".join(f"p{k}" for k in range(1, legs))
     kin = ["kinematics:", f"  incoming_momenta: [{legs_text}]", "  outgoing_momenta: []"]
-    kin.append(f"  momentum_conservation: [p{legs}, -{rest}]")
+    if legs:
+        kin.append(f"  momentum_conservation: [p{legs}, -{rest}]")
     if weights:
         kin.append("  kinematic_invariants:")
         kin += [f"    - [{sym.name}, {w}]" for sym, w in weights.items()]
-    kin.append("  scalarproduct_rules:")
+    kin.append("  scalarproduct_rules:" if rules else "  scalarproduct_rules: []")
     for j, k, expr in rules:
         kin.append(f"    - [[p{j}, p{k}], {_text(expr)}]")
     if replace_by_one is not None:
@@ -338,7 +342,8 @@ def kira_job(
 
     rows = [family._indices(n) for n in integrals]
     r = max([count + 1, *(sum(x for x in n if x > 0) for n in rows)]) if r is None else int(r)
-    s = max([0, *(-sum(x for x in n if x < 0) for n in rows)]) if s is None else int(s)
+    isps = family.size - count
+    s = max([int(isps > 0), *(-sum(x for x in n if x < 0) for n in rows)]) if s is None else int(s)
     if r < 0 or s < 0:
         raise ValidationError(f"r and s must be non-negative; got r = {r}, s = {s}")
     bounds = f"{{topologies: [{name}], sectors: [{', '.join(map(str, sectors))}], r: {r}, s: {s}}}"
@@ -418,7 +423,10 @@ def read_sector_mappings(
     The sector mappings of a Kira run: each sector it maps to an equivalent one.
 
     Reads ``sectormappings/<name>/sectorRelations``, whose lines start with the mapped
-    sector and hold the sector it is mapped to in the seventh column. Integrals of the
+    sector and hold the sector it is mapped to. A line reads: the sector, 2L columns of loop
+    momentum maps, a sign, the target sector, its number of propagators, a zero and two
+    braced substitution lists, so the target sits three fields before the first brace and
+    does not depend on the loop order L. Integrals of the
     first are expressed by those of the second, which is the one that holds the masters:
     in the double box, sector 28 maps to 42 and the masters are in 42. ``propagators`` keeps
     only the sectors below 2^P, as in :func:`read_trivial_sectors`.
@@ -436,8 +444,11 @@ def read_sector_mappings(
             continue
         fields = line.split()
         try:
-            source, target = int(fields[0]), int(fields[6])
-        except (IndexError, ValueError) as err:
+            brace = next(i for i, x in enumerate(fields) if x.startswith("{"))
+            source, sign, target = int(fields[0]), int(fields[brace - 4]), int(fields[brace - 3])
+            if abs(sign) != 1 or brace < 5:
+                raise ValueError(line)
+        except (StopIteration, IndexError, ValueError) as err:
             raise ValidationError(
                 f"{name}: line {number} of sectorRelations is not a sector relation"
             ) from err

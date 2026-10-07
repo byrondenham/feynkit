@@ -378,7 +378,7 @@ class TestRecordedRun:
         assert read_masters(tmp_path, "doublebox") == ((1, 1),)
         mapping = tmp_path / "sectormappings" / "doublebox"
         mapping.mkdir(parents=True)
-        (mapping / "sectorRelations").write_text("1 a b c d 1 2 3\n1 a b c d 1 4 3\n")
+        (mapping / "sectorRelations").write_text("1 a b 1 2 3 0 {x} {y}\n1 a b 1 4 3 0 {x} {y}\n")
         with pytest.raises(ValidationError, match="mapped to 2 and 4"):
             read_sector_mappings(tmp_path, "doublebox")
         (mapping / "sectorRelations").write_text("junk\n")
@@ -389,6 +389,57 @@ class TestRecordedRun:
             read_trivial_sectors(tmp_path, "doublebox")
         (mapping / "trivialsector").write_text("\n")
         assert read_trivial_sectors(tmp_path, "doublebox") == frozenset()
+
+
+class TestOtherLoopOrders:
+    """The sector relations of one-loop and three-loop runs have a different number of columns."""
+
+    def test_one_loop_box(self) -> None:
+        box = Path(__file__).parent / "data" / "kira" / "box"
+        assert read_sector_mappings(box, "box") == {7: 14, 11: 13}
+        assert read_trivial_sectors(box, "box", propagators=4) >= {0, 1, 2, 3}
+
+    def test_three_loop_chain(self) -> None:
+        chain = Path(__file__).parent / "data" / "kira" / "chain"
+        mappings = read_sector_mappings(chain, "chain")
+        assert mappings == {29: 23, 53: 23, 55: 31, 61: 31}
+
+
+class TestVacuum:
+    @staticmethod
+    def _family() -> IntegralFamily:
+        m = sp.Symbol("m", positive=True)
+        edges = [
+            Edge(idx=i, v1=1, v2=2, is_internal=True, mass=mass)
+            for i, mass in enumerate((m, m, 0), 1)
+        ]
+        graph = Graph(internal_vertices=2, external_legs=0, edges=edges)
+        return IntegralFamily.from_integral(FeynmanIntegral(graph, momentum_products={}))
+
+    def test_kinematics_without_legs(self) -> None:
+        job = kira_job(self._family(), name="vac", integrals=[(2, 1, 1)])
+        assert job.kinematics == (
+            "kinematics:\n"
+            "  incoming_momenta: []\n"
+            "  outgoing_momenta: []\n"
+            "  kinematic_invariants:\n"
+            "    - [m, 1]\n"
+            "  scalarproduct_rules: []\n"
+        )
+        assert 'name: "vac"' in job.integralfamilies
+        assert '- ["l1+l2", "m^2"]' in job.integralfamilies
+        assert job.integrals == "vac[2,1,1]\n"
+
+    def test_inputs_are_the_recorded_run(self) -> None:
+        """Kira 3.1 reduced vac(2,1,1) with these files to (d-2)/(4 m^4) vac(1,1,0)."""
+        recorded = Path(__file__).parent / "data" / "kira" / "vac"
+        job = kira_job(self._family(), name="vac", integrals=[(2, 1, 1)])
+        assert job.jobs == (recorded / "jobs.yaml").read_text()
+        assert job.integrals == (recorded / "integrals").read_text()
+        assert job.integralfamilies == (recorded / "config" / "integralfamilies.yaml").read_text()
+        assert job.kinematics == (recorded / "config" / "kinematics.yaml").read_text()
+        result = (recorded / "results" / "vac" / "kira_integrals.inc").read_text()
+        assert "vac(1,1,0)" in result and "(d-2)" in result
 
 
 class TestJobs:
@@ -406,8 +457,15 @@ class TestJobs:
 
     def test_defaults_and_sectors(self) -> None:
         job = kira_job(_weinzierl(), top_sectors=[127, 28])
-        assert "sectors: [127, 28], r: 8, s: 0}" in job.jobs
+        assert "sectors: [127, 28], r: 8, s: 1}" in job.jobs
         assert job.integrals is None and "kira2form" not in job.jobs
+
+    def test_default_seed_range_has_a_numerator_for_isps(self) -> None:
+        """Too small an s lists spurious masters: the double box gives 13 at s = 0, 8 at s = 1."""
+        assert "r: 8, s: 1}" in kira_job(_weinzierl()).jobs
+        assert "r: 8, s: 3}" in kira_job(_weinzierl(), integrals=[(1,) * 7 + (-1, -2)]).jobs
+        assert "r: 5, s: 0}" in kira_job(_family(BOX)).jobs
+        assert "r: 8, s: 0}" in kira_job(_weinzierl(), s=0).jobs
 
     def test_bad_arguments(self) -> None:
         family = _weinzierl()

@@ -180,7 +180,9 @@
   (`p1^2` becomes `p1sq`). A function Kira cannot express, a reserved or unparsable invariant
   name and kinematics that are not homogeneous of mass dimension 2 raise `ValidationError`.
   `read_trivial_sectors`, `read_sector_mappings` and `read_masters` read what a Kira 3.1 run
-  writes into sector identities and index tuples. Running Kira needs Fermat. The package
+  writes into sector identities and index tuples, for any number of loops. Without integrals the
+  seed range has s of at least 1 for a family with ISPs, since s = 0 overcounts the masters; a
+  vacuum family is exported without momentum conservation. Running Kira needs Fermat. The package
   exports the new names.
 
 - The sector hierarchy, `feynkit.sectors`. `sector_hierarchy(fi)` reads every one of the 2^N

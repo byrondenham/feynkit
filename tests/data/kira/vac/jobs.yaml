@@ -1,0 +1,14 @@
+jobs:
+  - reduce_sectors:
+      reduce:
+        - {topologies: [vac], sectors: [7], r: 4, s: 0}
+      select_integrals:
+        select_mandatory_list:
+          - [vac, integrals]
+      run_symmetries: true
+      run_initiate: true
+      run_triangular: true
+      run_back_substitution: true
+  - kira2form:
+      target:
+        - [vac, integrals]

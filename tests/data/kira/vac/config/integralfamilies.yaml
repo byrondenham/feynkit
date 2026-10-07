@@ -1,0 +1,8 @@
+integralfamilies:
+  - name: "vac"
+    loop_momenta: [l1, l2]
+    top_level_sectors: [7]
+    propagators:
+      - ["l1+l2", "m^2"]
+      - ["l1", "m^2"]
+      - ["l2", 0]

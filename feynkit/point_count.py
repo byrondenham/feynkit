@@ -31,8 +31,11 @@ import importlib.util
 import itertools
 import math
 import random
+import re
+import shutil
 import subprocess
 import tempfile
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
@@ -993,8 +996,7 @@ def count_torus_points(
     limit = _exact_limit(parts, n - 1)
     if limit is not None and max_prime > limit:
         raise ValidationError(
-            f"max_prime must be at most {limit}, where the int64 counts are exact; "
-            f"got {max_prime}"
+            f"max_prime must be at most {limit}, where the int64 counts are exact; got {max_prime}"
         )
     polytope = polytope_data([monomial for monomial, _ in specialised])
     bound = _volume_bound(polytope) if volume_bound is None else volume_bound
@@ -1110,121 +1112,16 @@ def _singular_polynomial(poly: sp.Poly, p: int) -> str:
     return "+".join(terms) or "0"
 
 
-def critical_point_count(
-    polynomial: sp.Expr,
-    variables: Sequence[sp.Symbol],
-    point: Mapping[sp.Expr, int | Fraction],
-    *,
-    seed: int = 0,
-    timeout: float = 300,
-) -> int:
-    """The number of critical points of sum_e nu_e log u_e - (D/2) log G on X, modulo primes.
-
-    X is the complement of {G = 0} in the torus. For generic exponents nu_e and
-    D the critical points are all regular and number |chi(X)| (Fevola, Mizera
-    and Telen, Comput. Phys. Commun. 303 (2024) 109278, proof of Theorem 3.1,
-    eq. (3.2), after Huh 2013). The exponents are random rationals drawn with
-    random.Random(seed). The critical points are the zeros of the ideal I of
-    nu_e G - (D/2) u_e dG/du_e, e = 1, ..., N, and 1 - t u_1 ... u_N G, and
-    their number is its vector-space dimension vdim(std(I)).
-
-    Singular computes it over F_p rather than Q, where the Groebner basis can
-    take hours, at the two largest primes below 2^31 that divide no numerator
-    or denominator of a coefficient of the generators or of an exponent, and
-    the two results must agree. The dimension over F_p equals the one over Q
-    for all but finitely many p, so this is a cross-check, not a certificate.
-
-    Parameters
-    ----------
-    polynomial
-        G, with the energy scale already set to 1.
-    variables
-        The N variables of G.
-    point
-        A value for every other symbol of G, keyed by the symbol or, for a
-        symbol occurring only to even powers, by its square, as
-        :attr:`TorusCount.point` gives them.
-    seed
-        Seed of the random exponents.
-    timeout
-        The most seconds to give Singular, at most 2,000,000.
-
-    Raises
-    ------
-    RuntimeError
-        If Singular is not installed, fails, or prints anything but the two
-        counts.
-    ValidationError
-        If ``variables`` are not one or more distinct symbols, ``timeout`` is
-        not a number greater than 0 and at most 2,000,000, G is not a
-        polynomial with rational coefficients in its symbols, or ``point``
-        misses a symbol of G, has any other key, gives a value that is not
-        rational or a negative value for a square, keys by its square a
-        symbol occurring to odd powers, or G vanishes identically at the
-        point.
-    ComputationError
-        If Singular runs out of time, the counts modulo the two primes differ,
-        or the critical points do not form a finite set at the exponents drawn.
-    """
-    variables = tuple(variables)
-    if not variables or len(set(variables)) != len(variables):
-        raise ValidationError("variables must be one or more distinct symbols")
-    _check_timeout(timeout, optional=False)
-    g = sp.expand(sp.sympify(polynomial))
-    symbols = tuple(sorted(g.free_symbols - set(variables), key=lambda x: x.name))
-    try:
-        sp.Poly(g, *variables, *symbols, domain="QQ")
-    except (sp.PolynomialError, sp.CoercionFailed) as exc:
-        raise ValidationError(
-            "G must be a polynomial with rational coefficients in its symbols; set the energy "
-            "scale to 1"
-        ) from exc
-    even = frozenset(x for x in symbols if all(d % 2 == 0 for d in _degrees(g, x)))
-    values = _given_point(point, symbols, even)
-    # A symbol in even occurs only to even powers, and its value is that of its square.
-    rationals = [sp.Rational(v.numerator, v.denominator) for v in values]
-    substitution = {
-        x: sp.sqrt(v) if x in even else v for x, v in zip(symbols, rationals, strict=True)
-    }
-    g = sp.expand(g.subs(substitution))
-    if g == 0:
-        raise ValidationError("G vanishes identically at the point")
-    binary = _singular_binary()
-    if binary is None:
-        raise RuntimeError("critical_point_count needs Singular, which was not found")
-
-    rng = random.Random(seed)
-    exponents = [
-        sp.Rational(rng.randint(1, 10**6), rng.randint(1, 10**6)) for _ in range(len(variables) + 1)
-    ]
-    half_d, *nu = exponents
-    t = sp.Dummy("t")
-    generators = [
-        nu_e * g - half_d * u * sp.diff(g, u) for nu_e, u in zip(nu, variables, strict=True)
-    ]
-    generators.append(1 - t * sp.Mul(*variables) * g)
-    polys = [sp.Poly(generator, t, *variables, domain="QQ") for generator in generators]
-    avoided = [
-        abs(int(n))
-        for q in [c for poly in polys for c in poly.coeffs()] + exponents
-        for n in (q.p, q.q)
-    ]
-    primes: list[int] = []
-    p = 2**31
-    while len(primes) < 2:
-        p = sp.prevprime(p)
-        if all(n % p for n in avoided):
-            primes.append(p)
-    # No coefficient vanishes modulo the primes, so each generator keeps its support there.
-    integral = [poly.clear_denoms(convert=True)[1] for poly in polys]
-    ring = ",".join(f"v{i}" for i in range(len(variables) + 1))
+def _singular_counts(
+    binary: str, integral: Sequence[sp.Poly], nvars: int, primes: Sequence[int], timeout: float
+) -> list[int]:
+    """vdim(std(I)) modulo each prime, by one Singular script."""
+    ring = ",".join(f"v{i}" for i in range(nvars))
     script = ""
     for i, prime in enumerate(primes):
         ideal = ",".join(_singular_polynomial(poly, prime) for poly in integral)
         script += (
-            f"ring r{i} = {prime}, ({ring}), dp;\n"
-            f"ideal I{i} = {ideal};\n"
-            f"print(vdim(std(I{i})));\n"
+            f"ring r{i} = {prime}, ({ring}), dp;\nideal I{i} = {ideal};\nprint(vdim(std(I{i})));\n"
         )
     script += "quit;\n"
     with tempfile.TemporaryDirectory() as tmp:
@@ -1250,11 +1147,204 @@ def critical_point_count(
     if len(counts) != 2:
         output = (run.stdout.strip() or run.stderr.strip() or "nothing")[:500]
         raise RuntimeError(f"Singular printed {output!r} instead of two counts")
+    return counts
+
+
+def _msolve_binary() -> str | None:
+    """Path to the msolve binary, or None if it is not installed."""
+    return shutil.which("msolve")
+
+
+_MSOLVE_SHAPE = re.compile(r"\[\s*0\s*,\s*\[\s*\d+\s*,\s*(\d+)\s*,\s*(\d+)\s*,")
+
+
+def _msolve_count(output: str) -> int:
+    """The number of solutions in msolve's output file: -1 if they are not a finite set."""
+    text = output.strip()
+    if re.fullmatch(r"\[\s*-1\s*\]\s*:", text):
+        return 0
+    if re.fullmatch(r"\[\s*1\s*,\s*\d+\s*,\s*-1\s*,\s*\[\s*\]\s*\]\s*:", text):
+        return -1
+    # [0, [char, nvars, degree, ...]: the degree field of the parametrisation.
+    match = _MSOLVE_SHAPE.match(text)
+    if match is None or not text.endswith(":"):
+        raise RuntimeError(f"msolve wrote {text[:500]!r} instead of a parametrisation")
+    return int(match.group(2))
+
+
+def _msolve_counts(
+    binary: str, integral: Sequence[sp.Poly], nvars: int, primes: Sequence[int], timeout: float
+) -> list[int]:
+    """The number of solutions modulo each prime, by one msolve run per prime.
+
+    The generators come first in msolve's own syntax, in v0, ..., after the variables line and
+    the prime. The runs share the timeout.
+    """
+    names = ",".join(f"v{i}" for i in range(nvars))
+    deadline = time.monotonic() + timeout
+    counts = []
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, prime in enumerate(primes):
+            source = Path(tmp) / f"critical{i}.ms"
+            target = Path(tmp) / f"critical{i}.out"
+            source.write_text(
+                f"{names}\n{prime}\n"
+                + ",\n".join(_singular_polynomial(poly, prime) for poly in integral)
+                + "\n"
+            )
+            remaining = deadline - time.monotonic()
+            try:
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(binary, timeout)
+                run = subprocess.run(
+                    [binary, "-t", "1", "-f", str(source), "-o", str(target)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=remaining,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise ComputationError(f"msolve did not finish within timeout={timeout} s") from exc
+            if run.returncode != 0:
+                raise RuntimeError(f"msolve failed: {run.stderr.strip()[:500]}")
+            output = target.read_text() if target.exists() else ""
+            if not output.strip():
+                shown = (run.stdout.strip() or run.stderr.strip() or "nothing")[:500]
+                raise RuntimeError(f"msolve wrote no result, and printed {shown!r}")
+            counts.append(_msolve_count(output))
+    return counts
+
+
+def critical_point_count(
+    polynomial: sp.Expr,
+    variables: Sequence[sp.Symbol],
+    point: Mapping[sp.Expr, int | Fraction],
+    *,
+    seed: int = 0,
+    timeout: float = 300,
+    backend: str = "singular",
+) -> int:
+    """The number of critical points of sum_e nu_e log u_e - (D/2) log G on X, modulo primes.
+
+    X is the complement of {G = 0} in the torus. For generic exponents nu_e and
+    D the critical points are all regular and number |chi(X)| (Fevola, Mizera
+    and Telen, Comput. Phys. Commun. 303 (2024) 109278, proof of Theorem 3.1,
+    eq. (3.2), after Huh 2013). The exponents are random rationals drawn with
+    random.Random(seed). The critical points are the zeros of the ideal I of
+    nu_e G - (D/2) u_e dG/du_e, e = 1, ..., N, and 1 - t u_1 ... u_N G, and
+    their number is its vector-space dimension vdim(std(I)).
+
+    Singular computes it over F_p rather than Q, where the Groebner basis can
+    take hours, at the two largest primes below 2^31 that divide no numerator
+    or denominator of a coefficient of the generators or of an exponent, and
+    the two results must agree. The dimension over F_p equals the one over Q
+    for all but finitely many p, so this is a cross-check, not a certificate.
+
+    With ``backend="msolve"`` the same system is solved by msolve instead, at the two largest
+    primes below 2^30 that divide no such numerator or denominator (msolve does not accept
+    larger ones). msolve counts the distinct solutions, where vdim counts them with
+    multiplicity. The two agree here because the critical points are regular for generic
+    exponents.
+
+    Parameters
+    ----------
+    polynomial
+        G, with the energy scale already set to 1.
+    variables
+        The N variables of G.
+    point
+        A value for every other symbol of G, keyed by the symbol or, for a
+        symbol occurring only to even powers, by its square, as
+        :attr:`TorusCount.point` gives them.
+    seed
+        Seed of the random exponents.
+    timeout
+        The most seconds to give Singular, at most 2,000,000. For msolve it covers the
+        two runs together.
+    backend
+        "singular" or "msolve".
+
+    Raises
+    ------
+    RuntimeError
+        If the backend is not installed, fails, or prints anything but the two
+        counts.
+    ValidationError
+        If ``backend`` is neither "singular" nor "msolve", ``variables`` are not
+        one or more distinct symbols, ``timeout`` is
+        not a number greater than 0 and at most 2,000,000, G is not a
+        polynomial with rational coefficients in its symbols, or ``point``
+        misses a symbol of G, has any other key, gives a value that is not
+        rational or a negative value for a square, keys by its square a
+        symbol occurring to odd powers, or G vanishes identically at the
+        point.
+    ComputationError
+        If the backend runs out of time, the counts modulo the two primes differ,
+        or the critical points do not form a finite set at the exponents drawn.
+    """
+    if backend not in ("singular", "msolve"):
+        raise ValidationError(f"backend must be 'singular' or 'msolve', not {backend!r}")
+    variables = tuple(variables)
+    if not variables or len(set(variables)) != len(variables):
+        raise ValidationError("variables must be one or more distinct symbols")
+    _check_timeout(timeout, optional=False)
+    g = sp.expand(sp.sympify(polynomial))
+    symbols = tuple(sorted(g.free_symbols - set(variables), key=lambda x: x.name))
+    try:
+        sp.Poly(g, *variables, *symbols, domain="QQ")
+    except (sp.PolynomialError, sp.CoercionFailed) as exc:
+        raise ValidationError(
+            "G must be a polynomial with rational coefficients in its symbols; set the energy "
+            "scale to 1"
+        ) from exc
+    even = frozenset(x for x in symbols if all(d % 2 == 0 for d in _degrees(g, x)))
+    values = _given_point(point, symbols, even)
+    # A symbol in even occurs only to even powers, and its value is that of its square.
+    rationals = [sp.Rational(v.numerator, v.denominator) for v in values]
+    substitution = {
+        x: sp.sqrt(v) if x in even else v for x, v in zip(symbols, rationals, strict=True)
+    }
+    g = sp.expand(g.subs(substitution))
+    if g == 0:
+        raise ValidationError("G vanishes identically at the point")
+    binary = _msolve_binary() if backend == "msolve" else _singular_binary()
+    if binary is None:
+        name = "msolve" if backend == "msolve" else "Singular"
+        raise RuntimeError(f"critical_point_count needs {name}, which was not found")
+
+    rng = random.Random(seed)
+    exponents = [
+        sp.Rational(rng.randint(1, 10**6), rng.randint(1, 10**6)) for _ in range(len(variables) + 1)
+    ]
+    half_d, *nu = exponents
+    t = sp.Dummy("t")
+    generators = [
+        nu_e * g - half_d * u * sp.diff(g, u) for nu_e, u in zip(nu, variables, strict=True)
+    ]
+    generators.append(1 - t * sp.Mul(*variables) * g)
+    polys = [sp.Poly(generator, t, *variables, domain="QQ") for generator in generators]
+    avoided = [
+        abs(int(n))
+        for q in [c for poly in polys for c in poly.coeffs()] + exponents
+        for n in (q.p, q.q)
+    ]
+    primes: list[int] = []
+    # msolve loops without end on a prime of 1518500250 or more, so it gets primes below 2^30.
+    p = 2**30 if backend == "msolve" else 2**31
+    while len(primes) < 2:
+        p = sp.prevprime(p)
+        if all(n % p for n in avoided):
+            primes.append(p)
+    # No coefficient vanishes modulo the primes, so each generator keeps its support there.
+    integral = [poly.clear_denoms(convert=True)[1] for poly in polys]
+    if backend == "msolve":
+        counts = _msolve_counts(binary, integral, len(variables) + 1, primes, timeout)
+    else:
+        counts = _singular_counts(binary, integral, len(variables) + 1, primes, timeout)
     first, second = counts
     if first != second:
         raise ComputationError(
-            f"the critical points number {first} modulo {primes[0]} and {second} modulo "
-            f"{primes[1]}"
+            f"the critical points number {first} modulo {primes[0]} and {second} modulo {primes[1]}"
         )
     if first < 0:
         raise ComputationError("the critical points do not form a finite set at these exponents")

@@ -544,6 +544,7 @@ def _sector_count(
     source: CountsSource,
     seed: int,
     timeout: float,
+    backend: str,
 ) -> int:
     """t(T) at the point, for the sector whose propagators sit at the positions ``chosen``."""
     if not chosen:
@@ -564,7 +565,7 @@ def _sector_count(
             variables,
             chosen,
         )
-        return critical_point_count(numeric, xs, {}, seed=seed, timeout=timeout)
+        return critical_point_count(numeric, xs, {}, seed=seed, timeout=timeout, backend=backend)
     # The finite-field count keeps the symbols of G_T: its fit depends on which of them are
     # squares, so it reads the point as the symbols it was drawn for.
     g = _polynomial(symbolic, variables, chosen)
@@ -728,6 +729,7 @@ def _fixed_euler_characteristic(
     sigma: Permutation,
     seed: int,
     timeout: float,
+    backend: str,
     cache: dict[tuple[tuple[tuple[int, ...], Fraction], ...], int],
 ) -> int:
     """chi(X_sigma) for X = C^n minus {G = 0}, G given by its terms at a point.
@@ -763,7 +765,9 @@ def _fixed_euler_characteristic(
                     ),
                     sp.Integer(0),
                 )
-                cache[key] = critical_point_count(g, ys, {}, seed=seed, timeout=timeout)
+                cache[key] = critical_point_count(
+                    g, ys, {}, seed=seed, timeout=timeout, backend=backend
+                )
             total += (-1) ** r * cache[key]
     return total
 
@@ -776,12 +780,13 @@ def fixed_point_euler_characteristic(
     *,
     seed: int = 0,
     timeout: float = 300,
+    backend: str = "singular",
 ) -> int:
     """chi(X_sigma) for X = C^n minus {f = 0}, at a kinematic point, by counting critical points.
 
     X_sigma is the set of points of X fixed by the permutation sigma of the variables, which
     must be a symmetry of f at the point (Duhr, Maggio, Semper and Stawinski,
-    arXiv:2604.08332, Eqs. 8.21-8.26). Needs Singular, through
+    arXiv:2604.08332, Eqs. 8.21-8.26). Needs Singular or msolve, through
     :func:`~feynkit.point_count.critical_point_count`.
 
     Parameters
@@ -791,7 +796,7 @@ def fixed_point_euler_characteristic(
         :attr:`~feynkit.point_count.TorusCount.point` keys it.
     sigma
         sigma[i] is the position the variable x_i goes to.
-    seed, timeout
+    seed, timeout, backend
         As for :func:`~feynkit.point_count.critical_point_count`.
 
     Raises
@@ -800,6 +805,8 @@ def fixed_point_euler_characteristic(
         If sigma is not a permutation or is not a symmetry of f at the point, or the point
         does not fix every other symbol of f.
     """
+    if backend not in ("singular", "msolve"):
+        raise ValidationError(f"backend must be 'singular' or 'msolve', not {backend!r}")
     variables = _check_variables(f, x, "f")
     perm = tuple(int(i) for i in sigma)
     if sorted(perm) != list(range(len(variables))):
@@ -808,7 +815,7 @@ def fixed_point_euler_characteristic(
     terms = _specialise(sp.sympify(f), variables, scale, point or {}).numeric
     if perm not in set(_maps(terms, terms, len(variables))):  # type: ignore[arg-type]
         raise ValidationError(f"{perm} is not a symmetry of f at the point")
-    return _fixed_euler_characteristic(terms, perm, seed, timeout, {})
+    return _fixed_euler_characteristic(terms, perm, seed, timeout, backend, {})
 
 
 def sector_hierarchy(
@@ -819,6 +826,7 @@ def sector_hierarchy(
     symmetries: bool = True,
     seed: int = 0,
     timeout: float = 300,
+    backend: str = "singular",
 ) -> SectorHierarchy:
     """Every sector of the integral, with its kind, face and counts.
 
@@ -838,7 +846,7 @@ def sector_hierarchy(
         recomputed at a second point, drawn with ``seed + 1``, and the two must agree.
     counts
         ``"generic"``, the default, gives only t_gen; ``"critical"`` adds t and m at a point by
-        counting critical points with Singular (:func:`~feynkit.point_count.critical_point_count`);
+        counting critical points with Singular or msolve (:func:`~feynkit.point_count.critical_point_count`);
         ``"torus"`` does so by finite-field point counts
         (:func:`~feynkit.point_count.count_torus_points`), which give no result for some
         sectors; None gives no counts.
@@ -848,22 +856,27 @@ def sector_hierarchy(
         N_T of each unique sector in both forms of Duhr, Maggio, Semper and Stawinski
         (arXiv:2604.08332, Eqs. 8.18 and 8.3). The permutations are found at the symbolic
         kinematics of the integral, or at ``point`` when one is given. The fixed-point Euler
-        characteristics use Singular. N_T is not computed for a unique sector with m(T) = 0,
+        characteristics count critical points as well. N_T is not computed for a unique sector with m(T) = 0,
         and is then 0 with ``signs_consistent`` None.
     seed
         The seed of the point and of the random exponents of the critical-point count.
     timeout
-        The most seconds for each call of Singular.
+        The most seconds for each call of Singular, or for the two runs of msolve together.
+    backend
+        "singular" or "msolve", the program that counts critical points, as for
+        :func:`~feynkit.point_count.critical_point_count`.
 
     Raises
     ------
     ValidationError
-        If ``counts`` is not one of the above, ``point`` is given with a count that does not
+        If ``counts`` is not one of the above, ``backend`` is unknown, ``point`` is given with a count that does not
         use it, or ``point`` is not a point of G .
     ComputationError
         If a count at a point fails, the top sector's count differs at the second point, or the
         face of a sector with a cycle is not empty, which would be a fault.
     """
+    if backend not in ("singular", "msolve"):
+        raise ValidationError(f"backend must be 'singular' or 'msolve', not {backend!r}")
     if counts is not None and counts not in _COUNTS:
         raise ValidationError(
             f"counts must be one of {', '.join(map(repr, _COUNTS))} or None; got {counts!r}"
@@ -944,7 +957,7 @@ def sector_hierarchy(
                 0
                 if kinds[mask] != "non_zero"
                 else _sector_count(
-                    at_point, symbolic, variables, scale, chosen, counts, seed, timeout
+                    at_point, symbolic, variables, scale, chosen, counts, seed, timeout, backend
                 )
             )
         top = (1 << n) - 1
@@ -953,7 +966,7 @@ def sector_hierarchy(
                 symanzik.g, variables, scale, dict(_draw(symbolic, scale, seed + 1))
             )
             again = _sector_count(
-                second, symbolic, variables, scale, list(range(n)), counts, seed, timeout
+                second, symbolic, variables, scale, list(range(n)), counts, seed, timeout, backend
             )
             if again != t[top]:
                 raise ComputationError(
@@ -1034,7 +1047,7 @@ def sector_hierarchy(
             absolute = Fraction(0)
             signed = Fraction(0)
             for sigma, count in kinds_of:
-                chi = _fixed_euler_characteristic(numeric, sigma, seed, timeout, cache)
+                chi = _fixed_euler_characteristic(numeric, sigma, seed, timeout, backend, cache)
                 cycles = len(_cycles(sigma))
                 found.append(
                     FixedPointClass(

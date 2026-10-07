@@ -200,6 +200,7 @@ class FeynmanIntegral:
                 bool,
                 int,
                 float,
+                str,
             ],
             SectorHierarchy,
         ] = {}
@@ -1124,6 +1125,7 @@ class FeynmanIntegral:
         symmetries: bool = True,
         seed: int = 0,
         timeout: float = 300,
+        backend: str = "singular",
     ) -> SectorHierarchy:
         """
         Every sector of the integral: its kind, face, counts and symmetries.
@@ -1150,6 +1152,7 @@ class FeynmanIntegral:
             bool(symmetries),
             seed,
             timeout,
+            backend,
         )
         if key not in self._sector_hierarchies:
             self._sector_hierarchies[key] = sector_hierarchy(
@@ -1159,6 +1162,7 @@ class FeynmanIntegral:
                 symmetries=symmetries,
                 seed=seed,
                 timeout=timeout,
+                backend=backend,
             )
         return self._sector_hierarchies[key]
 

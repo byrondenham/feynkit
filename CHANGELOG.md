@@ -185,6 +185,10 @@
   vacuum family is exported without momentum conservation. Running Kira needs Fermat. The package
   exports the new names.
 
+- `critical_point_count` takes `backend="msolve"`, which solves the same system with msolve
+  (0.10.1 or later, optional) at the two largest primes below 2^30 that avoid its denominators.
+  `fixed_point_euler_characteristic`, `sector_hierarchy` and `FeynmanIntegral.sectors` pass
+  `backend` on. The default stays `"singular"`.
 - The sector hierarchy, `feynkit.sectors`. `sector_hierarchy(fi)` reads every one of the 2^N
   sectors of an integral off the support of G, numbered by Weinzierl's N_id, as cut by a cycle,
   scaleless by Lee's criterion (arXiv:1310.1145) or non-zero, with the face of the Newton

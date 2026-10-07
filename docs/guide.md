@@ -78,6 +78,12 @@ gens = compute_toric_ideal_generators(a_matrix, backend="4ti2")
 gens = compute_toric_ideal_generators(a_matrix, backend="sympy")
 ```
 
+### Optional: msolve
+
+`critical_point_count(..., backend="msolve")` needs msolve 0.10.1 or later on the path, for
+example from the `msolve` package of a distribution or built from its sources. Nothing else uses
+it, and without it the default Singular backend is unaffected.
+
 ### Optional: PyNormaliz and python-flint
 
 ```bash
@@ -2849,6 +2855,15 @@ all but finitely many primes, so this is a cross-check, not a certificate; requi
 to agree guards against an unlucky prime. It raises `RuntimeError` without Singular, and
 `ComputationError` when the two results differ, when the critical points are not finite at the
 exponents drawn, or when Singular runs past `timeout` seconds (300 by default).
+
+With `backend="msolve"` the same system is solved by msolve instead, which is far quicker on the
+larger systems. msolve accepts no prime of $2^{30}$ or more, so it takes the two largest primes
+below $2^{30}$ that avoid the same denominators, and the two counts must agree as before. It counts
+distinct solutions, where Singular's `vdim` counts them with multiplicity; the two agree because
+the critical points are regular for generic exponents. `timeout` covers both runs, and
+`RuntimeError` is raised when msolve is not installed. `backend` is passed on by
+`fixed_point_euler_characteristic`, `sector_hierarchy` and `FeynmanIntegral.sectors`; Singular
+stays the default.
 
 ```python
 import sympy as sp

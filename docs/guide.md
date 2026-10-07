@@ -2857,10 +2857,9 @@ to agree guards against an unlucky prime. It raises `RuntimeError` without Singu
 exponents drawn, or when Singular runs past `timeout` seconds (300 by default).
 
 With `backend="msolve"` the same system is solved by msolve instead, which is far quicker on the
-larger systems. msolve accepts no prime of $2^{30}$ or more, so it takes the two largest primes
-below $2^{30}$ that avoid the same denominators, and the two counts must agree as before. It counts
-distinct solutions, where Singular's `vdim` counts them with multiplicity; the two agree because
-the critical points are regular for generic exponents. `timeout` covers both runs, and
+larger systems. msolve 0.10.1 fails on primes above about $1.5 \cdot 10^9$, so this backend takes
+the two largest primes below $2^{30}$ that avoid the same denominators, and the two counts must agree
+as before. Like Singular's `vdim`, msolve's count includes multiplicity. `timeout` covers both runs, and
 `RuntimeError` is raised when msolve is not installed. `backend` is passed on by
 `fixed_point_euler_characteristic`, `sector_hierarchy` and `FeynmanIntegral.sectors`; Singular
 stays the default.

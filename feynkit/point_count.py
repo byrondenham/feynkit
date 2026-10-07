@@ -1241,10 +1241,8 @@ def critical_point_count(
     for all but finitely many p, so this is a cross-check, not a certificate.
 
     With ``backend="msolve"`` the same system is solved by msolve instead, at the two largest
-    primes below 2^30 that divide no such numerator or denominator (msolve does not accept
-    larger ones). msolve counts the distinct solutions, where vdim counts them with
-    multiplicity. The two agree here because the critical points are regular for generic
-    exponents.
+    primes below 2^30 that divide no such numerator or denominator, since msolve 0.10.1 fails
+    on primes above about 1.5e9. Like vdim, its count includes multiplicity.
 
     Parameters
     ----------
@@ -1329,7 +1327,7 @@ def critical_point_count(
         for n in (q.p, q.q)
     ]
     primes: list[int] = []
-    # msolve loops without end on a prime of 1518500250 or more, so it gets primes below 2^30.
+    # msolve 0.10.1 runs out of memory on primes above about 1.5e9, so it gets primes below 2^30.
     p = 2**30 if backend == "msolve" else 2**31
     while len(primes) < 2:
         p = sp.prevprime(p)

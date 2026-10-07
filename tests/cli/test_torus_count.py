@@ -167,8 +167,9 @@ def test_seed_and_budget_need_the_point_counts(
     assert code == 2
     if "--seed" in argv:
         assert (
-            "--seed applies to the point counts and the degenerate faces; add --torus-count or "
-            "--degeneracy, or name torus or degeneracy in --sections"
+            "--seed applies to the point counts, the degenerate faces and the sector counts at a "
+            "point; add --torus-count, --degeneracy or --sectors-counts torus or critical, or "
+            "name torus or degeneracy in --sections"
         ) in err
     else:
         assert "applies to the point counts; add --torus-count or name torus in --sections" in err

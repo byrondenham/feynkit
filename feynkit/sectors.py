@@ -87,14 +87,16 @@ _COUNTS = ("generic", "torus", "critical")
 
 @dataclass(frozen=True)
 class FixedPointClass:
-    """The permutations of one cycle type in a sector's group, and chi of their fixed set.
+    """One conjugacy class of a sector's group, and chi of the fixed set of its members.
+
+    Two classes can have the same cycle type, and then need not have the same chi.
 
     Attributes
     ----------
     cycle_type
-        The lengths of the cycles of the permutation, in decreasing order.
+        The lengths of the cycles of each permutation of the class, in decreasing order.
     size
-        How many permutations of the group have this cycle type.
+        How many permutations the class has.
     euler_characteristic
         chi(X_sigma) for one of them, the same for all of them, where X_sigma is the set of
         points of C^T outside {G_T = 0} that sigma fixes.
@@ -139,7 +141,7 @@ class Sector:
     stabiliser_order
         The order of the group of permutations of T that fix G_T, or None.
     fixed_points
-        The classes of that group by cycle type, with chi of their fixed sets.
+        The conjugacy classes of that group, each with its cycle type and chi of its fixed set.
     symmetric_count, signed_symmetric_count
         The count of the sector with its symmetries, in the absolute and in the signed form,
         or None.

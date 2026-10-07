@@ -1844,8 +1844,9 @@ def _report_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         counts or args.degeneracy or "degeneracy" in named or at_point
     ):
         parser.error(
-            "--seed applies to the point counts and the degenerate faces; add --torus-count "
-            "or --degeneracy, or name torus or degeneracy in --sections"
+            "--seed applies to the point counts, the degenerate faces and the sector counts at a "
+            "point; add --torus-count, --degeneracy or --sectors-counts torus or critical, or "
+            "name torus or degeneracy in --sections"
         )
     if args.degeneracy_mode is not None and not (args.degeneracy or "degeneracy" in named):
         parser.error(

@@ -1795,6 +1795,8 @@ print(s.id, s.kind, s.dimension, s.generic_count)                    # 9 non_zer
 print([x.propagators for x in h.non_zero()][:3])        # [(2, 3), (1, 2, 3), (1, 4)]
 ```
 
+`fi.sectors(...)` takes the same arguments as `sector_hierarchy` and caches the result for each choice of them.
+
 A `Sector` holds its `id`, `propagators` and `contracted` edges, its `kind`, the face $F_S$ it
 spans (`point_indices`, indices into `fi.newton_polytope.points`, and `dimension`, $-1$ for a sector
 with a cycle) and the counts below. `h.subsectors(id)` gives the non-zero sectors inside one and
@@ -1872,7 +1874,7 @@ $$N_T = \frac{1}{|G|}\sum_{\sigma \in G}\big|\chi(X_\sigma)\big|
 N_T^{\pm} = \frac{(-1)^{|T|}}{|G|}\sum_{\sigma \in G}\mathrm{sign}(\sigma)\,\chi(X_\sigma),$$
 
 their Eqs. 8.18 and 8.3. The first needs the vanishing theorem on every fixed set; the second only
-on $X_T$. They agree when $\mathrm{sign}\,\chi(X_\sigma) = (-1)^{c(\sigma)}$, where $c$ is the number
+on $\mathbb{C}^T \setminus \{G_T = 0\}$. They agree when $\mathrm{sign}\,\chi(X_\sigma) = (-1)^{c(\sigma)}$, where $c$ is the number
 of cycles of $\sigma$, and `Sector.signs_consistent` says whether they do. `symmetric_count` and
 `signed_symmetric_count` hold the two forms, `fixed_points` the conjugacy classes of $G$ with
 their cycle type, size and $\chi$, and the totals are in `h.totals()`:

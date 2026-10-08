@@ -14,7 +14,7 @@ from feynkit.cli import _build_parser, _load, _parse_args, _report_options
 ROOT = Path(__file__).resolve().parents[2]
 GUIDE = ROOT / "docs" / "guide.md"
 README = ROOT / "README.md"
-HEADINGS = {GUIDE: "## CLI: fk", README: "## CLI: `fk`"}
+HEADINGS = {GUIDE: "## CLI: fk", README: "## Command line"}
 
 
 def _section(path: Path) -> str:

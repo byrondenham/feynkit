@@ -6,6 +6,9 @@ face polynomial.
 the polynomial on the orbit of every face of the Newton polytope into locally closed pieces on
 which the torus-cut Milnor number is constant; see :class:`StrataAnalysis`. Faces whose
 normal cone is not smooth are handled through a smooth subdivision of the cone.
+:func:`stratum_sum` and :func:`stratum_sum_from_polynomial` add the Euler characteristics of the
+pieces, cut with a generic hypersurface, weigh them by mu^T and compare the sum with the drop of
+the number of critical points below the volume of the Newton polytope; see :class:`StratumSum`.
 
 :func:`torus_euler_characteristic` computes chi((V(I) cap T) minus V(h)), the topological
 Euler characteristic of the closed subvariety V(I) of the torus T = (C^*)^d with the
@@ -45,6 +48,7 @@ starts with "undecided: " and goes on with the reason.
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 import math
 import random
@@ -62,6 +66,7 @@ import sympy as sp
 from .core.exceptions import ComputationError, ValidationError
 from .degeneracy import _support
 from .landau import _check_timeout, _singular_binary
+from .lattice_invariants import lattice_points
 from .milnor import (
     NumberField,
     TorusCutMilnorNumber,
@@ -69,7 +74,12 @@ from .milnor import (
     _smooth_chart,
     torus_cut_milnor_number,
 )
-from .point_count import _msolve_binary, _msolve_count, _singular_polynomial
+from .point_count import (
+    _msolve_binary,
+    _msolve_count,
+    _singular_polynomial,
+    critical_point_count,
+)
 from .polytope import PolytopeData, lattice_coordinates, polytope_data
 from .toric import (
     NormalCone,
@@ -87,8 +97,11 @@ __all__ = [
     "ConditionFailure",
     "StrataAnalysis",
     "Stratum",
+    "StratumSum",
     "singular_strata",
     "singular_strata_from_polynomial",
+    "stratum_sum",
+    "stratum_sum_from_polynomial",
     "torus_euler_characteristic",
 ]
 
@@ -253,6 +266,34 @@ class _Run:
         if not found:
             raise _undecided(f"Singular printed {out.strip()[:100]!r} instead of components")
         return found
+
+    def transverse(self, gens: str, dimension: int, removed: Sequence[str]) -> bool:
+        """Whether d(h) restricted to the piece never vanishes on the piece and V(h).
+
+        The piece is V(gens), of the given dimension, less the sets V(R) for R in ``removed``,
+        which lie inside it. It is smooth, so its Jacobian matrix has rank equal to its
+        codimension c at its points, and d(h) restricted to it vanishes at a point of V(h)
+        exactly when the Jacobian matrix of the generators and h has rank at most c there:
+        when its minors of size c + 1 vanish. The piece is transverse to V(h) when no point
+        of the piece satisfies this.
+        """
+        codim = self.d - dimension
+        script = (
+            f"ideal G = {gens};\npoly h = {self.removed};\nideal I = G, h;\n"
+            "matrix J = jacob(I);\n"
+            f"if (nrows(J) >= {codim + 1} && ncols(J) >= {codim + 1}) "
+            f"{{ I = I, minor(J, {codim + 1}); }}\n"
+            f"I = sat(I, ideal({self.product}));\n"
+        )
+        for ideal in removed:
+            script += f"I = sat(I, ideal({ideal}));\n"
+        script += 'if (dim(std(I)) < 0) { print("TRANSVERSE"); } else { print("NOT"); }\n'
+        out = self.singular_output(script)
+        if "TRANSVERSE" in out:
+            return True
+        if "NOT" in out:
+            return False
+        raise _undecided(f"Singular printed {out.strip()[:100]!r} instead of a verdict")
 
     # -- Euler characteristics ----------------------------------------------------------------
 
@@ -442,6 +483,19 @@ def _validate(
     return polys, names, removed
 
 
+def _two_primes(polys: Sequence[sp.Poly]) -> list[int]:
+    """The two largest primes below 2^29 that divide no numerator or denominator of a
+    coefficient of the polynomials."""
+    avoided = {abs(int(n)) for poly in polys for q in poly.coeffs() for n in (q.p, q.q)}
+    primes: list[int] = []
+    p = _PRIME_LIMIT
+    while len(primes) < 2:
+        p = sp.prevprime(p)
+        if all(n % p for n in avoided):
+            primes.append(p)
+    return primes
+
+
 def torus_euler_characteristic(
     generators: Sequence[sp.Expr],
     variables: Sequence[sp.Symbol],
@@ -517,17 +571,7 @@ def torus_euler_characteristic(
         return 0
     integral = [poly.clear_denoms(convert=True)[1] for poly in polys]
     h_integral = None if removed is None else removed.clear_denoms(convert=True)[1]
-    avoided = {
-        abs(int(n))
-        for q in [c for poly in [*polys, *([removed] if removed else [])] for c in poly.coeffs()]
-        for n in (q.p, q.q)
-    }
-    primes: list[int] = []
-    p = _PRIME_LIMIT
-    while len(primes) < 2:
-        p = sp.prevprime(p)
-        if all(n % p for n in avoided):
-            primes.append(p)
+    primes = _two_primes([*polys, *([removed] if removed else [])])
 
     values = []
     for prime in primes:
@@ -588,7 +632,9 @@ class Stratum:
         mu^T on the piece, (-1)^(N-1) beta, N the dimension of P, and None if undecided. See
         :class:`~feynkit.milnor.TorusCutMilnorNumber`.
     euler
-        Reserved for the Euler characteristic of the piece; always None here.
+        chi of the piece minus V(H), in the chart torus, as :func:`stratum_sum` fills it in
+        for the pieces on which mu^T is decided and not 0; None otherwise, and always None in
+        a :class:`StrataAnalysis`.
     chart
         The chart of the face in which the piece was computed, None if there is none.
     reason
@@ -1508,6 +1554,30 @@ def _pushed_forward_beta(
     return total, primes
 
 
+def _prepare(
+    polynomial: sp.Expr,
+    variables: Sequence[sp.Symbol],
+    point: Mapping[sp.Expr, int | Fraction] | None,
+    scale: sp.Symbol | None,
+) -> tuple[dict[tuple[int, ...], Fraction], PolytopeData, sp.Expr]:
+    """The terms of G at the point, the polytope data of their support and G as an expression."""
+    support = _support(polynomial, tuple(variables), {} if point is None else point, scale)
+    terms = {
+        tuple(p): Fraction(int(c.p), int(c.q))
+        for p, c in zip(support.points, support.coefficients, strict=True)
+    }
+    data = polytope_data(sorted(terms))
+    expression = sum(
+        (
+            sp.Rational(c.numerator, c.denominator)
+            * sp.Mul(*(x**e for x, e in zip(variables, p, strict=True)))
+            for p, c in terms.items()
+        ),
+        start=sp.Integer(0),
+    )
+    return terms, data, expression
+
+
 def _analyse(
     polynomial: sp.Expr,
     variables: Sequence[sp.Symbol],
@@ -1520,23 +1590,10 @@ def _analyse(
     if not isinstance(seed, int) or isinstance(seed, bool):
         raise ValidationError(f"seed must be an integer, not {seed!r:.60}")
     _check_timeout(timeout, optional=False)
-    support = _support(polynomial, tuple(variables), {} if point is None else point, scale)
-    terms = {
-        tuple(p): Fraction(int(c.p), int(c.q))
-        for p, c in zip(support.points, support.coefficients, strict=True)
-    }
-    data = polytope_data(sorted(terms))
+    terms, data, expression = _prepare(polynomial, variables, point, scale)
     singular = _singular_binary()
     if singular is None:
         raise RuntimeError("singular_strata needs Singular, which was not found")
-    expression = sum(
-        (
-            sp.Rational(c.numerator, c.denominator)
-            * sp.Mul(*(x**e for x, e in zip(variables, p, strict=True)))
-            for p, c in terms.items()
-        ),
-        start=sp.Integer(0),
-    )
     sign = (-1) ** (data.dimension - 1)
     strata: list[Stratum] = []
     failures: list[ConditionFailure] = []
@@ -1849,4 +1906,399 @@ def singular_strata(
     sym = integral.symanzik
     return _analyse(
         sym.g, list(sym.lp_parameters), point, integral.graph.energy_scale, seed, timeout, faces
+    )
+
+
+# --- the stratum sum ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class StratumSum:
+    """The stratum sum of a polynomial G beside its volume and its number of critical points.
+
+    Let P be the Newton polytope of G, of dimension N equal to the number of variables, T the
+    torus, and H a polynomial supported on the lattice points of P with generic coefficients.
+    The identity is
+
+        vol(P) - |chi| = sum over the strata S of the singular loci of mu^T_S chi(S minus V(H)),
+
+    where vol is the volume normalised to the lattice Z^N, |chi| = |chi(T minus V(G))| and
+    S runs over the pieces of :class:`StrataAnalysis`, of every face of P, the top face
+    included, on each of which the torus-cut Milnor number mu^T of
+    :func:`~feynkit.milnor.torus_cut_milnor_number` is constant. It is the toric, torus-cut
+    form of the formula of A. Parusinski and P. Pragacz (J. Algebraic Geom. 4 (1995) 337-351,
+    Prop. 7, p. 8 of the preprint), to which it reduces on a toric resolution; the same
+    identity follows from J. Schuermann, arXiv:math/0202175, Cor. 0.2 (p. 8), and from
+    S. M. Gusein-Zade, I. Luengo and A. Melle-Hernandez, Proc. Steklov Inst. Math. 225 (1999)
+    156-164, Thm 2 (p. 4 of arXiv:math/9804071). The torus-cut Euler characteristic of the
+    hypersurface at generic coefficients is A. G. Kouchnirenko's (Invent. Math. 32 (1976)
+    1-31, Thm IV, p. 30), and J. Huh (Compos. Math. 149 (2013) 1245-1266, Thm 1(iii)) reads
+    |chi| as a number of critical points. The left side is the drop of the number of master
+    integrals below its generic value, vol.
+
+    The sum is computed in the coordinates of the lattice that the differences of the exponents
+    span, in which every Euler characteristic is of a subvariety of a torus of the strata's
+    charts, and multiplied by the index of that lattice in Z^N, 1 for every Feynman integral
+    with a full-dimensional polytope. The coefficients of H are drawn from ``seed``, and H is
+    a section of the ample line bundle of P, not a generic polynomial: (G2) below is a
+    probability-one condition on it.
+
+    ``agrees`` compares ``total`` with ``drop``. It is None, never True, whenever the sum may
+    be partial or unproved: when any piece of the strata is undecided (it has a ``reason``) or
+    ``complete`` of the analysis is False, because the pieces are not known to cover every
+    locus where mu^T jumps (a missed jump would change the total silently); when an Euler
+    characteristic could not be decided; and when H is not transverse to a piece. The cause is
+    then in ``reason``. A False means the sum is complete in this sense and still differs from
+    the drop, so a stratum or a value is wrong.
+
+    Attributes
+    ----------
+    volume
+        The volume of P normalised to Z^N.
+    master_count
+        |chi|, the number of critical points of a generic master function on T minus V(G), by
+        :func:`~feynkit.point_count.critical_point_count` at the seeds ``seed`` and
+        ``seed + 1``, which must agree.
+    strata
+        The pieces of :func:`singular_strata_from_polynomial`, with ``euler`` set to
+        chi(S minus V(H)) in the chart torus of the piece, for the pieces on which mu^T is
+        decided and not 0, which are the only ones that count. The others keep ``euler`` None.
+    total
+        The sum, or None if it is partial because a piece or an Euler characteristic is
+        undecided.
+    agrees
+        Whether ``total`` equals ``drop``, or None where that is undecided; see above.
+    transverse
+        Condition (G2) for the pieces that count: whether d(h) restricted to a piece is non-zero
+        at every point of the piece and V(h), where h is H in the chart of the face. True
+        when it holds for every piece, False when it fails for one, None if a check is
+        undecided. Failing is a reason to draw H again with another seed.
+    primes
+        The primes of the computations, in increasing order: those of the analysis and those of
+        the Euler characteristics and transversality checks.
+    seed
+        The seed.
+    complete
+        ``complete`` of the analysis.
+    reason
+        Why ``agrees`` or ``total`` is None, or None.
+    """
+
+    volume: int
+    master_count: int
+    strata: tuple[Stratum, ...]
+    total: int | None
+    agrees: bool | None
+    transverse: bool | None
+    primes: tuple[int, ...]
+    seed: int
+    complete: bool = False
+    reason: str | None = None
+
+    @property
+    def drop(self) -> int:
+        """vol - |chi|, the number of master integrals lost to the degeneracy."""
+        return self.volume - self.master_count
+
+
+def _face_h(
+    data: PolytopeData,
+    stratum: Stratum,
+    h_terms: Mapping[tuple[int, ...], int],
+    names: Sequence[sp.Symbol],
+) -> sp.Poly:
+    """H on the face of the stratum, as a polynomial in the chart coordinates t of the face.
+
+    A lattice point of P lies on the face F when every inner normal of a facet through F is 0
+    on its difference from a vertex of F. The monomials t^a of the face's polynomial are then
+    multiplied by a monomial so that the exponents are non-negative, which does not change
+    the zero set in the torus.
+    """
+    chart = stratum.chart
+    assert chart is not None
+    rays = normal_cone(data, stratum.face).rays
+    out: dict[tuple[int, ...], int] = {}
+    for c, coefficient in h_terms.items():
+        shifted = [a - b for a, b in zip(c, chart.vertex, strict=True)]
+        if any(sum(u * s for u, s in zip(ray, shifted, strict=True)) for ray in rays):
+            continue
+        key = tuple(
+            sum(w * s for w, s in zip(row, shifted, strict=True)) for row in chart.torus_basis
+        )
+        out[key] = out.get(key, 0) + coefficient
+    shift = [max(0, -min(e[a] for e in out)) for a in range(len(names))]
+    expression = sum(
+        (
+            sp.Integer(c) * sp.Mul(*(t ** (e[a] + shift[a]) for a, t in enumerate(names)))
+            for e, c in out.items()
+        ),
+        start=sp.Integer(0),
+    )
+    return sp.Poly(expression, *names, domain="QQ")
+
+
+def _piece(
+    stratum: Stratum,
+    h: sp.Poly,
+    *,
+    seed: int,
+    backend: str,
+    timeout: float,
+    singular: str,
+    msolve: str | None,
+) -> tuple[int, bool, list[int]]:
+    """chi(S minus V(h)) for the piece S of the stratum, whether h is transverse to S, and the
+    primes used.
+
+    S is the closure V(generators) less the closures V(removed), which lie inside it, so
+    chi(S minus V(h)) = chi(V(generators) minus V(h)) - chi(union of V(removed) minus V(h)),
+    computed at the two primes, which must agree.
+
+    Raises
+    ------
+    ComputationError
+        With a message that starts with "undecided: ", as :func:`torus_euler_characteristic`.
+    """
+    chart = stratum.chart
+    assert chart is not None and stratum.dimension is not None
+    d = chart.torus_dimension
+    names = h.gens
+
+    def poly(expr: sp.Expr) -> sp.Poly:
+        return sp.Poly(sp.expand(expr), *names, domain="QQ")
+
+    generators = [q for q in map(poly, stratum.generators) if not q.is_zero]
+    removed = [[q for q in map(poly, r) if not q.is_zero] for r in stratum.removed]
+    primes = _two_primes([*generators, *(q for r in removed for q in r), h])
+    values: list[tuple[int, bool]] = []
+    for prime in primes:
+        run = _Run(
+            prime=prime,
+            dimension=d,
+            removed=_singular_polynomial(h.clear_denoms(convert=True)[1], prime),
+            seed=seed,
+            backend=backend,
+            timeout=timeout,
+            singular=singular,
+            msolve=msolve,
+        )
+
+        def ideal(polys: Sequence[sp.Poly], prime: int = prime) -> str:
+            integral = [q.clear_denoms(convert=True)[1] for q in polys]
+            return ",".join(_singular_polynomial(q, prime) for q in integral) or "0"
+
+        gens = ideal(generators)
+        family = [c for r in removed for c in run.components(ideal(r))]
+        value = run.closed(gens) - (run.union(family) if family else 0)
+        values.append((value, run.transverse(gens, stratum.dimension, [ideal(r) for r in removed])))
+    if values[0][0] != values[1][0]:
+        raise _undecided(
+            f"the Euler characteristic of a piece is {values[0][0]} modulo {primes[0]} and "
+            f"{values[1][0]} modulo {primes[1]}"
+        )
+    return values[0][0], values[0][1] and values[1][1], primes
+
+
+def _random_h(data: PolytopeData, seed: int) -> dict[tuple[int, ...], int]:
+    """Random non-zero integer coefficients on every lattice point of P, in chart coordinates."""
+    rng = random.Random(f"H:{seed}")
+    points = lattice_points(data.chart.coordinates, lattice="ambient")
+    return {p: rng.randint(1, 1000) for p in points}
+
+
+def _stratum_sum(
+    polynomial: sp.Expr,
+    variables: Sequence[sp.Symbol],
+    point: Mapping[sp.Expr, int | Fraction] | None,
+    scale: sp.Symbol | None,
+    seed: int,
+    timeout: float,
+    backend: str,
+) -> StratumSum:
+    if backend not in _BACKENDS:
+        raise ValidationError(f"backend must be 'singular' or 'msolve', not {backend!r}")
+    if not isinstance(seed, int) or isinstance(seed, bool):
+        raise ValidationError(f"seed must be an integer, not {seed!r:.60}")
+    _check_timeout(timeout, optional=False)
+    terms, data, expression = _prepare(polynomial, variables, point, scale)
+    if not data.is_full_dimensional:
+        raise ValidationError(
+            f"the Newton polytope has dimension {data.dimension} in {data.ambient_dimension} "
+            "variables; the stratum sum needs it to be full-dimensional"
+        )
+    singular = _singular_binary()
+    if singular is None:
+        raise RuntimeError("stratum_sum needs Singular, which was not found")
+    msolve = _msolve_binary() if backend == "msolve" else None
+    if backend == "msolve" and msolve is None:
+        raise RuntimeError("stratum_sum with backend='msolve' needs msolve")
+    index = data.sublattice_index
+    volume = data.normalized_volume * index
+    counts = [
+        critical_point_count(
+            expression, variables, {}, seed=seed + k, timeout=timeout, backend=backend
+        )
+        for k in (0, 1)
+    ]
+    if counts[0] != counts[1]:
+        raise ComputationError(
+            f"the number of critical points is {counts[0]} at seed {seed} and {counts[1]} at "
+            f"seed {seed + 1}"
+        )
+    analysis = _analyse(polynomial, variables, point, scale, seed, timeout, None)
+
+    h_terms = _random_h(data, seed)
+    names = tuple(sp.Symbol(f"t{i + 1}") for i in range(data.dimension))
+    h_faces: dict[tuple[int, ...], sp.Poly] = {}
+    reasons: list[str] = []
+    primes = set(analysis.primes)
+    transverse: bool | None = True
+    total = 0
+    strata: list[Stratum] = []
+    partial = False
+    for stratum in analysis.strata:
+        if stratum.reason is not None or stratum.mu_t is None:
+            partial = True
+            reasons.append(f"a piece of the face {list(stratum.face)}: {stratum.reason}")
+            strata.append(stratum)
+            continue
+        if stratum.mu_t == 0 or stratum.chart is None or stratum.dimension is None:
+            strata.append(stratum)
+            continue
+        key = stratum.face
+        if key not in h_faces:
+            h_faces[key] = _face_h(data, stratum, h_terms, names[: stratum.chart.torus_dimension])
+        try:
+            euler, is_transverse, used = _piece(
+                stratum,
+                h_faces[key],
+                seed=seed,
+                backend=backend,
+                timeout=timeout,
+                singular=singular,
+                msolve=msolve,
+            )
+        except ComputationError as exc:
+            if not str(exc).startswith("undecided: "):
+                raise
+            partial = True
+            transverse = None if transverse else transverse
+            reasons.append(f"a piece of the face {list(key)}: {str(exc)[len('undecided: ') :]}")
+            strata.append(stratum)
+            continue
+        primes.update(used)
+        if not is_transverse:
+            transverse = False
+        total += stratum.mu_t * euler
+        strata.append(dataclasses.replace(stratum, euler=euler))
+    total *= index
+
+    if partial:
+        reasons.insert(0, "the sum is partial")
+    elif not analysis.complete:
+        reasons.append(
+            "the strata are not known to be complete: "
+            + (
+                f"{len(analysis.failures)} condition(s) fail"
+                if analysis.failures
+                else "a face was computed through a subdivision"
+            )
+        )
+    if transverse is False:
+        reasons.append("H is not transverse to a piece; draw it again with another seed")
+    undecided = partial or not analysis.complete or transverse is not True
+    return StratumSum(
+        volume=volume,
+        master_count=counts[0],
+        strata=tuple(strata),
+        total=None if partial else total,
+        agrees=None if undecided else total == volume - counts[0],
+        transverse=transverse,
+        primes=tuple(sorted(primes)),
+        seed=seed,
+        complete=analysis.complete,
+        reason="; ".join(reasons) or None,
+    )
+
+
+def stratum_sum_from_polynomial(
+    polynomial: sp.Expr,
+    variables: Sequence[sp.Symbol],
+    point: Mapping[sp.Expr, int | Fraction] | None = None,
+    *,
+    scale: sp.Symbol | None = None,
+    seed: int = 0,
+    timeout: float = 120,
+    backend: str = "singular",
+) -> StratumSum:
+    """The stratum sum of a polynomial: the drop of its number of critical points, and the sum.
+
+    Computes the volume of the Newton polytope P of G, |chi| by
+    :func:`~feynkit.point_count.critical_point_count` at the seeds ``seed`` and ``seed + 1``
+    (which must agree), the strata of :func:`singular_strata_from_polynomial` and
+    sum mu^T_S chi(S minus V(H)) over them, H a polynomial with random coefficients on every
+    lattice point of P, and compares the sum with vol - |chi|. The identity and its sources
+    are in :class:`StratumSum`. A piece of the strata with mu^T = 0 does not count, so its
+    Euler characteristic is not computed.
+
+    ``agrees`` is None, never True, when the strata may be incomplete or partial: when
+    :func:`singular_strata_from_polynomial` leaves any piece undecided (a ``reason`` set) or
+    ``complete`` is False, when an Euler characteristic is undecided, and when H is not
+    transverse to a piece. ``reason`` then says why, and ``total`` is None where the sum is
+    partial.
+
+    Parameters
+    ----------
+    polynomial, variables, point, scale
+        As for :func:`singular_strata_from_polynomial`. The Newton polytope of G at the point
+        must be full-dimensional.
+    seed
+        Seed of the strata, the random exponents of the counts and the coefficients of H.
+    timeout
+        The most seconds each Singular or msolve run gets, at most 2,000,000.
+    backend
+        "singular" or "msolve", for the counts of critical points of the Euler characteristics
+        and of |chi|; the decompositions stay in Singular.
+
+    Raises
+    ------
+    RuntimeError
+        If Singular, or msolve for ``backend="msolve"``, is not installed.
+    ValidationError
+        If the arguments are not as for :func:`singular_strata_from_polynomial`, ``backend``
+        is neither "singular" nor "msolve", or the Newton polytope is not full-dimensional.
+    ComputationError
+        If the counts of critical points at the two seeds differ, or a solver fails in a way
+        other than being undecided.
+    """
+    return _stratum_sum(polynomial, variables, point, scale, seed, timeout, backend)
+
+
+def stratum_sum(
+    integral: FeynmanIntegral,
+    point: Mapping[sp.Expr, int | Fraction] | None = None,
+    *,
+    seed: int = 0,
+    timeout: float = 120,
+    backend: str = "singular",
+) -> StratumSum:
+    """The stratum sum for G = U + F of an integral at a rational kinematic point.
+
+    The point is keyed as :attr:`~feynkit.point_count.TorusCount.point` gives it, with the
+    energy scale set to 1. See :func:`stratum_sum_from_polynomial` for the arguments, the
+    errors and when ``agrees`` is None, and :class:`StratumSum` for the identity.
+
+    Raises
+    ------
+    ValidationError
+        Also if the integral has kinematic constraints, which are not applied.
+    """
+    if integral.kinematic_constraints:
+        raise ValidationError(
+            "stratum_sum does not apply kinematic_constraints; substitute them in the "
+            "momentum products"
+        )
+    sym = integral.symanzik
+    return _stratum_sum(
+        sym.g, list(sym.lp_parameters), point, integral.graph.energy_scale, seed, timeout, backend
     )

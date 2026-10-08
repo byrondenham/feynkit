@@ -157,6 +157,26 @@ def test_a_boundary_point_with_a_morse_fibre(method: str) -> None:
 
 @requires_singular
 @pytest.mark.parametrize("method", METHODS)
+def test_a_morse_point_times_a_line(method: str) -> None:
+    """G = ((x - 1)^2 + y^2 + y^3)(1 + z), N = 3, with the face y = 0 and the point
+    (x, z) = (1, 1), where 1 + z = 2 is a unit. The critical locus of g is a line (the z
+    direction), transversally the Morse point of the previous test.
+
+    A suspension does not change the Milnor fibre up to homotopy, so the terms are those of
+    the previous test: chi~ = -1 for I = {} and +1 for I = {1}, beta = -2, but now
+    mu^T = (-1)^(3 - 1) (-2) = -2.
+    """
+    g = (X - 1) ** 2 * (1 + Z) + Y**2 * (1 + Z) + Y**3 * (1 + Z)
+    face = [m for m in terms_of(g, [X, Y, Z]) if m[1] == 0]
+    result = torus_cut_milnor_number(g, [X, Y, Z], face, [1, 1], method=method)
+    assert result.reason is None
+    assert (result.beta, result.value) == (-2, -2)
+    if method == "smooth chart":
+        assert dict(result.terms) == {(): -1, (0,): 1}
+
+
+@requires_singular
+@pytest.mark.parametrize("method", METHODS)
 def test_a_germ_nonzero_in_y_only(method: str) -> None:
     """G = (x - 1)^2 + y with face y = 0: g = s^2 + y is a submersion in y, so the restriction
     to y = 0 is s^2 with chi~ = 1 and beta = 0 - 1 = -1, mu^T = (-1)^1 (-1) = 1.

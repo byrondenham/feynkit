@@ -1175,12 +1175,13 @@ def torus_cut_milnor_number(
     A cone that is not smooth is not handled; the result is then undecided.
 
     "smooth chart" (the default). T is the set where no y_i vanishes, and near x the
-    coordinates t do not vanish. Inclusion and exclusion over the closed sets {y_I = 0},
-    I a subset of the r coordinates y, expresses the constructible function of T, so that,
-    since nearby cycles are exact and their stalks are cohomology of the Milnor fibre
-    (Dim04, Def. 4.2.1 and Prop. 4.2.2, p. 103; the support of vanishing cycles is
-    Prop. 4.2.8, p. 107; and Matsui and Takeuchi, arXiv:0809.3148 (MT11), (3.7)-(3.8),
-    p. 10),
+    coordinates t do not vanish. The stalk at x of the nearby cycles of g on the constant
+    sheaf of a closed analytic set Z is the cohomology of F_x intersected with Z (Dim04,
+    Def. 4.2.1 and Prop. 4.2.2, p. 103), and Matsui and Takeuchi, arXiv:0809.3148
+    (MT11), (3.7)-(3.8), p. 10, write chi(F_x intersected with a locally closed orbit) as
+    the Euler characteristic of that stalk. Inclusion and exclusion over the closed sets
+    {y_I = 0}, I a subset of the r coordinates y, writes the indicator function of T as
+    a signed sum of their indicator functions, and Euler characteristics add, so
 
         beta(x) = sum over I of (-1)^|I| chi~(F_x(g|y_I = 0)),
 

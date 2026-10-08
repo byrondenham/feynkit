@@ -1,9 +1,10 @@
 """Tests for feynkit.strata.torus_euler_characteristic.
 
 Oracles: Kouchnirenko's theorem on random full-support polynomials (Invent. Math. 32 (1976)
-1-31, Thm IV, p. 30), the conics of Telen and Weinstein, "Euler stratification of hypersurface
-families", Ex. 1.2, p. 2, hand computations on curves and point sets whose pieces are read off
-a parametrisation, both backends against each other, and stubbed runs for the error paths.
+1-31, Thm IV, p. 30), the conics of Telen and Wiesmann, "Euler stratifications of hypersurface
+families" (arXiv:2407.18176), Ex. 1.2, p. 2, hand computations on curves and point sets whose
+pieces are read off a parametrisation, both backends against each other, and stubbed runs for
+the error paths.
 """
 
 from __future__ import annotations
@@ -101,16 +102,16 @@ class TestKouchnirenko:
 @requires_singular
 @pytest.mark.parametrize("backend", BACKENDS)
 class TestConics:
-    """chi(V(f) cap T) for f = z0 + z1 x + z2 y + z3 x^2 + z4 x y + z5 y^2 (TW24, Ex. 1.2, p. 2)."""
+    """chi(V(f) cap T) for f = z0 + z1 x + z2 y + z3 x^2 + z4 x y + z5 y^2 (Telen and Wiesmann, Ex. 1.2, p. 2)."""
 
     MONOMIALS = [1, X, Y, X**2, X * Y, Y**2]
 
     @pytest.mark.parametrize(
         ("z", "value"),
         [
-            # -4 off the principal A-determinant E_A of Eq. (5), -3 at a generic point of each
+            # -4 off the principal A-determinant E_A of Eq. (5) there, -3 at a generic point of each
             # of its seven components: z0, z3 and z5, z1^2 = 4 z0 z3, z2^2 = 4 z0 z5,
-            # z4^2 = 4 z3 z5 and the cubic Delta of Eq. (3).
+            # z4^2 = 4 z3 z5 and the cubic Delta of Eq. (3) there.
             ((3, 5, 7, 11, 13, 17), -4),
             ((0, 5, 7, 11, 13, 17), -3),
             ((3, 5, 7, 0, 13, 17), -3),

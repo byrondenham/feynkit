@@ -597,7 +597,10 @@ class Stratum:
         "smooth chart" if the normal cone of the face is smooth and mu^T comes from the chart
         of the face, "subdivision" if it is not and mu^T is the sum over the orbits of a
         smooth subdivision of the cone, pushed forward to the orbit of the face; None where the
-        face is undecided before either is chosen.
+        face is undecided before either is chosen. On a subdivided face only the pieces of
+        dimension 0 can be decided: the candidates for the jumps of beta come from the corner
+        charts of the subdivision only, and jumps inside the exceptional fibre are not yet
+        located, so every piece of positive dimension carries a reason.
     """
 
     face: tuple[int, ...]
@@ -768,7 +771,12 @@ class _Point:
     field: NumberField | None = None
 
 
-_GENERATOR = sp.Symbol("a")
+_GENERATOR = sp.Dummy("a")
+
+_CORNER_ONLY = (
+    "on a subdivided face the candidates come from the corner charts only, and jumps of the "
+    "fibre integral inside the exceptional fibre are not yet located"
+)
 
 # The most random linear forms tried when looking for a primitive element of a set of points.
 _SHAPE_TRIES = 6
@@ -1022,7 +1030,13 @@ class _Face:
         return parts, kind, reasons, polar
 
     def candidates(self, index: int) -> list[_Comp]:
-        """The components of the jump candidates of the member."""
+        """The components of the jump candidates of the member.
+
+        The union runs over the sections of the face. On a subdivided face these are the corner
+        charts of the subdivision only: jumps of the fibre integral that come from inside the
+        exceptional fibre are not located, and :meth:`strata` marks the positive-dimensional
+        pieces undecided for that reason.
+        """
         member = self.members[index]
         comp = member.comp
         parts = self.singular_part(comp)
@@ -1284,6 +1298,8 @@ class _Face:
                 reasons += self.candidate_reasons.get(j, [])
             lower = [j for j in range(count) if (j, i) in relation and owner[j] != i]
             removed = [j for j in lower if not any((j, m) in relation for m in lower if m != j)]
+            if self.method == "subdivision" and comps[i].dim > 0:
+                reasons.append(_CORNER_ONLY)
             reason = "; ".join(reasons) or None
             beta = self.members[i].beta
             out.append(
@@ -1403,8 +1419,13 @@ class _OrbitStrata:
         ------
         ComputationError
             Starting with "undecided: ", if a stratum that meets the fibre is undecided or an
-            Euler characteristic is.
+            Euler characteristic is, or if the condition (H) failed in the orbit.
         """
+        if self.face.failures:
+            raise _undecided(
+                "the condition on the polar varieties failed in the orbit: "
+                f"{self.face.failures[0].reason}"
+            )
         fixed = {
             self.names[i]: sp.Rational(q.numerator, q.denominator) for i, q in enumerate(point)
         }
@@ -1630,7 +1651,8 @@ def _non_smooth(
     the members come from the candidates of the charts of all the pieces, and beta at a point of
     a member is the push-forward sum of :func:`_pushed_forward_beta`, with the subdivision of
     seed ``seed + n`` for the n-th point, so that the two points of a member also compare two
-    subdivisions. ``complete`` is not claimed on such a face.
+    subdivisions. ``complete`` is not claimed on such a face. The candidates come from the corner
+    charts only, so every piece of positive dimension is undecided and only points carry a value.
     """
     coordinates = lattice_coordinates(list(exps))
     d = len(coordinates[0])
@@ -1758,6 +1780,11 @@ def singular_strata_from_polynomial(
     ``seed`` and ``seed + 1``, which must agree; the pieces are then ``method="subdivision"``,
     listed in :attr:`StrataAnalysis.subdivided`, and ``complete`` is False. A member with
     fewer than two rational points, or a point over a number field, is undecided there.
+    On a subdivided face the candidate set comes from the corner charts only, and jumps of the
+    fibre integral that come from inside the exceptional fibre are not yet located; every
+    piece of positive dimension is therefore undecided (it has a ``reason``), and only the
+    pieces of dimension 0 carry a value. The same holds if the condition on the polar
+    varieties fails inside an orbit of the subdivision: beta is then undecided.
 
     Parameters
     ----------

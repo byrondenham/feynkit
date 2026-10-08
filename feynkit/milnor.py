@@ -1089,7 +1089,8 @@ def milnor_fibre_euler_characteristic(
 
 # --- the torus cut ------------------------------------------------------------------------------
 
-TorusMethod = Literal["smooth chart", "newton", "subdivision"]
+TorusMethod = Literal["smooth chart", "newton"]
+_ResultMethod = Literal["smooth chart", "newton", "subdivision"]
 
 _UNDECIDED = "undecided: "
 
@@ -1125,10 +1126,10 @@ class TorusCutMilnorNumber:
         :func:`torus_cut_milnor_number`), each by Lê's attaching theorem
         (:func:`milnor_fibre_euler_characteristic`). "newton": the sum of Euler
         characteristics of orbit pieces from the Newton polyhedron of g (Matsui and
-        Takeuchi, Cor. 3.6 with Rem. 3.7). "subdivision": not computed here; the result
-        of :func:`~feynkit.strata.singular_strata` at a face whose cone is not smooth, the
-        integral of the smooth-chart value over the fibre of a smooth subdivision of the cone
-        (``terms`` is then empty).
+        Takeuchi, Cor. 3.6 with Rem. 3.7). "subdivision": never returned by
+        :func:`torus_cut_milnor_number`; the strata code uses it internally for a face whose
+        cone is not smooth, where mu^T is the integral of the smooth-chart value over the
+        fibre of a smooth subdivision of the cone (``terms`` is then empty).
     terms
         Pairs (subset, number), sorted by subset. For "smooth chart" the subset is I,
         a tuple of indices of the y coordinates counted from 0, and the number is
@@ -1151,14 +1152,14 @@ class TorusCutMilnorNumber:
 
     value: int | None
     beta: int | None
-    method: TorusMethod
+    method: _ResultMethod
     terms: tuple[tuple[tuple[int, ...], int], ...]
     prime: int | None
     reason: str | None
     chart: OrbitChart | None = None
 
 
-def _undecided(method: TorusMethod, reason: str) -> TorusCutMilnorNumber:
+def _undecided(method: _ResultMethod, reason: str) -> TorusCutMilnorNumber:
     return TorusCutMilnorNumber(None, None, method, (), None, reason)
 
 

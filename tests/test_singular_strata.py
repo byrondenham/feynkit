@@ -321,8 +321,8 @@ def test_a_curve_of_singular_points_on_a_non_smooth_two_face(seed: int) -> None:
     """G = (x + y - 1)^2 + z + w + z^2/w. The face on the exponents of x and y is a polygon with
     the cone spanned by (0, 0, 1, 0) and (0, 0, 1, 2) in the chart, which is not smooth. Its
     polynomial has a double line x + y = 1 of singular points in the orbit, a curve with two
-    points, each of dimension 1 or more: the curve is decided at two points by the
-    push-forward, with the fibres integrated by Euler characteristic, and has mu^T = -2."""
+    points, each of dimension 1 or more. The candidates of a subdivided face come from the corner
+    charts only, so the curve is undecided, with a reason that says so, and has no mu^T."""
     x, y, z, w = sp.symbols("x y z w")
     g = sp.expand((x + y - 1) ** 2 + z + w + z**2 / w)
     # The exponents of x, y with z = 0 and w = 1 (g * w shifts the exponent of w by one).
@@ -331,9 +331,72 @@ def test_a_curve_of_singular_points_on_a_non_smooth_two_face(seed: int) -> None:
     assert len(indices) == 6
     a = singular_strata_from_polynomial(g, [x, y, z, w], faces=[indices], timeout=120, seed=seed)
     curves = by_dimension(a)[1]
-    assert len(curves) == 1 and curves[0].reason is None
-    assert curves[0].mu_t == -2 and curves[0].method == "subdivision"
+    assert len(curves) == 1 and curves[0].mu_t is None
+    assert "corner charts only" in (curves[0].reason or "")
+    assert curves[0].method == "subdivision"
     assert not a.complete and a.subdivided == (tuple(indices),)
+
+
+@requires_singular
+def test_a_jump_inside_the_exceptional_fibre_leaves_the_curve_undecided() -> None:
+    """G = (1 + x + y)^2 + z (1 + x w + w^2), face z = w = 0 with the non-smooth cone spanned by
+    (0, 1) and (2, -1). Over the line 1 + x + y = 0 the interior ray contributes the number of
+    distinct roots w of 1 + x w + w^2, which is 2 except at x = +-2. A corner chart does not see
+    that jump, so no piece of positive dimension may be decided; beta differs between the
+    points (0, -1) and (2, -3) of the line."""
+    x, y, z, w = sp.symbols("x y z w")
+    variables = [x, y, z, w]
+    g = sp.expand((1 + x + y) ** 2 + z * (1 + x * w + w**2))
+    data = polytope_data(sorted(sp.Poly(g, *variables).monoms()))
+    key = next(
+        tuple(idx)
+        for dim, idx in data.faces
+        if dim == 2 and all(data.points[i][2] == 0 and data.points[i][3] == 0 for i in idx)
+    )
+    a = singular_strata_from_polynomial(g, variables, faces=[list(key)], timeout=60)
+    assert a.strata and not a.complete
+    positive = [s for s in a.strata if s.dimension and s.dimension > 0]
+    assert positive and all(s.mu_t is None and s.reason for s in positive)
+    terms = {m: Fraction(int(c)) for m, c in sp.Poly(g, *variables).terms()}
+    cover = strata_module._Cover(data, key, normal_cone(data, key), terms, 0, 60)
+    singular = _singular_binary()
+    betas = [
+        strata_module._pushed_forward_beta(
+            cover, [Fraction(c) for c in q], seed=0, timeout=60, singular=singular  # type: ignore[arg-type]
+        )[0]
+        for q in ((0, -1), (2, -3))
+    ]
+    assert betas == [2, 1]
+
+
+@requires_singular
+def test_a_failure_of_the_condition_in_an_orbit_leaves_beta_undecided() -> None:
+    """G = ((x - 1)^2 - (y - 1)^3)^2 + z + w + z^2/w on the face of x and y, which has a
+    non-smooth cone. In the orbits of the subdivision the cuspidal cylinder is singular along
+    the line x = y = 1, so the condition fails there and the point (1, 1) has no value."""
+    x, y, z, w = sp.symbols("x y z w")
+    g = sp.expand((((x - 1) ** 2 - (y - 1) ** 3) ** 2) + z + w + z**2 / w)
+    points = points_of(g * w, [x, y, z, w])
+    indices = [i for i, p in enumerate(points) if p[2] == 0 and p[3] == 1]
+    a = singular_strata_from_polynomial(g, [x, y, z, w], faces=[indices], timeout=120)
+    (origin,) = [
+        s
+        for s in a.strata
+        if s.dimension == 0 and {str(e) for e in s.generators} == {"t1 - 1", "t2 - 1"}
+    ]
+    assert origin.mu_t is None
+    assert "failed in the orbit" in (origin.reason or "")
+
+
+@requires_singular
+@pytest.mark.parametrize("name", ["a", "x1"])
+def test_a_variable_named_like_the_field_generator_is_allowed(name: str) -> None:
+    """A member with a point over a number field must work whatever the variable is called."""
+    v = sp.Symbol(name)
+    g = sp.expand((v**2 - 2) ** 2 * (v + 1))
+    a = analyse(g, [v])
+    assert a.complete
+    assert sorted((s.dimension, s.degree, s.mu_t) for s in a.strata) == [(0, 2, 1)]
 
 
 @requires_singular

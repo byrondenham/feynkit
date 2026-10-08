@@ -40,6 +40,7 @@ from __future__ import annotations
 import itertools
 import math
 import random
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
@@ -493,7 +494,7 @@ def _triangulate(
 
 
 def smooth_subdivision(
-    cone: NormalCone, *, seed: int = 0, max_cones: int = 5000
+    cone: NormalCone, *, seed: int = 0, max_cones: int = 5000, timeout: float | None = None
 ) -> tuple[NormalCone, ...]:
     """A subdivision of a pointed cone into smooth cones, using the face's rays and new ones.
 
@@ -519,14 +520,18 @@ def smooth_subdivision(
         The seed of the random lifting and of the choice of points.
     max_cones
         The most cones the fan may have along the way.
+    timeout
+        The most seconds to spend, checked once for each star subdivision; None, the
+        default, sets no limit. The cap max_cones bounds the number of cones, not the time.
 
     Raises
     ------
     ValidationError
         If cone is not a NormalCone, or seed or max_cones is not an integer.
     ComputationError
-        If no generic lifting is found in 50 tries, or the fan passes
-        max_cones cones; the message then starts with ``undecided: ``.
+        If no generic lifting is found in 50 tries, the fan passes
+        max_cones cones, or the time passes ``timeout``; the message then starts with
+        ``undecided: ``.
     """
     if not isinstance(cone, NormalCone):
         raise ValidationError("cone must be a NormalCone")
@@ -538,10 +543,19 @@ def smooth_subdivision(
     for r in cone.rays:
         if len(r) != d:
             raise ValidationError(f"every ray must have {d} entries")
+    if timeout is not None and (
+        isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not timeout > 0
+    ):
+        raise ValidationError("timeout must be a number of seconds greater than 0, or None")
+    deadline = None if timeout is None else time.monotonic() + timeout
     rng = random.Random(seed)
     cones = _triangulate(cone.rays, rng)
     multiplicity = {c: _multiplicity(c, d) for c in cones}
     while True:
+        if deadline is not None and time.monotonic() > deadline:
+            raise ComputationError(
+                f"undecided: the subdivision passed timeout={timeout} s before it was smooth"
+            )
         if len(cones) > max_cones:
             raise ComputationError(
                 f"undecided: the subdivision passed {max_cones} cones before it was smooth"

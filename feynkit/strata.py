@@ -1,5 +1,10 @@
 """
-Euler characteristics of subvarieties of the torus.
+Euler characteristics of subvarieties of the torus, and the strata of the singular locus of a
+face polynomial.
+
+:func:`singular_strata` and :func:`singular_strata_from_polynomial` cut the singular locus of
+the polynomial on the orbit of every face of the Newton polytope into locally closed pieces on
+which the torus-cut Milnor number is constant; see :class:`StrataAnalysis`.
 
 :func:`torus_euler_characteristic` computes chi((V(I) cap T) minus V(h)), the topological
 Euler characteristic of the closed subvariety V(I) of the torus T = (C^*)^d with the
@@ -39,22 +44,39 @@ starts with "undecided: " and goes on with the reason.
 
 from __future__ import annotations
 
+import itertools
 import math
 import random
 import re
 import subprocess
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import sympy as sp
 
 from .core.exceptions import ComputationError, ValidationError
+from .degeneracy import _support
 from .landau import _check_timeout, _singular_binary
+from .milnor import torus_cut_milnor_number
 from .point_count import _msolve_binary, _msolve_count, _singular_polynomial
+from .polytope import lattice_coordinates, polytope_data
+from .toric import OrbitChart, normal_cone, orbit_chart
 
-__all__ = ["torus_euler_characteristic"]
+if TYPE_CHECKING:
+    from .integral import FeynmanIntegral
+
+__all__ = [
+    "ConditionFailure",
+    "StrataAnalysis",
+    "Stratum",
+    "singular_strata",
+    "singular_strata_from_polynomial",
+    "torus_euler_characteristic",
+]
 
 # Primes stay below 2^29, where Singular's prime fields work in every ring and msolve 0.10.1
 # (which fails above about 1.5e9) runs in little memory.
@@ -77,6 +99,37 @@ class _Component:
 
 def _undecided(reason: str) -> ComputationError:
     return ComputationError(f"undecided: {reason}")
+
+
+def _singular_run(text: str, singular: str, timeout: float) -> str:
+    """What Singular prints for the script text.
+
+    Raises
+    ------
+    ComputationError
+        If Singular runs past the timeout, exits with an error status or reports an error.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "strata.sing"
+        path.write_text(text)
+        try:
+            run = subprocess.run(
+                [singular, "-q", "--no-warn", str(path)],
+                capture_output=True,
+                text=True,
+                errors="replace",
+                check=False,
+                timeout=timeout,
+                cwd=tmp,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise _undecided(f"Singular ran past timeout={timeout} s") from exc
+    # Singular reports an error in the script on stdout, after a question mark.
+    error = next((line for line in run.stdout.splitlines() if line.lstrip().startswith("?")), None)
+    if run.returncode != 0 or error is not None:
+        reason = " ".join((error or run.stderr).split())[:100] or f"exit status {run.returncode}"
+        raise _undecided(f"Singular failed: {reason}")
+    return run.stdout
 
 
 class _Run:
@@ -118,31 +171,9 @@ class _Run:
         ComputationError
             If Singular runs past the timeout, exits with an error status or reports an error.
         """
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "strata.sing"
-            path.write_text(_HEADER + self.ring() + script + "quit;\n")
-            try:
-                run = subprocess.run(
-                    [self.singular, "-q", "--no-warn", str(path)],
-                    capture_output=True,
-                    text=True,
-                    errors="replace",
-                    check=False,
-                    timeout=self.timeout,
-                    cwd=tmp,
-                )
-            except subprocess.TimeoutExpired as exc:
-                raise _undecided(f"Singular ran past timeout={self.timeout} s") from exc
-        # Singular reports an error in the script on stdout, after a question mark.
-        error = next(
-            (line for line in run.stdout.splitlines() if line.lstrip().startswith("?")), None
+        return _singular_run(
+            _HEADER + self.ring() + script + "quit;\n", self.singular, self.timeout
         )
-        if run.returncode != 0 or error is not None:
-            reason = (
-                " ".join((error or run.stderr).split())[:100] or f"exit status {run.returncode}"
-            )
-            raise _undecided(f"Singular failed: {reason}")
-        return run.stdout
 
     def msolve_count(self, names: Sequence[str], system: str) -> int:
         """The number of solutions of the system modulo the prime, with multiplicity.
@@ -504,3 +535,892 @@ def torus_euler_characteristic(
             f"modulo {primes[1]}"
         )
     return values[0]
+
+
+# --- singular strata ---------------------------------------------------------------------------
+
+# The most members a face may have before the closure gives up.
+_MAX_MEMBERS = 120
+
+# How many random fibres are tried when looking for rational points on a member.
+_POINT_TRIES = 15
+
+
+@dataclass(frozen=True)
+class Stratum:
+    """A locally closed piece of the singular locus of a face polynomial.
+
+    Let F be a face of the Newton polytope P of G, O_F its torus orbit, with coordinates
+    t_1, ..., t_d in the chart of :class:`~feynkit.toric.OrbitChart`, and Sing_F the singular
+    locus of the face polynomial in O_F. The piece is the closure V(generators) in O_F, less
+    the closures V(removed) of the smaller pieces inside it, so that mu^T is constant on it.
+
+    Attributes
+    ----------
+    face
+        The point indices of F, as in :attr:`StrataAnalysis.points`.
+    dimension
+        The dimension of the closure, or None if the face itself is undecided.
+    generators
+        Generators over Q of the prime ideal of the closure in the coordinates t_1, ..., t_d,
+        as symbols t1, ..., td; empty if the face is undecided.
+    degree
+        The degree of the closure: the number of points of a closure of dimension 0, and for
+        higher dimension the multiplicity of its ideal for a degree ordering. None if the face
+        is undecided.
+    removed
+        The generators of each closed set removed from the closure.
+    mu_t
+        mu^T on the piece, (-1)^(N-1) beta, N the dimension of P, and None if undecided. See
+        :class:`~feynkit.milnor.TorusCutMilnorNumber`.
+    euler
+        Reserved for the Euler characteristic of the piece; always None here.
+    chart
+        The chart of the face in which the piece was computed, None if there is none.
+    reason
+        Why the piece is undecided, or None. When set, ``mu_t`` is None.
+    """
+
+    face: tuple[int, ...]
+    dimension: int | None
+    generators: tuple[sp.Expr, ...]
+    degree: int | None
+    removed: tuple[tuple[sp.Expr, ...], ...]
+    mu_t: int | None
+    euler: int | None
+    chart: OrbitChart | None
+    reason: str | None
+
+
+@dataclass(frozen=True)
+class ConditionFailure:
+    """A member and coordinate subset at which the criterion of :class:`StrataAnalysis` fails.
+
+    Attributes
+    ----------
+    face
+        The point indices of the face.
+    dimension
+        The dimension of the member.
+    generators
+        Generators of the prime ideal of the member, as in :class:`Stratum`.
+    coordinates
+        The set I of the normal coordinates, counted from 0, that are set to 0.
+    reason
+        What fails.
+    """
+
+    face: tuple[int, ...]
+    dimension: int
+    generators: tuple[sp.Expr, ...]
+    coordinates: tuple[int, ...]
+    reason: str
+
+
+@dataclass(frozen=True)
+class StrataAnalysis:
+    """The singular strata of every face of the Newton polytope, from
+    :func:`singular_strata_from_polynomial`.
+
+    For each face F of the Newton polytope P of G, the top face included, the singular locus of
+    the face polynomial in the orbit O_F is cut into locally closed pieces on which the
+    torus-cut Milnor number mu^T of :func:`~feynkit.milnor.torus_cut_milnor_number` is
+    constant, with its value on each. Faces whose singular locus is empty have none.
+
+    The pieces come from members: the prime components of the singular locus, and, level by
+    level, the components of the jump candidates of the members of positive dimension and of
+    the intersections of the members. For a member A and a subset I of the normal coordinates
+    y of the chart, let f_I be the local equation g restricted to y_I = 0. The candidates
+    follow the jump loci of the Euler characteristic of the Milnor fibre of f_I along A, after
+    Massey's Le cycles: the singular locus of A; A meets the critical locus of f_I; where A is
+    inside it, the singular loci of the components of the critical locus through A, the other
+    components, and the traces on A of the polar varieties and Le cycles of f_I for a random
+    flag of coordinates. beta is computed at two rational points of each member, which must
+    agree, and a member joins the piece of the smallest member containing it, when that is
+    unique, if they have the same value. Where the critical locus has a component through A
+    that is singular along A, or the polar variety of that component contains A, the
+    condition below fails.
+
+    ``complete`` is True exactly when every member of positive dimension satisfies the
+    following condition for every subset I of the normal coordinates, every chart used is
+    smooth, and no piece is undecided. Let Crit(f_I) be the critical locus of f_I in the
+    torus. The member A, of dimension k, satisfies it for I when
+    A is not inside Crit(f_I); or A is an irreducible component of Crit(f_I); or every
+    irreducible component of Crit(f_I) through A is smooth at the generic point of A and
+    either has dimension at most k + 1, or has dimension s > k + 1 with A outside the polar
+    variety of f_I of dimension s for two random flags. This is feynkit's sufficient criterion
+    for the candidate set to contain every jump of the Euler characteristic of the Milnor
+    fibre of f_I along A; with it beta is constant on every piece. It rests on the Le cycles
+    and Le numbers of D. B. Massey (Le Cycles and Hypersurface Singularities, Lecture Notes in
+    Mathematics 1615, Springer 1995, Def. 1.26, p. 26, on prepolar coordinates and Thm 1.28,
+    p. 27, on their existence for generic coordinates; Non-isolated hypersurface singularities
+    and Le cycles, arXiv:1410.3312, Thm 2.23, p. 14, and Thm 4.1, p. 22, on the Milnor fibre
+    as a complex with cells attached in numbers given by the Le numbers). It is a criterion for
+    generic flags over Q, applied with one random flag per pair.
+
+    Attributes
+    ----------
+    points
+        The exponent vectors of the support, in the order of the point indices that name faces.
+    strata
+        The pieces, by face and then by decreasing dimension.
+    primes
+        The primes of the Le computations behind the values of mu^T, in increasing order. The
+        decompositions are exact, over Q.
+    seed
+        The seed.
+    complete
+        As above.
+    failures
+        The members and subsets at which the condition fails, and so why ``complete`` is
+        False when it is not because a piece is undecided.
+    """
+
+    points: tuple[tuple[int, ...], ...]
+    strata: tuple[Stratum, ...]
+    primes: tuple[int, ...]
+    seed: int
+    complete: bool
+    failures: tuple[ConditionFailure, ...] = ()
+
+
+@dataclass(frozen=True)
+class _Comp:
+    """A prime component over Q of a closed set of a torus."""
+
+    gens: str
+    dim: int
+    degree: int
+    key: str
+
+
+@dataclass
+class _Member:
+    comp: _Comp
+    beta: int | None = None
+    primes: tuple[int, ...] = ()
+    reason: str | None = None
+    points_used: int = 0
+
+
+def _poly(terms: Mapping[tuple[int, ...], Fraction], names: Sequence[str]) -> str:
+    """The polynomial with the given exponents and coefficients, as Singular reads it."""
+    pieces = []
+    for exponent, c in terms.items():
+        monomial = "*".join(f"{n}^{e}" for n, e in zip(names, exponent, strict=True) if e)
+        coefficient = f"({c.numerator}/{c.denominator})"
+        pieces.append(f"{coefficient}*{monomial}" if monomial else coefficient)
+    return "+".join(pieces) or "0"
+
+
+def _parse(gens: str, names: Sequence[str]) -> tuple[sp.Expr, ...]:
+    """The comma-separated polynomials Singular printed, as expressions in symbols of names."""
+    local = {n: sp.Symbol(n) for n in names}
+    out = []
+    depth, start = 0, 0
+    for i, ch in enumerate(gens + ","):
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            text = gens[start:i].strip()
+            start = i + 1
+            if text:
+                out.append(sp.parse_expr(text.replace("^", "**"), local_dict=local))
+    return tuple(out)
+
+
+def _random_flag(rng: random.Random, n: int) -> str:
+    return ",".join(str(rng.randint(1, 997)) for _ in range(n * n))
+
+
+class _Face:
+    """The strata of one face in a smooth chart C^r_y x (C^*)^d_t."""
+
+    def __init__(
+        self,
+        *,
+        key: tuple[int, ...],
+        chart: OrbitChart,
+        local: Mapping[tuple[int, ...], Fraction],
+        polynomial: sp.Expr,
+        variables: Sequence[sp.Symbol],
+        face_points: Sequence[tuple[int, ...]],
+        sign: int,
+        seed: int,
+        timeout: float,
+        singular: str,
+    ) -> None:
+        self.key = key
+        self.chart = chart
+        self.d = chart.torus_dimension
+        self.r = chart.normal_dimension
+        shift = [max(0, -min(e[a] for e in local)) for a in range(self.d)]
+        self.g = {
+            tuple(e[a] + shift[a] for a in range(self.d)) + tuple(e[self.d :]): c
+            for e, c in local.items()
+        }
+        self.tnames = [f"t{i + 1}" for i in range(self.d)]
+        self.ynames = [f"y{j + 1}" for j in range(self.r)]
+        self.product = "*".join(self.tnames)
+        self.polynomial = polynomial
+        self.variables = tuple(variables)
+        self.face_points = [tuple(p) for p in face_points]
+        self.sign = sign
+        self.seed = seed
+        self.timeout = timeout
+        self.singular = singular
+        self.failures: list[ConditionFailure] = []
+        self.members: list[_Member] = []
+        self.candidate_reasons: dict[int, list[str]] = {}
+
+    # -- Singular ------------------------------------------------------------------------------
+
+    def run(self, script: str, names: Sequence[str] | None = None) -> str:
+        ring = f"ring R = 0, ({','.join(names or self.tnames)}), dp;\n"
+        return _singular_run(_HEADER + ring + script + "quit;\n", self.singular, self.timeout)
+
+    def components(self, gens: str, prefix: str = "") -> list[_Comp]:
+        """The prime components over Q of V(gens) in the torus of t."""
+        out = self.run(
+            f"{prefix}ideal Z = {gens};\n"
+            f"Z = sat(Z, ideal({self.product}));\n"
+            'if (dim(std(Z)) < 0) { print("EMPTY"); quit; }\n'
+            "list L = minAssGTZ(Z);\n"
+            "ideal C; ideal S;\n"
+            "option(redSB);\n"
+            "for (int i = 1; i <= size(L); i++) {\n"
+            "  C = simplify(L[i], 2); S = std(C);\n"
+            '  print("COMP " + string(dim(S)) + " " + string(mult(S)) + " " + string(S)'
+            ' + " ; " + string(C));\n'
+            "}\n"
+        )
+        if "EMPTY" in out:
+            return []
+        found = [
+            _Comp(m.group(4).strip(), int(m.group(1)), int(m.group(2)), m.group(3).strip())
+            for m in re.finditer(r"^COMP (-?\d+) (\d+) (.*) ; (.*)$", out, re.MULTILINE)
+        ]
+        if not found:
+            raise _undecided(f"Singular printed {out.strip()[:100]!r} instead of components")
+        return found
+
+    def inside(self, comps: Sequence[_Comp]) -> set[tuple[int, int]]:
+        """The pairs (i, j), i != j, with V(comps[i]) inside V(comps[j])."""
+        if len(comps) < 2:
+            return set()
+        lines = ["list G; list S; ideal Gj;"]
+        for i, c in enumerate(comps, start=1):
+            lines.append(f"G[{i}] = ideal({c.gens}); S[{i}] = std(G[{i}]);")
+        lines += [
+            f"int n = {len(comps)}; int i; int j; int jj; int ok;",
+            "for (i = 1; i <= n; i++) { for (j = 1; j <= n; j++) { if (i != j) {",
+            "  ok = 1; Gj = G[j];",
+            "  for (jj = 1; jj <= ncols(Gj); jj++) { if (reduce(Gj[jj], S[i]) != 0) { ok = 0; } }",
+            '  if (ok == 1) { print("IN " + string(i) + " " + string(j)); } } } }',
+        ]
+        out = self.run("\n".join(lines) + "\n")
+        return {
+            (int(m.group(1)) - 1, int(m.group(2)) - 1)
+            for m in re.finditer(r"^IN (\d+) (\d+)$", out, re.MULTILINE)
+        }
+
+    # -- the members -------------------------------------------------------------------------
+
+    def singular_locus(self) -> list[_Comp]:
+        terms = {e[: self.d]: c for e, c in self.g.items() if not any(e[self.d :])}
+        partials = ", ".join(f"diff(f, t{i + 1})" for i in range(self.d))
+        return self.components(f"f, {partials}", f"poly f = {_poly(terms, self.tnames)};\n")
+
+    def singular_part(self, member: _Comp) -> list[str]:
+        """The singular locus of the member, as ideals."""
+        out = self.run(
+            f"ideal A = {member.gens};\n"
+            f"ideal SC = sat(A + minor(jacob(A), {self.d - member.dim}), ideal({self.product}));\n"
+            'if (dim(std(SC)) >= 0) { print("CAND " + string(SC)); }\n'
+        )
+        return re.findall(r"^CAND (.*)$", out, re.MULTILINE)
+
+    def pair(
+        self, member: _Comp, subset: tuple[int, ...], flag: int
+    ) -> tuple[list[str], str, list[str], dict[int, bool]]:
+        """The jump candidates of the member for the coordinate subset, as ideals in t.
+
+        Returns the candidate ideals, the kind of the pair ("N" if the member is not inside the
+        critical locus, "K" if it is a component, "E" otherwise), the reasons the condition
+        fails, and, for each dimension j of a polar variety computed, whether the member lies
+        inside it.
+        """
+        d, r, k = self.d, self.r, member.dim
+        free = [j for j in range(r) if j not in subset]
+        names = [*self.tnames, *(f"y{j + 1}" for j in free)]
+        n = len(names)
+        terms = {
+            e[:d] + tuple(e[d + j] for j in free): c
+            for e, c in self.g.items()
+            if not any(e[d + j] for j in subset)
+        }
+        rng = random.Random(f"{self.seed}:{self.key}:{member.key}:{subset}:{flag}")
+        yprod = "*".join(f"y{j + 1}" for j in free)
+        partials = ", ".join(f"diff(f, var({c}))" for c in range(1, n + 1))
+        center = ", ".join([member.gens, *(f"y{j + 1}" for j in free)])
+
+        def candidate(expression: str) -> str:
+            eliminate = f"PT = eliminate(PT, {yprod}); " if free else ""
+            return (
+                f"PT = sat({expression}, ideal({self.product}));\n"
+                f'if (dim(std(PT)) >= 0) {{ {eliminate}print("CAND " + string(PT)); }}\n'
+            )
+
+        script = (
+            f"poly f = {_poly(terms, names)};\n"
+            f"ideal JI = {partials};\n"
+            f"ideal IC = {center};\nideal ICs = std(IC);\n"
+            "int i; int jj; int inC = 1; ideal PT;\n"
+            "for (i = 1; i <= ncols(JI); i++) { if (reduce(JI[i], ICs) != 0) { inC = 0; } }\n"
+            'if (inC == 0) {\n  print("CASE N");\n  ' + candidate("IC + JI") + "  quit;\n}\n"
+            'print("CASE C");\n'
+            f"ideal CR = sat(JI, ideal({self.product}));\n"
+            "list CC = minAssGTZ(CR);\n"
+            "int s = -1; int ncont = 0; int insing = 0; int dc; int ok2; int a; int h;\n"
+            "ideal Ca; ideal SMa; matrix JC;\n"
+            "for (a = 1; a <= size(CC); a++) {\n"
+            "  Ca = CC[a]; ok2 = 1;\n"
+            "  for (jj = 1; jj <= ncols(Ca); jj++) { if (reduce(Ca[jj], ICs) != 0) { ok2 = 0; } }\n"
+            "  if (ok2 == 1) {\n"
+            "    ncont++; dc = dim(std(Ca)); if (dc > s) { s = dc; }\n"
+            f"    if (dc < {n}) {{\n"
+            f"      JC = jacob(Ca); SMa = Ca + minor(JC, {n} - dc); ok2 = 1;\n"
+            "      for (jj = 1; jj <= ncols(SMa); jj++) {"
+            " if (reduce(SMa[jj], ICs) != 0) { ok2 = 0; } }\n"
+            "      if (ok2 == 1) { insing = 1; } else {\n        "
+            + candidate("IC + SMa")
+            + "      }\n"
+            "    }\n"
+            "  } else {\n    " + candidate("IC + Ca") + "  }\n"
+            "}\n"
+            'print("S " + string(s) + " " + string(ncont));\n'
+            'print("INSING " + string(insing));\n'
+            f"matrix RW[{n}][{n}] = {_random_flag(rng, n)};\n"
+            "intvec JJ;\n"
+            f"if (s == {k}) {{ JJ = {k}; }} else {{ if (s == {k + 1}) {{ JJ = {k}, {k + 1}; }}"
+            " else { JJ = s; } }\n"
+            "int jv; int b; int c; int q; ideal GM; ideal GC; list GL;\n"
+            "for (q = 1; q <= size(JJ); q++) {\n"
+            f"  jv = JJ[q]; matrix MP[jv + 1][{n}];\n"
+            f"  for (c = 1; c <= {n}; c++) {{ MP[1, c] = diff(f, var(c)); }}\n"
+            f"  for (b = 1; b <= jv; b++) {{ for (c = 1; c <= {n}; c++) {{ MP[b + 1, c] = RW[b, c]; }} }}\n"
+            f"  GM = sat(minor(MP, jv + 1), JI); GM = sat(GM, ideal({self.product}));\n"
+            "  ok2 = 1;\n"
+            "  for (jj = 1; jj <= ncols(GM); jj++) { if (reduce(GM[jj], ICs) != 0) { ok2 = 0; } }\n"
+            '  print("POLAR " + string(jv) + " " + string(ok2));\n'
+            "  if (ok2 == 0) {\n    " + candidate("IC + GM") + "  }\n"
+            f"  if (s == {k + 1} && jv == {k + 1}) {{\n"
+            f"    GC = sat(GM + JI, ideal({self.product}));\n"
+            "    if (dim(std(GC)) >= 0) {\n"
+            "      GL = minAssGTZ(GC);\n"
+            "      for (h = 1; h <= size(GL); h++) {\n"
+            "        Ca = GL[h]; ok2 = 1;\n"
+            "        for (jj = 1; jj <= ncols(Ca); jj++) {"
+            " if (reduce(Ca[jj], ICs) != 0) { ok2 = 0; } }\n"
+            "        if (ok2 == 0) {\n          " + candidate("IC + Ca") + "        }\n"
+            "      }\n"
+            "      kill GL;\n"
+            "    }\n"
+            "  }\n"
+            "  kill MP;\n"
+            "}\n"
+        )
+        out = self.run(script, names)
+        parts = re.findall(r"^CAND (.*)$", out, re.MULTILINE)
+        polar = {
+            int(a): b == "1" for a, b in re.findall(r"^POLAR (\d+) ([01])$", out, re.MULTILINE)
+        }
+        if "CASE N" in out:
+            return parts, "N", [], polar
+        found = re.search(r"^S (-?\d+) (\d+)$", out, re.MULTILINE)
+        if found is None or "CASE C" not in out:
+            raise _undecided(
+                f"Singular printed {out.strip()[:100]!r} instead of the critical locus"
+            )
+        s, count = int(found.group(1)), int(found.group(2))
+        reasons: list[str] = []
+        if s == k and count == 1:
+            kind = "K"
+        else:
+            kind = "E"
+            if re.search(r"^INSING 1$", out, re.MULTILINE):
+                reasons.append(
+                    "the member lies in the singular locus of a component of the critical locus"
+                )
+        if polar.get(k):
+            reasons.append("the member lies in the polar variety of its own dimension")
+        if s >= k + 2:
+            if polar.get(s) is None:
+                raise _undecided("no polar variety was computed")
+            if polar[s]:
+                reasons.append(f"the member lies in the polar variety of dimension {s}")
+        return parts, kind, reasons, polar
+
+    def candidates(self, index: int) -> list[_Comp]:
+        """The components of the jump candidates of the member."""
+        member = self.members[index]
+        comp = member.comp
+        parts = self.singular_part(comp)
+        failed: list[str] = []
+        for size in range(self.r + 1):
+            for subset in itertools.combinations(range(self.r), size):
+                try:
+                    found, kind, reasons, polar = self.pair(comp, subset, 0)
+                    big = [s for s in polar if s >= comp.dim + 2]
+                    if kind == "E" and big and not any(polar[s] for s in big):
+                        # Case (ii): a second flag must keep the member outside the polar
+                        # variety as well.
+                        again = self.pair(comp, subset, 1)
+                        if any(again[3].get(s) for s in big):
+                            reasons = [
+                                *reasons,
+                                "a second random flag puts the member in the polar variety",
+                            ]
+                except ComputationError as exc:
+                    if not str(exc).startswith("undecided: "):
+                        raise
+                    failed.append(f"coordinates {list(subset)}: {str(exc)[len('undecided: ') :]}")
+                    continue
+                parts += found
+                for text in reasons:
+                    self.failures.append(
+                        ConditionFailure(
+                            self.key, comp.dim, _parse(comp.gens, self.tnames), subset, text
+                        )
+                    )
+        if failed:
+            self.candidate_reasons.setdefault(index, []).extend(failed)
+        out: list[_Comp] = []
+        for part in parts:
+            try:
+                out += self.components(part)
+            except ComputationError as exc:
+                if not str(exc).startswith("undecided: "):
+                    raise
+                self.candidate_reasons.setdefault(index, []).append(
+                    f"a candidate set was not decomposed: {str(exc)[len('undecided: ') :]}"
+                )
+        return out
+
+    def closure(self) -> None:
+        """Build the members level by level."""
+        index: dict[str, int] = {}
+
+        def add(comp: _Comp) -> bool:
+            if comp.key in index:
+                return False
+            index[comp.key] = len(self.members)
+            self.members.append(_Member(comp))
+            return True
+
+        for comp in self.singular_locus():
+            add(comp)
+        frontier = list(range(len(self.members)))
+        while frontier:
+            pending: list[_Comp] = []
+            for i in frontier:
+                if self.members[i].comp.dim >= 1:
+                    pending += self.candidates(i)
+            relations = self.inside([m.comp for m in self.members])
+            for i in frontier:
+                for j in range(len(self.members)):
+                    if j == i or (j in frontier and j < i):
+                        continue
+                    if (i, j) in relations or (j, i) in relations:
+                        continue
+                    pending += self.components(
+                        f"{self.members[i].comp.gens}, {self.members[j].comp.gens}"
+                    )
+            frontier = []
+            for comp in pending:
+                if add(comp):
+                    frontier.append(len(self.members) - 1)
+            if len(self.members) > _MAX_MEMBERS:
+                raise _undecided(f"the face has more than {_MAX_MEMBERS} members")
+
+    # -- beta ----------------------------------------------------------------------------------
+
+    def points(self, comp: _Comp, avoid: Sequence[_Comp], want: int) -> list[tuple[Fraction, ...]]:
+        """Rational points on the member outside the members inside it, or fewer."""
+        rng = random.Random(f"{self.seed}:{self.key}:{comp.key}:points")
+        symbols = [sp.Symbol(n) for n in self.tnames]
+        avoiders = [_parse(a.gens, self.tnames) for a in avoid]
+        found: list[tuple[Fraction, ...]] = []
+        values = [Fraction(a, b) for a in range(-9, 10) if a for b in (1, 2, 3)]
+        for _ in range(_POINT_TRIES):
+            if len(found) >= want:
+                break
+            if comp.dim == 0:
+                fixed: list[str] = []
+            else:
+                chosen = rng.sample(range(self.d), comp.dim)
+                fixed = [
+                    f"t{j + 1} - ({(c := rng.choice(values)).numerator}/{c.denominator})"
+                    for j in chosen
+                ]
+            gens = ", ".join([comp.gens, *fixed])
+            for found_comp in self.components(gens):
+                if found_comp.dim != 0 or found_comp.degree != 1:
+                    continue
+                solutions = sp.solve(list(_parse(found_comp.key, self.tnames)), symbols, dict=True)
+                if len(solutions) != 1 or set(solutions[0]) != set(symbols):
+                    continue
+                point = [Fraction(int(solutions[0][s].p), int(solutions[0][s].q)) for s in symbols]
+                exact = {
+                    s: sp.Rational(v.numerator, v.denominator)
+                    for s, v in zip(symbols, point, strict=True)
+                }
+                if any(all(g.subs(exact) == 0 for g in gens_) for gens_ in avoiders):
+                    continue
+                if tuple(point) not in found and all(v != 0 for v in point):
+                    found.append(tuple(point))
+        return found
+
+    def beta(self, index: int, avoid: Sequence[_Comp]) -> None:
+        member = self.members[index]
+        comp = member.comp
+        want = 1 if comp.dim == 0 else 2
+        if comp.dim == 0 and comp.degree != 1:
+            member.reason = (
+                f"the member is {comp.degree} points over Q that are not rational: the Le "
+                "computations take rational points only"
+            )
+            return
+        try:
+            points = self.points(comp, avoid, want)
+        except ComputationError as exc:
+            if not str(exc).startswith("undecided: "):
+                raise
+            member.reason = f"no point was found: {str(exc)[len('undecided: ') :]}"
+            return
+        if len(points) < want:
+            member.reason = (
+                f"only {len(points)} rational points off the smaller members were found, "
+                f"{want} are needed"
+            )
+            return
+        values: list[int] = []
+        primes: list[int] = []
+        # A point is computed twice, with two seeds, when the member is a point.
+        for n, point in enumerate(points if comp.dim else points * 2):
+            result = torus_cut_milnor_number(
+                self.polynomial,
+                self.variables,
+                self.face_points,
+                list(point),
+                seed=self.seed + n,
+                timeout=self.timeout,
+                chart=self.chart,
+            )
+            if result.reason is not None or result.beta is None:
+                member.reason = f"beta at a point is undecided: {result.reason}"
+                return
+            values.append(result.beta)
+            if result.prime is not None:
+                primes.append(result.prime)
+        if len(set(values)) != 1:
+            member.reason = f"beta differs between points of the member: {values}"
+            return
+        member.beta = values[0]
+        member.primes = tuple(primes)
+
+    # -- the pieces --------------------------------------------------------------------------
+
+    def strata(self) -> list[Stratum]:
+        comps = [m.comp for m in self.members]
+        relation = self.inside(comps)
+        count = len(comps)
+        above = [{j for j in range(count) if (i, j) in relation} for i in range(count)]
+        for i in range(count):
+            avoid = [comps[j] for j in range(count) if (j, i) in relation]
+            self.beta(i, avoid)
+        parent: dict[int, int] = {}
+        for i in range(count):
+            minimal = [j for j in above[i] if not any(j in above[m] for m in above[i])]
+            if len(minimal) == 1:
+                j = minimal[0]
+                a, b = self.members[i], self.members[j]
+                if a.beta is not None and a.beta == b.beta:
+                    parent[i] = j
+
+        def root(i: int) -> int:
+            while i in parent:
+                i = parent[i]
+            return i
+
+        owner = [root(i) for i in range(count)]
+        out = []
+        for i in sorted(set(owner), key=lambda i: (-comps[i].dim, comps[i].key)):
+            absorbed = [j for j in range(count) if owner[j] == i]
+            reasons: list[str] = []
+            for j in absorbed:
+                if (own := self.members[j].reason) is not None:
+                    reasons.append(own)
+                reasons += self.candidate_reasons.get(j, [])
+            lower = [j for j in range(count) if (j, i) in relation and owner[j] != i]
+            removed = [j for j in lower if not any((j, m) in relation for m in lower if m != j)]
+            reason = "; ".join(reasons) or None
+            beta = self.members[i].beta
+            out.append(
+                Stratum(
+                    face=self.key,
+                    dimension=comps[i].dim,
+                    generators=_parse(comps[i].gens, self.tnames),
+                    degree=comps[i].degree,
+                    removed=tuple(_parse(comps[j].gens, self.tnames) for j in sorted(removed)),
+                    mu_t=None if reason or beta is None else self.sign * beta,
+                    euler=None,
+                    chart=self.chart,
+                    reason=reason if reason or beta is not None else "beta was not computed",
+                )
+            )
+        return out
+
+
+def _analyse(
+    polynomial: sp.Expr,
+    variables: Sequence[sp.Symbol],
+    point: Mapping[sp.Expr, int | Fraction] | None,
+    scale: sp.Symbol | None,
+    seed: int,
+    timeout: float,
+    faces: Sequence[Sequence[int]] | None,
+) -> StrataAnalysis:
+    if not isinstance(seed, int) or isinstance(seed, bool):
+        raise ValidationError(f"seed must be an integer, not {seed!r:.60}")
+    _check_timeout(timeout, optional=False)
+    support = _support(polynomial, tuple(variables), {} if point is None else point, scale)
+    terms = {
+        tuple(p): Fraction(int(c.p), int(c.q))
+        for p, c in zip(support.points, support.coefficients, strict=True)
+    }
+    data = polytope_data(sorted(terms))
+    singular = _singular_binary()
+    if singular is None:
+        raise RuntimeError("singular_strata needs Singular, which was not found")
+    expression = sum(
+        (
+            sp.Rational(c.numerator, c.denominator)
+            * sp.Mul(*(x**e for x, e in zip(variables, p, strict=True)))
+            for p, c in terms.items()
+        ),
+        start=sp.Integer(0),
+    )
+    sign = (-1) ** (data.dimension - 1)
+    strata: list[Stratum] = []
+    failures: list[ConditionFailure] = []
+    primes: set[int] = set()
+    wanted: set[tuple[int, ...]] | None = None
+    if faces is not None:
+        if isinstance(faces, (str, bytes)) or not isinstance(faces, Sequence):
+            raise ValidationError("faces must be a sequence of faces, each a sequence of indices")
+        known = {tuple(sorted(indices)) for _, indices in data.faces}
+        wanted = set()
+        for entry in faces:
+            try:
+                key = tuple(sorted(int(i) for i in entry))
+            except (TypeError, ValueError):
+                raise ValidationError("faces must be sequences of point indices") from None
+            if key not in known:
+                raise ValidationError(f"{list(key)} are not the point indices of a face")
+            wanted.add(key)
+    for dimension, indices in data.faces:
+        if dimension < 1 or (wanted is not None and tuple(sorted(indices)) not in wanted):
+            continue
+        key = tuple(indices)
+        if len(key) == dimension + 1:
+            continue  # affinely independent points: the face polynomial is smooth
+        base = normal_cone(data, key)
+        exps = [data.points[i] for i in key]
+        if not base.smooth:
+            strata += _non_smooth(key, terms, exps, singular, timeout)
+            continue
+        chart = orbit_chart(data, key)
+        local = chart.local_equation(
+            {
+                tuple(data.chart.coordinates[i]): terms[data.points[i]]
+                for i in range(len(data.points))
+            }
+        )
+        face = _Face(
+            key=key,
+            chart=chart,
+            local=local,
+            polynomial=expression,
+            variables=variables,
+            face_points=exps,
+            sign=sign,
+            seed=seed,
+            timeout=timeout,
+            singular=singular,
+        )
+        try:
+            face.closure()
+            pieces = face.strata()
+        except ComputationError as exc:
+            if not str(exc).startswith("undecided: "):
+                raise
+            strata.append(
+                Stratum(key, None, (), None, (), None, None, chart, str(exc)[len("undecided: ") :])
+            )
+            continue
+        strata += pieces
+        failures += face.failures
+        for member in face.members:
+            primes.update(member.primes)
+    complete = not failures and all(s.reason is None for s in strata)
+    return StrataAnalysis(
+        points=data.points,
+        strata=tuple(strata),
+        primes=tuple(sorted(primes)),
+        seed=seed,
+        complete=complete,
+        failures=tuple(failures),
+    )
+
+
+def _non_smooth(
+    key: tuple[int, ...],
+    terms: Mapping[tuple[int, ...], Fraction],
+    exps: Sequence[tuple[int, ...]],
+    singular: str,
+    timeout: float,
+) -> list[Stratum]:
+    """The pieces of a face whose normal cone is not smooth: none if the face polynomial has no
+    singular point in its orbit, and otherwise one undecided piece."""
+    coordinates = lattice_coordinates(list(exps))
+    d = len(coordinates[0])
+    names = [f"t{i + 1}" for i in range(d)]
+    f = _poly(
+        {tuple(c): terms[e] for c, e in zip(coordinates, exps, strict=True)},
+        names,
+    )
+    partials = ", ".join(f"diff(f, t{i + 1})" for i in range(d))
+    ring = f"ring R = 0, ({','.join(names)}), dp;\n"
+    script = (
+        f"poly f = {f};\nideal Z = f, {partials};\n"
+        f"Z = sat(Z, ideal({'*'.join(names)}));\n"
+        'print("DIM " + string(dim(std(Z))));\n'
+    )
+    try:
+        out = _singular_run(_HEADER + ring + script + "quit;\n", singular, timeout)
+    except ComputationError as exc:
+        if not str(exc).startswith("undecided: "):
+            raise
+        return [Stratum(key, None, (), None, (), None, None, None, str(exc)[len("undecided: ") :])]
+    found = re.search(r"^DIM (-?\d+)$", out, re.MULTILINE)
+    if found is None:
+        raise ComputationError(f"Singular printed {out.strip()[:100]!r} instead of a dimension")
+    if int(found.group(1)) < 0:
+        return []
+    return [
+        Stratum(
+            key,
+            None,
+            (),
+            None,
+            (),
+            None,
+            None,
+            None,
+            "the normal cone of the face is not smooth and its face polynomial is singular in "
+            "the orbit: the subdivision path is not available",
+        )
+    ]
+
+
+def singular_strata_from_polynomial(
+    polynomial: sp.Expr,
+    variables: Sequence[sp.Symbol],
+    point: Mapping[sp.Expr, int | Fraction] | None = None,
+    *,
+    scale: sp.Symbol | None = None,
+    seed: int = 0,
+    timeout: float = 120,
+    faces: Sequence[Sequence[int]] | None = None,
+) -> StrataAnalysis:
+    """The strata of constant mu^T on the singular locus of every face of the Newton polytope.
+
+    For each face F of the Newton polytope P of G, the top face included, the singular locus
+    of the face polynomial G_F in the orbit O_F is cut into locally closed pieces on which the
+    torus-cut Milnor number mu^T = (-1)^(N-1) beta is constant, N the dimension of P, with
+    its value on each; see :class:`StrataAnalysis` for the construction, the criterion behind
+    ``complete`` and the fields. A face whose polynomial is smooth in its orbit has no piece. Where
+    the normal cone of F is smooth, the chart of :func:`~feynkit.toric.orbit_chart` is
+    used and beta comes from :func:`~feynkit.milnor.torus_cut_milnor_number`, at two rational
+    points of each member, which must agree. The decompositions are exact, over Q, by
+    Singular; a member that is not rational, or has no two rational points outside the smaller
+    members, is undecided. Where the cone is not smooth the face is undecided unless its
+    polynomial is smooth in the orbit.
+
+    Parameters
+    ----------
+    polynomial
+        G, with coefficients that are rational functions, with rational coefficients, of the
+        symbols other than ``variables``.
+    variables
+        The variables of G.
+    point
+        A rational kinematic point, keyed as for
+        :func:`~feynkit.degeneracy.face_degeneracy_from_polynomial`; None, the default, when G has
+        no other symbols.
+    scale
+        The energy scale, set to 1.
+    seed
+        Seed of the random flags, points and Le computations.
+    timeout
+        The most seconds each Singular run gets, at most 2,000,000.
+    faces
+        The point indices of the faces to analyse, as in :attr:`StrataAnalysis.points`; None,
+        the default, analyses every face of dimension 1 or more. ``complete`` then speaks of
+        these faces only.
+
+    Raises
+    ------
+    RuntimeError
+        If Singular is not installed.
+    ValidationError
+        If the arguments are not as for :func:`~feynkit.degeneracy.face_degeneracy_from_polynomial`,
+        ``seed`` is not an integer, or ``faces`` are not faces of the Newton polytope.
+    """
+    return _analyse(polynomial, variables, point, scale, seed, timeout, faces)
+
+
+def singular_strata(
+    integral: FeynmanIntegral,
+    point: Mapping[sp.Expr, int | Fraction] | None = None,
+    *,
+    seed: int = 0,
+    timeout: float = 120,
+    faces: Sequence[Sequence[int]] | None = None,
+) -> StrataAnalysis:
+    """The strata of constant mu^T for G = U + F of an integral at a rational kinematic point.
+
+    The point is keyed as
+    :attr:`~feynkit.point_count.TorusCount.point` gives it, with the energy scale set to 1.
+    See :func:`singular_strata_from_polynomial` for the arguments and errors. At a generic
+    point no face polynomial is singular in its orbit (A. G. Kouchnirenko, Invent. Math. 32
+    (1976) 1-31, Thm IV, p. 30, and :func:`~feynkit.degeneracy.face_degeneracy`), so there are no
+    pieces.
+
+    Raises
+    ------
+    ValidationError
+        Also if the integral has kinematic constraints, which are not applied.
+    """
+    if integral.kinematic_constraints:
+        raise ValidationError(
+            "singular_strata does not apply kinematic_constraints; substitute them in the "
+            "momentum products"
+        )
+    sym = integral.symanzik
+    return _analyse(
+        sym.g, list(sym.lp_parameters), point, integral.graph.energy_scale, seed, timeout, faces
+    )

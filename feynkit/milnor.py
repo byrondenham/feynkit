@@ -62,10 +62,16 @@ characteristics agree.
 
 Every ComputationError raised for a germ the computation cannot decide has a
 message that starts with "undecided: " and goes on with the reason.
+
+The second half of the module, :func:`torus_cut_milnor_number`, takes the Milnor fibre
+of a Laurent polynomial at a point of a toric variety and cuts it by the torus; see
+its docstring.
 """
 
 from __future__ import annotations
 
+import itertools
+import math
 import numbers
 import random
 import re
@@ -79,14 +85,19 @@ from typing import Literal
 
 import sympy as sp
 
+from . import _exact
 from .core.exceptions import ComputationError, ValidationError
 from .landau import _check_timeout, _singular_binary
+from .polytope import polytope_data
+from .toric import _face_key, normal_cone, orbit_chart
 
 __all__ = [
     "DEFAULT_TIMEOUT",
     "LeNumbers",
+    "TorusCutMilnorNumber",
     "le_numbers",
     "milnor_fibre_euler_characteristic",
+    "torus_cut_milnor_number",
 ]
 
 # The seconds each Singular run gets by default.
@@ -803,3 +814,503 @@ def milnor_fibre_euler_characteristic(
     if germ.submersion:
         return 0
     return _decide(germ, seed, check, timeout).attaching
+
+
+# --- the torus cut ------------------------------------------------------------------------------
+
+TorusMethod = Literal["smooth chart", "newton"]
+
+_UNDECIDED = "undecided: "
+
+
+@dataclass(frozen=True)
+class TorusCutMilnorNumber:
+    """The Milnor fibre of a Laurent polynomial at a point of a toric variety, cut by the torus.
+
+    Let G be a Laurent polynomial whose Newton polytope P has dimension N, X_P the
+    projective toric variety of P, T its open torus and x a point of the orbit O_F of a
+    face F. Let g be a local equation of G at x (in a chart, g = x^(-v) G, see
+    :class:`~feynkit.toric.OrbitChart`) and F_x its Milnor fibre at x, in the sense of
+    Dimca, "Sheaves in Topology", Springer 2004 (Dim04), Prop. 4.2.2, p. 103. Then
+
+        beta(x) = chi(F_x intersected with T) - 1_T(x),   mu^T(x) = (-1)^(N-1) beta(x),
+
+    where 1_T(x) is 1 if x lies in T and 0 otherwise. At a point of T that is an isolated
+    critical point of g, beta = chi~(F_x) = (-1)^(N-1) mu, so mu^T = mu there. Where g does
+    not vanish at x, the point is not in the closure of the zero set and beta = mu^T = 0.
+
+    Attributes
+    ----------
+    value
+        mu^T(x), or None if undecided.
+    beta
+        beta(x), or None if undecided.
+    method
+        "smooth chart": the normal cone of F is smooth, so the chart is C^r x (C^*)^(d-r)
+        with coordinates y, t, and beta is the signed sum over subsets I of the y
+        coordinates of chi~ of the Milnor fibre of g restricted to y_I = 0 (see
+        :func:`torus_cut_milnor_number`), each by Lê's attaching theorem
+        (:func:`milnor_fibre_euler_characteristic`). "newton": the sum of Euler
+        characteristics of orbit pieces from the Newton polyhedron of g (Matsui and
+        Takeuchi, Cor. 3.6 with Rem. 3.7).
+    terms
+        Pairs (subset, number), sorted by subset. For "smooth chart" the subset is I,
+        a tuple of indices of the y coordinates counted from 0, and the number is
+        chi~(F(g|y_I = 0)), which is -1 where g restricted to y_I = 0 is zero. For
+        "newton" the subset is J, the indices of the t coordinates, counted from 0, that
+        are non-zero in the orbit piece, all y coordinates being non-zero, and the number
+        is chi(T_J intersected with F_x), the Euler characteristic of that piece of the
+        Milnor fibre. Empty where g(x) is not 0 or the result is undecided.
+    prime
+        For "smooth chart", the smallest prime of the first flag over the terms that
+        needed Lê numbers (:class:`LeNumbers`); the other terms are exact. None if no term
+        needed one, and for "newton", which computes over Q.
+    reason
+        Why the result is undecided, or None. When it is not None, value and beta are
+        None.
+    """
+
+    value: int | None
+    beta: int | None
+    method: TorusMethod
+    terms: tuple[tuple[tuple[int, ...], int], ...]
+    prime: int | None
+    reason: str | None
+
+
+def _undecided(method: TorusMethod, reason: str) -> TorusCutMilnorNumber:
+    return TorusCutMilnorNumber(None, None, method, (), None, reason)
+
+
+def _laurent_terms(polynomial: object, variables: Sequence[sp.Symbol]) -> dict:
+    """G as a dictionary from exponent vectors to rational coefficients.
+
+    Raises
+    ------
+    ValidationError
+        If the variables are not one or more distinct symbols, or G is not a non-zero Laurent
+        polynomial with rational coefficients in them.
+    """
+    variables = tuple(variables)
+    if (
+        not variables
+        or not all(isinstance(x, sp.Symbol) for x in variables)
+        or len(set(variables)) != len(variables)
+    ):
+        raise ValidationError("variables must be one or more distinct symbols")
+    message = (
+        "the polynomial must be a Laurent polynomial with rational coefficients in the variables"
+    )
+    try:
+        f = sp.sympify(polynomial)
+        if f.free_symbols - set(variables):
+            raise ValidationError(message)
+        pieces = sp.Add.make_args(sp.expand(f))
+    except (sp.SympifyError, TypeError) as exc:
+        raise ValidationError(message) from exc
+    index = {x: i for i, x in enumerate(variables)}
+    out: dict[tuple[int, ...], Fraction] = {}
+    for piece in pieces:
+        coefficient, monomial = piece.as_independent(*variables, as_Add=False)
+        if not coefficient.is_Rational:
+            raise ValidationError(message)
+        exponent = [0] * len(variables)
+        for base, power in monomial.as_powers_dict().items():
+            if base == 1:
+                continue
+            if base not in index or not sp.sympify(power).is_Integer:
+                raise ValidationError(message)
+            exponent[index[base]] += int(power)
+        key = tuple(exponent)
+        out[key] = out.get(key, Fraction(0)) + Fraction(int(coefficient.p), int(coefficient.q))
+    out = {key: c for key, c in out.items() if c != 0}
+    if not out:
+        raise ValidationError("the polynomial must not be zero")
+    return out
+
+
+def _shifted(
+    local: dict,
+    k: int,
+    kept: Sequence[int],
+    point: Sequence[Fraction],
+    shift: Sequence[int],
+    s: Sequence[sp.Symbol],
+    y: Sequence[sp.Symbol],
+) -> sp.Expr:
+    """The polynomial in s and the y_j, j in kept, of g restricted to the other y_i = 0, with t
+    replaced by point + s and multiplied by the unit prod_a t_a^shift_a, which clears the
+    negative exponents of t."""
+    total: sp.Expr = sp.Integer(0)
+    for exponent, c in local.items():
+        if any(e for j, e in enumerate(exponent[k:]) if j not in kept):
+            continue
+        term: sp.Expr = sp.Rational(c.numerator, c.denominator)
+        for a in range(k):
+            base = sp.Rational(point[a].numerator, point[a].denominator) + s[a]
+            term *= base ** (exponent[a] + shift[a])
+        for j in kept:
+            term *= y[j] ** exponent[k + j]
+        total += term
+    return sp.expand(total)
+
+
+def _reduced_chi(
+    expr: sp.Expr, variables: Sequence[sp.Symbol], seed: int, timeout: float
+) -> tuple[int, int | None]:
+    """chi~ of the Milnor fibre at the origin of a polynomial that vanishes there, and the
+    prime of the first flag (None if no Lê numbers were needed).
+
+    Raises
+    ------
+    ComputationError
+        As :func:`milnor_fibre_euler_characteristic`.
+    """
+    if expr == 0:
+        # The fibre {0 = epsilon} is empty, so chi = 0 and chi~ = -1.
+        return -1, None
+    germ = _germ(expr, variables, [0] * len(variables))
+    if germ.submersion:
+        return 0, None
+    flag = _decide(germ, seed, True, timeout)
+    return flag.attaching, flag.le.prime
+
+
+def _smooth_chart(
+    local: dict,
+    k: int,
+    r: int,
+    point: Sequence[Fraction],
+    shift: Sequence[int],
+    seed: int,
+    timeout: float,
+    sign: int,
+) -> TorusCutMilnorNumber:
+    s = [sp.Symbol(f"s{a + 1}") for a in range(k)]
+    y = [sp.Symbol(f"y{j + 1}") for j in range(r)]
+    terms = []
+    primes = []
+    beta = 0
+    for size in range(r + 1):
+        for subset in itertools.combinations(range(r), size):
+            kept = [j for j in range(r) if j not in subset]
+            expr = _shifted(local, k, kept, point, shift, s, y)
+            try:
+                chi, prime = _reduced_chi(expr, [*s, *(y[j] for j in kept)], seed, timeout)
+            except ComputationError as exc:
+                message = str(exc)
+                if not message.startswith(_UNDECIDED):
+                    raise
+                return _undecided(
+                    "smooth chart",
+                    f"restriction to y_i = 0 for i in {list(subset)}: {message[len(_UNDECIDED) :]}",
+                )
+            terms.append((subset, chi))
+            beta += (-1) ** size * chi
+            if prime is not None:
+                primes.append(prime)
+    return TorusCutMilnorNumber(
+        sign * beta, beta, "smooth chart", tuple(terms), min(primes, default=None), None
+    )
+
+
+def _compact_faces(support: Sequence[tuple[int, ...]]) -> list[tuple[int, tuple[int, ...]]]:
+    """The compact faces of the Newton polyhedron of a polynomial supported in the non-negative
+    orthant, as (dimension, indices into support of the points on the face).
+
+    A face of the polyhedron is compact exactly when a strictly positive weight is least on
+    it. Add to the support the points p + e_i, e_i the unit vectors. The faces of the convex
+    hull of the enlarged set that contain no added point are the compact faces: the points
+    of a face contain p + e_i whenever they contain p and the weight vanishes on e_i,
+    and contain no p when the weight is negative on e_i, while a positive weight is least on
+    a point of the support alone. So the exposing weight of such a face is strictly positive,
+    and conversely a strictly positive weight puts no p + e_i on its face. This is exact
+    integer arithmetic.
+    """
+    d = len(support[0])
+    added = [tuple(a + (i == j) for j, a in enumerate(p)) for p in support for i in range(d)]
+    hull = polytope_data([*support, *dict.fromkeys(q for q in added if q not in set(support))])
+    count = len(support)
+    return [(dim, idx) for dim, idx in hull.faces if all(i < count for i in idx)]
+
+
+_NONDEGENERATE = re.compile(r"N (\d+) ([01])")
+
+
+def _singular_faces(
+    coefficients: dict, support: Sequence[tuple[int, ...]], faces: list, timeout: float
+) -> list[int]:
+    """The positions in faces whose polynomial has a singular point in the torus, so that the
+    face is degenerate, decided over Q by a Gröbner basis.
+
+    The face polynomial f_gamma is quasi-homogeneous for a positive weight, so by Euler's
+    relation every common zero of its partial derivatives in the torus is a zero of f_gamma,
+    and f_gamma = 0 is smooth and reduced there exactly if the partial derivatives and
+    1 - z x_1 ... x_d generate the unit ideal.
+
+    Raises
+    ------
+    RuntimeError
+        If Singular is not installed.
+    ComputationError
+        If Singular fails or runs past ``timeout``.
+    """
+    d = len(support[0])
+    binary = _binary()
+    product = "*".join(f"x({i + 1})" for i in range(d))
+    lines = [f"ring R = 0, (x(1..{d}), z), dp;", "poly F; ideal J;"]
+    for position, (_, idx) in enumerate(faces):
+        if len(idx) < 2:
+            continue
+        pieces = []
+        for i in idx:
+            c = coefficients[support[i]]
+            powers = [f"x({a + 1})^{e}" for a, e in enumerate(support[i]) if e]
+            pieces.append("*".join([f"({c.numerator}/{c.denominator})", *powers]))
+        partials = ", ".join(f"diff(F, x({a + 1}))" for a in range(d))
+        lines += [
+            f"F = {'+'.join(pieces)};",
+            f"J = ideal({partials}, 1 - z*{product});",
+            "J = std(J);",
+            f'print("N {position} " + string(reduce(1, J) == 0));',
+        ]
+    lines += ['print("END");', "quit;"]
+    text, timed_out = _run("\n".join(lines) + "\n", binary, timeout)
+    if timed_out:
+        raise ComputationError(
+            f"undecided: Singular ran past timeout={timeout} s checking nondegeneracy"
+        )
+    checked = {
+        int(m.group(1)): m.group(2) == "1"
+        for m in (_NONDEGENERATE.fullmatch(line.strip()) for line in text.splitlines())
+        if m
+    }
+    needed = [p for p, (_, idx) in enumerate(faces) if len(idx) >= 2]
+    if set(checked) != set(needed):
+        raise ComputationError("undecided: Singular did not check every compact face")
+    return [p for p in needed if not checked[p]]
+
+
+def _cone_volume(points: Sequence[Sequence[int]]) -> int:
+    """The normalised volume, with respect to Z^m, of the convex hull of the points and the
+    origin, for points in Z^m."""
+    hull = polytope_data([*points, [0] * len(points[0])])
+    if hull.dimension != len(points[0]):
+        raise ComputationError("a compact facet lies in a hyperplane through the origin")
+    return hull.normalized_volume * math.prod(hull.smith_invariants)
+
+
+def _newton(
+    local: dict,
+    k: int,
+    r: int,
+    point: Sequence[Fraction],
+    shift: Sequence[int],
+    timeout: float,
+    sign: int,
+) -> TorusCutMilnorNumber:
+    s = [sp.Symbol(f"s{a + 1}") for a in range(k)]
+    y = [sp.Symbol(f"y{j + 1}") for j in range(r)]
+    expr = _shifted(local, k, range(r), point, shift, s, y)
+    poly = sp.Poly(expr, *s, *y, domain="QQ")
+    coefficients = {
+        tuple(int(e) for e in monomial): Fraction(int(c.p), int(c.q))
+        for monomial, c in poly.terms()
+    }
+    support = sorted(coefficients)
+    faces = _compact_faces(support)
+    try:
+        degenerate = _singular_faces(coefficients, support, faces, timeout)
+    except ComputationError as exc:
+        message = str(exc)
+        if not message.startswith(_UNDECIDED):
+            raise
+        return _undecided("newton", f"nondegeneracy not decided: {message[len(_UNDECIDED) :]}")
+    if degenerate:
+        shown = [support[i] for i in faces[degenerate[0]][1]]
+        return _undecided(
+            "newton",
+            f"nondegeneracy not verified: the compact face with exponents {shown} of the Newton "
+            f"polyhedron has a singular point in the torus ({len(degenerate)} such faces)",
+        )
+    terms = []
+    total = 0
+    for size in range(k + 1):
+        for subset in itertools.combinations(range(k), size):
+            active = [*subset, *range(k, k + r)]
+            m = len(active)
+            chi = 0
+            if m:
+                outside = [c for c in range(k + r) if c not in active]
+                volume = 0
+                for dim, idx in faces:
+                    if dim == m - 1 and all(support[i][c] == 0 for i in idx for c in outside):
+                        volume += _cone_volume([[support[i][c] for c in active] for i in idx])
+                chi = (-1) ** (m - 1) * volume
+            terms.append((subset, chi))
+            total += chi
+    beta = total - (1 if r == 0 else 0)
+    return TorusCutMilnorNumber(sign * beta, beta, "newton", tuple(terms), None, None)
+
+
+def torus_cut_milnor_number(
+    polynomial: sp.Expr,
+    variables: Sequence[sp.Symbol],
+    face: Sequence[Sequence[int]],
+    coordinates: Sequence[int | Fraction | sp.Rational],
+    *,
+    seed: int = 0,
+    timeout: float = DEFAULT_TIMEOUT,
+    method: TorusMethod = "smooth chart",
+) -> TorusCutMilnorNumber:
+    """beta and mu^T at a point of the orbit of a face, in a smooth chart.
+
+    See :class:`TorusCutMilnorNumber` for the definitions and the sign: with N the
+    dimension of the Newton polytope P of G, beta(x) = chi(F_x intersected with T) - 1_T(x)
+    and mu^T(x) = (-1)^(N-1) beta(x).
+
+    The normal cone of the face must be smooth (:func:`~feynkit.toric.normal_cone`). Then
+    :func:`~feynkit.toric.orbit_chart` gives a chart C^r_y x (C^*)^(d-r)_t of X_P around the
+    orbit, d = N, and g(t, y) = x^(-v) G. The point x is (t, y) = (``coordinates``, 0).
+    A cone that is not smooth is not handled; the result is then undecided.
+
+    "smooth chart" (the default). T is the set where no y_i vanishes, and near x the
+    coordinates t do not vanish. Inclusion and exclusion over the closed sets {y_I = 0},
+    I a subset of the r coordinates y, expresses the constructible function of T, so that,
+    since nearby cycles are exact and their stalks are cohomology of the Milnor fibre
+    (Dim04, Def. 4.2.1 and Prop. 4.2.2, p. 103; the support of vanishing cycles is
+    Prop. 4.2.8, p. 107; and Matsui and Takeuchi, arXiv:0809.3148 (MT11), (3.7)-(3.8),
+    p. 10),
+
+        beta(x) = sum over I of (-1)^|I| chi~(F_x(g|y_I = 0)),
+
+    with chi~ = chi - 1 the reduced Euler characteristic. Each term is
+    :func:`milnor_fibre_euler_characteristic` of g restricted to y_I = 0 as a germ in the
+    remaining t and y; where the restriction is the zero polynomial the fibre is empty and
+    chi~ = -1. Where every restriction has an isolated critical point at x, mu^T(x) is the
+    sum of their Milnor numbers.
+
+    "newton". The same numbers from the Newton polyhedron, by MT11 Cor. 3.6 with Rem. 3.7
+    (arXiv pp. 9-11). Hypotheses (MT11 Section 3, p. 8, Def. 3.2, p. 9): S is a finitely
+    generated subsemigroup of Z^n containing 0 whose cone K(S) is strongly convex of
+    dimension n, here S = N^d; f in C[S] is non-zero and vanishes at the fixed point 0,
+    that is 0 is not in its support; and f is non-degenerate, which means that for every
+    compact face gamma of the Newton polyhedron Gamma_+(f), the hypersurface
+    {L(f_gamma) = 0} of the torus (C^*)^n is smooth and reduced. Rem. 3.7 moves the point
+    to the fixed point: g is multiplied by a unit monomial in t, and t is translated by
+    ``coordinates`` so that f(s, y) is a polynomial that vanishes at 0, and its toric
+    structure is that of C^d with coordinates (s, y). For each face Delta of the orthant,
+    that is a subset of the d coordinates that are not 0, Cor. 3.6 gives
+
+        chi(T_Delta intersected with F_x) = (-1)^(dim Delta - 1) sum_i Vol_Z(Gamma_i),
+
+    summed over the compact faces gamma_i of Gamma_+(f) inside Delta of dimension
+    dim Delta - 1, Gamma_i the convex hull of gamma_i and 0, Vol_Z the volume normalised for
+    Z^Delta (so d! times the volume); the sum is 0 if Gamma_+(f) misses Delta. The y_i are
+    non-zero exactly on the part of the fibre in T, so beta is the sum of these over the
+    subsets of t coordinates, less 1_T(x). Non-degeneracy is verified exactly for every
+    compact face with at least two points, over Q: its partial derivatives and
+    1 - z x_1 ... x_d must generate the unit ideal (the face polynomial is
+    quasi-homogeneous for a positive weight, so by Euler's relation a common zero of the
+    partial derivatives in the torus is a zero of the polynomial). The compact faces are
+    those faces of the convex hull of the support that a strictly positive weight selects,
+    found in exact integer arithmetic. If a face is degenerate, the result is
+    undecided: Cor. 3.6 does not apply, though the germ may still have a value.
+
+    Parameters
+    ----------
+    polynomial
+        G, a Laurent polynomial with rational coefficients in ``variables``, non-zero.
+    variables
+        The n variables of G.
+    face
+        The exponent vectors, in the order of ``variables``, of all the terms of G on a
+        face of its Newton polytope P (the face itself, so every term that lies on it);
+        the whole of P for the top face.
+    coordinates
+        The point x of the orbit, as the d - r non-zero rational values of the torus
+        coordinates t_1, ..., t_(d-r) of the chart (:class:`~feynkit.toric.OrbitChart`);
+        none for a vertex. The coordinate t_a is the monomial in the variables whose
+        exponent vector is the a-th vector of the dual basis (:class:`OrbitChart`
+        describes it); for the top face the chart torus is the torus of the lattice that
+        the exponents span.
+    seed
+        Seed of the random coordinates of the Lê computations.
+    timeout
+        The most seconds each Singular run gets, at most 2,000,000.
+    method
+        "smooth chart" or "newton".
+
+    Returns
+    -------
+    TorusCutMilnorNumber
+        With ``reason`` set and value None if a Lê computation or the nondegeneracy check is
+        undecided, ran past ``timeout``, or the cone is not smooth. The two-flag agreement of
+        :func:`le_numbers` is part of every Lê computation. A check against the Iomdine-Lê
+        formula that :func:`milnor_fibre_euler_characteristic` skips on a timeout at level 0
+        is skipped here as well, and not reported.
+
+    Raises
+    ------
+    ValidationError
+        If ``polynomial`` is not a non-zero Laurent polynomial with rational coefficients
+        in distinct ``variables``, ``face`` is not the set of terms on a face of P,
+        ``coordinates`` is not d - r non-zero rationals, ``seed`` is not an integer,
+        ``timeout`` is not a number of seconds greater than 0 and at most 2,000,000, or
+        ``method`` is unknown.
+    RuntimeError
+        If Singular is needed and not installed.
+    ComputationError
+        Only for a failure that is not a condition on the germ, which would be a bug.
+    """
+    _validate(seed, timeout)
+    if method not in ("smooth chart", "newton"):
+        raise ValidationError('method must be "smooth chart" or "newton"')
+    terms = _laurent_terms(polynomial, variables)
+    points = sorted(terms)
+    data = polytope_data(points)
+    position = {p: i for i, p in enumerate(data.points)}
+    if isinstance(face, (str, bytes)) or not isinstance(face, Sequence):
+        raise ValidationError("face must be a sequence of exponent vectors of terms of G")
+    try:
+        indices = [position[tuple(_exact._as_int(c, "an exponent") for c in p)] for p in face]
+    except (KeyError, TypeError, ValidationError) as exc:
+        raise ValidationError("face must be a sequence of exponent vectors of terms of G") from exc
+    key = _face_key(data, indices)
+    cone = normal_cone(data, key)
+    if not cone.smooth:
+        return _undecided(
+            method,
+            f"the normal cone of the face {list(key)} is not smooth: the chart is not "
+            "C^r x (C^*)^(d-r) and a smooth subdivision of the cone is needed",
+        )
+    chart = orbit_chart(data, key)
+    k, r = chart.torus_dimension, chart.normal_dimension
+    if (
+        isinstance(coordinates, (str, bytes))
+        or not isinstance(coordinates, Sequence)
+        or len(coordinates) != k
+    ):
+        raise ValidationError(f"coordinates must give {k} rational numbers, one for each t")
+    point = [_rational(c) for c in coordinates]
+    if any(c == 0 for c in point):
+        raise ValidationError("the coordinates t must not be zero")
+    local = chart.local_equation(
+        {tuple(data.chart.coordinates[i]): terms[data.points[i]] for i in range(len(points))}
+    )
+    sign = (-1) ** (data.dimension - 1)
+    value_at_x = sum(
+        (
+            c
+            * math.prod((t**e for t, e in zip(point, exponent[:k], strict=True)), start=Fraction(1))
+            for exponent, c in local.items()
+            if not any(exponent[k:])
+        ),
+        start=Fraction(0),
+    )
+    if value_at_x != 0:
+        return TorusCutMilnorNumber(0, 0, method, (), None, None)
+    shift = [max(0, -min(e[a] for e in local)) for a in range(k)]
+    if method == "newton":
+        return _newton(local, k, r, point, shift, timeout, sign)
+    return _smooth_chart(local, k, r, point, shift, seed, timeout, sign)

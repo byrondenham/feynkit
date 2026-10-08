@@ -52,9 +52,16 @@ are probabilistic, like those of
 :func:`~feynkit.point_count.critical_point_count`. The polar curve is
 saturated in the polynomial ring by repeated ideal quotients until it stops
 growing; local orderings serve only for lengths of ideals that are finite at
-p, where they are fast. :func:`milnor_fibre_euler_characteristic` takes two
-independent flags at two different primes, which must agree, and by default
-also checks the Iomdine-Lê formula (Massey, Ex. 4.6(2), p. 24).
+p, where they are fast. Both public functions compute two independent flags,
+one at each of the two largest such primes, which must give the same Lê and
+polar numbers, and check the first against the Iomdine-Lê formula (Massey,
+Ex. 4.6(2), p. 24), which :func:`milnor_fibre_euler_characteristic` can
+skip. Generic coordinates give the same Lê numbers (p. 22), so
+flags that disagree leave the germ undecided, even when their Euler
+characteristics agree.
+
+Every ComputationError raised for a germ the computation cannot decide has a
+message that starts with "undecided: " and goes on with the reason.
 """
 
 from __future__ import annotations
@@ -120,13 +127,15 @@ class LeNumbers:
         s, the dimension of the critical locus of f at the point; 0 at an
         isolated critical point and -1 where f is a submersion.
     flag
-        The coordinates z_0, ..., z_n of the computation, linear forms in the
+        The coordinates z_0, ..., z_n of the first flag, linear forms in the
         variables less their values at the point, as rows of integer
         coefficients in the order of the variables. The rows form a unit upper
         triangular matrix, and only z_0, ..., z_{s-1} differ from the
         variables. Over F_p the forms are reduced modulo ``prime``.
     prime
-        The prime of the computation; None for a submersion, decided exactly.
+        The prime of the first flag; a second flag, at the next prime below
+        it that divides no coefficient, gave the same numbers. None for a
+        submersion, decided exactly.
     method
         "submersion" (df != 0 at the point), "isolated" (a Milnor number by a
         local standard basis) or "attaching" (Lê's attaching theorem along the
@@ -457,7 +466,7 @@ def _run(script: str, binary: str, timeout: float) -> tuple[str, bool]:
         reason = (
             " ".join((error or result.stderr).split())[:100] or f"exit status {result.returncode}"
         )
-        raise ComputationError(f"Singular failed computing Lê numbers: {reason}")
+        raise ComputationError(f"undecided: Singular failed computing Lê numbers: {reason}")
     return result.stdout, False
 
 
@@ -630,7 +639,8 @@ def _check(germ: _Germ, p: int, found: _Flag, binary: str, timeout: float) -> No
             value = got.get(j, (None,))[0]
             if value != want:
                 raise ComputationError(
-                    f"the Iomdine-Lê check fails at level {level}, j = {j}: lambda^0 is {value}, "
+                    f"undecided: the Iomdine-Lê check fails at level {level}, j = {j}: lambda^0 is "
+                    f"{value}, "
                     f"the Lê numbers {le.numbers} give {want}"
                 )
 
@@ -651,6 +661,32 @@ def _binary() -> str:
     return binary
 
 
+def _decide(germ: _Germ, seed: int, check: bool, timeout: float) -> _Flag:
+    """The first of two flags at the two primes of the germ, which must give the same Lê and
+    polar numbers, checked against the Iomdine-Lê formula if ``check``.
+
+    Raises
+    ------
+    RuntimeError
+        If Singular is not installed.
+    ComputationError
+        If either flag is undecided, the flags disagree, or the check fails.
+    """
+    binary = _binary()
+    primes = _primes(germ, 2)
+    first = _flag(germ, primes[0], seed, 0, binary, timeout)
+    second = _flag(germ, primes[1], seed, 1, binary, timeout)
+    a, b = first.le, second.le
+    if (a.numbers, a.polar_numbers) != (b.numbers, b.polar_numbers):
+        raise ComputationError(
+            f"undecided: two flags give the Lê numbers {a.numbers} and {b.numbers}, polar "
+            f"numbers {a.polar_numbers} and {b.polar_numbers}, modulo {primes[0]} and {primes[1]}"
+        )
+    if check and a.critical_dimension >= 1:
+        _check(germ, primes[0], first, binary, timeout)
+    return first
+
+
 def le_numbers(
     polynomial: sp.Expr,
     variables: Sequence[sp.Symbol],
@@ -663,12 +699,15 @@ def le_numbers(
 
     For generic coordinates the Lê numbers do not depend on the coordinates
     (Massey, "Non-isolated hypersurface singularities and Lê cycles",
-    arXiv:1410.3312, p. 22). They are computed along one flag drawn from
-    ``seed``, over F_p at the largest prime below 2^29 that divides no
-    numerator or denominator of a coefficient of f centred at the point: a
-    probabilistic computation, which :func:`milnor_fibre_euler_characteristic`
-    repeats with a second flag at a second prime. The module docstring
-    describes the method.
+    arXiv:1410.3312, p. 22). Two flags, drawn from ``seed``, are computed at
+    the two largest primes below 2^29 that divide no numerator or denominator
+    of a coefficient of f centred at the point, one at each. They must give
+    the same Lê and polar numbers: flags that disagree leave the germ
+    undecided, even when their Euler characteristics agree. The first flag is
+    then checked against the Iomdine-Lê formula, as
+    :func:`milnor_fibre_euler_characteristic` checks it. The results are
+    those of computations over F_p, exact for all but finitely many primes,
+    not a certificate. The module docstring describes the method.
 
     Parameters
     ----------
@@ -694,17 +733,16 @@ def le_numbers(
     RuntimeError
         If the point is critical and Singular is not installed.
     ComputationError
-        If Singular fails or runs past ``timeout``, or two sets of
-        coordinates both fail the conditions under which the Lê numbers
-        exist; the message gives the reason.
+        If Singular fails or runs past ``timeout``, a flag fails the
+        conditions under which Lê numbers exist at two sets of coordinates,
+        the two flags disagree, or the Iomdine-Lê check fails; the message
+        starts with "undecided: " and gives the reason.
     """
     _validate(seed, timeout)
     germ = _germ(polynomial, variables, at)
     if germ.submersion:
         return _submersion(germ)
-    binary = _binary()
-    (prime,) = _primes(germ, 1)
-    return _flag(germ, prime, seed, 0, binary, timeout).le
+    return _decide(germ, seed, True, timeout).le
 
 
 def milnor_fibre_euler_characteristic(
@@ -720,10 +758,8 @@ def milnor_fibre_euler_characteristic(
 
     0 where df != 0; (-1)^n mu at an isolated critical point, n + 1 the
     number of variables; otherwise the sum of Lê's attaching theorem along a
-    flag of random coordinates (see the module docstring). Two flags, drawn
-    from ``seed``, are computed at the two largest primes below 2^29 that
-    divide no numerator or denominator of a coefficient of f centred at the
-    point, one at each, and must give the same Lê and polar numbers. Since
+    flag of random coordinates (see the module docstring). The flags are
+    those of :func:`le_numbers`, computed and compared the same way. Since
     each level checks the Teissier split, the attaching sum equals
     sum_k (-1)^(n-k) lambda^k (Massey, "Non-isolated hypersurface
     singularities and Lê cycles", arXiv:1410.3312, Thm 4.1, p. 22, and
@@ -740,7 +776,7 @@ def milnor_fibre_euler_characteristic(
         The point, one rational number per variable, where f must vanish.
     seed
         Seed of the random coordinates; :func:`le_numbers` with the same seed
-        gives the first flag.
+        computes the same flags.
     check
         Whether to check the first flag against the Iomdine-Lê formula
         (Massey, Ex. 4.6(2), p. 24): at the last level of the flag, where it
@@ -760,22 +796,10 @@ def milnor_fibre_euler_characteristic(
         If Singular fails or runs past ``timeout``, a flag fails the
         conditions under which Lê numbers exist at two sets of coordinates,
         the two flags disagree, or the Iomdine-Lê check fails; the message
-        gives the reason.
+        starts with "undecided: " and gives the reason.
     """
     _validate(seed, timeout)
     germ = _germ(polynomial, variables, at)
     if germ.submersion:
         return 0
-    binary = _binary()
-    primes = _primes(germ, 2)
-    first = _flag(germ, primes[0], seed, 0, binary, timeout)
-    second = _flag(germ, primes[1], seed, 1, binary, timeout)
-    a, b = first.le, second.le
-    if (a.numbers, a.polar_numbers) != (b.numbers, b.polar_numbers):
-        raise ComputationError(
-            f"undecided: two flags give the Lê numbers {a.numbers} and {b.numbers}, polar "
-            f"numbers {a.polar_numbers} and {b.polar_numbers}, modulo {primes[0]} and {primes[1]}"
-        )
-    if check and a.critical_dimension >= 1:
-        _check(germ, primes[0], first, binary, timeout)
-    return first.attaching
+    return _decide(germ, seed, check, timeout).attaching

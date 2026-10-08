@@ -180,13 +180,15 @@ class TestAgreement:
         self, name: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         f, variables, numbers, chi = NON_ISOLATED[name]
+        scripts = spy(monkeypatch)
         le = le_numbers(f, variables, origin(variables))
+        assert sum(map(is_check, scripts)) == (2 if len(numbers) == 3 else 1)
         assert le.method == "attaching"
         assert le.numbers == numbers
         assert le.critical_dimension == len(numbers) - 1
         # Thm 4.1 from the Lê numbers.
         assert le.reduced_euler_characteristic == chi
-        scripts = spy(monkeypatch)
+        scripts.clear()
         # The attaching sum, checked against Thm 4.1 at two flags, and the Iomdine-Lê check.
         assert milnor_fibre_euler_characteristic(f, variables, origin(variables)) == chi
         checks = [script for script in scripts if is_check(script)]
@@ -200,6 +202,29 @@ class TestAgreement:
         assert first.flag != second.flag
         assert (first.numbers, first.polar_numbers) == (second.numbers, second.polar_numbers)
         assert le_numbers(f, variables, origin(variables), seed=0) == first
+
+    def test_the_two_flags_differ(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Both functions compute two flags with different random coordinates, at two primes."""
+        draws: dict[int, milnor_module._Draw] = {}
+        real = milnor_module._draw
+
+        def draw(seed: int, flag: int, attempt: int, m: int) -> milnor_module._Draw:
+            draws[flag] = real(seed, flag, attempt, m)
+            return draws[flag]
+
+        monkeypatch.setattr(milnor_module, "_draw", draw)
+        scripts = spy(monkeypatch)
+        f, variables, _, _ = NON_ISOLATED["3.13"]
+        for compute in (le_numbers, milnor_fibre_euler_characteristic):
+            draws.clear()
+            scripts.clear()
+            compute(f, variables, origin(variables))
+            assert set(draws) == {0, 1}
+            assert draws[0].shears != draws[1].shears
+            assert draws[0].hyperplanes != draws[1].hyperplanes
+            flags = [script for script in scripts if not is_check(script)]
+            primes = {p for script in flags for p in re.findall(r"ring S = (\d+),", script)}
+            assert len(flags) == 2 and len(primes) == 2
 
     def test_the_flag(self) -> None:
         le = le_numbers(MASSEY_3_13, [U, V, W, X, Y], [0] * 5)
@@ -283,8 +308,11 @@ class TestUndecided:
             return text, timed_out
 
         spy(monkeypatch, wrong)
-        with pytest.raises(ComputationError, match="Iomdine-Lê check fails at level 0, j = 4"):
+        message = "undecided: the Iomdine-Lê check fails at level 0, j = 4"
+        with pytest.raises(ComputationError, match=message):
             milnor_fibre_euler_characteristic(self.F, self.VARIABLES, [0, 0, 0])
+        with pytest.raises(ComputationError, match=message):
+            le_numbers(self.F, self.VARIABLES, [0, 0, 0])
         assert (
             milnor_fibre_euler_characteristic(self.F, self.VARIABLES, [0, 0, 0], check=False) == 1
         )
@@ -325,11 +353,13 @@ class TestUndecided:
             return dataclasses.replace(found, le=dataclasses.replace(found.le, numbers=wrong))
 
         monkeypatch.setattr(milnor_module, "_flag", flag)
-        with pytest.raises(
-            ComputationError,
-            match=r"undecided: two flags give the Lê numbers \(2, 1\) and \(3, 2\)",
-        ):
+        # The second flag keeps its attaching sum, so the Euler characteristics agree; the Lê
+        # numbers do not, and generic ones would, so neither function picks one.
+        message = r"^undecided: two flags give the Lê numbers \(2, 1\) and \(3, 2\)"
+        with pytest.raises(ComputationError, match=message):
             milnor_fibre_euler_characteristic(self.F, self.VARIABLES, [0, 0, 0])
+        with pytest.raises(ComputationError, match=message):
+            le_numbers(self.F, self.VARIABLES, [0, 0, 0])
 
     @pytest.mark.parametrize(
         ("output", "reason"),
@@ -354,13 +384,15 @@ class TestUndecided:
         monkeypatch.setattr(
             milnor_module, "_run", lambda *args: ("D 0 1\nP 0 1 3 1 2\nD 1 0\nI 1 0\n", False)
         )
-        with pytest.raises(ComputationError, match=r"a negative Lê number \(2, -1\)"):
+        with pytest.raises(
+            ComputationError, match=r"^undecided: 2 flags .*a negative Lê number \(2, -1\)"
+        ):
             le_numbers(self.F, self.VARIABLES, [0, 0, 0])
 
     def test_a_singular_error_raises(self) -> None:
         binary = _singular_binary()
         assert binary is not None
-        with pytest.raises(ComputationError, match="Singular failed"):
+        with pytest.raises(ComputationError, match="^undecided: Singular failed"):
             milnor_module._run("ring r = 0, (x), dp;\npoly f = x +;\nquit;\n", binary, 10)
 
 

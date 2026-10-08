@@ -61,7 +61,7 @@ import sympy as sp
 from .core.exceptions import ComputationError, ValidationError
 from .degeneracy import _support
 from .landau import _check_timeout, _singular_binary
-from .milnor import torus_cut_milnor_number
+from .milnor import NumberField, torus_cut_milnor_number
 from .point_count import _msolve_binary, _msolve_count, _singular_polynomial
 from .polytope import lattice_coordinates, polytope_data
 from .toric import OrbitChart, normal_cone, orbit_chart
@@ -635,8 +635,10 @@ class StrataAnalysis:
     Massey's Le cycles: the singular locus of A; A meets the critical locus of f_I; where A is
     inside it, the singular loci of the components of the critical locus through A, the other
     components, and the traces on A of the polar varieties and Le cycles of f_I for a random
-    flag of coordinates. beta is computed at two rational points of each member, which must
-    agree, and a member joins the piece of the smallest member containing it, when that is
+    flag of coordinates. beta is computed at two points of each member outside the smaller members, which must
+    agree: rational points, and where a member has fewer than two, points with coordinates in
+    a number field (a root of a component of a slice, as in :class:`~feynkit.milnor.NumberField`);
+    a member that is a single point is computed twice, with two seeds, and a member joins the piece of the smallest member containing it, when that is
     unique, if they have the same value. Where the critical locus has a component through A
     that is singular along A, or the polar variety of that component contains A, the
     condition below fails.
@@ -729,6 +731,21 @@ def _parse(gens: str, names: Sequence[str]) -> tuple[sp.Expr, ...]:
             if text:
                 out.append(sp.parse_expr(text.replace("^", "**"), local_dict=local))
     return tuple(out)
+
+
+@dataclass(frozen=True)
+class _Point:
+    """A point of a member: rational coordinates, or polynomials in the generator a of a
+    number field."""
+
+    coordinates: tuple[Fraction | sp.Expr, ...]
+    field: NumberField | None = None
+
+
+_GENERATOR = sp.Symbol("a")
+
+# The most random linear forms tried when looking for a primitive element of a set of points.
+_SHAPE_TRIES = 6
 
 
 def _random_flag(rng: random.Random, n: int) -> str:
@@ -1047,12 +1064,56 @@ class _Face:
 
     # -- beta ----------------------------------------------------------------------------------
 
-    def points(self, comp: _Comp, avoid: Sequence[_Comp], want: int) -> list[tuple[Fraction, ...]]:
-        """Rational points on the member outside the members inside it, or fewer."""
+    def shape(self, comp: _Comp, rng: random.Random) -> _Point | None:
+        """One point of a prime component of dimension 0 and degree above 1, with coordinates in
+        the number field Q(a) of its points: a minimal polynomial m of a primitive element a,
+        and each coordinate as a polynomial in a (the shape lemma, from a lexicographic
+        Groebner basis of the component with u = a). None if no primitive element is found."""
+        names = [*self.tnames, "u"]
+        symbols = [sp.Symbol(n) for n in names]
+        for _ in range(_SHAPE_TRIES):
+            form = "+".join(f"{rng.randint(1, 97)}*{n}" for n in self.tnames)
+            ring = f"ring R = 0, ({','.join(names)}), lp;\n"
+            script = (
+                f"option(redSB); ideal I = {comp.gens}, u - ({form}); ideal G = std(I);\n"
+                'print("SHAPE " + string(G));\n'
+            )
+            out = _singular_run(_HEADER + ring + script + "quit;\n", self.singular, self.timeout)
+            found = re.search(r"^SHAPE (.*)$", out, re.MULTILINE)
+            if found is None:
+                continue
+            basis = _parse(found.group(1), names)
+            if len(basis) != self.d + 1:
+                continue
+            rows: dict[sp.Symbol, sp.Expr] = {}
+            minimal: sp.Expr | None = None
+            for g in basis:
+                if g.free_symbols == {symbols[-1]}:
+                    minimal = g
+                    continue
+                for t in symbols[:-1]:
+                    poly = sp.Poly(g, t)
+                    if poly.degree() == 1 and g.free_symbols - {t} <= {symbols[-1]}:
+                        rows[t] = sp.solve(g, t)[0]
+            if minimal is None or set(rows) != set(symbols[:-1]):
+                continue
+            if sp.Poly(minimal, symbols[-1]).degree() != comp.degree:
+                continue
+            a = _GENERATOR
+            field = NumberField(sp.expand(minimal.subs(symbols[-1], a)), a)
+            coordinates = tuple(sp.expand(rows[t].subs(symbols[-1], a)) for t in symbols[:-1])
+            return _Point(coordinates, field)
+        return None
+
+    def points(self, comp: _Comp, avoid: Sequence[_Comp], want: int) -> list[_Point]:
+        """Points on the member outside the members inside it, or fewer: rational points when
+        there are enough, and otherwise, for the others, points with coordinates in a number
+        field, from components of the slices that are not rational."""
         rng = random.Random(f"{self.seed}:{self.key}:{comp.key}:points")
         symbols = [sp.Symbol(n) for n in self.tnames]
         avoiders = [_parse(a.gens, self.tnames) for a in avoid]
         found: list[tuple[Fraction, ...]] = []
+        irrational: dict[str, _Comp] = {}
         values = [Fraction(a, b) for a in range(-9, 10) if a for b in (1, 2, 3)]
         for _ in range(_POINT_TRIES):
             if len(found) >= want:
@@ -1067,7 +1128,10 @@ class _Face:
                 ]
             gens = ", ".join([comp.gens, *fixed])
             for found_comp in self.components(gens):
-                if found_comp.dim != 0 or found_comp.degree != 1:
+                if found_comp.dim != 0:
+                    continue
+                if found_comp.degree != 1:
+                    irrational.setdefault(found_comp.key, found_comp)
                     continue
                 solutions = sp.solve(list(_parse(found_comp.key, self.tnames)), symbols, dict=True)
                 if len(solutions) != 1 or set(solutions[0]) != set(symbols):
@@ -1081,18 +1145,32 @@ class _Face:
                     continue
                 if tuple(point) not in found and all(v != 0 for v in point):
                     found.append(tuple(point))
-        return found
+        out = [_Point(p) for p in found]
+        # The points of a prime component are conjugate: none lies on a smaller member unless
+        # all do, so one test of the first point decides, as for a rational point.
+        for found_comp in sorted(irrational.values(), key=lambda c: (c.degree, c.key)):
+            if len(out) >= want:
+                break
+            point_ = self.shape(found_comp, rng)
+            if point_ is None or point_.field is None:
+                continue
+            field = point_.field
+            minimal = sp.Poly(field.minimal_polynomial, field.generator)
+            exact = dict(zip(symbols, point_.coordinates, strict=True))
+            if any(
+                all(sp.rem(sp.expand(g.subs(exact)), minimal, field.generator) == 0 for g in gens_)
+                for gens_ in avoiders
+            ):
+                continue
+            if any(sp.rem(sp.expand(c), minimal, field.generator) == 0 for c in point_.coordinates):
+                continue
+            out.append(point_)
+        return out
 
     def beta(self, index: int, avoid: Sequence[_Comp]) -> None:
         member = self.members[index]
         comp = member.comp
         want = 1 if comp.dim == 0 else 2
-        if comp.dim == 0 and comp.degree != 1:
-            member.reason = (
-                f"the member is {comp.degree} points over Q that are not rational: the Le "
-                "computations take rational points only"
-            )
-            return
         try:
             points = self.points(comp, avoid, want)
         except ComputationError as exc:
@@ -1102,8 +1180,8 @@ class _Face:
             return
         if len(points) < want:
             member.reason = (
-                f"only {len(points)} rational points off the smaller members were found, "
-                f"{want} are needed"
+                f"only {len(points)} points off the smaller members were found over Q or a "
+                f"number field, {want} are needed"
             )
             return
         values: list[int] = []
@@ -1114,10 +1192,11 @@ class _Face:
                 self.polynomial,
                 self.variables,
                 self.face_points,
-                list(point),
+                list(point.coordinates),
                 seed=self.seed + n,
                 timeout=self.timeout,
                 chart=self.chart,
+                field=point.field,
             )
             if result.reason is not None or result.beta is None:
                 member.reason = f"beta at a point is undecided: {result.reason}"
@@ -1354,10 +1433,10 @@ def singular_strata_from_polynomial(
     its value on each; see :class:`StrataAnalysis` for the construction, the criterion behind
     ``complete`` and the fields. A face whose polynomial is smooth in its orbit has no piece. Where
     the normal cone of F is smooth, the chart of :func:`~feynkit.toric.orbit_chart` is
-    used and beta comes from :func:`~feynkit.milnor.torus_cut_milnor_number`, at two rational
-    points of each member, which must agree. The decompositions are exact, over Q, by
-    Singular; a member that is not rational, or has no two rational points outside the smaller
-    members, is undecided. Where the cone is not smooth the face is undecided unless its
+    used and beta comes from :func:`~feynkit.milnor.torus_cut_milnor_number`, at two points of
+    each member, which must agree: rational points, or, where a member has fewer than two,
+    points with coordinates in a number field. The decompositions are exact, over Q, by
+    Singular; a member with fewer than two points outside the smaller members is undecided. Where the cone is not smooth the face is undecided unless its
     polynomial is smooth in the orbit.
 
     Parameters

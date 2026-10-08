@@ -181,19 +181,63 @@ def test_the_condition_fails_where_the_critical_component_is_singular_along_the_
     assert set(map(str, failing[0].generators)) == {"t1 - 1", "t2 - 1"}
 
 
-# --- undecided paths -----------------------------------------------------------------------
+# --- points over a number field -------------------------------------------------------------
 
 
 @requires_singular
-def test_an_irrational_point_is_undecided() -> None:
-    """G = (x^2 - 2)^2 (x + 1) has a double root at the two points x^2 = 2, which are not rational:
-    the Le computations take rational points only, so the piece has a reason, and complete is
-    False."""
-    a = analyse((X1**2 - 2) ** 2 * (X1 + 1), [X1])
-    assert not a.complete
+@pytest.mark.parametrize(
+    ("irrational", "rational", "degree"),
+    [
+        ((X1**2 - 2) ** 2 * (X1 + 1), (X1**2 - 1) ** 2 * (X1 + 3), 2),
+        ((X1**3 - 2) ** 2 * (X1 + 1), (X1**3 - 1) ** 2 * (X1 + 3), 3),
+        ((X1**2 + 1) ** 2 * (X1 + 2), (X1**2 - 1) ** 2 * (X1 + 3), 2),
+    ],
+    ids=["sqrt2", "cbrt2", "i"],
+)
+def test_conjugate_points_are_decided_over_their_number_field(
+    irrational: sp.Expr, rational: sp.Expr, degree: int
+) -> None:
+    """G = h^2 (x + 1) with h irreducible: the double roots are conjugate points, one member of
+    that degree, an A_1 point of a function of one variable. beta comes from one root over Q(a),
+    twice; it is that of the same polynomial with rational roots."""
+    a = analyse(irrational, [X1])
     (stratum,) = a.strata
-    assert stratum.degree == 2 and stratum.mu_t is None
-    assert stratum.reason is not None and "not rational" in stratum.reason
+    assert stratum.degree == degree and stratum.dimension == 0
+    assert stratum.reason is None and a.complete
+    want = analyse(rational, [X1])
+    assert [t.mu_t for t in want.strata] == [stratum.mu_t] * len(want.strata)
+    assert stratum.mu_t == 1
+    assert a.primes and all(p < 2**29 for p in a.primes)
+
+
+@requires_singular
+def test_a_curve_without_rational_points_is_decided_at_two_points_over_number_fields() -> None:
+    """G = h^2, h = x^2 + x + y^2 + y + 1, which has no real point, so no rational point: the
+    singular locus of the top face is the curve V(h), and the points off the smaller members
+    (the conjugate pairs where it meets the lines x^2 + x + 1 = 0, ...) are algebraic. Its value
+    is that of the double line (x + y - 1)^2."""
+    h = X1**2 + X1 + X2**2 + X2 + 1
+    a = analyse(h**2, [X1, X2])
+    curves = by_dimension(a)[1]
+    assert len(curves) == 1 and curves[0].reason is None
+    want = by_dimension(analyse((X1 + X2 - 1) ** 2, [X1, X2]))[1]
+    assert curves[0].mu_t == want[0].mu_t == -1
+    assert a.complete
+    assert all(s.mu_t == 0 for s in a.strata if s.dimension == 0)
+
+
+@requires_singular
+def test_a_member_with_too_few_points_is_a_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    def none_found(self: Any, comp: Any, avoid: Any, want: int) -> list:
+        return []
+
+    monkeypatch.setattr(strata_module._Face, "points", none_found)
+    a = analyse((X1 - 1) ** 2 * (X2 + 2), [X1, X2])
+    assert not a.complete
+    assert all("points off the smaller members" in (s.reason or "") for s in a.strata)
+
+
+# --- undecided paths -----------------------------------------------------------------------
 
 
 @requires_singular

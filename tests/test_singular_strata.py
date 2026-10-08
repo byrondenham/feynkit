@@ -30,7 +30,7 @@ from feynkit.landau import _singular_binary
 from feynkit.milnor import TorusCutMilnorNumber, torus_cut_milnor_number
 from feynkit.polytope import polytope_data
 from feynkit.strata import StrataAnalysis, Stratum, singular_strata, singular_strata_from_polynomial
-from feynkit.toric import NormalCone, normal_cone, smooth_subdivision
+from feynkit.toric import NormalCone, normal_cone, orbit_chart, smooth_subdivision
 
 requires_singular = pytest.mark.skipif(_singular_binary() is None, reason="Singular not installed")
 
@@ -235,6 +235,145 @@ def test_a_member_with_too_few_points_is_a_reason(monkeypatch: pytest.MonkeyPatc
     a = analyse((X1 - 1) ** 2 * (X2 + 2), [X1, X2])
     assert not a.complete
     assert all("points off the smaller members" in (s.reason or "") for s in a.strata)
+
+
+# --- the subdivision path --------------------------------------------------------------------
+
+
+def edge_of(g: sp.Expr, variables: list[sp.Symbol], direction: int) -> tuple:
+    """The data, the terms and the key of the edge of the Newton polytope of g with the most
+    points along the given axis."""
+    poly = sp.Poly(sp.expand(g), *variables)
+    terms = {m: Fraction(int(c)) for m, c in poly.terms()}
+    data = polytope_data(sorted(terms))
+    key = next(
+        tuple(idx)
+        for dim, idx in data.faces
+        if dim == 1
+        and len(idx) > 2
+        and all(
+            not any(data.points[i][a] for a in range(len(variables)) if a != direction) for i in idx
+        )
+    )
+    return data, terms, key
+
+
+@requires_singular
+def test_blow_ups_of_a_smooth_cone_reproduce_the_direct_value() -> None:
+    """G = (x - 1)^2 + y^2 + z^3 + y z on the edge along the x axis, a smooth cone C^2 x C^*.
+    Subdividing the cone by one and by two stellar subdivisions (blow-ups of the origin of C^2)
+    moves the point q = 1 to the fibres of the blow-up, and the sum over the orbits above q
+    and the integral over the exceptional curve return the value computed in the chart of the
+    face: beta = 5 (the terms 1, -2, -1, 1 of the four restrictions)."""
+    x, y, z = sp.symbols("x y z")
+    g = (x - 1) ** 2 + y**2 + z**3 + y * z
+    data, terms, key = edge_of(g, [x, y, z], 0)
+    base = normal_cone(data, key)
+    assert base.smooth and len(base.rays) == 2
+    chart = orbit_chart(data, key)
+    exps = [data.points[i] for i in key]
+    direct = torus_cut_milnor_number(g, [x, y, z], exps, [1], chart=chart)
+    assert direct.beta == 5
+
+    u, v = base.rays
+    w = tuple(a + b for a, b in zip(u, v, strict=True))
+    w2 = tuple(a + b for a, b in zip(u, w, strict=True))
+
+    def cone(*rays: tuple[int, ...]) -> NormalCone:
+        return NormalCone(key, rays, True, True, base.lattice_dimension)
+
+    for pieces in (
+        [base],
+        [cone(u, w), cone(w, v)],
+        [cone(u, w2), cone(w2, w), cone(w, v)],
+    ):
+        cover = strata_module._Cover(data, key, base, terms, 0, 60, pieces=pieces)
+        beta, primes = strata_module._pushed_forward_beta(
+            cover, [Fraction(1)], seed=0, timeout=60, singular=_singular_binary()  # type: ignore[arg-type]
+        )
+        assert beta == direct.beta
+        assert primes and all(p < 2**29 for p in primes)
+
+
+@requires_singular
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_two_seeds_subdivide_a_non_smooth_edge_to_the_same_value(seed: int) -> None:
+    """G = (x - 1)^2 + z + y^2/z + y in three variables has the edge along the x axis, whose
+    normal cone is spanned by (0, 1, 0) and (0, 1, 2) in the chart, so it is not smooth: the
+    lattice index of the chart is 2. The face polynomial (x - 1)^2 is singular at x = 1. Each
+    seed gives other subdivisions, and the two points of the member (one point, computed twice)
+    use two of them: the value is 2 for all."""
+    x, y, z = sp.symbols("x y z")
+    g = (x - 1) ** 2 + z + y**2 / z + y
+    a = singular_strata_from_polynomial(g, [x, y, z], timeout=60, seed=seed)
+    (stratum,) = a.strata
+    assert stratum.reason is None
+    assert (stratum.dimension, stratum.degree, stratum.mu_t) == (0, 1, 2)
+    assert stratum.method == "subdivision"
+    assert [str(e) for e in stratum.generators] == ["t1 - 1"]
+    assert not a.complete and len(a.subdivided) == 1
+    assert a.primes and all(p < 2**29 for p in a.primes)
+
+
+@requires_singular
+@pytest.mark.parametrize("seed", [0, 1])
+def test_a_curve_of_singular_points_on_a_non_smooth_two_face(seed: int) -> None:
+    """G = (x + y - 1)^2 + z + w + z^2/w. The face on the exponents of x and y is a polygon with
+    the cone spanned by (0, 0, 1, 0) and (0, 0, 1, 2) in the chart, which is not smooth. Its
+    polynomial has a double line x + y = 1 of singular points in the orbit, a curve with two
+    points, each of dimension 1 or more: the curve is decided at two points by the
+    push-forward, with the fibres integrated by Euler characteristic, and has mu^T = -2."""
+    x, y, z, w = sp.symbols("x y z w")
+    g = sp.expand((x + y - 1) ** 2 + z + w + z**2 / w)
+    # The exponents of x, y with z = 0 and w = 1 (g * w shifts the exponent of w by one).
+    points = points_of(g * w, [x, y, z, w])
+    indices = [i for i, p in enumerate(points) if p[2] == 0 and p[3] == 1]
+    assert len(indices) == 6
+    a = singular_strata_from_polynomial(g, [x, y, z, w], faces=[indices], timeout=120, seed=seed)
+    curves = by_dimension(a)[1]
+    assert len(curves) == 1 and curves[0].reason is None
+    assert curves[0].mu_t == -2 and curves[0].method == "subdivision"
+    assert not a.complete and a.subdivided == (tuple(indices),)
+
+
+@requires_singular
+def test_a_smooth_face_uses_its_chart_and_keeps_complete() -> None:
+    a = analyse((X1 - 1) * (X2 - 1) * (1 + X3), [X1, X2, X3])
+    assert a.strata and all(s.method == "smooth chart" for s in a.strata)
+    assert a.complete and a.subdivided == ()
+
+
+@requires_singular
+def test_a_non_smooth_face_with_a_smooth_polynomial_has_no_pieces_and_is_complete() -> None:
+    x, y, z = sp.symbols("x y z")
+    g = x + 3 * x**2 + z + y**2 / z + y
+    a = singular_strata_from_polynomial(g, [x, y, z], timeout=60)
+    assert a.strata == () and a.complete and a.subdivided == ()
+
+
+@requires_singular
+def test_a_subdivision_past_its_limit_is_a_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    real = strata_module.smooth_subdivision
+
+    def hurried(cone: NormalCone, *, seed: int = 0, timeout: float | None = None) -> Any:
+        return real(cone, seed=seed, timeout=1e-9)
+
+    monkeypatch.setattr(strata_module, "smooth_subdivision", hurried)
+    x, y, z = sp.symbols("x y z")
+    a = singular_strata_from_polynomial((x - 1) ** 2 + z + y**2 / z + y, [x, y, z], timeout=60)
+    (stratum,) = a.strata
+    assert stratum.mu_t is None and not a.complete
+    assert "subdivision passed timeout" in (stratum.reason or "")
+
+
+@requires_singular
+def test_a_point_over_a_number_field_on_a_subdivided_face_is_a_reason() -> None:
+    x, y, z = sp.symbols("x y z")
+    g = (x**2 - x - 1) ** 2 + z + y**2 / z + y
+    a = singular_strata_from_polynomial(g, [x, y, z], timeout=60)
+    (stratum,) = a.strata
+    assert stratum.mu_t is None and stratum.degree == 2
+    assert "number field" in (stratum.reason or "") and not a.complete
 
 
 # --- undecided paths -----------------------------------------------------------------------

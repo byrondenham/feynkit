@@ -4,7 +4,8 @@ face polynomial.
 
 :func:`singular_strata` and :func:`singular_strata_from_polynomial` cut the singular locus of
 the polynomial on the orbit of every face of the Newton polytope into locally closed pieces on
-which the torus-cut Milnor number is constant; see :class:`StrataAnalysis`.
+which the torus-cut Milnor number is constant; see :class:`StrataAnalysis`. Faces whose
+normal cone is not smooth are handled through a smooth subdivision of the cone.
 
 :func:`torus_euler_characteristic` computes chi((V(I) cap T) minus V(h)), the topological
 Euler characteristic of the closed subvariety V(I) of the torus T = (C^*)^d with the
@@ -50,7 +51,7 @@ import random
 import re
 import subprocess
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
@@ -61,10 +62,23 @@ import sympy as sp
 from .core.exceptions import ComputationError, ValidationError
 from .degeneracy import _support
 from .landau import _check_timeout, _singular_binary
-from .milnor import NumberField, torus_cut_milnor_number
+from .milnor import (
+    NumberField,
+    TorusCutMilnorNumber,
+    _field,
+    _smooth_chart,
+    torus_cut_milnor_number,
+)
 from .point_count import _msolve_binary, _msolve_count, _singular_polynomial
-from .polytope import lattice_coordinates, polytope_data
-from .toric import OrbitChart, normal_cone, orbit_chart
+from .polytope import PolytopeData, lattice_coordinates, polytope_data
+from .toric import (
+    NormalCone,
+    OrbitChart,
+    normal_cone,
+    orbit_chart,
+    orbit_cones,
+    smooth_subdivision,
+)
 
 if TYPE_CHECKING:
     from .integral import FeynmanIntegral
@@ -579,6 +593,11 @@ class Stratum:
         The chart of the face in which the piece was computed, None if there is none.
     reason
         Why the piece is undecided, or None. When set, ``mu_t`` is None.
+    method
+        "smooth chart" if the normal cone of the face is smooth and mu^T comes from the chart
+        of the face, "subdivision" if it is not and mu^T is the sum over the orbits of a
+        smooth subdivision of the cone, pushed forward to the orbit of the face; None where the
+        face is undecided before either is chosen.
     """
 
     face: tuple[int, ...]
@@ -590,6 +609,7 @@ class Stratum:
     euler: int | None
     chart: OrbitChart | None
     reason: str | None
+    method: str | None = None
 
 
 @dataclass(frozen=True)
@@ -676,6 +696,11 @@ class StrataAnalysis:
     failures
         The members and subsets at which the condition fails, and so why ``complete`` is
         False when it is not because a piece is undecided.
+    subdivided
+        The faces whose normal cone is not smooth and whose face polynomial is singular in
+        the orbit, which were computed through a smooth subdivision of the cone. For them
+        the candidate set is the union of the candidates of the charts of the pieces, the
+        condition above is not checked, and ``complete`` is False.
     """
 
     points: tuple[tuple[int, ...], ...]
@@ -684,6 +709,7 @@ class StrataAnalysis:
     seed: int
     complete: bool
     failures: tuple[ConditionFailure, ...] = ()
+    subdivided: tuple[tuple[int, ...], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -753,37 +779,50 @@ def _random_flag(rng: random.Random, n: int) -> str:
 
 
 class _Face:
-    """The strata of one face in a smooth chart C^r_y x (C^*)^d_t."""
+    """The strata of one face in a smooth chart C^r_y x (C^*)^d_t, or in several charts over
+    the same torus t, the pieces of a subdivision.
+
+    ``sections`` are pairs (r, local): the number of normal coordinates and the local equation
+    of each chart. The face polynomial and the members come from the first, the candidates from
+    all of them. ``evaluate(point, seed)`` gives beta at a point of a member.
+    """
 
     def __init__(
         self,
         *,
         key: tuple[int, ...],
-        chart: OrbitChart,
-        local: Mapping[tuple[int, ...], Fraction],
-        polynomial: sp.Expr,
-        variables: Sequence[sp.Symbol],
-        face_points: Sequence[tuple[int, ...]],
+        chart: OrbitChart | None,
+        d: int,
+        sections: Sequence[tuple[int, Mapping[tuple[int, ...], Fraction]]],
+        evaluate: Callable[[_Point, int], TorusCutMilnorNumber],
         sign: int,
         seed: int,
         timeout: float,
         singular: str,
+        salt: str = "",
+        method: str = "smooth chart",
     ) -> None:
+        self.method = method
         self.key = key
         self.chart = chart
-        self.d = chart.torus_dimension
-        self.r = chart.normal_dimension
-        shift = [max(0, -min(e[a] for e in local)) for a in range(self.d)]
-        self.g = {
-            tuple(e[a] + shift[a] for a in range(self.d)) + tuple(e[self.d :]): c
-            for e, c in local.items()
-        }
+        self.d = d
+        self.sections = []
+        for r, local in sections:
+            shift = [max(0, -min(e[a] for e in local)) for a in range(d)] if local else [0] * d
+            self.sections.append(
+                (
+                    r,
+                    {
+                        tuple(e[a] + shift[a] for a in range(d)) + tuple(e[d:]): c
+                        for e, c in local.items()
+                    },
+                )
+            )
+        self.r, self.g = self.sections[0]
         self.tnames = [f"t{i + 1}" for i in range(self.d)]
-        self.ynames = [f"y{j + 1}" for j in range(self.r)]
         self.product = "*".join(self.tnames)
-        self.polynomial = polynomial
-        self.variables = tuple(variables)
-        self.face_points = [tuple(p) for p in face_points]
+        self.evaluate = evaluate
+        self.salt = salt
         self.sign = sign
         self.seed = seed
         self.timeout = timeout
@@ -852,6 +891,8 @@ class _Face:
 
     def singular_part(self, member: _Comp) -> list[str]:
         """The singular locus of the member, as ideals."""
+        if member.dim == self.d:
+            return []
         out = self.run(
             f"ideal A = {member.gens};\n"
             f"ideal SC = sat(A + minor(jacob(A), {self.d - member.dim}), ideal({self.product}));\n"
@@ -878,7 +919,7 @@ class _Face:
             for e, c in self.g.items()
             if not any(e[d + j] for j in subset)
         }
-        rng = random.Random(f"{self.seed}:{self.key}:{member.key}:{subset}:{flag}")
+        rng = random.Random(f"{self.seed}:{self.key}{self.salt}:{member.key}:{subset}:{flag}")
         yprod = "*".join(f"y{j + 1}" for j in free)
         partials = ", ".join(f"diff(f, var({c}))" for c in range(1, n + 1))
         center = ", ".join([member.gens, *(f"y{j + 1}" for j in free)])
@@ -986,32 +1027,39 @@ class _Face:
         comp = member.comp
         parts = self.singular_part(comp)
         failed: list[str] = []
-        for size in range(self.r + 1):
-            for subset in itertools.combinations(range(self.r), size):
-                try:
-                    found, kind, reasons, polar = self.pair(comp, subset, 0)
-                    big = [s for s in polar if s >= comp.dim + 2]
-                    if kind == "E" and big and not any(polar[s] for s in big):
-                        # Case (ii): a second flag must keep the member outside the polar
-                        # variety as well.
-                        again = self.pair(comp, subset, 1)
-                        if any(again[3].get(s) for s in big):
-                            reasons = [
-                                *reasons,
-                                "a second random flag puts the member in the polar variety",
-                            ]
-                except ComputationError as exc:
-                    if not str(exc).startswith("undecided: "):
-                        raise
-                    failed.append(f"coordinates {list(subset)}: {str(exc)[len('undecided: ') :]}")
-                    continue
-                parts += found
-                for text in reasons:
-                    self.failures.append(
-                        ConditionFailure(
-                            self.key, comp.dim, _parse(comp.gens, self.tnames), subset, text
+        for section in self.sections:
+            self.r, self.g = section
+            for size in range(self.r + 1):
+                for subset in itertools.combinations(range(self.r), size):
+                    try:
+                        found, kind, reasons, polar = self.pair(comp, subset, 0)
+                        big = [s for s in polar if s >= comp.dim + 2]
+                        if kind == "E" and big and not any(polar[s] for s in big):
+                            # Case (ii): a second flag must keep the member outside the polar
+                            # variety as well.
+                            again = self.pair(comp, subset, 1)
+                            if any(again[3].get(s) for s in big):
+                                reasons = [
+                                    *reasons,
+                                    "a second random flag puts the member in the polar variety",
+                                ]
+                    except ComputationError as exc:
+                        if not str(exc).startswith("undecided: "):
+                            raise
+                        failed.append(
+                            f"coordinates {list(subset)}: {str(exc)[len('undecided: ') :]}"
                         )
-                    )
+                        continue
+                    parts += found
+                    if len(self.sections) > 1:
+                        continue  # the criterion is for a single smooth chart
+                    for text in reasons:
+                        self.failures.append(
+                            ConditionFailure(
+                                self.key, comp.dim, _parse(comp.gens, self.tnames), subset, text
+                            )
+                        )
+        self.r, self.g = self.sections[0]
         if failed:
             self.candidate_reasons.setdefault(index, []).extend(failed)
         out: list[_Comp] = []
@@ -1109,7 +1157,7 @@ class _Face:
         """Points on the member outside the members inside it, or fewer: rational points when
         there are enough, and otherwise, for the others, points with coordinates in a number
         field, from components of the slices that are not rational."""
-        rng = random.Random(f"{self.seed}:{self.key}:{comp.key}:points")
+        rng = random.Random(f"{self.seed}:{self.key}{self.salt}:{comp.key}:points")
         symbols = [sp.Symbol(n) for n in self.tnames]
         avoiders = [_parse(a.gens, self.tnames) for a in avoid]
         found: list[tuple[Fraction, ...]] = []
@@ -1188,16 +1236,7 @@ class _Face:
         primes: list[int] = []
         # A point is computed twice, with two seeds, when the member is a point.
         for n, point in enumerate(points if comp.dim else points * 2):
-            result = torus_cut_milnor_number(
-                self.polynomial,
-                self.variables,
-                self.face_points,
-                list(point.coordinates),
-                seed=self.seed + n,
-                timeout=self.timeout,
-                chart=self.chart,
-                field=point.field,
-            )
+            result = self.evaluate(point, self.seed + n)
             if result.reason is not None or result.beta is None:
                 member.reason = f"beta at a point is undecided: {result.reason}"
                 return
@@ -1258,9 +1297,194 @@ class _Face:
                     euler=None,
                     chart=self.chart,
                     reason=reason if reason or beta is not None else "beta was not computed",
+                    method=self.method,
                 )
             )
         return out
+
+
+class _Cover:
+    """The orbits of a smooth subdivision of the normal cone of a face that lie over the
+    orbit of the face, with the local equation of G on each.
+
+    The charts of the maximal cones share the torus coordinates t of the orbit of the face
+    (:func:`~feynkit.toric.orbit_chart`). The orbit of a cone tau of the subdivision whose
+    relative interior lies in that of the cone of the face has torus coordinates (t, z), z the
+    coordinates of the rays of a maximal cone containing tau that are not in tau, and normal
+    coordinates the rays of tau: it is the chart of the face tau, with the torus basis
+    extended by those rays. Over a point q of the orbit of the face it is the torus z, the
+    fibre of the orbit of tau over q.
+    """
+
+    def __init__(
+        self,
+        data: PolytopeData,
+        key: tuple[int, ...],
+        base: NormalCone,
+        terms: Mapping[tuple[int, ...], Fraction],
+        seed: int,
+        timeout: float,
+        pieces: Sequence[NormalCone] | None = None,
+    ) -> None:
+        if pieces is None:
+            pieces = smooth_subdivision(base, seed=seed, timeout=timeout)
+        coefficients: dict[Sequence[int], Fraction] = {
+            tuple(data.chart.coordinates[i]): terms[data.points[i]] for i in range(len(data.points))
+        }
+        self.charts = [orbit_chart(data, key, cone=piece) for piece in pieces]
+        self.sections = [(c.normal_dimension, c.local_equation(coefficients)) for c in self.charts]
+        self.orbits: list[tuple[OrbitChart, dict[tuple[int, ...], Fraction]]] = []
+        self.strata: dict[int, _OrbitStrata] = {}
+        for rays in orbit_cones(data, pieces):
+            if not rays:
+                continue
+            chart = next(c for c in self.charts if set(rays) <= set(c.rays))
+            rest = tuple(u for u in chart.rays if u not in rays)
+            orbit = OrbitChart(chart.face, rays, (*chart.torus_basis, *rest), chart.vertex)
+            self.orbits.append((orbit, orbit.local_equation(coefficients)))
+
+
+class _OrbitStrata:
+    """The strata of constant beta of a smooth chart of an orbit of the subdivision, in its torus
+    coordinates (t, z): t the coordinates of the orbit of the face, z those of the fibre.
+
+    beta of the chart is the one of :func:`~feynkit.milnor.torus_cut_milnor_number`, with the
+    normal coordinates of the orbit. The strata are computed once for all points q, and the
+    integral over the fibre {t = q} sums beta times the Euler characteristic of each stratum
+    cut with the fibre.
+    """
+
+    def __init__(
+        self,
+        local: dict[tuple[int, ...], Fraction],
+        k: int,
+        extra: int,
+        r: int,
+        *,
+        seed: int,
+        timeout: float,
+        singular: str,
+        salt: str,
+    ) -> None:
+        self.k, self.extra = k, extra
+        self.timeout = timeout
+        self.seed = seed
+        self.primes: list[int] = []
+        shift = [max(0, -min(e[a] for e in local)) for a in range(k + extra)] if local else []
+
+        def evaluate(point: _Point, n: int) -> TorusCutMilnorNumber:
+            result = _smooth_chart(
+                local, k + extra, r, point.coordinates, shift, n, timeout, 1, _field(point.field)
+            )
+            if result.prime is not None:
+                self.primes.append(result.prime)
+            return result
+
+        self.face = _Face(
+            key=(),
+            chart=None,
+            d=k + extra,
+            sections=[(r, local)],
+            evaluate=evaluate,
+            sign=1,
+            seed=seed,
+            timeout=timeout,
+            singular=singular,
+            salt=salt,
+        )
+        self.face.closure()
+        self.strata = self.face.strata()
+        self.names = [sp.Symbol(f"t{i + 1}") for i in range(k + extra)]
+
+    def integral(self, point: Sequence[Fraction]) -> int:
+        """The integral over the fibre {t = point} of beta, by Euler characteristic.
+
+        Raises
+        ------
+        ComputationError
+            Starting with "undecided: ", if a stratum that meets the fibre is undecided or an
+            Euler characteristic is.
+        """
+        fixed = {
+            self.names[i]: sp.Rational(q.numerator, q.denominator) for i, q in enumerate(point)
+        }
+        z = self.names[self.k :]
+        total = 0
+        for stratum in self.strata:
+            pieces = [
+                [sp.expand(g.subs(fixed)) for g in generators]
+                for generators in (stratum.generators, *stratum.removed)
+            ]
+            closure = pieces[0]
+            if any(g.is_number and g != 0 for g in closure):
+                continue  # the closure misses the fibre
+            if stratum.reason is not None or stratum.mu_t is None:
+                raise _undecided(f"the fibre is undecided: {stratum.reason}")
+            euler = 0
+            removed = pieces[1:]
+            for size in range(len(removed) + 1):
+                for chosen in itertools.combinations(removed, size):
+                    generators = [*closure, *itertools.chain.from_iterable(chosen)]
+                    euler += (-1) ** size * torus_euler_characteristic(
+                        generators, z, seed=self.seed, timeout=self.timeout
+                    )
+            total += stratum.mu_t * euler
+        return total
+
+
+def _pushed_forward_beta(
+    cover: _Cover,
+    point: Sequence[Fraction],
+    *,
+    seed: int,
+    timeout: float,
+    singular: str,
+) -> tuple[int, list[int]]:
+    """beta at a point of the orbit of the face, as the sum over the orbits of the subdivision
+    above it of the integral over the fibre of beta of the smooth chart.
+
+    Nearby cycles commute with the push-forward along the proper toric morphism pi from the
+    subdivided variety (A. Dimca, Sheaves in Topology, Springer 2004, Prop. 4.2.11, p. 109, with
+    Prop. 4.1.31 to 4.1.33, pp. 98-99), and pi is an isomorphism over the torus. So the Euler
+    characteristic of the Milnor fibre of G at q, cut by the torus, is the integral over pi^-1(q)
+    of the same number computed in a smooth chart at the point of pi^-1(q); the fibre over q of the
+    orbit O_tau is a torus, and the integral is the sum over the orbits and over the pieces of
+    the torus on which the number is constant.
+
+    Raises
+    ------
+    ComputationError
+        Starting with "undecided: ", if a term is undecided.
+    """
+    k = len(point)
+    total = 0
+    primes: list[int] = []
+    for index, (orbit, local) in enumerate(cover.orbits):
+        extra = orbit.torus_dimension - k
+        r = orbit.normal_dimension
+        if extra == 0:
+            shift = [max(0, -min(e[a] for e in local)) for a in range(k)] if local else [0] * k
+            result = _smooth_chart(local, k, r, list(point), shift, seed, timeout, 1)
+            if result.reason is not None or result.beta is None:
+                raise _undecided(str(result.reason))
+            total += result.beta
+            if result.prime is not None:
+                primes.append(result.prime)
+            continue
+        if index not in cover.strata:
+            cover.strata[index] = _OrbitStrata(
+                local,
+                k,
+                extra,
+                r,
+                seed=seed,
+                timeout=timeout,
+                singular=singular,
+                salt=f":{orbit.rays}",
+            )
+        total += cover.strata[index].integral(point)
+        primes += cover.strata[index].primes
+    return total, primes
 
 
 def _analyse(
@@ -1295,6 +1519,7 @@ def _analyse(
     sign = (-1) ** (data.dimension - 1)
     strata: list[Stratum] = []
     failures: list[ConditionFailure] = []
+    subdivided: list[tuple[int, ...]] = []
     primes: set[int] = set()
     wanted: set[tuple[int, ...]] | None = None
     if faces is not None:
@@ -1319,7 +1544,13 @@ def _analyse(
         base = normal_cone(data, key)
         exps = [data.points[i] for i in key]
         if not base.smooth:
-            strata += _non_smooth(key, terms, exps, singular, timeout)
+            found, used, used_primes = _non_smooth(
+                data, key, base, terms, exps, sign, seed, singular, timeout
+            )
+            strata += found
+            primes.update(used_primes)
+            if used:
+                subdivided.append(key)
             continue
         chart = orbit_chart(data, key)
         local = chart.local_equation(
@@ -1328,13 +1559,27 @@ def _analyse(
                 for i in range(len(data.points))
             }
         )
+
+        def evaluate(
+            point: _Point, n: int, chart: OrbitChart = chart, exps: list = exps
+        ) -> TorusCutMilnorNumber:
+            return torus_cut_milnor_number(
+                expression,
+                variables,
+                exps,
+                list(point.coordinates),
+                seed=n,
+                timeout=timeout,
+                chart=chart,
+                field=point.field,
+            )
+
         face = _Face(
             key=key,
             chart=chart,
-            local=local,
-            polynomial=expression,
-            variables=variables,
-            face_points=exps,
+            d=chart.torus_dimension,
+            sections=[(chart.normal_dimension, local)],
+            evaluate=evaluate,
             sign=sign,
             seed=seed,
             timeout=timeout,
@@ -1354,7 +1599,7 @@ def _analyse(
         failures += face.failures
         for member in face.members:
             primes.update(member.primes)
-    complete = not failures and all(s.reason is None for s in strata)
+    complete = not failures and not subdivided and all(s.reason is None for s in strata)
     return StrataAnalysis(
         points=data.points,
         strata=tuple(strata),
@@ -1362,18 +1607,31 @@ def _analyse(
         seed=seed,
         complete=complete,
         failures=tuple(failures),
+        subdivided=tuple(subdivided),
     )
 
 
 def _non_smooth(
+    data: PolytopeData,
     key: tuple[int, ...],
+    base: NormalCone,
     terms: Mapping[tuple[int, ...], Fraction],
     exps: Sequence[tuple[int, ...]],
+    sign: int,
+    seed: int,
     singular: str,
     timeout: float,
-) -> list[Stratum]:
-    """The pieces of a face whose normal cone is not smooth: none if the face polynomial has no
-    singular point in its orbit, and otherwise one undecided piece."""
+) -> tuple[list[Stratum], bool, set[int]]:
+    """The pieces of a face whose normal cone is not smooth, whether a subdivision was used, and
+    the primes of the Le computations.
+
+    None if the face polynomial has no singular point in its orbit. Otherwise the cone is
+    subdivided into smooth cones (``smooth_subdivision`` with a time limit, undecided past it),
+    the members come from the candidates of the charts of all the pieces, and beta at a point of
+    a member is the push-forward sum of :func:`_pushed_forward_beta`, with the subdivision of
+    seed ``seed + n`` for the n-th point, so that the two points of a member also compare two
+    subdivisions. ``complete`` is not claimed on such a face.
+    """
     coordinates = lattice_coordinates(list(exps))
     d = len(coordinates[0])
     names = [f"t{i + 1}" for i in range(d)]
@@ -1388,31 +1646,80 @@ def _non_smooth(
         f"Z = sat(Z, ideal({'*'.join(names)}));\n"
         'print("DIM " + string(dim(std(Z))));\n'
     )
+
+    def undecided(reason: str) -> tuple[list[Stratum], bool, set[int]]:
+        return [Stratum(key, None, (), None, (), None, None, None, reason)], False, set()
+
     try:
         out = _singular_run(_HEADER + ring + script + "quit;\n", singular, timeout)
     except ComputationError as exc:
         if not str(exc).startswith("undecided: "):
             raise
-        return [Stratum(key, None, (), None, (), None, None, None, str(exc)[len("undecided: ") :])]
+        return undecided(str(exc)[len("undecided: ") :])
     found = re.search(r"^DIM (-?\d+)$", out, re.MULTILINE)
     if found is None:
         raise ComputationError(f"Singular printed {out.strip()[:100]!r} instead of a dimension")
     if int(found.group(1)) < 0:
-        return []
-    return [
-        Stratum(
-            key,
-            None,
-            (),
-            None,
-            (),
-            None,
-            None,
-            None,
-            "the normal cone of the face is not smooth and its face polynomial is singular in "
-            "the orbit: the subdivision path is not available",
+        return [], False, set()
+    covers: dict[int, _Cover] = {}
+
+    def cover(n: int) -> _Cover:
+        if n not in covers:
+            covers[n] = _Cover(data, key, base, terms, seed + n, timeout)
+        return covers[n]
+
+    try:
+        first = cover(0)
+    except ComputationError as exc:
+        if not str(exc).startswith("undecided: "):
+            raise
+        return undecided(str(exc)[len("undecided: ") :])
+
+    def evaluate(point: _Point, n: int) -> TorusCutMilnorNumber:
+        def refused(reason: str) -> TorusCutMilnorNumber:
+            return TorusCutMilnorNumber(None, None, "subdivision", (), None, reason)
+
+        if point.field is not None:
+            return refused(
+                "the point has coordinates in a number field and the subdivision path takes "
+                "rational points only"
+            )
+        try:
+            beta, primes = _pushed_forward_beta(
+                cover(n - seed),
+                [c for c in point.coordinates if isinstance(c, Fraction)],
+                seed=n,
+                timeout=timeout,
+                singular=singular,
+            )
+        except ComputationError as exc:
+            if not str(exc).startswith("undecided: "):
+                raise
+            return refused(str(exc)[len("undecided: ") :])
+        return TorusCutMilnorNumber(
+            sign * beta, beta, "subdivision", (), min(primes, default=None), None
         )
-    ]
+
+    face = _Face(
+        key=key,
+        chart=first.charts[0],
+        d=first.charts[0].torus_dimension,
+        sections=first.sections,
+        evaluate=evaluate,
+        sign=sign,
+        seed=seed,
+        timeout=timeout,
+        singular=singular,
+        method="subdivision",
+    )
+    try:
+        face.closure()
+        pieces = face.strata()
+    except ComputationError as exc:
+        if not str(exc).startswith("undecided: "):
+            raise
+        return undecided(str(exc)[len("undecided: ") :])
+    return pieces, True, {p for member in face.members for p in member.primes}
 
 
 def singular_strata_from_polynomial(
@@ -1436,8 +1743,21 @@ def singular_strata_from_polynomial(
     used and beta comes from :func:`~feynkit.milnor.torus_cut_milnor_number`, at two points of
     each member, which must agree: rational points, or, where a member has fewer than two,
     points with coordinates in a number field. The decompositions are exact, over Q, by
-    Singular; a member with fewer than two points outside the smaller members is undecided. Where the cone is not smooth the face is undecided unless its
-    polynomial is smooth in the orbit.
+    Singular; a member with fewer than two points outside the smaller members is undecided.
+
+    Where the cone is not smooth and the polynomial is singular in the orbit, the cone is
+    subdivided into smooth cones (:func:`~feynkit.toric.smooth_subdivision`, within
+    ``timeout``; past it the face is undecided). The members come from the candidates of the
+    charts of all the pieces, and beta at a rational point q of a member is the sum, over the
+    orbits of the subdivision above the orbit of the face, of the integral over the fibre of
+    q of beta in the smooth chart of the orbit: the fibre is a torus, cut into the pieces
+    on which beta is constant by the same construction in the chart of the orbit, and
+    integrated by the Euler characteristic of each piece cut with the fibre. This is the
+    push-forward of the nearby cycles (A. Dimca, Sheaves in Topology, Springer 2004,
+    Prop. 4.2.11, p. 109). The two points of a member use the subdivisions of seeds
+    ``seed`` and ``seed + 1``, which must agree; the pieces are then ``method="subdivision"``,
+    listed in :attr:`StrataAnalysis.subdivided`, and ``complete`` is False. A member with
+    fewer than two rational points, or a point over a number field, is undecided there.
 
     Parameters
     ----------

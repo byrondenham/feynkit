@@ -73,13 +73,12 @@ from __future__ import annotations
 import dataclasses
 import itertools
 import math
-import multiprocessing
 import numbers
 import random
 import re
 import subprocess
 import tempfile
-import warnings
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from fractions import Fraction
@@ -1032,7 +1031,9 @@ def _smooth_chart(
     )
 
 
-def _compact_faces(support: Sequence[tuple[int, ...]]) -> list[tuple[int, tuple[int, ...]]]:
+def _compact_faces(
+    support: Sequence[tuple[int, ...]], deadline: float | None = None
+) -> list[tuple[int, tuple[int, ...]]]:
     """The compact faces of the Newton polyhedron of a polynomial supported in the non-negative
     orthant, as (dimension, indices into support of the points on the face).
 
@@ -1049,44 +1050,13 @@ def _compact_faces(support: Sequence[tuple[int, ...]]) -> list[tuple[int, tuple[
     added = [tuple(a + (i == j) for j, a in enumerate(p)) for p in support for i in range(d)]
     hull = polytope_data([*support, *dict.fromkeys(q for q in added if q not in set(support))])
     count = len(support)
-    return [(dim, idx) for dim, idx in hull.faces if all(i < count for i in idx)]
-
-
-def _compact_faces_worker(support: list, connection: object) -> None:
-    try:
-        connection.send(("ok", _compact_faces(support)))  # type: ignore[attr-defined]
-    except Exception as exc:  # noqa: BLE001 - reported to the parent
-        connection.send(("error", repr(exc)))  # type: ignore[attr-defined]
-
-
-def _compact_faces_within(
-    support: Sequence[tuple[int, ...]], timeout: float
-) -> list[tuple[int, tuple[int, ...]]] | None:
-    """:func:`_compact_faces`, or None if it runs past ``timeout`` seconds (in a child process
-    that is then stopped)."""
-    context = multiprocessing.get_context("fork")
-    receiver, sender = context.Pipe(duplex=False)
-    worker = context.Process(target=_compact_faces_worker, args=(list(support), sender))
-    with warnings.catch_warnings():
-        # The child only computes a convex hull in exact integers and sends the answer back.
-        warnings.simplefilter("ignore", DeprecationWarning)
-        worker.start()
-    sender.close()
-    try:
-        if not receiver.poll(timeout):
-            return None
-        status, payload = receiver.recv()
-    except EOFError:
-        raise ComputationError(
-            "the computation of the compact faces stopped unexpectedly"
-        ) from None
-    finally:
-        worker.terminate()
-        worker.join()
-        receiver.close()
-    if status != "ok":
-        raise ComputationError(f"the computation of the compact faces failed: {payload}")
-    return payload  # type: ignore[no-any-return]
+    found = []
+    for dim, idx in hull.faces:
+        if deadline is not None and time.monotonic() > deadline:
+            raise ComputationError("undecided: computing the compact faces ran past the timeout")
+        if all(i < count for i in idx):
+            found.append((dim, idx))
+    return found
 
 
 _NONDEGENERATE = re.compile(r"N (\d+) ([01])")
@@ -1173,12 +1143,13 @@ def _newton(
         for monomial, c in poly.terms()
     }
     support = sorted(coefficients)
-    faces = _compact_faces_within(support, timeout)
-    if faces is None:
-        return _undecided(
-            "newton",
-            f"computing the compact faces of the Newton polyhedron ran past timeout={timeout} s",
-        )
+    try:
+        faces = _compact_faces(support, time.monotonic() + timeout)
+    except ComputationError as exc:
+        message = str(exc)
+        if not message.startswith(_UNDECIDED):
+            raise
+        return _undecided("newton", message[len(_UNDECIDED) :])
     try:
         degenerate = _singular_faces(coefficients, support, faces, timeout)
     except ComputationError as exc:

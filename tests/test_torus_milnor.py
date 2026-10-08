@@ -322,11 +322,13 @@ def test_another_computation_error_is_not_swallowed(monkeypatch: pytest.MonkeyPa
 
 
 def test_compact_faces_are_bounded_by_the_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    def slow(support: object) -> list:
-        time.sleep(30)
-        return []
+    real = milnor_module.polytope_data
 
-    monkeypatch.setattr(milnor_module, "_compact_faces", slow)
+    def slow(points: object) -> object:
+        time.sleep(0.6)
+        return real(points)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(milnor_module, "polytope_data", slow)
     g = (X - 1) ** 2 + (Y - 1) ** 3
     start = time.monotonic()
     result = torus_cut_milnor_number(

@@ -70,13 +70,16 @@ its docstring.
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 import math
+import multiprocessing
 import numbers
 import random
 import re
 import subprocess
 import tempfile
+import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass
 from fractions import Fraction
@@ -88,8 +91,17 @@ import sympy as sp
 from . import _exact
 from .core.exceptions import ComputationError, ValidationError
 from .landau import _check_timeout, _singular_binary
-from .polytope import polytope_data
-from .toric import _face_key, normal_cone, orbit_chart
+from .polytope import PolytopeData, polytope_data
+from .toric import (
+    NormalCone,
+    OrbitChart,
+    _completion,
+    _face_key,
+    _minimal_set,
+    _saturated_basis,
+    normal_cone,
+    orbit_chart,
+)
 
 __all__ = [
     "DEFAULT_TIMEOUT",
@@ -836,8 +848,10 @@ class TorusCutMilnorNumber:
         beta(x) = chi(F_x intersected with T) - 1_T(x),   mu^T(x) = (-1)^(N-1) beta(x),
 
     where 1_T(x) is 1 if x lies in T and 0 otherwise. At a point of T that is an isolated
-    critical point of g, beta = chi~(F_x) = (-1)^(N-1) mu, so mu^T = mu there. Where g does
-    not vanish at x, the point is not in the closure of the zero set and beta = mu^T = 0.
+    critical point of g, beta = chi~(F_x) = (-1)^(N-1) mu, so mu^T = mu there. The
+    definition is for x in the closure of the zero set, where g(x) = 0. Off the closure beta
+    is 0 by convention, although the displayed formula would give -1 at a point of T, where
+    F_x is empty; the functions here do not take such points.
 
     Attributes
     ----------
@@ -860,7 +874,7 @@ class TorusCutMilnorNumber:
         "newton" the subset is J, the indices of the t coordinates, counted from 0, that
         are non-zero in the orbit piece, all y coordinates being non-zero, and the number
         is chi(T_J intersected with F_x), the Euler characteristic of that piece of the
-        Milnor fibre. Empty where g(x) is not 0 or the result is undecided.
+        Milnor fibre. Empty if the result is undecided.
     prime
         For "smooth chart", the smallest prime of the first flag over the terms that
         needed Lê numbers (:class:`LeNumbers`); the other terms are exact. None if no term
@@ -868,6 +882,9 @@ class TorusCutMilnorNumber:
     reason
         Why the result is undecided, or None. When it is not None, value and beta are
         None.
+    chart
+        The chart in which the point was given and g computed (:class:`~feynkit.toric.
+        OrbitChart`); None if the cone is not smooth and no chart was passed.
     """
 
     value: int | None
@@ -876,6 +893,7 @@ class TorusCutMilnorNumber:
     terms: tuple[tuple[tuple[int, ...], int], ...]
     prime: int | None
     reason: str | None
+    chart: OrbitChart | None = None
 
 
 def _undecided(method: TorusMethod, reason: str) -> TorusCutMilnorNumber:
@@ -1034,6 +1052,43 @@ def _compact_faces(support: Sequence[tuple[int, ...]]) -> list[tuple[int, tuple[
     return [(dim, idx) for dim, idx in hull.faces if all(i < count for i in idx)]
 
 
+def _compact_faces_worker(support: list, connection: object) -> None:
+    try:
+        connection.send(("ok", _compact_faces(support)))  # type: ignore[attr-defined]
+    except Exception as exc:  # noqa: BLE001 - reported to the parent
+        connection.send(("error", repr(exc)))  # type: ignore[attr-defined]
+
+
+def _compact_faces_within(
+    support: Sequence[tuple[int, ...]], timeout: float
+) -> list[tuple[int, tuple[int, ...]]] | None:
+    """:func:`_compact_faces`, or None if it runs past ``timeout`` seconds (in a child process
+    that is then stopped)."""
+    context = multiprocessing.get_context("fork")
+    receiver, sender = context.Pipe(duplex=False)
+    worker = context.Process(target=_compact_faces_worker, args=(list(support), sender))
+    with warnings.catch_warnings():
+        # The child only computes a convex hull in exact integers and sends the answer back.
+        warnings.simplefilter("ignore", DeprecationWarning)
+        worker.start()
+    sender.close()
+    try:
+        if not receiver.poll(timeout):
+            return None
+        status, payload = receiver.recv()
+    except EOFError:
+        raise ComputationError(
+            "the computation of the compact faces stopped unexpectedly"
+        ) from None
+    finally:
+        worker.terminate()
+        worker.join()
+        receiver.close()
+    if status != "ok":
+        raise ComputationError(f"the computation of the compact faces failed: {payload}")
+    return payload  # type: ignore[no-any-return]
+
+
 _NONDEGENERATE = re.compile(r"N (\d+) ([01])")
 
 
@@ -1118,7 +1173,12 @@ def _newton(
         for monomial, c in poly.terms()
     }
     support = sorted(coefficients)
-    faces = _compact_faces(support)
+    faces = _compact_faces_within(support, timeout)
+    if faces is None:
+        return _undecided(
+            "newton",
+            f"computing the compact faces of the Newton polyhedron ran past timeout={timeout} s",
+        )
     try:
         degenerate = _singular_faces(coefficients, support, faces, timeout)
     except ComputationError as exc:
@@ -1153,6 +1213,28 @@ def _newton(
     return TorusCutMilnorNumber(sign * beta, beta, "newton", tuple(terms), None, None)
 
 
+def _check_chart(data: PolytopeData, key: tuple[int, ...], base: NormalCone, chart: object) -> None:
+    """Whether chart is an OrbitChart of the face for data.
+
+    Raises
+    ------
+    ValidationError
+        If it is not.
+    """
+    if not isinstance(chart, OrbitChart) or chart.face != key:
+        raise ValidationError("chart must be an OrbitChart of the face")
+    d = base.lattice_dimension
+    torus = _completion(_saturated_basis(base.rays, d), d)
+    vertex = tuple(data.chart.coordinates[min(set(key) & set(data.vertex_indices))])
+    if chart.torus_basis != tuple(tuple(w) for w in torus) or chart.vertex != vertex:
+        raise ValidationError("chart is not a chart of this polytope and face")
+    rows = [list(w) for w in chart.torus_basis] + [list(u) for u in chart.rays]
+    if len(rows) != d or abs(_exact.determinant(rows)) != 1:
+        raise ValidationError("the rays and torus basis of chart do not form a basis of Z^d")
+    if any(not set(key) <= _minimal_set(data, u) for u in chart.rays):
+        raise ValidationError("a ray of chart is not in the normal cone of the face")
+
+
 def torus_cut_milnor_number(
     polynomial: sp.Expr,
     variables: Sequence[sp.Symbol],
@@ -1162,6 +1244,7 @@ def torus_cut_milnor_number(
     seed: int = 0,
     timeout: float = DEFAULT_TIMEOUT,
     method: TorusMethod = "smooth chart",
+    chart: OrbitChart | None = None,
 ) -> TorusCutMilnorNumber:
     """beta and mu^T at a point of the orbit of a face, in a smooth chart.
 
@@ -1169,10 +1252,11 @@ def torus_cut_milnor_number(
     dimension of the Newton polytope P of G, beta(x) = chi(F_x intersected with T) - 1_T(x)
     and mu^T(x) = (-1)^(N-1) beta(x).
 
-    The normal cone of the face must be smooth (:func:`~feynkit.toric.normal_cone`). Then
+    The normal cone of the face must be smooth (:func:`~feynkit.toric.normal_cone`), or a
+    chart of a smooth piece of its subdivision must be passed as ``chart``. Then
     :func:`~feynkit.toric.orbit_chart` gives a chart C^r_y x (C^*)^(d-r)_t of X_P around the
     orbit, d = N, and g(t, y) = x^(-v) G. The point x is (t, y) = (``coordinates``, 0).
-    A cone that is not smooth is not handled; the result is then undecided.
+    With a cone that is not smooth and no ``chart``, the result is undecided.
 
     "smooth chart" (the default). T is the set where no y_i vanishes, and near x the
     coordinates t do not vanish. The stalk at x of the nearby cycles of g on the constant
@@ -1207,7 +1291,7 @@ def torus_cut_milnor_number(
 
     summed over the compact faces gamma_i of Gamma_+(f) inside Delta of dimension
     dim Delta - 1, Gamma_i the convex hull of gamma_i and 0, Vol_Z the volume normalised for
-    Z^Delta (so d! times the volume); the sum is 0 if Gamma_+(f) misses Delta. The y_i are
+    Z^Delta (so (dim Delta)! times the Euclidean volume); the sum is 0 if Gamma_+(f) misses Delta. The y_i are
     non-zero exactly on the part of the fibre in T, so beta is the sum of these over the
     subsets of t coordinates, less 1_T(x). Non-degeneracy is verified exactly for every
     compact face with at least two points, over Q: its partial derivatives and
@@ -1230,11 +1314,26 @@ def torus_cut_milnor_number(
         the whole of P for the top face.
     coordinates
         The point x of the orbit, as the d - r non-zero rational values of the torus
-        coordinates t_1, ..., t_(d-r) of the chart (:class:`~feynkit.toric.OrbitChart`);
-        none for a vertex. The coordinate t_a is the monomial in the variables whose
-        exponent vector is the a-th vector of the dual basis (:class:`OrbitChart`
-        describes it); for the top face the chart torus is the torus of the lattice that
-        the exponents span.
+        coordinates t_1, ..., t_(d-r) of the chart; none for a vertex. The convention is
+        that of :class:`~feynkit.toric.OrbitChart`, which this function uses as it is
+        returned by ``orbit_chart(data, face)`` for ``data = polytope_data(points)``,
+        ``points`` the sorted exponent vectors of the terms of G. Let c(alpha) be the
+        coordinates of an exponent alpha in the lattice chart of ``data`` (``data.chart``),
+        v the chart's vertex and w_1, ..., w_(d-r) its ``torus_basis``. A term with
+        exponent alpha contributes t_1^<w_1, c(alpha) - v> ... t_(d-r)^<w_(d-r), c(alpha) - v>
+        times the y monomial given by the rays. So t_a is the character of the lattice
+        spanned by the exponents whose chart coordinates are the a-th vector m_a of the
+        basis dual to (w_1, ..., w_(d-r), u_1, ..., u_r); it is a monomial x^e in the
+        variables only up to the chart basis ``data.chart.basis`` (e = sum_j (m_a)_j b_j),
+        and is x_a itself only when that basis is the identity. Another chart of the same
+        orbit, for instance one from ``orbit_chart(data, face, cone=piece)`` or the same
+        chart written out, can be passed as ``chart``.
+    chart
+        An :class:`~feynkit.toric.OrbitChart` of the face for ``polytope_data(points)`` with
+        a smooth cone, in which ``coordinates`` are given; its rays, torus basis and
+        vertex must be those of a chart of this polytope and face, and the torus basis that
+        of ``orbit_chart(data, face)``. If None, ``orbit_chart(data, face)``, which needs the
+        normal cone of the face to be smooth. The chart used is returned in the result.
     seed
         Seed of the random coordinates of the Lê computations.
     timeout
@@ -1256,7 +1355,11 @@ def torus_cut_milnor_number(
     ValidationError
         If ``polynomial`` is not a non-zero Laurent polynomial with rational coefficients
         in distinct ``variables``, ``face`` is not the set of terms on a face of P,
-        ``coordinates`` is not d - r non-zero rationals, ``seed`` is not an integer,
+        ``coordinates`` is not d - r non-zero rationals, the face polynomial does not vanish
+        at them (the point is not in the closure of V(G), and the numbers are not defined
+        there: by convention beta is 0 off the closure, which is not computed here, while
+        the displayed formula would give -1 at a point of T), ``chart`` is not a chart of
+        the face, ``seed`` is not an integer,
         ``timeout`` is not a number of seconds greater than 0 and at most 2,000,000, or
         ``method`` is unknown.
     RuntimeError
@@ -1278,14 +1381,17 @@ def torus_cut_milnor_number(
     except (KeyError, TypeError, ValidationError) as exc:
         raise ValidationError("face must be a sequence of exponent vectors of terms of G") from exc
     key = _face_key(data, indices)
-    cone = normal_cone(data, key)
-    if not cone.smooth:
-        return _undecided(
-            method,
-            f"the normal cone of the face {list(key)} is not smooth: the chart is not "
-            "C^r x (C^*)^(d-r) and a smooth subdivision of the cone is needed",
-        )
-    chart = orbit_chart(data, key)
+    base = normal_cone(data, key)
+    if chart is None:
+        if not base.smooth:
+            return _undecided(
+                method,
+                f"the normal cone of the face {list(key)} is not smooth: the chart is not "
+                "C^r x (C^*)^(d-r) and a smooth subdivision of the cone is needed",
+            )
+        chart = orbit_chart(data, key)
+    else:
+        _check_chart(data, key, base, chart)
     k, r = chart.torus_dimension, chart.normal_dimension
     if (
         isinstance(coordinates, (str, bytes))
@@ -1310,8 +1416,13 @@ def torus_cut_milnor_number(
         start=Fraction(0),
     )
     if value_at_x != 0:
-        return TorusCutMilnorNumber(0, 0, method, (), None, None)
+        raise ValidationError(
+            "the face polynomial does not vanish at coordinates: the point is not in the "
+            "closure of V(G)"
+        )
     shift = [max(0, -min(e[a] for e in local)) for a in range(k)]
     if method == "newton":
-        return _newton(local, k, r, point, shift, timeout, sign)
-    return _smooth_chart(local, k, r, point, shift, seed, timeout, sign)
+        result = _newton(local, k, r, point, shift, timeout, sign)
+    else:
+        result = _smooth_chart(local, k, r, point, shift, seed, timeout, sign)
+    return dataclasses.replace(result, chart=chart)

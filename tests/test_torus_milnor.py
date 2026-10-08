@@ -15,8 +15,10 @@ Hand values used below:
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 import random
+import time
 from fractions import Fraction
 
 import pytest
@@ -26,6 +28,8 @@ from feynkit import milnor as milnor_module
 from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.landau import _singular_binary
 from feynkit.milnor import TorusCutMilnorNumber, torus_cut_milnor_number
+from feynkit.polytope import polytope_data
+from feynkit.toric import orbit_chart
 
 requires_singular = pytest.mark.skipif(_singular_binary() is None, reason="Singular not installed")
 
@@ -162,8 +166,8 @@ def test_a_morse_point_times_a_line(method: str) -> None:
     (x, z) = (1, 1), where 1 + z = 2 is a unit. The critical locus of g is a line (the z
     direction), transversally the Morse point of the previous test.
 
-    A suspension does not change the Milnor fibre up to homotopy, so the terms are those of
-    the previous test: chi~ = -1 for I = {} and +1 for I = {1}, beta = -2, but now
+    The product with a line does not change the Milnor fibre up to homotopy, so the terms
+    are those of the previous test: chi~ = -1 for I = {} and +1 for I = {1}, beta = -2, but now
     mu^T = (-1)^(3 - 1) (-2) = -2.
     """
     g = (X - 1) ** 2 * (1 + Z) + Y**2 * (1 + Z) + Y**3 * (1 + Z)
@@ -205,13 +209,50 @@ def test_a_restriction_that_is_identically_zero() -> None:
     assert (result.beta, result.value) == (0, 0)
 
 
-@requires_singular
-def test_the_point_off_the_hypersurface() -> None:
-    """Where g(x) is not zero the point is not in the closure of V(G): beta = mu^T = 0."""
+def test_a_point_off_the_hypersurface_is_a_caller_error() -> None:
+    """Where the face polynomial does not vanish the numbers are not defined here."""
     g = (X - 1) ** 2 + (Y - 1) ** 3
     for method in METHODS:
-        result = torus_cut_milnor_number(g, [X, Y], terms_of(g, [X, Y]), [2, 1], method=method)
-        assert (result.value, result.beta, result.terms, result.reason) == (0, 0, (), None)
+        with pytest.raises(ValidationError, match="closure of V"):
+            torus_cut_milnor_number(g, [X, Y], terms_of(g, [X, Y]), [2, 1], method=method)
+
+
+@requires_singular
+@pytest.mark.parametrize("method", METHODS)
+def test_coordinates_follow_the_chart_basis_away_from_one(method: str) -> None:
+    """G = (x y - 2)^2 + y^2 + y^3 with the face x = y (the exponents (0,0), (1,1), (2,2)).
+
+    The lattice chart basis is not the identity here: the chart coordinate along the face is
+    t = (x y)^(-1) (the result carries the chart), so the face polynomial (x y - 2)^2 =
+    (1/t - 2)^2 vanishes at t = 1/2 and not at t = 2. At t = 1/2 the germ is the Morse
+    point of the earlier test, beta = -2, mu^T = 2; at t = 2 the point is not on V(G).
+    """
+    g = (X * Y - 2) ** 2 + Y**2 + Y**3
+    face = [m for m in terms_of(g, [X, Y]) if m[0] == m[1]]
+    result = torus_cut_milnor_number(g, [X, Y], face, [Fraction(1, 2)], method=method)
+    assert result.reason is None
+    assert (result.beta, result.value) == (-2, 2)
+    assert result.chart is not None and result.chart.normal_dimension == 1
+    with pytest.raises(ValidationError, match="closure of V"):
+        torus_cut_milnor_number(g, [X, Y], face, [2], method=method)
+
+
+@requires_singular
+def test_the_chart_can_be_passed_and_is_checked() -> None:
+    g = (X * Y - 2) ** 2 + Y**2 + Y**3
+    points = terms_of(g, [X, Y])
+    face = [m for m in points if m[0] == m[1]]
+    data = polytope_data(points)
+    indices = [data.points.index(m) for m in face]
+    chart = orbit_chart(data, tuple(sorted(indices)))
+    result = torus_cut_milnor_number(g, [X, Y], face, [Fraction(1, 2)], chart=chart)
+    assert result.chart == chart and (result.beta, result.value) == (-2, 2)
+    other = orbit_chart(data, tuple(sorted(indices)))
+    wrong = dataclasses.replace(other, vertex=(5, 5))
+    with pytest.raises(ValidationError):
+        torus_cut_milnor_number(g, [X, Y], face, [Fraction(1, 2)], chart=wrong)
+    with pytest.raises(ValidationError):
+        torus_cut_milnor_number(g, [X, Y], face, [Fraction(1, 2)], chart="chart")  # type: ignore[arg-type]
 
 
 @requires_singular
@@ -280,6 +321,21 @@ def test_another_computation_error_is_not_swallowed(monkeypatch: pytest.MonkeyPa
         torus_cut_milnor_number(g, [X, Y], terms_of(g, [X, Y]), [1, 1])
 
 
+def test_compact_faces_are_bounded_by_the_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def slow(support: object) -> list:
+        time.sleep(30)
+        return []
+
+    monkeypatch.setattr(milnor_module, "_compact_faces", slow)
+    g = (X - 1) ** 2 + (Y - 1) ** 3
+    start = time.monotonic()
+    result = torus_cut_milnor_number(
+        g, [X, Y], terms_of(g, [X, Y]), [1, 1], method="newton", timeout=0.5
+    )
+    assert time.monotonic() - start < 10
+    assert result.value is None and "compact faces" in (result.reason or "")
+
+
 def test_a_cone_that_is_not_smooth_is_undecided() -> None:
     """The vertex (0, 0) of conv((0, 0), (2, 1), (1, 2), (1, 1)) has a cone of multiplicity 3."""
     g = 1 + X**2 * Y + X * Y**2 + X * Y
@@ -327,3 +383,54 @@ def test_bad_input_raises() -> None:
     for changes in bad:
         with pytest.raises(ValidationError):
             call(**changes)
+
+
+Y1, Y2, Y3, X2 = sp.symbols("y1 y2 y3 x2")
+
+
+@requires_singular
+@pytest.mark.parametrize("method", METHODS)
+@pytest.mark.parametrize(
+    "name, g, variables, k, expected",
+    [
+        # Every restriction is Morse (the y1^3 term makes the lattice Z^3): beta = mu^T = 4.
+        (
+            "r = 2",
+            (X - 1) ** 2 + Y1 * Y2 + Y1**2 + Y2**2 + Y1**3,
+            [X, Y1, Y2],
+            1,
+            (4, 4),
+        ),
+        # r = 3, Morse in every y-subset; mu^T = sum of the Milnor numbers 1 * 2^3 = 8.
+        (
+            "r = 3",
+            (X - 1) ** 2 + Y1**2 + Y2**2 + Y3**2 + Y1 * Y2 + Y2 * Y3 + Y1 * Y3 + Y1**3,
+            [X, Y1, Y2, Y3],
+            1,
+            (-8, 8),
+        ),
+        # k = 2, r = 2: four variables, 2^2 Morse restrictions, mu^T = 4.
+        (
+            "k = 2, r = 2",
+            (X - 1) ** 2 + (X2 - 1) ** 2 + Y1**2 + Y2**2 + Y1 * Y2 + Y1**3,
+            [X, X2, Y1, Y2],
+            2,
+            (-4, 4),
+        ),
+    ],
+)
+def test_morse_germs_with_several_normal_coordinates(
+    method: str,
+    name: str,
+    g: sp.Expr,
+    variables: list[sp.Symbol],
+    k: int,
+    expected: tuple[int, int],
+) -> None:
+    """beta = sum over I of (-1)^|I| chi~, each restriction a Morse point of m variables with
+    chi~ = (-1)^(m-1); mu^T = (-1)^(N-1) beta with N = the number of variables. The tuple is
+    (beta, mu^T)."""
+    face = [m for m in terms_of(g, variables) if not any(m[k:])]
+    result = torus_cut_milnor_number(g, variables, face, [1] * k, method=method)
+    assert result.reason is None, name
+    assert (result.beta, result.value) == expected

@@ -12,6 +12,7 @@ from __future__ import annotations
 import random
 import re
 import subprocess
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -419,3 +420,32 @@ class TestMsolveUndecided:
         monkeypatch.setattr(strata_module, "_msolve_count", garbled)
         with pytest.raises(ComputationError, match=r"^undecided: msolve printed"):
             torus_euler_characteristic([X + Y - 1], [X, Y], backend="msolve")
+
+
+@requires_singular
+@pytest.mark.parametrize("backend", BACKENDS)
+class TestDeepRecursion:
+    """Cases that a recursion stopped at pairs, or at the first cut by u, gets wrong."""
+
+    def test_three_concurrent_lines(self, backend: str) -> None:
+        # Lines y - 1 = m (x - 1) through (1, 1): each C less two points (chi -1), all meeting
+        # at one point of the torus. The union is the point and three lines less that point,
+        # 1 + 3 * (-2) = -5. Inclusion-exclusion over pairs only gives -6.
+        lines = sp.Mul(*(Y - 1 - m * (X - 1) for m in (2, 3, -1)))
+        assert _chi([lines], [X, Y], backend) == -5
+
+    def test_seven_concurrent_lines_are_quick(self, backend: str) -> None:
+        # The union is the common point and seven punctured lines: 1 + 7 * (-2) = -13.
+        lines = sp.Mul(*(Y - 1 - m * (X - 1) for m in (2, 3, -1, 4, 5, 6, 7)))
+        start = time.monotonic()
+        assert _chi([lines], [X, Y], backend) == -13
+        assert time.monotonic() - start < 20
+
+    def test_cut_by_u_below_the_first_level(self, backend: str) -> None:
+        # (z - 1)^2 = 3 g^2 with g = (y - 1)^2 - (x - 1)^2 (x + 2) is two graphs z = 1 +- sqrt3 g
+        # over the torus part of the plane, each of chi 6, meeting over the nodal curve g = 0,
+        # chi -5: 6 + 6 - (-5) = 17. The surface is irreducible modulo 536870909 but splits
+        # into two components modulo 536870879, so the two primes also cover a component that
+        # is not geometrically irreducible.
+        g = (Y - 1) ** 2 - (X - 1) ** 2 * (X + 2)
+        assert _chi([(Z - 1) ** 2 - 3 * g**2], [X, Y, Z], backend) == 17

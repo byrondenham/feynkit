@@ -9,7 +9,7 @@ Let A be a closed irreducible subvariety of T of dimension k and h a function th
 vanish identically on A. If A is smooth, the very affine variety A minus V(h) has
 (-1)^k chi(A minus V(h)) critical points of t^b h^(-s) for generic exponents b and s, counted
 with multiplicity (J. Huh, "The maximum likelihood degree of a very affine variety", Compos.
-Math. 149 (2013) 1245-1266, Thm 1(iii), p. 2). For singular A let u be a combination of the minors of the
+Math. 149 (2013) 1245-1266, Thm 1(iii); p. 2 of the arXiv version, arXiv:1207.0553v3). For singular A let u be a combination of the minors of the
 Jacobian matrix that cut out Sing A, with random coefficients. Then A minus V(hu) is smooth, and
 
     chi(A minus V(h)) = (-1)^k #crit(t^b h^(-s_1) u^(-s_2)) on A minus V(hu)
@@ -39,7 +39,6 @@ starts with "undecided: " and goes on with the reason.
 
 from __future__ import annotations
 
-import itertools
 import math
 import random
 import re
@@ -73,14 +72,11 @@ class _Component:
     gens: str
     dim: int
     count: int  # the number of generators in ``gens``
+    key: str  # the reduced Gröbner basis, the same for equal sets
 
 
 def _undecided(reason: str) -> ComputationError:
     return ComputationError(f"undecided: {reason}")
-
-
-def _prime_power(names: Sequence[str], exponents: Sequence[int]) -> str:
-    return "*".join(f"{n}^{e}" if e != 1 else n for n, e in zip(names, exponents, strict=True) if e)
 
 
 class _Run:
@@ -197,16 +193,17 @@ class _Run:
             'if (dim(std(Z)) < 0) { print("EMPTY"); quit; }\n'
             "list L = minAssGTZ(Z);\n"
             "ideal C;\n"
+            "option(redSB);\n"
             "for (int i = 1; i <= size(L); i++) {\n"
             "  C = simplify(L[i], 2);\n"
-            '  print("COMP " + string(dim(std(C))) + " " + string(size(C)) + " " + string(C));\n'
+            '  print("COMP " + string(dim(std(C))) + " " + string(size(C)) + " " + string(std(C)) + " ; " + string(C));\n'
             "}\n"
         )
         if "EMPTY" in out:
             return []
         found = [
-            _Component(m.group(3).strip(), int(m.group(1)), int(m.group(2)))
-            for m in re.finditer(r"^COMP (-?\d+) (\d+) (.*)$", out, re.MULTILINE)
+            _Component(m.group(4).strip(), int(m.group(1)), int(m.group(2)), m.group(3).strip())
+            for m in re.finditer(r"^COMP (-?\d+) (\d+) (.*) ; (.*)$", out, re.MULTILINE)
         ]
         if not found:
             raise _undecided(f"Singular printed {out.strip()[:100]!r} instead of components")
@@ -215,28 +212,35 @@ class _Run:
     # -- Euler characteristics ----------------------------------------------------------------
 
     def closed(self, gens: str) -> int:
-        """chi(V(gens) minus V(h)) in the torus: inclusion and exclusion over components."""
-        comps = self.components(gens)
-        if len(comps) == 1:
-            return self.open(comps[0])
+        """chi(V(gens) minus V(h)) in the torus."""
+        return self.union(self.components(gens))
+
+    def union(self, family: Sequence[_Component]) -> int:
+        """chi of the union of the sets V(A) in the family, minus V(h).
+
+        The union is the disjoint union of the sets A_i minus the earlier A_j, and chi is
+        additive over disjoint unions of constructible pieces, so
+        chi(union) = sum_i [chi(A_i) - chi(A_i cap (A_1 cup ... cup A_{i-1}))], the last set
+        being the union of the components of the intersections A_i cap A_j, handled the same
+        way. A member inside an earlier one adds nothing. Larger sets come first, so each
+        intersection has smaller dimension than A_i unless A_i lies inside A_j.
+        """
+        ordered = sorted({c.key: c for c in family}.values(), key=lambda c: -c.dim)
         total = 0
-        nonempty: set[frozenset[int]] = set()
-        for size in range(1, len(comps) + 1):
-            for chosen in itertools.combinations(range(len(comps)), size):
-                key = frozenset(chosen)
-                if size == 1:
-                    value = self.open(comps[chosen[0]])
-                    nonempty.add(key)
-                else:
-                    # An intersection inside an empty intersection is empty.
-                    if any(key - {i} not in nonempty for i in chosen):
-                        continue
-                    glued = ",".join(comps[i].gens for i in chosen)
-                    if not self.components(glued):
-                        continue
-                    nonempty.add(key)
-                    value = self.closed(glued)
-                total += (-1) ** (size - 1) * value
+        for i, comp in enumerate(ordered):
+            pool: dict[str, _Component] = {}
+            inside = False
+            for earlier in ordered[:i]:
+                found = self.components(f"{comp.gens},{earlier.gens}")
+                if any(c.key == comp.key for c in found):
+                    inside = True
+                    break
+                pool.update((c.key, c) for c in found)
+            if inside:
+                continue
+            total += self.open(comp)
+            if pool:
+                total -= self.union(list(pool.values()))
         return total
 
     def open(self, comp: _Component) -> int:
@@ -410,7 +414,7 @@ def torus_euler_characteristic(
     nothing of V(I) lies in the torus, or all of it lies in V(h), the result is 0.
 
     The computation follows the formula in the module docstring, after J. Huh, Compos. Math.
-    149 (2013) 1245-1266, Thm 1(iii), p. 2: the number of critical points of a generic master
+    149 (2013) 1245-1266, Thm 1(iii) (p. 2 of the arXiv version): the number of critical points of a generic master
     function on the smooth part, plus the Euler characteristic of the lower-dimensional locus
     where a combination of the minors of the Jacobian matrix vanishes. For almost all Laurent
     polynomials f in d variables whose support lies in a polytope Gamma, A. G. Kouchnirenko,

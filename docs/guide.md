@@ -3030,8 +3030,7 @@ $H$ with random integer coefficients on every lattice point of $P$ and compute
 $$\mathrm{vol} - |\chi| = \sum_S \mu^T_S\,\chi(S \setminus V(H)),$$
 where $S$ runs over the pieces of every face, and $V(H)$ is taken in the orbit of the face. The
 volume is $N!\,\mathrm{Vol}(P)$, and $|\chi|$ is `critical_point_count` at two seeds, which must
-agree. This identity is the toric, torus-cut form of the formula of Parusinski and Pragacz (1995, Prop. 7,
-p. 8 of the preprint); equivalently, it follows from Schuermann's Cor. 0.2 (2002, p. 8) or from
+agree. This identity is the toric, torus-cut form of the formula of Parusinski and Pragacz (1995, Prop. 7); equivalently, it follows from Schuermann's Cor. 0.2 (2002, p. 8) or from
 Thm 2 of Gusein-Zade, Luengo and Melle-Hernandez (1999, p. 4 of the arXiv version). The volume is
 the Euler characteristic of a generic hypersurface in the torus up to sign (Kouchnirenko 1976,
 Thm IV), and Huh (2013, Thm 1) reads $|\chi|$ as a number of critical points.
@@ -3072,18 +3071,18 @@ and $0 = 3 - 3$.
 | `strata` | The pieces, with `euler` filled in where they count |
 | `total` | The sum, or None if a piece or an Euler characteristic is undecided |
 | `agrees` | Whether `total` equals `drop`, or None |
-| `transverse` | Whether $H$ is transverse to each piece that counts; False is a reason to try another `seed` |
+| `transverse` | Whether $H$ is transverse to every decided piece, those with $\mu^T = 0$ included; False after four draws is a reason to try another `seed` |
 | `complete`, `reason` | `complete` of the analysis, and why `agrees` or `total` is None |
 | `primes`, `seed` | The primes used, all below $2^{29}$, and the seed of the strata, the counts and $H$ |
 
 `agrees` is a check, and it is None, never True, when the sum could be partial. That is so whenever
 `singular_strata` leaves a piece undecided or `complete` is False, since a locus where $\mu^T$ jumps
 may then be missing and a missed jump changes the total silently; when an Euler characteristic is
-undecided; and when $H$ is not transverse to a piece. `reason` says which. A False means the strata
-are complete in this sense and the sum still differs from the drop. The polytope must be
+undecided; and when $H$ is not transverse to a piece in any of four draws, each from a seed derived from
+`seed`. `reason` says which. A False means the strata are complete in this sense, $H$ was transverse
+to every decided piece, and the sum still differs from the drop. The polytope must be
 full-dimensional. When the exponents of $G$ span a sublattice of index $k$ in $\mathbb{Z}^N$, the
-sum is taken in that lattice and multiplied by $k$; every Feynman integral with a full-dimensional
-polytope has $k = 1$.
+sum is taken in that lattice and multiplied by $k$; the Feynman integrals in the tests have $k = 1$.
 
 The counts are modulo primes, so a result holds for all but finitely many primes and generic
 $H$ and exponents: it is a cross-check, not a certificate. The pieces are not proved to be all the

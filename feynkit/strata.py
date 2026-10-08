@@ -1927,7 +1927,7 @@ class StratumSum:
     included, on each of which the torus-cut Milnor number mu^T of
     :func:`~feynkit.milnor.torus_cut_milnor_number` is constant. It is the toric, torus-cut
     form of the formula of A. Parusinski and P. Pragacz (J. Algebraic Geom. 4 (1995) 337-351,
-    Prop. 7, p. 8 of the preprint); equivalently, it follows from J. Schuermann,
+    Prop. 7); equivalently, it follows from J. Schuermann,
     arXiv:math/0202175, Cor. 0.2 (p. 8), or from S. M. Gusein-Zade, I. Luengo and
     A. Melle-Hernandez, Proc. Steklov Inst. Math. 225 (1999) 156-164, Thm 2 (p. 4 of
     arXiv:math/9804071). The volume is the Euler characteristic of a generic hypersurface in the
@@ -1938,18 +1938,22 @@ class StratumSum:
 
     The sum is computed in the coordinates of the lattice that the differences of the exponents
     span, in which every Euler characteristic is of a subvariety of a torus of the strata's
-    charts, and multiplied by the index of that lattice in Z^N, 1 for every Feynman integral
-    with a full-dimensional polytope. The coefficients of H are drawn from ``seed``, and H is
-    a section of the ample line bundle of P, not a generic polynomial: (G2) below is a
-    probability-one condition on it.
+    charts, and multiplied by the index of that lattice in Z^N, which is 1 for the Feynman
+    integrals in the tests. The coefficients of H are drawn from ``seed`` in a range far above
+    the number of conditions on them, and H is a section of the ample line bundle of P, not a
+    generic polynomial: (G2) below is a probability-one condition on it. It is checked on every
+    decided piece, those on which mu^T is 0 included, because the pieces that count end in
+    them. If it fails, H is drawn again from a seed derived from ``seed``, up to four draws
+    in all.
 
     ``agrees`` compares ``total`` with ``drop``. It is None, never True, whenever the sum may
     be partial or unproved: when any piece of the strata is undecided (it has a ``reason``) or
     ``complete`` of the analysis is False, because the pieces are not known to cover every
     locus where mu^T jumps (a missed jump would change the total silently); when an Euler
-    characteristic could not be decided; and when H is not transverse to a piece. The cause is
-    then in ``reason``. A False means the sum is complete in this sense and still differs from
-    the drop, so a stratum or a value is wrong.
+    characteristic could not be decided; and when H is not transverse to a piece in any of the
+    draws. The cause is then in ``reason``. A False means the sum is complete in this sense, H
+    was transverse to every decided piece, and the sum still differs from the drop, so a
+    stratum or a value is wrong.
 
     Attributes
     ----------
@@ -1969,10 +1973,11 @@ class StratumSum:
     agrees
         Whether ``total`` equals ``drop``, or None where that is undecided; see above.
     transverse
-        Condition (G2) for the pieces that count: whether d(h) restricted to a piece is non-zero
-        at every point of the piece and V(h), where h is H in the chart of the face. True
-        when it holds for every piece, False when it fails for one, None if a check is
-        undecided. Failing is a reason to draw H again with another seed.
+        Condition (G2) for the last draw of H, on every decided piece (those with mu^T = 0
+        included): whether d(h) restricted to a piece is non-zero at every point of the piece
+        and V(h), where h is H in the chart of the face. True when it holds for every piece,
+        False when it fails for one in every draw, None if a check is undecided. Failing is a
+        reason to try another ``seed``.
     primes
         The primes of the computations, in increasing order: those of the analysis and those of
         the Euler characteristics and transversality checks.
@@ -2046,9 +2051,10 @@ def _piece(
     timeout: float,
     singular: str,
     msolve: str | None,
-) -> tuple[int, bool, list[int]]:
+    count: bool = True,
+) -> tuple[int | None, bool, list[int]]:
     """chi(S minus V(h)) for the piece S of the stratum, whether h is transverse to S, and the
-    primes used.
+    primes used. With ``count`` False the Euler characteristic is not computed and is None.
 
     S is the closure V(generators) less the closures V(removed), which lie inside it, so
     chi(S minus V(h)) = chi(V(generators) minus V(h)) - chi(union of V(removed) minus V(h)),
@@ -2070,7 +2076,7 @@ def _piece(
     generators = [q for q in map(poly, stratum.generators) if not q.is_zero]
     removed = [[q for q in map(poly, r) if not q.is_zero] for r in stratum.removed]
     primes = _two_primes([*generators, *(q for r in removed for q in r), h])
-    values: list[tuple[int, bool]] = []
+    values: list[tuple[int | None, bool]] = []
     for prime in primes:
         run = _Run(
             prime=prime,
@@ -2088,8 +2094,10 @@ def _piece(
             return ",".join(_singular_polynomial(q, prime) for q in integral) or "0"
 
         gens = ideal(generators)
-        family = [c for r in removed for c in run.components(ideal(r))]
-        value = run.closed(gens) - (run.union(family) if family else 0)
+        value = None
+        if count:
+            family = [c for r in removed for c in run.components(ideal(r))]
+            value = run.closed(gens) - (run.union(family) if family else 0)
         values.append((value, run.transverse(gens, stratum.dimension, [ideal(r) for r in removed])))
     if values[0][0] != values[1][0]:
         raise _undecided(
@@ -2099,11 +2107,18 @@ def _piece(
     return values[0][0], values[0][1] and values[1][1], primes
 
 
-def _random_h(data: PolytopeData, seed: int) -> dict[tuple[int, ...], int]:
-    """Random non-zero integer coefficients on every lattice point of P, in chart coordinates."""
-    rng = random.Random(f"H:{seed}")
+_H_ATTEMPTS = 4
+_H_RANGE = 10**8  # below every prime used (about 2^29), so no coefficient vanishes modulo one
+
+
+def _random_h(data: PolytopeData, seed: int, attempt: int = 0) -> dict[tuple[int, ...], int]:
+    """Random non-zero integer coefficients on every lattice point of P, in chart coordinates.
+
+    The attempt number derives a new set of coefficients from the same seed.
+    """
+    rng = random.Random(f"H:{seed}" if attempt == 0 else f"H:{seed}:{attempt}")
     points = lattice_points(data.chart.coordinates, lattice="ambient")
-    return {p: rng.randint(1, 1000) for p in points}
+    return {p: rng.randint(1, _H_RANGE) for p in points}
 
 
 def _stratum_sum(
@@ -2147,50 +2162,66 @@ def _stratum_sum(
         )
     analysis = _analyse(polynomial, variables, point, scale, seed, timeout, None)
 
-    h_terms = _random_h(data, seed)
     names = tuple(sp.Symbol(f"t{i + 1}") for i in range(data.dimension))
-    h_faces: dict[tuple[int, ...], sp.Poly] = {}
-    reasons: list[str] = []
     primes = set(analysis.primes)
-    transverse: bool | None = True
-    total = 0
-    strata: list[Stratum] = []
-    partial = False
-    for stratum in analysis.strata:
-        if stratum.reason is not None or stratum.mu_t is None:
-            partial = True
-            reasons.append(f"a piece of the face {list(stratum.face)}: {stratum.reason}")
-            strata.append(stratum)
-            continue
-        if stratum.mu_t == 0 or stratum.chart is None or stratum.dimension is None:
-            strata.append(stratum)
-            continue
-        key = stratum.face
-        if key not in h_faces:
-            h_faces[key] = _face_h(data, stratum, h_terms, names[: stratum.chart.torus_dimension])
-        try:
-            euler, is_transverse, used = _piece(
-                stratum,
-                h_faces[key],
-                seed=seed,
-                backend=backend,
-                timeout=timeout,
-                singular=singular,
-                msolve=msolve,
-            )
-        except ComputationError as exc:
-            if not str(exc).startswith("undecided: "):
-                raise
-            partial = True
-            transverse = None if transverse else transverse
-            reasons.append(f"a piece of the face {list(key)}: {str(exc)[len('undecided: ') :]}")
-            strata.append(stratum)
-            continue
-        primes.update(used)
-        if not is_transverse:
-            transverse = False
-        total += stratum.mu_t * euler
-        strata.append(dataclasses.replace(stratum, euler=euler))
+    attempts = 0
+    while True:
+        h_terms = _random_h(data, seed, attempts)
+        attempts += 1
+        h_faces: dict[tuple[int, ...], sp.Poly] = {}
+        reasons: list[str] = []
+        transverse: bool | None = True
+        total = 0
+        strata: list[Stratum] = []
+        partial = False
+        for stratum in analysis.strata:
+            if stratum.reason is not None or stratum.mu_t is None:
+                partial = True
+                reasons.append(f"a piece of the face {list(stratum.face)}: {stratum.reason}")
+                strata.append(stratum)
+                continue
+            if stratum.chart is None or stratum.dimension is None:
+                strata.append(stratum)
+                continue
+            # Every decided piece is checked for transversality, those with mu^T = 0 included:
+            # the counted pieces end in them, and H must not pass through such an end.
+            counted = stratum.mu_t != 0
+            key = stratum.face
+            if key not in h_faces:
+                h_faces[key] = _face_h(
+                    data, stratum, h_terms, names[: stratum.chart.torus_dimension]
+                )
+            try:
+                euler, is_transverse, used = _piece(
+                    stratum,
+                    h_faces[key],
+                    seed=seed,
+                    backend=backend,
+                    timeout=timeout,
+                    singular=singular,
+                    msolve=msolve,
+                    count=counted,
+                )
+            except ComputationError as exc:
+                if not str(exc).startswith("undecided: "):
+                    raise
+                if counted:
+                    partial = True
+                transverse = None if transverse else transverse
+                reasons.append(f"a piece of the face {list(key)}: {str(exc)[len('undecided: ') :]}")
+                strata.append(stratum)
+                continue
+            primes.update(used)
+            if not is_transverse:
+                transverse = False
+            if counted:
+                assert euler is not None
+                total += stratum.mu_t * euler
+                strata.append(dataclasses.replace(stratum, euler=euler))
+            else:
+                strata.append(stratum)
+        if transverse is not False or attempts >= _H_ATTEMPTS:
+            break
     total *= index
 
     if partial:
@@ -2205,7 +2236,9 @@ def _stratum_sum(
             )
         )
     if transverse is False:
-        reasons.append("H is not transverse to a piece; draw it again with another seed")
+        reasons.append(
+            f"H was not transverse to a piece in any of {attempts} draws; try another seed"
+        )
     undecided = partial or not analysis.complete or transverse is not True
     return StratumSum(
         volume=volume,

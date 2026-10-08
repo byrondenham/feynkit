@@ -237,6 +237,57 @@ def test_a_non_transverse_h_is_reported_and_blocks_agreement(
 
 
 @requires_singular
+def test_a_non_transverse_h_is_drawn_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    """H fails the first draw, a derived seed gives a new H, and the second draw agrees."""
+    draws: list[int] = []
+    original_draw = strata_module._random_h
+    original_check = strata_module._Run.transverse
+
+    def draw(data: Any, seed: int, attempt: int = 0) -> Any:
+        draws.append(attempt)
+        return original_draw(data, seed, attempt)
+
+    def check(self: Any, *args: Any, **kw: Any) -> bool:
+        return len(draws) >= 2 and original_check(self, *args, **kw)
+
+    monkeypatch.setattr(strata_module, "_random_h", draw)
+    monkeypatch.setattr(strata_module._Run, "transverse", check)
+    r = stratum_sum_from_polynomial(SUNRISE, [X1, X2, X3], timeout=60)
+    assert draws == [0, 1]
+    assert r.transverse is True and r.agrees is True and r.reason is None
+
+
+@requires_singular
+def test_every_draw_failing_leaves_agrees_undecided_never_false(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    draws: list[int] = []
+    original_draw = strata_module._random_h
+    monkeypatch.setattr(
+        strata_module,
+        "_random_h",
+        lambda data, seed, attempt=0: (draws.append(attempt), original_draw(data, seed, attempt))[
+            1
+        ],
+    )
+    monkeypatch.setattr(strata_module._Run, "transverse", lambda *args, **kw: False)
+    r = stratum_sum_from_polynomial(SUNRISE, [X1, X2, X3], timeout=60)
+    assert draws == [0, 1, 2, 3]
+    assert r.agrees is None and r.transverse is False
+    assert r.reason is not None and "4 draws" in r.reason
+
+
+@requires_singular
+def test_h_through_the_end_of_a_counted_piece_is_not_a_disagreement() -> None:
+    """At seed 79, H vanishes at a point with mu^T = 0 that closes a counted line. That is a
+    non-generic H, not a wrong stratum: it must be drawn again, never reported as False."""
+    x, y, z = sp.symbols("x y z")
+    r = stratum_sum_from_polynomial((x - 1) * (y - 1) * (1 + z), [x, y, z], seed=79, timeout=60)
+    assert r.agrees is not False
+    assert r.agrees is True and r.total == r.drop == 5 and r.reason is None
+
+
+@requires_singular
 def test_transversality_fails_for_h_through_a_point_stratum() -> None:
     """A point stratum is transverse to V(h) only if it is off V(h)."""
     run = strata_module._Run(

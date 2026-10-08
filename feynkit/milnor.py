@@ -71,6 +71,7 @@ its docstring.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import itertools
 import math
 import numbers
@@ -105,6 +106,7 @@ from .toric import (
 __all__ = [
     "DEFAULT_TIMEOUT",
     "LeNumbers",
+    "NumberField",
     "TorusCutMilnorNumber",
     "le_numbers",
     "milnor_fibre_euler_characteristic",
@@ -184,12 +186,131 @@ class LeNumbers:
 
 
 @dataclass(frozen=True)
-class _Germ:
-    """f centred at the point: f(at + x) as exponent vectors and rational coefficients."""
+class NumberField:
+    """A number field Q(a), given by the minimal polynomial of a over Q.
 
-    terms: tuple[tuple[tuple[int, ...], Fraction], ...]
+    Points with coordinates in Q(a) are given as polynomials in ``generator`` with rational
+    coefficients, together with a NumberField as the argument ``field`` of the functions of
+    this module. The computation then runs over F_p(a) with a minimal polynomial. At each
+    prime p it uses an irreducible factor of degree 2 or more of the reduction of the minimal
+    polynomial, the whole polynomial when that stays irreducible: the residue field at one
+    prime of Q(a) over p. Only primes where the reduction is squarefree are used, so p is
+    unramified, and no coefficient has p in a denominator. A prime where the polynomial splits
+    into factors is fine: the factor is a reduction of the same point at one prime over p, and
+    the two primes must agree as for rational points. This also covers fields such as
+    Q(sqrt(2), sqrt(3)), where no prime keeps a minimal polynomial of degree 4 irreducible.
+
+    Attributes
+    ----------
+    minimal_polynomial
+        An irreducible polynomial of degree 2 or more in ``generator`` with rational
+        coefficients.
+    generator
+        The symbol that stands for a.
+
+    Raises
+    ------
+    ValidationError
+        On construction, if the generator is not a symbol, or the polynomial is not
+        irreducible over Q of degree 2 or more in it with rational coefficients.
+    """
+
+    minimal_polynomial: sp.Expr
+    generator: sp.Symbol
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.generator, sp.Symbol):
+            raise ValidationError("the generator of a number field must be a symbol")
+        try:
+            poly = sp.Poly(sp.sympify(self.minimal_polynomial), self.generator, domain="QQ")
+        except (sp.SympifyError, sp.PolynomialError, sp.CoercionFailed, TypeError) as exc:
+            raise ValidationError(
+                "the minimal polynomial must be a polynomial in the generator with rational "
+                "coefficients"
+            ) from exc
+        if poly.degree() < 2:
+            raise ValidationError(
+                "the minimal polynomial must have degree 2 or more; use rational coordinates "
+                "for a rational point"
+            )
+        if not poly.is_irreducible:
+            raise ValidationError("the minimal polynomial must be irreducible over Q")
+
+
+@dataclass(frozen=True)
+class _Field:
+    """The monic minimal polynomial of a, lowest coefficient first, and a's symbol."""
+
+    coefficients: tuple[Fraction, ...]
+    symbol: sp.Symbol
+
+    @property
+    def degree(self) -> int:
+        return len(self.coefficients) - 1
+
+    @property
+    def expr(self) -> sp.Expr:
+        return sum(
+            (
+                sp.Rational(c.numerator, c.denominator) * self.symbol**i
+                for i, c in enumerate(self.coefficients)
+            ),
+            start=sp.Integer(0),
+        )
+
+    def reduce(self, element: sp.Expr) -> sp.Expr:
+        """The remainder of a polynomial in a modulo the minimal polynomial."""
+        return sp.rem(sp.expand(element), self.expr, self.symbol)
+
+    def vector(self, element: sp.Expr) -> tuple[Fraction, ...]:
+        """The coordinates of the element in the basis 1, a, a^2, ... (no trailing zeros)."""
+        poly = sp.Poly(self.reduce(element), self.symbol, domain="QQ")
+        coefficients = [Fraction(int(c.p), int(c.q)) for c in reversed(poly.all_coeffs())]
+        while coefficients and coefficients[-1] == 0:
+            coefficients.pop()
+        return tuple(coefficients)
+
+    def power(self, element: sp.Expr, exponent: int) -> sp.Expr:
+        """element^exponent in the field, reduced; the element must not be zero if exponent < 0."""
+        base = self.reduce(element)
+        if exponent < 0:
+            base, exponent = sp.invert(base, self.expr, self.symbol), -exponent
+        result: sp.Expr = sp.Integer(1)
+        for _ in range(exponent):
+            result = self.reduce(result * base)
+        return result
+
+
+def _field(field: NumberField | None) -> _Field | None:
+    """The data of a NumberField, or None; the argument must be one or None."""
+    if field is None:
+        return None
+    if not isinstance(field, NumberField):
+        raise ValidationError("field must be a NumberField or None")
+    poly = sp.Poly(sp.sympify(field.minimal_polynomial), field.generator, domain="QQ")
+    lead = poly.LC()
+    coefficients = tuple(
+        Fraction(int((c / lead).p), int((c / lead).q)) for c in reversed(poly.all_coeffs())
+    )
+    return _Field(coefficients, field.generator)
+
+
+# A coefficient in a field is the vector of its coordinates in 1, a, a^2, ...
+Coefficient = Fraction | tuple[Fraction, ...]
+
+
+@dataclass(frozen=True)
+class _Germ:
+    """f centred at the point: f(at + x) as exponent vectors and coefficients.
+
+    The coefficients are rational, or vectors of rationals (coordinates in 1, a, a^2, ...)
+    when ``field`` is set; terms with a zero coefficient are dropped.
+    """
+
+    terms: tuple[tuple[tuple[int, ...], Coefficient], ...]
     variables: int
     submersion: bool
+    field: _Field | None = None
 
 
 def _rational(value: object) -> Fraction:
@@ -200,23 +321,65 @@ def _rational(value: object) -> Fraction:
     raise ValidationError(f"a coordinate of the point must be rational, not {value!r:.60}")
 
 
-def _germ(polynomial: object, variables: Sequence[sp.Symbol], at: Sequence[object]) -> _Germ:
+def _element(value: object, field: _Field) -> sp.Expr:
+    """A coordinate in the field: a rational or a polynomial in a with rational coefficients."""
+    try:
+        expr = sp.sympify(value)
+        if expr.free_symbols - {field.symbol}:
+            raise sp.PolynomialError
+        sp.Poly(expr, field.symbol, domain="QQ")
+    except (sp.SympifyError, sp.PolynomialError, sp.CoercionFailed, TypeError) as exc:
+        raise ValidationError(
+            f"a coordinate of the point must be a polynomial in {field.symbol} with rational "
+            f"coefficients, not {value!r:.60}"
+        ) from exc
+    return field.reduce(expr)
+
+
+def _field_terms(
+    expr: sp.Expr, variables: Sequence[sp.Symbol], field: _Field
+) -> dict[tuple[int, ...], tuple[Fraction, ...]]:
+    """The non-zero terms of a polynomial in the variables and a, with coefficients reduced
+    modulo the minimal polynomial."""
+    poly = sp.Poly(sp.expand(expr), *variables, field.symbol, domain="QQ")
+    grouped: dict[tuple[int, ...], sp.Expr] = {}
+    for monomial, c in poly.terms():
+        key = tuple(int(e) for e in monomial[:-1])
+        grouped[key] = grouped.get(key, sp.Integer(0)) + c * field.symbol ** int(monomial[-1])
+    out = {}
+    for key, value in grouped.items():
+        vector = field.vector(value)
+        if vector:
+            out[key] = vector
+    return out
+
+
+def _germ(
+    polynomial: object,
+    variables: Sequence[sp.Symbol],
+    at: Sequence[object],
+    field: _Field | None = None,
+) -> _Germ:
     """f(at + x) after validating the input.
 
     Raises
     ------
     ValidationError
         If the variables are not one or more distinct symbols, f is not a non-zero polynomial
-        with rational coefficients in them, ``at`` is not one rational number per variable, or
-        f does not vanish at ``at``.
+        with rational coefficients (or, over a field, coefficients polynomial in a) in them,
+        ``at`` is not one rational number (or element of the field) per variable, or f does
+        not vanish at ``at``.
     """
     variables = tuple(variables)
     if (
         not variables
         or not all(isinstance(x, sp.Symbol) for x in variables)
         or len(set(variables)) != len(variables)
+        or (field is not None and field.symbol in variables)
     ):
         raise ValidationError("variables must be one or more distinct symbols")
+    if field is not None:
+        return _field_germ(polynomial, variables, at, field)
     try:
         f = sp.sympify(polynomial)
         if f.free_symbols - set(variables):
@@ -251,15 +414,81 @@ def _germ(polynomial: object, variables: Sequence[sp.Symbol], at: Sequence[objec
     )
 
 
+def _field_germ(
+    polynomial: object, variables: tuple[sp.Symbol, ...], at: Sequence[object], field: _Field
+) -> _Germ:
+    try:
+        f = sp.sympify(polynomial)
+        if f.free_symbols - {*variables, field.symbol}:
+            raise sp.PolynomialError
+        sp.Poly(f, *variables, field.symbol, domain="QQ")
+    except (sp.SympifyError, sp.PolynomialError, sp.CoercionFailed, TypeError) as exc:
+        raise ValidationError(
+            f"f must be a polynomial in the variables and {field.symbol} with rational coefficients"
+        ) from exc
+    if isinstance(at, (str, bytes)) or not isinstance(at, Sequence) or len(at) != len(variables):
+        raise ValidationError(
+            f"at must give one element of the field for each of the {len(variables)} variables"
+        )
+    point = [_element(value, field) for value in at]
+    shift = {x: x + q for x, q in zip(variables, point, strict=True)}
+    terms = _field_terms(f.subs(shift, simultaneous=True), variables, field)
+    if not terms:
+        raise ValidationError("f must not be zero")
+    if any(sum(monomial) == 0 for monomial in terms):
+        raise ValidationError("f must vanish at the point")
+    return _Germ(
+        terms=tuple(terms.items()),
+        variables=len(variables),
+        submersion=any(sum(monomial) == 1 for monomial in terms),
+        field=field,
+    )
+
+
+@functools.lru_cache(maxsize=256)
+def _factor_modulo(coefficients: tuple[Fraction, ...], p: int) -> tuple[int, ...] | None:
+    """The irreducible factor of the minimal polynomial modulo p that the computation uses,
+    as its coefficients from the lowest, monic; None if p does not suit it.
+
+    p suits when it is no denominator of a coefficient, the reduction is squarefree, and
+    some irreducible factor has degree 2 or more. The factor is the one of the greatest
+    degree, the first by coefficients among those.
+    """
+    if any(c.denominator % p == 0 for c in coefficients):
+        return None
+    t = sp.Symbol("t")
+    poly = sp.Poly([_residue(c, p) for c in reversed(coefficients)], t, modulus=p)
+    _, factors = poly.factor_list()
+    if any(m != 1 for _, m in factors):
+        return None
+    found = []
+    for factor, _ in factors:
+        if factor.degree() >= 2:
+            lead = int(factor.LC()) % p
+            monic = [int(c) % p * pow(lead, -1, p) % p for c in factor.all_coeffs()]
+            found.append((-factor.degree(), tuple(reversed(monic))))
+    if not found:
+        return None
+    return min(found)[1]
+
+
 def _primes(germ: _Germ, count: int) -> list[int]:
     """The ``count`` largest primes below 2^29 that divide no numerator or denominator of a
-    coefficient of f centred at the point."""
-    values = [abs(n) for _, c in germ.terms for n in (c.numerator, c.denominator)]
+    coefficient of f centred at the point and, over a field, suit its minimal polynomial."""
+    values = [
+        abs(n)
+        for _, c in germ.terms
+        for part in (c if isinstance(c, tuple) else (c,))
+        for n in (part.numerator, part.denominator)
+        if n
+    ]
     found: list[int] = []
     p = _PRIME_LIMIT
     while len(found) < count:
         p = int(sp.prevprime(p))
-        if all(v % p for v in values):
+        if all(v % p for v in values) and (
+            germ.field is None or _factor_modulo(germ.field.coefficients, p) is not None
+        ):
             found.append(p)
     return found
 
@@ -345,21 +574,41 @@ def _linear(coefficients: Sequence[int], first: int) -> str:
     return "+".join(f"{c}*x({first + i})" for i, c in enumerate(coefficients)) or "0"
 
 
+def _coefficient(c: Coefficient, p: int) -> str:
+    """A coefficient modulo p as Singular reads it: an integer, or a polynomial in a."""
+    if not isinstance(c, tuple):
+        return str(_residue(c, p))
+    pieces = [f"{_residue(x, p)}*a^{i}" if i else str(_residue(x, p)) for i, x in enumerate(c)]
+    return "(" + "+".join(pieces) + ")"
+
+
+def _ring(germ: _Germ, p: int, name: str, order: str) -> list[str]:
+    """The declaration of a ring in x(1), ..., x(m) over F_p, or over F_p(a) with the minimal
+    polynomial the prime uses."""
+    m = germ.variables
+    if germ.field is None:
+        return [f"ring {name} = {p}, (x(1..{m})), {order};"]
+    factor = _factor_modulo(germ.field.coefficients, p)
+    if factor is None:
+        raise ComputationError(f"undecided: the prime {p} does not suit the minimal polynomial")
+    polynomial = "+".join(f"{c}*a^{i}" for i, c in enumerate(factor))
+    return [f"ring {name} = ({p},a), (x(1..{m})), {order};", f"minpoly = {polynomial};"]
+
+
 def _prelude(germ: _Germ, p: int, draw: _Draw) -> list[str]:
     """Rings S (global) and Lc (local) in x(1), ..., x(m), the procedures, f centred at the
     origin as F in S, the shears SH and the hyperplanes L."""
-    m = germ.variables
     terms = []
     for monomial, c in germ.terms:
         powers = [
             f"x({i + 1})^{e}" if e > 1 else f"x({i + 1})" for i, e in enumerate(monomial) if e
         ]
-        terms.append("*".join([str(_residue(c, p)), *powers]))
+        terms.append("*".join([_coefficient(c, p), *powers]))
     shears = [_linear(row, k + 2) for k, row in enumerate(draw.shears)] or ["0"]
     return [
-        f"ring Lc = {p}, (x(1..{m})), ds;",
+        *_ring(germ, p, "Lc", "ds"),
         "poly Fl; ideal Gl; ideal Jl;",
-        f"ring S = {p}, (x(1..{m})), dp;",
+        *_ring(germ, p, "S", "dp"),
         _PROCS,
         f"poly F = {'+'.join(terms)};",
         f"ideal SH = {', '.join(shears)};",
@@ -712,10 +961,11 @@ def _decide(germ: _Germ, seed: int, check: bool, timeout: float) -> _Flag:
 def le_numbers(
     polynomial: sp.Expr,
     variables: Sequence[sp.Symbol],
-    at: Sequence[int | Fraction | sp.Rational],
+    at: Sequence[int | Fraction | sp.Expr],
     *,
     seed: int = 0,
     timeout: float = DEFAULT_TIMEOUT,
+    field: NumberField | None = None,
 ) -> LeNumbers:
     """The Lê numbers of f at a rational point, with respect to random coordinates.
 
@@ -738,11 +988,17 @@ def le_numbers(
     variables
         The n + 1 variables of f.
     at
-        The point, one rational number per variable, where f must vanish.
+        The point, one rational number per variable, where f must vanish; with ``field``,
+        each coordinate is a polynomial in the field's generator with rational coefficients.
     seed
         Seed of the random coordinates.
     timeout
         The most seconds each Singular run gets, at most 2,000,000.
+    field
+        A :class:`NumberField` Q(a) if the coordinates of the point are in it, None for a
+        rational point (the default, which takes the code path and gives the numbers of a
+        rational point). Then f may have coefficients that are polynomials in a, and the
+        computation runs over F_p(a); see :class:`NumberField`.
 
     Raises
     ------
@@ -761,7 +1017,7 @@ def le_numbers(
         starts with "undecided: " and gives the reason.
     """
     _validate(seed, timeout)
-    germ = _germ(polynomial, variables, at)
+    germ = _germ(polynomial, variables, at, _field(field))
     if germ.submersion:
         return _submersion(germ)
     return _decide(germ, seed, True, timeout).le
@@ -770,11 +1026,12 @@ def le_numbers(
 def milnor_fibre_euler_characteristic(
     polynomial: sp.Expr,
     variables: Sequence[sp.Symbol],
-    at: Sequence[int | Fraction | sp.Rational],
+    at: Sequence[int | Fraction | sp.Expr],
     *,
     seed: int = 0,
     check: bool = True,
     timeout: float = DEFAULT_TIMEOUT,
+    field: NumberField | None = None,
 ) -> int:
     """chi~(F) = chi(F) - 1, F the Milnor fibre of f at a rational point where f vanishes.
 
@@ -795,7 +1052,8 @@ def milnor_fibre_euler_characteristic(
     variables
         The n + 1 variables of f.
     at
-        The point, one rational number per variable, where f must vanish.
+        The point, one rational number per variable, where f must vanish; with ``field``,
+        each coordinate is a polynomial in the field's generator with rational coefficients.
     seed
         Seed of the random coordinates; :func:`le_numbers` with the same seed
         computes the same flags.
@@ -807,6 +1065,8 @@ def milnor_fibre_euler_characteristic(
         ``timeout``.
     timeout
         The most seconds each Singular run gets, at most 2,000,000.
+    field
+        As for :func:`le_numbers`.
 
     Raises
     ------
@@ -821,7 +1081,7 @@ def milnor_fibre_euler_characteristic(
         starts with "undecided: " and gives the reason.
     """
     _validate(seed, timeout)
-    germ = _germ(polynomial, variables, at)
+    germ = _germ(polynomial, variables, at, _field(field))
     if germ.submersion:
         return 0
     return _decide(germ, seed, check, timeout).attaching
@@ -950,7 +1210,7 @@ def _shifted(
     local: dict,
     k: int,
     kept: Sequence[int],
-    point: Sequence[Fraction],
+    point: Sequence[Fraction | sp.Expr],
     shift: Sequence[int],
     s: Sequence[sp.Symbol],
     y: Sequence[sp.Symbol],
@@ -964,8 +1224,10 @@ def _shifted(
             continue
         term: sp.Expr = sp.Rational(c.numerator, c.denominator)
         for a in range(k):
-            base = sp.Rational(point[a].numerator, point[a].denominator) + s[a]
-            term *= base ** (exponent[a] + shift[a])
+            centre = point[a]
+            if isinstance(centre, Fraction):
+                centre = sp.Rational(centre.numerator, centre.denominator)
+            term *= (centre + s[a]) ** (exponent[a] + shift[a])
         for j in kept:
             term *= y[j] ** exponent[k + j]
         total += term
@@ -973,7 +1235,11 @@ def _shifted(
 
 
 def _reduced_chi(
-    expr: sp.Expr, variables: Sequence[sp.Symbol], seed: int, timeout: float
+    expr: sp.Expr,
+    variables: Sequence[sp.Symbol],
+    seed: int,
+    timeout: float,
+    field: _Field | None = None,
 ) -> tuple[int, int | None]:
     """chi~ of the Milnor fibre at the origin of a polynomial that vanishes there, and the
     prime of the first flag (None if no Lê numbers were needed).
@@ -983,10 +1249,10 @@ def _reduced_chi(
     ComputationError
         As :func:`milnor_fibre_euler_characteristic`.
     """
-    if expr == 0:
+    if expr == 0 or (field is not None and not _field_terms(expr, variables, field)):
         # The fibre {0 = epsilon} is empty, so chi = 0 and chi~ = -1.
         return -1, None
-    germ = _germ(expr, variables, [0] * len(variables))
+    germ = _germ(expr, variables, [0] * len(variables), field)
     if germ.submersion:
         return 0, None
     flag = _decide(germ, seed, True, timeout)
@@ -997,11 +1263,12 @@ def _smooth_chart(
     local: dict,
     k: int,
     r: int,
-    point: Sequence[Fraction],
+    point: Sequence[Fraction | sp.Expr],
     shift: Sequence[int],
     seed: int,
     timeout: float,
     sign: int,
+    field: _Field | None = None,
 ) -> TorusCutMilnorNumber:
     s = [sp.Symbol(f"s{a + 1}") for a in range(k)]
     y = [sp.Symbol(f"y{j + 1}") for j in range(r)]
@@ -1013,7 +1280,7 @@ def _smooth_chart(
             kept = [j for j in range(r) if j not in subset]
             expr = _shifted(local, k, kept, point, shift, s, y)
             try:
-                chi, prime = _reduced_chi(expr, [*s, *(y[j] for j in kept)], seed, timeout)
+                chi, prime = _reduced_chi(expr, [*s, *(y[j] for j in kept)], seed, timeout, field)
             except ComputationError as exc:
                 message = str(exc)
                 if not message.startswith(_UNDECIDED):
@@ -1216,6 +1483,7 @@ def torus_cut_milnor_number(
     timeout: float = DEFAULT_TIMEOUT,
     method: TorusMethod = "smooth chart",
     chart: OrbitChart | None = None,
+    field: NumberField | None = None,
 ) -> TorusCutMilnorNumber:
     """beta and mu^T at a point of the orbit of a face, in a smooth chart.
 
@@ -1311,6 +1579,13 @@ def torus_cut_milnor_number(
         The most seconds each Singular run gets, at most 2,000,000.
     method
         "smooth chart" or "newton".
+    field
+        A :class:`NumberField` Q(a) if ``coordinates`` are in it, each a polynomial in the
+        field's generator with rational coefficients; None, the default, for rational
+        coordinates, which take the code path and give the numbers they always did. The
+        Lê computations then run over F_p(a) (see :class:`NumberField`) and the result holds
+        for the point whose coordinates are those polynomials in a root of the minimal
+        polynomial. Only the "smooth chart" method takes a field; "newton" is undecided for it.
 
     Returns
     -------
@@ -1341,6 +1616,11 @@ def torus_cut_milnor_number(
     _validate(seed, timeout)
     if method not in ("smooth chart", "newton"):
         raise ValidationError('method must be "smooth chart" or "newton"')
+    fld = _field(field)
+    if fld is not None and (
+        fld.symbol in tuple(variables) or re.fullmatch(r"[sy]\d+", fld.symbol.name)
+    ):
+        raise ValidationError("the generator of the field must not be one of the variables")
     terms = _laurent_terms(polynomial, variables)
     points = sorted(terms)
     data = polytope_data(points)
@@ -1370,30 +1650,54 @@ def torus_cut_milnor_number(
         or len(coordinates) != k
     ):
         raise ValidationError(f"coordinates must give {k} rational numbers, one for each t")
-    point = [_rational(c) for c in coordinates]
-    if any(c == 0 for c in point):
+    point: list[Fraction] | list[sp.Expr]
+    if fld is None:
+        point = [_rational(c) for c in coordinates]
+        zero = [c == 0 for c in point]
+    else:
+        point = [_element(c, fld) for c in coordinates]
+        zero = [not fld.vector(c) for c in point]
+    if any(zero):
         raise ValidationError("the coordinates t must not be zero")
     local = chart.local_equation(
         {tuple(data.chart.coordinates[i]): terms[data.points[i]] for i in range(len(points))}
     )
     sign = (-1) ** (data.dimension - 1)
-    value_at_x = sum(
-        (
-            c
-            * math.prod((t**e for t, e in zip(point, exponent[:k], strict=True)), start=Fraction(1))
-            for exponent, c in local.items()
-            if not any(exponent[k:])
-        ),
-        start=Fraction(0),
-    )
-    if value_at_x != 0:
+    if fld is None:
+        value_at_x = sum(
+            (
+                c
+                * math.prod(
+                    (t**e for t, e in zip(point, exponent[:k], strict=True)), start=Fraction(1)
+                )
+                for exponent, c in local.items()
+                if not any(exponent[k:])
+            ),
+            start=Fraction(0),
+        )
+        vanishes = value_at_x == 0
+    else:
+        total: sp.Expr = sp.Integer(0)
+        for exponent, c in local.items():
+            if any(exponent[k:]):
+                continue
+            product: sp.Expr = sp.Rational(c.numerator, c.denominator)
+            for t, e in zip(point, exponent[:k], strict=True):
+                product = fld.reduce(product * fld.power(t, e))
+            total += product
+        vanishes = not fld.vector(total)
+    if not vanishes:
         raise ValidationError(
             "the face polynomial does not vanish at coordinates: the point is not in the "
             "closure of V(G)"
         )
     shift = [max(0, -min(e[a] for e in local)) for a in range(k)]
     if method == "newton":
+        if fld is not None:
+            return _undecided(
+                method, "the newton method takes rational points only, not a point over a field"
+            )
         result = _newton(local, k, r, point, shift, timeout, sign)
     else:
-        result = _smooth_chart(local, k, r, point, shift, seed, timeout, sign)
+        result = _smooth_chart(local, k, r, point, shift, seed, timeout, sign, fld)
     return dataclasses.replace(result, chart=chart)

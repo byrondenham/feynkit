@@ -29,7 +29,12 @@ import sympy as sp
 from feynkit import milnor as milnor_module
 from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.landau import _singular_binary
-from feynkit.milnor import LeNumbers, le_numbers, milnor_fibre_euler_characteristic
+from feynkit.milnor import (
+    LeNumbers,
+    NumberField,
+    le_numbers,
+    milnor_fibre_euler_characteristic,
+)
 
 requires_singular = pytest.mark.skipif(_singular_binary() is None, reason="Singular not installed")
 
@@ -450,3 +455,92 @@ class TestInput:
     def test_seed_must_be_an_integer(self, seed: object) -> None:
         with pytest.raises(ValidationError, match="seed"):
             milnor_fibre_euler_characteristic(X**2, [X], [0], seed=seed)  # type: ignore[arg-type]
+
+
+# --- points over a number field ---------------------------------------------------------------
+
+A = sp.Symbol("a")
+SQRT2 = NumberField(A**2 - 2, A)
+CBRT2 = NumberField(A**3 - 2, A)
+# Q(sqrt 2, sqrt 3): the prime fields keep no polynomial of degree 4 irreducible.
+BIQUADRATIC = NumberField(A**4 - 10 * A**2 + 1, A)
+
+
+def moved(f: sp.Expr, variables: list[sp.Symbol], at: list[sp.Expr]) -> sp.Expr:
+    """f translated so that the origin goes to the point at."""
+    return f.subs({x: x - c for x, c in zip(variables, at, strict=True)}, simultaneous=True)
+
+
+@requires_singular
+class TestNumberField:
+    """A germ translated to a point with coordinates in Q(a) has the numbers of the original."""
+
+    GERMS = {
+        "A_3": (X**4 + Y**2, [X, Y]),
+        "D_4": (X**2 * Y + Y**3, [X, Y]),
+        "A_2 in three variables": (X**3 + Y**2 + Z**2, [X, Y, Z]),
+        "x^2 y, not isolated": (X**2 * Y, [X, Y]),
+        "3.12, a = 3, b = 2": (massey_3_12(3, 2), [T, X, Y]),
+    }
+
+    @pytest.mark.parametrize("name", GERMS)
+    @pytest.mark.parametrize(
+        "field", [SQRT2, CBRT2, BIQUADRATIC], ids=["sqrt2", "cbrt2", "sqrt2+sqrt3"]
+    )
+    def test_translated_germs_agree_with_the_rational_values(
+        self, name: str, field: NumberField
+    ) -> None:
+        f, variables = self.GERMS[name]
+        at = [A, 1 + A, A**2 - 1, 3 - A][: len(variables)]
+        want = le_numbers(f, variables, origin(variables))
+        got = le_numbers(moved(f, variables, at), variables, at, field=field)
+        assert (got.numbers, got.polar_numbers) == (want.numbers, want.polar_numbers)
+        assert got.reduced_euler_characteristic == want.reduced_euler_characteristic
+        assert got.prime is not None and got.prime < 2**29
+        assert milnor_fibre_euler_characteristic(
+            moved(f, variables, at), variables, at, field=field
+        ) == milnor_fibre_euler_characteristic(f, variables, origin(variables))
+
+    def test_a_rational_point_may_be_given_with_a_field(self) -> None:
+        f = X**3 + (Y - 2) ** 2
+        assert milnor_fibre_euler_characteristic(f, [X, Y], [0, 2], field=SQRT2) == -2
+
+    def test_coefficients_may_involve_the_generator(self) -> None:
+        f = (X - A) ** 2 + (A**2 - 2 + 1) * (Y**2)
+        assert milnor_fibre_euler_characteristic(f, [X, Y], [A, 0], field=SQRT2) == -1
+
+    def test_a_coefficient_that_vanishes_in_the_field_drops_out(self) -> None:
+        f = (A**2 - 2) * X + Y**2 + X**3
+        assert milnor_fibre_euler_characteristic(f, [X, Y], [0, 0], field=SQRT2) == -2
+
+    def test_the_prime_keeps_the_minimal_polynomial_or_a_factor(self) -> None:
+        from feynkit.milnor import _factor_modulo
+
+        for field in (SQRT2, CBRT2, BIQUADRATIC):
+            poly = sp.Poly(field.minimal_polynomial, A)
+            coefficients = tuple(Fraction(int(c)) for c in reversed(poly.all_coeffs()))
+            for p in (2**29 - 3, 2**29 - 43, 536870909):
+                factor = _factor_modulo(coefficients, p)
+                if factor is not None:
+                    assert len(factor) >= 3 and factor[-1] == 1
+
+    @pytest.mark.parametrize(
+        ("field", "at", "message"),
+        [
+            (SQRT2, [A, "b"], "polynomial in a"),
+            (SQRT2, [A], "one element of the field"),
+            (SQRT2, [A, 1 + A], "vanish"),
+            ("sqrt2", [A, A], "NumberField"),
+        ],
+    )
+    def test_bad_input(self, field: object, at: list, message: str) -> None:
+        f = X**2 + Y**2 - 1
+        with pytest.raises(ValidationError, match=message):
+            milnor_fibre_euler_characteristic(f, [X, Y], at, field=field)  # type: ignore[arg-type]
+
+    def test_a_field_needs_an_irreducible_polynomial_of_degree_two_or_more(self) -> None:
+        for polynomial in (A**2 - 4, A - 1, A**4 + 4):
+            with pytest.raises(ValidationError):
+                NumberField(polynomial, A)
+        with pytest.raises(ValidationError):
+            NumberField(A**2 - 2, "a")

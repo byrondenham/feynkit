@@ -27,7 +27,7 @@ import sympy as sp
 from feynkit import milnor as milnor_module
 from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.landau import _singular_binary
-from feynkit.milnor import TorusCutMilnorNumber, torus_cut_milnor_number
+from feynkit.milnor import NumberField, TorusCutMilnorNumber, torus_cut_milnor_number
 from feynkit.polytope import polytope_data
 from feynkit.toric import orbit_chart
 
@@ -436,3 +436,50 @@ def test_morse_germs_with_several_normal_coordinates(
     result = torus_cut_milnor_number(g, variables, face, [1] * k, method=method)
     assert result.reason is None, name
     assert (result.beta, result.value) == expected
+
+
+@requires_singular
+@pytest.mark.parametrize(
+    ("minimal_polynomial", "root_power"),
+    [(lambda a: a**2 - a - 1, 1), (lambda a: a**3 - a - 1, 1), (lambda a: a**3 - a - 1, 2)],
+    ids=["golden ratio", "plastic number", "its square"],
+)
+def test_a_morse_boundary_point_with_coordinates_in_a_number_field(
+    minimal_polynomial: object, root_power: int
+) -> None:
+    """The boundary point of test_a_boundary_point_with_a_morse_fibre moved to an irrational
+    root of the face polynomial: G = h(x)^2 + y^2 + y^3 with h irreducible, h(c) = 0, on the
+    face y = 0. The face polynomial h^2 has a double root at c, and g = s^2 u + y^2 (1 + y) with
+    u a unit, so the terms and beta = -2, mu^T = 2 are those of the rational case."""
+    a = sp.Symbol("a")
+    poly = minimal_polynomial(a)  # type: ignore[operator]
+    if root_power == 2:
+        # h(x) = norm of x - a^2: the polynomial whose roots are the squares of the roots of poly
+        h = sp.resultant(poly, X - a**2, a)
+        field = NumberField(poly, a)
+    else:
+        h = poly.subs(a, X)
+        field = NumberField(poly, a)
+    g = sp.expand(h**2 + Y**2 + Y**3)
+    face = [m for m in terms_of(g, [X, Y]) if m[1] == 0]
+    result = torus_cut_milnor_number(g, [X, Y], face, [a**root_power], field=field)
+    assert result.reason is None
+    assert (result.beta, result.value) == (-2, 2)
+    assert dict(result.terms) == {(): -1, (0,): 1}
+    assert result.prime is not None and result.prime < 2**29
+
+
+@requires_singular
+def test_a_field_with_the_newton_path_is_undecided_and_a_point_off_the_closure_is_refused() -> None:
+    a = sp.Symbol("a")
+    field = NumberField(a**2 - a - 1, a)
+    g = sp.expand((X**2 - X - 1) ** 2 + Y**2 + Y**3)
+    face = [m for m in terms_of(g, [X, Y]) if m[1] == 0]
+    result = torus_cut_milnor_number(g, [X, Y], face, [a], method="newton", field=field)
+    assert result.value is None and "rational points only" in str(result.reason)
+    with pytest.raises(ValidationError, match="does not vanish"):
+        torus_cut_milnor_number(g, [X, Y], face, [a + 1], field=field)
+    with pytest.raises(ValidationError, match="must not be zero"):
+        torus_cut_milnor_number(g, [X, Y], face, [a**2 - a - 1], field=field)
+    with pytest.raises(ValidationError, match="generator"):
+        torus_cut_milnor_number(g, [X, Y], face, [a], field=NumberField(X**2 - 2, X))

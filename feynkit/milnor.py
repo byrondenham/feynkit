@@ -31,26 +31,30 @@ from those along the flag: lambda^0_f = lambda^0_{f_0} and
 lambda^k_f = lambda^0_{f_k} - gamma^1_{f_{k-1}} for 1 <= k <= s, with f_k the
 restriction to V(z_0, ..., z_{k-1}) and lambda^0_{f_s} its Milnor number. By
 Massey's Thm 4.1, p. 22, and the formula after it on p. 23,
-chi~(F) = sum_k (-1)^(n-k) lambda^k_f, which the attaching sum must equal.
+chi~(F) = sum_k (-1)^(n-k) lambda^k_f, which the attaching sum equals
+once every Teissier split holds.
 
-The coordinates are drawn at random from a seed, as a unit upper triangular
-change of the variables less p, applied one shear per step so that the
-polynomial stays sparse. Each step checks the dimension conditions under
-which Lê and polar numbers exist (Massey, Def. 3.8, p. 20) in the form they
-take along the flag: the critical locus loses one dimension, the polar curve
-has dimension at most 1 at p, and its three intersection numbers are finite
-and satisfy the Teissier split. If a condition fails the computation draws
-new coordinates once, then gives up with the reason, never a guess.
+The coordinates are drawn from a seed as a unit upper triangular change of
+the variables less p, with random integer coefficients below 2^28, applied
+one shear per step so that the polynomial stays sparse. Generic coordinates
+satisfy the conditions under which Lê and polar numbers exist (Massey,
+Def. 3.8, p. 20, and Remark 3.9); each step checks those that concern it:
+its polar curve has dimension at most 1 at p and meets V(z_k), V(df_k/dz_k)
+and V(f_k) there in finitely many points, the critical locus loses one
+dimension (Ex. 4.6(1)), and the Teissier split holds. If a check fails the
+computation draws new coordinates once, then gives up with the reason, never
+a guess.
 
 Singular computes over F_p, at the largest primes below 2^29 that divide no
-numerator or denominator of a coefficient of f centred at p, so the results
-hold for all but finitely many primes and are probabilistic, like those of
+numerator or denominator of a coefficient of f centred at p. The numbers
+over F_p equal those over Q for all but finitely many primes, so the results
+are probabilistic, like those of
 :func:`~feynkit.point_count.critical_point_count`. The polar curve is
 saturated in the polynomial ring by repeated ideal quotients until it stops
 growing; local orderings serve only for lengths of ideals that are finite at
 p, where they are fast. :func:`milnor_fibre_euler_characteristic` takes two
 independent flags at two different primes, which must agree, and by default
-also checks the Lê-Iomdine formula (Massey, Ex. 4.6(2), p. 24).
+also checks the Iomdine-Lê formula (Massey, Ex. 4.6(2), p. 24).
 """
 
 from __future__ import annotations
@@ -158,13 +162,10 @@ class _Germ:
 
 
 def _rational(value: object) -> Fraction:
-    if isinstance(value, bool):
-        raise ValidationError(f"a coordinate of the point must be rational, not {value!r}")
-    if isinstance(value, numbers.Rational):
+    """A coordinate of the point: an int, a Fraction or a SymPy rational, which registers
+    itself as a numbers.Rational."""
+    if isinstance(value, numbers.Rational) and not isinstance(value, bool):
         return Fraction(int(value.numerator), int(value.denominator))
-    if isinstance(value, sp.Basic) and value.is_Rational:
-        q = sp.Rational(value)
-        return Fraction(int(q.p), int(q.q))
     raise ValidationError(f"a coordinate of the point must be rational, not {value!r:.60}")
 
 
@@ -386,7 +387,7 @@ def _flag_script(germ: _Germ, p: int, draw: _Draw) -> str:
 def _check_script(
     germ: _Germ, p: int, draw: _Draw, level: int, js: Sequence[int], last: bool
 ) -> str:
-    """The Lê-Iomdine check at ``level``: for each j, lambda^0 of f_level + z_level^j in the
+    """The Iomdine-Lê check at ``level``: for each j, lambda^0 of f_level + z_level^j in the
     rotated flag (z_{level+1}, ..., z_n, z_level), printed as J. At the last level of the
     flag it is a Milnor number."""
     lines = _prelude(germ, p, draw)
@@ -487,38 +488,49 @@ class _Flag:
     draw: _Draw
 
 
-def _judge(found: dict[str, dict[int, tuple[int, ...]]], n: int) -> tuple[list, str | None]:
-    """The levels (s, [(gv, g1, l0)], mu) of a finished run, or the condition that failed."""
+@dataclass(frozen=True)
+class _Levels:
+    """What a run found: the critical dimension s, (gv, g1, l0) for each level k < s, the
+    intersection numbers of the polar curve of f_k with V(f_k), V(z_k) and V(df_k/dz_k), and
+    the Milnor number of f_s."""
+
+    s: int
+    polar: tuple[tuple[int, int, int], ...]
+    mu: int
+
+
+def _judge(found: dict[str, dict[int, tuple[int, ...]]], n: int) -> _Levels | str:
+    """The levels of a finished run, or the condition that failed."""
     dims, polar, iso = found["D"], found["P"], found["I"]
     if 0 not in dims:
-        return [], "Singular printed no critical dimension"
+        return "Singular printed no critical dimension"
     s = dims[0][0]
     if not 0 <= s <= n:
-        return [], f"the critical locus has dimension {s} at the point"
+        return f"the critical locus has dimension {s} at the point"
     levels = []
     for k in range(s + 1):
         if k not in dims:
-            return [], f"level {k}: no critical dimension"
+            return f"level {k}: no critical dimension"
         if dims[k][0] != s - k:
-            return [], (
+            return (
                 f"level {k}: the critical locus of the restriction has dimension {dims[k][0]}, "
                 f"not {s - k}"
             )
         if k == s:
             break
         if k not in polar:
-            return [], f"level {k}: no polar curve"
+            return f"level {k}: no polar curve"
         dg, gv, g1, l0 = polar[k]
         if dg > 1:
-            return [], f"level {k}: the polar curve has dimension 2 or more at the point"
+            return f"level {k}: the polar curve has dimension 2 or more at the point"
         if min(gv, g1, l0) < 0:
-            return [], f"level {k}: the polar curve meets V(f), V(z) or V(df/dz) in a curve"
+            return f"level {k}: the polar curve meets V(f), V(z) or V(df/dz) in a curve"
         if gv != g1 + l0:
-            return [], f"level {k}: the Teissier split fails, {gv} != {g1} + {l0}"
+            return f"level {k}: the Teissier split fails, {gv} != {g1} + {l0}"
         levels.append((gv, g1, l0))
     if s not in iso or iso[s][0] < 0:
-        return [], f"level {s}: no finite Milnor number"
-    return [s, levels, iso[s][0]], None
+        return f"level {s}: no finite Milnor number"
+    return _Levels(s, tuple(levels), iso[s][0])
 
 
 def _flag(germ: _Germ, p: int, seed: int, flag: int, binary: str, timeout: float) -> _Flag:
@@ -540,17 +552,19 @@ def _flag(germ: _Germ, p: int, seed: int, flag: int, binary: str, timeout: float
             where = max(found["D"], default=None)
             at = "" if where is None else f" at level {where} of the flag"
             raise ComputationError(f"undecided: Singular ran past timeout={timeout} s{at}")
-        result, reason = _judge(found, n)
-        if reason is not None:
-            reasons.append(reason)
+        result = _judge(found, n)
+        if isinstance(result, str):
+            reasons.append(result)
             continue
-        s, levels, mu = result
+        s, levels, mu = result.s, result.polar, result.mu
         lambda0 = [l0 for _, _, l0 in levels] + [mu]
         polar = [g1 for _, g1, _ in levels]
         numbers_ = [lambda0[0]] + [lambda0[k] - polar[k - 1] for k in range(1, s + 1)]
         if min(numbers_) < 0:
             reasons.append(f"a negative Lê number {tuple(numbers_)}")
             continue
+        # Lê's attaching theorem level by level. With gv = g1 + l0 at every level it equals
+        # Thm 4.1's sum_k (-1)^(n-k) lambda^k term by term.
         attaching = sum((-1) ** (n - k) * gv for k, (gv, _, _) in enumerate(levels))
         attaching += (-1) ** (n - s) * mu
         le = LeNumbers(
@@ -561,12 +575,6 @@ def _flag(germ: _Germ, p: int, seed: int, flag: int, binary: str, timeout: float
             prime=p,
             method="isolated" if s == 0 else "attaching",
         )
-        if attaching != le.reduced_euler_characteristic:
-            reasons.append(
-                f"the attaching sum {attaching} differs from Thm 4.1's "
-                f"{le.reduced_euler_characteristic}"
-            )
-            continue
         return _Flag(le, attaching, tuple(lambda0), draw)
     raise ComputationError(
         f"undecided: {_ATTEMPTS} flags of coordinates failed the conditions for Lê numbers ("
@@ -588,7 +596,7 @@ def _submersion(germ: _Germ) -> LeNumbers:
 
 
 def _check(germ: _Germ, p: int, found: _Flag, binary: str, timeout: float) -> None:
-    """The Lê-Iomdine formula (Massey, Ex. 4.6(2), p. 24) on the flag's own coordinates.
+    """The Iomdine-Lê formula (Massey, Ex. 4.6(2), p. 24) on the flag's own coordinates.
 
     For f_k, with critical dimension s - k, and j > 1 + lambda^0/gamma^1 (any j >= 2 when
     gamma^1 = 0), lambda^0 of f_k + z_k^j in the rotated flag is
@@ -613,7 +621,7 @@ def _check(germ: _Germ, p: int, found: _Flag, binary: str, timeout: float) -> No
         if timed_out:
             if last:
                 raise ComputationError(
-                    f"undecided: the Lê-Iomdine check at level {level} ran past timeout={timeout} s"
+                    f"undecided: the Iomdine-Lê check at level {level} ran past timeout={timeout} s"
                 )
             continue
         got = _read(text)["J"]
@@ -622,7 +630,7 @@ def _check(germ: _Germ, p: int, found: _Flag, binary: str, timeout: float) -> No
             value = got.get(j, (None,))[0]
             if value != want:
                 raise ComputationError(
-                    f"the Lê-Iomdine check fails at level {level}, j = {j}: lambda^0 is {value}, "
+                    f"the Iomdine-Lê check fails at level {level}, j = {j}: lambda^0 is {value}, "
                     f"the Lê numbers {le.numbers} give {want}"
                 )
 
@@ -715,10 +723,11 @@ def milnor_fibre_euler_characteristic(
     flag of random coordinates (see the module docstring). Two flags, drawn
     from ``seed``, are computed at the two largest primes below 2^29 that
     divide no numerator or denominator of a coefficient of f centred at the
-    point, one at each, and must give the same Lê and polar numbers; each
-    flag's attaching sum must equal sum_k (-1)^(n-k) lambda^k (Massey,
-    "Non-isolated hypersurface singularities and Lê cycles", arXiv:1410.3312,
-    Thm 4.1, p. 22, and p. 23). The result is that of computations over F_p,
+    point, one at each, and must give the same Lê and polar numbers. Since
+    each level checks the Teissier split, the attaching sum equals
+    sum_k (-1)^(n-k) lambda^k (Massey, "Non-isolated hypersurface
+    singularities and Lê cycles", arXiv:1410.3312, Thm 4.1, p. 22, and
+    p. 23). The result is that of computations over F_p,
     exact for all but finitely many primes, not a certificate.
 
     Parameters
@@ -733,7 +742,7 @@ def milnor_fibre_euler_characteristic(
         Seed of the random coordinates; :func:`le_numbers` with the same seed
         gives the first flag.
     check
-        Whether to check the first flag against the Lê-Iomdine formula
+        Whether to check the first flag against the Iomdine-Lê formula
         (Massey, Ex. 4.6(2), p. 24): at the last level of the flag, where it
         is a Milnor number, whenever the critical locus has dimension s >= 1,
         and when s = 2 also at the first level, unless that run passes
@@ -750,7 +759,7 @@ def milnor_fibre_euler_characteristic(
     ComputationError
         If Singular fails or runs past ``timeout``, a flag fails the
         conditions under which Lê numbers exist at two sets of coordinates,
-        the two flags disagree, or the Lê-Iomdine check fails; the message
+        the two flags disagree, or the Iomdine-Lê check fails; the message
         gives the reason.
     """
     _validate(seed, timeout)

@@ -1927,14 +1927,14 @@ class StratumSum:
     included, on each of which the torus-cut Milnor number mu^T of
     :func:`~feynkit.milnor.torus_cut_milnor_number` is constant. It is the toric, torus-cut
     form of the formula of A. Parusinski and P. Pragacz (J. Algebraic Geom. 4 (1995) 337-351,
-    Prop. 7, p. 8 of the preprint), to which it reduces on a toric resolution; the same
-    identity follows from J. Schuermann, arXiv:math/0202175, Cor. 0.2 (p. 8), and from
-    S. M. Gusein-Zade, I. Luengo and A. Melle-Hernandez, Proc. Steklov Inst. Math. 225 (1999)
-    156-164, Thm 2 (p. 4 of arXiv:math/9804071). The torus-cut Euler characteristic of the
-    hypersurface at generic coefficients is A. G. Kouchnirenko's (Invent. Math. 32 (1976)
-    1-31, Thm IV, p. 30), and J. Huh (Compos. Math. 149 (2013) 1245-1266, Thm 1(iii)) reads
-    |chi| as a number of critical points. The left side is the drop of the number of master
-    integrals below its generic value, vol.
+    Prop. 7, p. 8 of the preprint); equivalently, it follows from J. Schuermann,
+    arXiv:math/0202175, Cor. 0.2 (p. 8), or from S. M. Gusein-Zade, I. Luengo and
+    A. Melle-Hernandez, Proc. Steklov Inst. Math. 225 (1999) 156-164, Thm 2 (p. 4 of
+    arXiv:math/9804071). The volume is the Euler characteristic of a generic hypersurface in the
+    torus up to sign (A. G. Kouchnirenko, Invent. Math. 32 (1976) 1-31, Thm IV, p. 30), and
+    J. Huh (Compos. Math. 149 (2013) 1245-1266, Thm 1(iii)) reads |chi| as a number of critical
+    points. The left side is the drop of the number of master integrals below its generic
+    value, vol.
 
     The sum is computed in the coordinates of the lattice that the differences of the exponents
     span, in which every Euler characteristic is of a subvariety of a torus of the strata's

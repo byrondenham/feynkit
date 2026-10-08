@@ -8,8 +8,8 @@ loci of mu^T_S chi(S minus V(H)). The oracles are hand examples and published nu
 - the vacuum sunrise with one massive line, G = (1 + m x1)(x1 x2 + x1 x3 + x2 x3): one curve of
   singular points with mu^T = -1 and chi(C minus V(H)) = -2, so the drop 3 - 1 = 2 is (-1)(-2);
 - the sunsets with one, two and three massive lines, whose volumes 3, 6 and 10 and numbers of
-  master integrals 2, 4 and 7 are in Table 1, p. 34, of R. P. Klausen, "Hypergeometric Feynman
-  integrals" (arXiv:2302.13184), so the drop is 1, 2 and 3;
+  master integrals 2, 4 and 7 are in Table 1, p. 34 of the arXiv version, of R. P. Klausen,
+  JHEP 04 (2020) 121 (arXiv:1910.08651), so the drop is 1, 2 and 3;
 - three lines through a point and a non-reduced surface, where the identity itself is the oracle:
   the volume and the critical points are counted independently of the strata.
 """
@@ -17,7 +17,9 @@ loci of mu^T_S chi(S minus V(H)). The oracles are hand examples and published nu
 from __future__ import annotations
 
 import dataclasses
+import re
 from fractions import Fraction
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -87,7 +89,7 @@ def test_the_vacuum_sunrise_with_one_massive_line_is_a_curve() -> None:
     [("111e|e|:nzz", 3, 2, 1), ("111e|e|:nnz", 6, 4, 2), ("111e|e|:nnn", 10, 7, 3)],
 )
 def test_klausens_sunsets(cnickel: str, volume: int, masters: int, total: int) -> None:
-    """Volumes 3, 6, 10 and 2, 4, 7 master integrals, Table 1 of Klausen; one point per massive
+    """Volumes 3, 6, 10 and 2, 4, 7 master integrals, Table 1 of Klausen (2020); one point per massive
     line has mu^T = 1, so the totals are 1, 2, 3."""
     fi, point = sunset(cnickel)
     r = stratum_sum(fi, point)
@@ -307,3 +309,19 @@ def test_the_strata_are_those_of_singular_strata() -> None:
     analysis = singular_strata_from_polynomial(SUNRISE, [X1, X2, X3], timeout=60)
     r = stratum_sum_from_polynomial(SUNRISE, [X1, X2, X3], timeout=60)
     assert [dataclasses.replace(s, euler=None) for s in r.strata] == list(analysis.strata)
+
+
+GUIDE = Path(__file__).resolve().parents[1] / "docs" / "guide.md"
+
+
+@requires_singular
+def test_guide_examples_print_what_the_guide_says(capsys: pytest.CaptureFixture[str]) -> None:
+    section = GUIDE.read_text(encoding="utf-8").split("\n## Strata and the stratum sum\n", 1)[1]
+    section = section.split("\n## ", 1)[0]
+    first, second = re.findall(r"```python\n(.*?)```", section, re.DOTALL)
+    first_printed = section.split("prints\n\n```\n", 1)[1].split("```", 1)[0]
+    second_printed = section.split("prints `", 1)[1].split("`", 1)[0]
+    exec(compile(first, "docs/guide.md", "exec"), {})
+    assert capsys.readouterr().out == first_printed
+    exec(compile(second, "docs/guide.md", "exec"), {})
+    assert capsys.readouterr().out.strip() == second_printed

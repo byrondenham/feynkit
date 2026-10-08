@@ -171,6 +171,38 @@
 
 ### Added
 
+- `stratum_sum(fi, point)` and `stratum_sum_from_polynomial(g, variables, point)` in
+  `feynkit.strata` compute the drop of a polynomial G below its volume as a sum over strata. For G
+  with a full-dimensional Newton polytope P, they take a polynomial H with random coefficients on the
+  lattice points of P and sum mu^T times chi(S minus V(H)) over the strata S of `singular_strata`,
+  for every face including the top one, then compare the sum with the normalised volume less the
+  number of critical points, counted at two seeds that must agree. This is the toric, torus-cut
+  form of Prop. 7 of Parusinski and Pragacz (J. Algebraic Geom. 4 (1995) 337-351), equivalently
+  Cor. 0.2 of Schuermann (arXiv:math/0202175) or Thm 2 of Gusein-Zade, Luengo and Melle-Hernandez
+  (Proc. Steklov Inst. Math. 225 (1999) 156-164). The result is a `StratumSum` with `volume`,
+  `master_count`, `drop`, `strata` (each with its `euler`), `total`, `agrees`, `transverse`, `primes`,
+  `seed`, `complete` and `reason`. `agrees` is None, never True, when a piece of the strata is
+  undecided or `complete` is False, since the sum may then be missing a locus where mu^T jumps, when an
+  Euler characteristic is undecided, and when H is not transverse to a piece. The Euler characteristic
+  of a piece is a count of critical points modulo the two largest primes below 2^29 that divide no
+  coefficient, so it is a cross-check, not a certificate; `backend="msolve"` counts with msolve.
+  When the exponents span a sublattice of index k in Z^N, the sum is taken in that lattice and
+  multiplied by k. The massless box on shell gives 0 = 3 - 3, the vacuum sunrise with one massive
+  line 2 = 3 - 1, and the sunsets of Klausen (JHEP 04 (2020) 121, Table 1) with one, two and three
+  massive lines the drops 1, 2 and 3. `Stratum.euler`, which `singular_strata` leaves None, is
+  filled in for the pieces that count. See "Strata and the stratum sum" in the guide.
+
+- The strata that the sum rests on, `feynkit.toric`, `feynkit.milnor` and `feynkit.strata`.
+  `singular_strata(fi, point)` and `singular_strata_from_polynomial` cut the singular locus of the
+  polynomial of every face of the Newton polytope, in the orbit of the face, into locally closed
+  pieces on which the torus-cut Milnor number mu^T is constant, with its value on each, and say in
+  `complete` whether a sufficient criterion for the pieces to be all of them holds. Faces whose normal
+  cone is not smooth are computed through a smooth subdivision of the cone. `feynkit.toric` gives the
+  normal cones, orbit charts and smooth subdivisions, `feynkit.milnor` the Le numbers and the reduced
+  Euler characteristic of the Milnor fibre of a hypersurface germ, and the torus-cut Milnor number at
+  a point, and `torus_euler_characteristic` the Euler characteristic of a subvariety of the torus
+  with a hypersurface removed.
+
 - The Kira export, `feynkit.exporters`. `kira_job(family, name, top_sectors, integrals, r, s,
   replace_by_one)` returns a `KiraJob` holding the text of `jobs.yaml`, `config/integralfamilies.yaml`,
   `config/kinematics.yaml` and a list of integrals, and `KiraJob.write(directory)` writes them

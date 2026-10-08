@@ -32,11 +32,12 @@ diagram given by its CNickel string.
 19. [Landau singularities](#landau-singularities)
 20. [Torus point counts](#torus-point-counts)
 21. [Degenerate faces](#degenerate-faces)
-22. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
-23. [The database](#the-database)
-24. [Visualisation and export](#visualisation-and-export)
-25. [Standard diagram library](#standard-diagram-library)
-26. [References](#references)
+22. [Strata and the stratum sum](#strata-and-the-stratum-sum)
+23. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
+24. [The database](#the-database)
+25. [Visualisation and export](#visualisation-and-export)
+26. [Standard diagram library](#standard-diagram-library)
+27. [References](#references)
 
 ---
 
@@ -2976,6 +2977,137 @@ Mizera and Telen 2024, example 2.5).
 
 ---
 
+## Strata and the stratum sum
+
+A degenerate face (previous section) is where the number of master integrals falls below the
+volume. This section says by how much, face by face. For a polynomial $G$ in $N$ variables with
+$\dim\mathrm{Newt}(G) = N$, the number $|\chi| = |\chi(T \setminus V(G))|$ of critical points of a
+generic master function on the torus $T = (\mathbb{C}^*)^N$ is at most the normalised volume
+$\mathrm{vol}$ of the Newton polytope, and the difference, the drop, is a sum over the singular
+points of the face polynomials.
+
+### Strata
+
+For each face $F$ of the Newton polytope $P$, the top face included, the torus orbit $O_F$ has a
+chart $\mathbb{C}^r_y \times (\mathbb{C}^*)^{d}_t$ around it, with $t$ the coordinates of the orbit
+and $y$ the normal coordinates, in which $G$ becomes a local equation $g(t, y)$ (`feynkit.toric`). The
+torus-cut Milnor number at a point $x \in O_F$ is $\mu^T(x) = (-1)^{N-1}\beta(x)$ with
+$\beta(x) = \chi(F_x \cap T) - 1_T(x)$ and $F_x$ the Milnor fibre of $g$ at $x$. It is $0$ where the
+face polynomial $G_F$ is smooth in $O_F$, so only its singular locus matters.
+`singular_strata(fi, point)` and `singular_strata_from_polynomial(g, variables, point)` in
+`feynkit.strata` cut that singular locus, face by face, into locally closed pieces on which $\mu^T$
+is constant, with its value on each. The pieces come from prime components over $\mathbb{Q}$,
+refined level by level at the loci where the Euler characteristic of the Milnor fibre can jump
+along a piece, and $\mu^T$ is computed at two points of each, which must agree. The Milnor fibre
+comes from the Le numbers of $g$ restricted to the coordinate subspaces $y_I = 0$ (Massey 2014,
+Thm 2.23 and Thm 4.1, for the cells attached to the fibre), with Singular over $\mathbb{F}_p$. A face whose normal cone is not
+smooth is computed through a smooth subdivision of the cone, and the nearby cycles are pushed
+forward to the orbit (Dimca 2004, Prop. 4.2.11).
+
+| Attribute of `Stratum` | Description |
+|------------------------|-------------|
+| `face`, `dimension` | The point indices of the face and the dimension of the closure of the piece |
+| `generators`, `degree` | Generators of the prime ideal of the closure in the coordinates $t_1, \ldots, t_d$, and its degree |
+| `removed` | Generators of the smaller closed sets cut out of the closure |
+| `mu_t` | $\mu^T$ on the piece, or None |
+| `euler` | $\chi(S \setminus V(H))$ in the chart torus, filled in by the stratum sum for pieces with $\mu^T \ne 0$; else None |
+| `chart`, `method` | The chart of the face, and `"smooth chart"` or `"subdivision"` |
+| `reason` | Why the piece is undecided, or None |
+
+`StrataAnalysis.complete` is True when every piece is decided, every chart is smooth and a sufficient
+criterion holds for every piece of positive dimension. The criterion is sufficient for the
+candidate loci to contain every locus where the Euler characteristic of the Milnor fibre jumps
+along a piece; it is stated in the docstring of `StrataAnalysis`. The failures it finds are listed in `failures`, and the faces computed through a
+subdivision in `subdivided`. On such a face the pieces of positive dimension are left undecided
+(they have a `reason`) and only isolated points carry a value, because the loci where the fibre
+integral changes inside the exceptional fibre are not located yet. A piece with fewer than two
+rational points is computed at points over a number field; on a subdivided face it is undecided.
+
+### The stratum sum
+
+`stratum_sum(fi, point)` and `stratum_sum_from_polynomial(g, variables, point)` take a polynomial
+$H$ with random integer coefficients on every lattice point of $P$ and compute
+$$\mathrm{vol} - |\chi| = \sum_S \mu^T_S\,\chi(S \setminus V(H)),$$
+where $S$ runs over the pieces of every face, and $V(H)$ is taken in the orbit of the face. The
+volume is $N!\,\mathrm{Vol}(P)$, and $|\chi|$ is `critical_point_count` at two seeds, which must
+agree. This identity is the toric, torus-cut form of the formula of Parusinski and Pragacz (1995, Prop. 7,
+p. 8 of the preprint); equivalently, it follows from Schuermann's Cor. 0.2 (2002, p. 8) or from
+Thm 2 of Gusein-Zade, Luengo and Melle-Hernandez (1999, p. 4 of the arXiv version). The volume is
+the Euler characteristic of a generic hypersurface in the torus up to sign (Kouchnirenko 1976,
+Thm IV), and Huh (2013, Thm 1) reads $|\chi|$ as a number of critical points.
+Each piece is a locally closed set, so its
+Euler characteristic is that of its closure less the closures of the smaller pieces, and each is
+computed as a count of critical points modulo the two largest primes below $2^{29}$ that divide no
+coefficient (`backend="msolve"` counts with msolve instead).
+
+```python
+import sympy as sp
+
+from feynkit.strata import stratum_sum_from_polynomial
+
+x1, x2, x3 = sp.symbols("x1 x2 x3")
+# the vacuum sunrise with one massive line, m^2 = 5
+g = sp.expand((1 + 5 * x1) * (x1 * x2 + x1 * x3 + x2 * x3))
+r = stratum_sum_from_polynomial(g, [x1, x2, x3])
+print(r.volume, r.master_count, r.drop, r.total, r.agrees)
+print([(s.dimension, s.mu_t, s.euler) for s in r.strata if s.euler is not None])
+```
+
+prints
+
+```
+3 1 2 2 True
+[(1, -1, -2)]
+```
+
+so the one stratum that counts is a curve with $\mu^T = -1$ and $\chi = -2$, and $(-1)(-2) = 3 - 1$.
+The three sunsets of Klausen (2020, Table 1, p. 34 of the arXiv version) with one, two and three massive lines have volumes 3, 6
+and 10 and 2, 4 and 7 master integrals; their sums, one isolated point per massive line, are 1, 2
+and 3. On the massless box on shell no face polynomial is singular in its orbit, the sum is empty
+and $0 = 3 - 3$.
+
+| Attribute of `StratumSum` | Description |
+|---------------------------|-------------|
+| `volume`, `master_count`, `drop` | $\mathrm{vol}$, $|\chi|$ and their difference |
+| `strata` | The pieces, with `euler` filled in where they count |
+| `total` | The sum, or None if a piece or an Euler characteristic is undecided |
+| `agrees` | Whether `total` equals `drop`, or None |
+| `transverse` | Whether $H$ is transverse to each piece that counts; False is a reason to try another `seed` |
+| `complete`, `reason` | `complete` of the analysis, and why `agrees` or `total` is None |
+| `primes`, `seed` | The primes used, all below $2^{29}$, and the seed of the strata, the counts and $H$ |
+
+`agrees` is a check, and it is None, never True, when the sum could be partial. That is so whenever
+`singular_strata` leaves a piece undecided or `complete` is False, since a locus where $\mu^T$ jumps
+may then be missing and a missed jump changes the total silently; when an Euler characteristic is
+undecided; and when $H$ is not transverse to a piece. `reason` says which. A False means the strata
+are complete in this sense and the sum still differs from the drop. The polytope must be
+full-dimensional. When the exponents of $G$ span a sublattice of index $k$ in $\mathbb{Z}^N$, the
+sum is taken in that lattice and multiplied by $k$; every Feynman integral with a full-dimensional
+polytope has $k = 1$.
+
+The counts are modulo primes, so a result holds for all but finitely many primes and generic
+$H$ and exponents: it is a cross-check, not a certificate. The pieces are not proved to be all the
+loci where $\mu^T$ changes outside the cases `complete` covers. Computations take seconds for the
+sunsets and the box, and minutes for faces with many singular pieces; `timeout` bounds each
+Singular or msolve run, 120 s by default.
+
+```python
+from fractions import Fraction
+
+from feynkit import FeynmanIntegral
+from feynkit.strata import stratum_sum
+
+fi = FeynmanIntegral.from_cnickel("111e|e|:nnz")  # the sunset with two massive lines
+names = {s.name: s for s in fi.symanzik.g.free_symbols}
+point = {names["s"]: Fraction(7), names["m_1"] ** 2: Fraction(3), names["m_2"] ** 2: Fraction(7)}
+r = stratum_sum(fi, point)
+print(r.volume, r.master_count, r.total, r.agrees)
+```
+
+prints `6 4 2 True`.
+
+---
+
 ## Conformal and BMS artifact factories
 
 The `feynkit.artifacts` module provides ready-made A-configurations for families studied in
@@ -3639,3 +3771,22 @@ tetrahedron = FeynmanIntegral(g, propagator_exponents={i+1: nu[i] for i in range
 
 27. Duhr, C., Maggio, S., Semper, C. and Stawinski, S.F. (2026). Discrete symmetries of Feynman
     integrals. [arXiv:2604.08332](https://arxiv.org/abs/2604.08332)
+
+28. Parusiński, A. and Pragacz, P. (1995). A formula for the Euler characteristic of singular
+    hypersurfaces. *J. Algebraic Geom.* **4**, 337-351.
+
+29. Schürmann, J. (2002). A generalized Verdier-type Riemann-Roch theorem for
+    Chern-Schwartz-MacPherson classes. [arXiv:math/0202175](https://arxiv.org/abs/math/0202175)
+
+30. Gusein-Zade, S.M., Luengo, I. and Melle-Hernández, A. (1999). On atypical values and local
+    monodromies of meromorphic functions. *Proc. Steklov Inst. Math.* **225**, 156-164.
+    [arXiv:math/9804071](https://arxiv.org/abs/math/9804071)
+
+31. Massey, D.B. (2014). Non-isolated hypersurface singularities and Lê cycles.
+    [arXiv:1410.3312](https://arxiv.org/abs/1410.3312)
+
+32. Dimca, A. (2004). *Sheaves in Topology.* Universitext, Springer.
+
+33. Klausen, R.P. (2020). Hypergeometric series representations of Feynman integrals by GKZ
+    hypergeometric systems. *JHEP* **04**, 121.
+    [arXiv:1910.08651](https://arxiv.org/abs/1910.08651)

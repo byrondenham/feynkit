@@ -7,18 +7,22 @@ equations are written out below.
 from __future__ import annotations
 
 import itertools
+import random
+import time
 from fractions import Fraction
 
 import pytest
+import sympy as sp
 
 from feynkit import _exact
-from feynkit.core.exceptions import ValidationError
+from feynkit.core.exceptions import ComputationError, ValidationError
 from feynkit.polytope import polytope_data
 from feynkit.toric import (
     NormalCone,
     OrbitChart,
     normal_cone,
     orbit_chart,
+    orbit_cones,
     smooth_subdivision,
 )
 
@@ -61,25 +65,70 @@ def _vertex_faces(data):
 # --- item 1: subdivisions ----------------------------------------------------
 
 
-def _check_subdivision(data, face, box):
+def _fan_problems(data, face, pieces, samples=40):
+    """Exact checks that the pieces form a fan with union the normal cone of the face.
+
+    Every ray lies in the cone; each facet of a piece (a set of its rays) lies in exactly two
+    pieces, on opposite sides, when its relative interior meets the interior of the cone, and in
+    exactly one piece otherwise; a generic rational point of the cone lies in exactly one piece.
+    Returns the list of problems found.
+    """
+    from feynkit.toric import _coefficients as solve
+    from feynkit.toric import _minimal_set, _saturated_basis
+
     cone = normal_cone(data, face)
-    pieces = smooth_subdivision(cone, seed=0)
-    d = cone.lattice_dimension
+    problems = []
+    k = len(pieces[0].rays)
+    lattice = _saturated_basis(cone.rays, cone.lattice_dimension)
+
+    def coordinates(u):
+        return solve(lattice, u)
+
+    for piece in pieces:
+        for u in piece.rays:
+            if not _in_normal_cone(data, face, u):
+                problems.append(("ray outside the cone", u))
+    sides = {}
+    for piece in pieces:
+        for i, apex in enumerate(piece.rays):
+            facet = tuple(r for j, r in enumerate(piece.rays) if j != i)
+            rows = [coordinates(u) for u in (*facet, apex)]
+            det = sp.Matrix(
+                [[sp.Rational(x.numerator, x.denominator) for x in row] for row in rows]
+            ).det()
+            sides.setdefault(facet, []).append(det)
+    for facet, dets in sides.items():
+        total = [sum(u[j] for u in facet) for j in range(cone.lattice_dimension)]
+        interior = set(face) == _minimal_set(data, total)
+        if interior:
+            if len(dets) != 2 or dets[0] * dets[1] >= 0:
+                problems.append(("interior facet", facet, dets))
+        elif len(dets) != 1:
+            problems.append(("boundary facet", facet, dets))
+    rng = random.Random(1)
+    for _ in range(samples):
+        weights = [Fraction(rng.randint(1, 50), rng.randint(1, 50)) for _ in cone.rays]
+        point = [
+            sum(w * r[j] for w, r in zip(weights, cone.rays, strict=True))
+            for j in range(cone.lattice_dimension)
+        ]
+        hits = []
+        for piece in pieces:
+            c = solve(piece.rays, point)
+            if c is not None and all(x >= 0 for x in c):
+                hits.append(c)
+        if len(hits) != 1 or any(x == 0 for x in hits[0]):
+            problems.append(("point covered", point, len(hits)))
+    assert k == len(pieces[0].rays)
+    return problems
+
+
+def _check_subdivision(data, face, seed=0):
+    cone = normal_cone(data, face)
+    pieces = smooth_subdivision(cone, seed=seed)
     assert all(p.smooth and p.simplicial and p.multiplicity == 1 for p in pieces)
     assert all(len(p.rays) == len(pieces[0].rays) for p in pieces)
-    # every piece lies in the cone, and the pieces cover it with disjoint interiors
-    for u in itertools.product(range(-box, box + 1), repeat=d):
-        inside = _in_normal_cone(data, face, u)
-        hits = [_in_piece(p, u) for p in pieces]
-        covered = [c for ok, c in hits if ok]
-        if inside:
-            assert covered, u
-        else:
-            assert not covered, u
-        interior = [c for c in covered if all(x > 0 for x in c)]
-        assert len(interior) <= 1
-        if interior:
-            assert len(covered) == 1
+    assert _fan_problems(data, face, pieces) == []
     return pieces
 
 
@@ -97,7 +146,7 @@ def test_octahedron_vertex_cone_is_split_into_unimodular_cones():
     face = (0,)
     cone = normal_cone(data, face)
     assert not cone.simplicial and not cone.smooth and len(cone.rays) == 4
-    pieces = _check_subdivision(data, face, 3)
+    pieces = _check_subdivision(data, face)
     assert len(pieces) >= 2
 
 
@@ -135,7 +184,7 @@ def test_stellar_step_on_a_simplicial_cone_of_multiplicity_three():
     for face in _vertex_faces(data):
         cone = normal_cone(data, face)
         assert cone.simplicial and not cone.smooth and cone.multiplicity == 3
-        _check_subdivision(data, face, 8)
+        _check_subdivision(data, face)
 
 
 def test_octahedron_every_vertex_and_a_four_dimensional_cross_polytope():
@@ -148,13 +197,13 @@ def test_octahedron_every_vertex_and_a_four_dimensional_cross_polytope():
     data4 = polytope_data(cross)
     cone = normal_cone(data4, (0,))
     assert len(cone.rays) == 8 and not cone.simplicial
-    pieces = _check_subdivision(data4, (0,), 1)
+    pieces = _check_subdivision(data4, (0,))
     assert all(p.smooth for p in pieces)
     # an edge: its cone spans only a three-dimensional subspace of Z^4
     edge = next(idx for dim, idx in data4.faces if dim == 1)
     edge_cone = normal_cone(data4, edge)
     assert len(edge_cone.rays) > 3
-    edge_pieces = _check_subdivision(data4, edge, 1)
+    edge_pieces = _check_subdivision(data4, edge)
     assert all(len(p.rays) == 3 and p.smooth for p in edge_pieces)
 
 
@@ -353,3 +402,137 @@ def test_cone_dataclass_is_frozen():
     assert isinstance(cone, NormalCone)
     with pytest.raises(AttributeError):
         cone.smooth = False  # type: ignore[misc]
+
+
+# --- fan checks, large cases, charts of pieces --------------------------------
+
+
+def _mutant_pieces(cone, seed):
+    """A wrong subdivision: star-subdivide only the cone of largest multiplicity, never the fan."""
+    from feynkit.toric import _make_cone, _multiplicity, _parallelepiped_points, _triangulate
+
+    d = cone.lattice_dimension
+    rng = random.Random(seed)
+    cones = _triangulate(cone.rays, rng)
+    while True:
+        worst = max(cones, key=lambda c: (_multiplicity(c, d), c))
+        if _multiplicity(worst, d) == 1:
+            break
+        point, lam = rng.choice(_parallelepiped_points(worst, d))
+        cones.remove(worst)
+        cones.extend(
+            tuple(r for r in worst if r != u) + (point,)
+            for u, f in zip(worst, lam, strict=True)
+            if f != 0
+        )
+    return tuple(_make_cone(cone.face, c, d) for c in sorted(tuple(sorted(c)) for c in cones))
+
+
+def test_fan_check_rejects_a_subdivision_that_only_splits_the_worst_cone():
+    cross = [tuple(s * int(i == j) for j in range(4)) for i in range(4) for s in (1, -1)]
+    data = polytope_data([*cross, (0, 0, 0, 0)])
+    cone = normal_cone(data, (0,))
+    assert _fan_problems(data, (0,), smooth_subdivision(cone, seed=0)) == []
+    bad = [s for s in range(6) if _fan_problems(data, (0,), _mutant_pieces(cone, s))]
+    assert len(bad) >= 5
+
+
+def test_fan_check_rejects_overlaps_and_gaps():
+    data = polytope_data(OCTAHEDRON)
+    cone = normal_cone(data, (0,))
+    pieces = smooth_subdivision(cone, seed=0)
+    assert _fan_problems(data, (0,), pieces[:-1])
+    assert _fan_problems(data, (0,), (*pieces, pieces[0]))
+
+
+# Three of the six points are far from the others; the vertex cone at (1,) is simplicial of
+# multiplicity 128 and the one at (0,) has five rays.
+LARGE = [(0, 3, 1), (-1, -3, 3), (1, -3, -3), (2, 3, 0), (2, 3, 3), (2, 2, -3)]
+
+
+def test_large_multiplicity_cones_are_subdivided_quickly():
+    data = polytope_data(LARGE)
+    start = time.perf_counter()
+    for dim, face in data.faces:
+        cone = normal_cone(data, face)
+        for seed in (0, 1):
+            pieces = smooth_subdivision(cone, seed=seed)
+            assert all(p.smooth for p in pieces)
+            assert len(pieces) <= 400
+            if dim == 0:
+                assert _fan_problems(data, face, pieces, samples=10) == []
+    assert time.perf_counter() - start < 30
+    assert {normal_cone(data, f).multiplicity for d_, f in data.faces if d_ == 0} >= {128}
+
+
+def test_cone_cap_raises_undecided():
+    data = polytope_data(LARGE)
+    cone = normal_cone(data, (1,))
+    assert cone.multiplicity == 128
+    with pytest.raises(ComputationError, match="^undecided: "):
+        smooth_subdivision(cone, seed=0, max_cones=2)
+    with pytest.raises(ValidationError):
+        smooth_subdivision(cone, max_cones=1.5)
+
+
+def test_chart_of_a_piece_shares_the_torus_coordinates():
+    data = polytope_data(TRIANGLE_Z3)
+    face = (0,)
+    pieces = smooth_subdivision(normal_cone(data, face), seed=0)
+    charts = [orbit_chart(data, face, cone=p) for p in pieces]
+    assert all(c.rays == p.rays for c, p in zip(charts, pieces, strict=True))
+    assert all(c.torus_basis == () and c.vertex == (0, 0) for c in charts)
+    # the edge cone of the octahedron: a non-smooth face, two torus directions shared by pieces
+    four = [tuple(s * int(i == j) for j in range(4)) for i in range(4) for s in (1, -1)]
+    d4 = polytope_data([*four, (0, 0, 0, 0)])
+    edge = next(idx for dim, idx in d4.faces if dim == 1)
+    edge_pieces = smooth_subdivision(normal_cone(d4, edge), seed=2)
+    bases = {orbit_chart(d4, edge, cone=p).torus_basis for p in edge_pieces}
+    assert len(bases) == 1 and len(next(iter(bases))) == 1
+    for p in edge_pieces:
+        chart = orbit_chart(d4, edge, cone=p)
+        rows = [list(w) for w in (*chart.torus_basis, *chart.rays)]
+        assert abs(_exact.determinant(rows)) == 1
+    # a piece of the polytope's own cone on a smooth face: same torus basis as the default
+    smooth_face = (0, 1)
+    base = orbit_chart(data, smooth_face)
+    assert orbit_chart(data, smooth_face, cone=normal_cone(data, smooth_face)) == base
+
+
+def test_chart_of_a_piece_rejects_bad_cones():
+    data = polytope_data(TRIANGLE_Z3)
+    face = (0,)
+    pieces = smooth_subdivision(normal_cone(data, face), seed=0)
+    with pytest.raises(ValidationError):
+        orbit_chart(data, (1,), cone=pieces[0])
+    with pytest.raises(ValidationError, match="not smooth"):
+        orbit_chart(data, face, cone=normal_cone(data, face))
+    outside = NormalCone(face, ((1, 0), (0, -1)), True, True, 2)
+    with pytest.raises(ValidationError, match="normal cone"):
+        orbit_chart(data, face, cone=outside)
+    short = NormalCone(face, ((-1, 2),), True, True, 2)
+    with pytest.raises(ValidationError):
+        orbit_chart(data, face, cone=short)
+    with pytest.raises(ValidationError):
+        orbit_chart(data, face, cone="piece")
+
+
+def test_orbit_cones_of_a_subdivision():
+    data = polytope_data(TRIANGLE_Z3)
+    face = (0,)
+    pieces = smooth_subdivision(normal_cone(data, face), seed=0)
+    cones = orbit_cones(data, pieces)
+    # the cones with relative interior in that of the 2-dimensional cone: the new interior
+    # rays and the 2-dimensional pieces; the two boundary rays are on the boundary
+    original = set(normal_cone(data, face).rays)
+    assert all(len(set(c) & original) < len(c) or len(c) == 2 for c in cones)
+    assert len(cones) == len(set(cones))
+    assert sum(len(c) == 2 for c in cones) == len(pieces)
+    assert all(len(c) in (1, 2) for c in cones)
+    # the polytope itself: the cone {0} only
+    top = tuple(range(len(data.points)))
+    assert orbit_cones(data, [normal_cone(data, top)]) == ((),)
+    with pytest.raises(ValidationError):
+        orbit_cones(data, [])
+    with pytest.raises(ValidationError):
+        orbit_cones(data, [*pieces, normal_cone(data, (1,))])

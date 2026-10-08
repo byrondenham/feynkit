@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "feynkit"
 version = "0.4.0"
-description = "A comprehensive toolkit for symbolic Feynman integral computations"
+description = "The parametric and polyhedral structure of Feynman integrals: Symanzik polynomials, GKZ systems and Newton polytopes"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}

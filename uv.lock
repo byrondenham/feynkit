@@ -320,6 +320,7 @@ dependencies = [
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "sympy" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
 
 [package.optional-dependencies]
@@ -351,6 +352,7 @@ requires-dist = [
     { name = "python-flint", marker = "extra == 'backends'", specifier = ">=0.9" },
     { name = "scipy", specifier = ">=1.10.0" },
     { name = "sympy", specifier = ">=1.12" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
 ]
 provides-extras = ["backends"]
 

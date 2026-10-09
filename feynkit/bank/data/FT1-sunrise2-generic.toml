@@ -1,0 +1,50 @@
+[family]
+id = "FT1-sunrise2-generic"
+area = "formal"
+kind = "graph"
+status = "G"
+title = "Two-loop sunrise with three different masses, and with equal masses"
+tags = ["sunrise", "elliptic"]
+cnickel = "111e|e|:nnn"
+loops = 2
+propagators = 3
+
+# The equal-mass point is a point of the same graph, with the three squares equal.
+[[point]]
+name = "generic"
+values = { "s" = "7/3", "m_1^2" = "2", "m_2^2" = "3", "m_3^2" = "5" }
+
+[[point]]
+name = "equal-mass"
+values = { "s" = "7/3", "m_1^2" = "2", "m_2^2" = "2", "m_3^2" = "2" }
+
+[[datum]]
+id = "master-count-generic"
+type = "master_count"
+point = "generic"
+value = 4
+scope = "top-sector"
+sector = "111"
+symmetries = "n/a"
+excludes = ["tadpole-products"]
+source = "KK17"
+also = ["RT16"]
+location = "Sec. 4, Eq. (4.5), arXiv PDF p. 12"
+verified = "text"
+checked = "2026-10-09"
+note = "N_J = 2^(L+1) - L - 2 irreducible masters for generic masses and momenta, 4 at L = 2. The paper says on p. 19 that the product of one-loop bubble diagrams (tadpoles) does not enter the count. RT16 Sec. 4, arXiv PDF p. 8, also gives four masters for different masses."
+
+[[datum]]
+id = "master-count-equal-mass"
+type = "master_count"
+point = "equal-mass"
+value = 2
+scope = "top-sector"
+sector = "111"
+symmetries = "used"
+excludes = ["tadpole-products"]
+source = "RT16"
+location = "Sec. 4, arXiv PDF p. 8"
+verified = "text"
+checked = "2026-10-09"
+note = "The sunrise graph with different masses has four master integrals, which reduce to two for equal masses; RT16 attribute the statement to their Ref. [12]. Sec. 5, p. 10, calls M6 and M7 the two masters of the equal-mass sunrise. The reduction from four to two is a use of the symmetry between the three lines, which a count of the Euler characteristic does not make."

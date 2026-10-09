@@ -41,6 +41,7 @@ dependencies = [
     "numpy>=1.24.0",
     "scipy>=1.10.0",
     "networkx>=3.2,<4",
+    "tomli>=2.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
@@ -55,6 +56,9 @@ Documentation = "https://github.com/byrondenham/feynkit/blob/main/docs/guide.md"
 Repository = "https://github.com/byrondenham/feynkit"
 Issues = "https://github.com/byrondenham/feynkit/issues"
 
+[tool.setuptools.package-data]
+"feynkit.bank" = ["data/*.toml"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["feynkit*"]
@@ -68,6 +72,7 @@ python_functions = ["test_*"]
 markers = [
     "examples: runs every script in examples/; opt in with -m examples",
     "slow: long-running acceptance checks; opt in with -m slow",
+    "bank_open: benchmark-bank data that is open or disputed; the tests write a report and never fail on a mismatch; select them with -m bank_open",
 ]
 # A hung test fails after 300 s (the slowest default test takes about 45 s).
 # Slow and examples tests get 1200 s from tests/conftest.py (the slowest takes

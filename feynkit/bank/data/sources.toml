@@ -1,0 +1,49 @@
+# The papers the bank cites. A paper is described here once; where in it a number was read,
+# and how it was checked, are part of each datum.
+# Page numbers in the data are PDF pages of the arXiv version named here.
+
+[KK17]
+arxiv = "1612.06637"
+version = "v3"
+authors = "Kalmykov, Kniehl"
+title = "Counting the number of master integrals for sunrise diagrams via the Mellin-Barnes representation"
+venue = "JHEP 07 (2017) 031"
+doi = "10.1007/JHEP07(2017)031"
+
+[RT16]
+arxiv = "1602.01481"
+version = "v3"
+authors = "Remiddi, Tancredi"
+title = "Differential equations and dispersion relations for Feynman amplitudes. The two-loop massive sunrise and the kite integral"
+venue = "Nucl. Phys. B (2016); volume and pages not checked"
+doi = "10.1016/j.nuclphysb.2016.04.013"
+
+[Henn13]
+arxiv = "1304.1806"
+version = "v2"
+authors = "Henn"
+title = "Multiloop integrals in dimensional regularization made simple"
+venue = "Phys. Rev. Lett. 110 (2013) 251601"
+doi = "10.1103/PhysRevLett.110.251601"
+
+[FMT24]
+arxiv = "2311.16219"
+version = "v2"
+authors = "Fevola, Mizera, Telen"
+title = "Principal Landau determinants"
+venue = "Comput. Phys. Commun. 303 (2024) 109278"
+doi = "10.1016/j.cpc.2024.109278"
+
+[FPSW24]
+arxiv = "2410.14757"
+version = "v2"
+authors = "Fevola, Pimentel, Sattelberger, Westerdijk"
+title = "Algebraic approaches to cosmological integrals"
+venue = "Le Matematiche 80(1) (2025) 303-324, as given on the arXiv page"
+
+[ABHJ23]
+arxiv = "2312.05303"
+version = "v2"
+authors = "Arkani-Hamed, Baumann, Hillman, Joyce, Lee, Pimentel"
+title = "Differential equations for cosmological correlators"
+venue = "arXiv preprint; journal reference not checked"

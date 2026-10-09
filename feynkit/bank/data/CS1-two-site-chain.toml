@@ -24,7 +24,7 @@ point = "family"
 value = 4
 source = "FPSW24"
 location = "Sec. 3.1, text before and after Eq. (10), arXiv PDF p. 11"
-verified = "text"
+verified = "image"
 checked = "2026-10-09"
 note = "The restricted GKZ system and the D-ideal I of Eq. (11) both have holonomic rank 4; a C(X1,X2,Y)-basis of the quotient is (1, d/dX1, d/dX2, d/dX1 d/dX2). The two ideals coincide over the rational Weyl algebra (Prop. 3.3, p. 12)."
 
@@ -48,6 +48,6 @@ value = 6
 letters = ["Y", "X1+X2", "X1+Y", "X1-Y", "X2+Y", "X2-Y"]
 source = "FPSW24"
 location = "Sec. 3.1, display after Eq. (11), arXiv PDF p. 11"
-verified = "text"
+verified = "image"
 checked = "2026-10-09"
 note = "Sing(I) = V(Y (X1+X2) (X1+Y) (X1-Y) (X2+Y) (X2-Y)), which the paper says corresponds exactly to the singular locus of the restricted GKZ system. Sec. 3.2, p. 17, says every letter of the differential equations is a factor of this locus."

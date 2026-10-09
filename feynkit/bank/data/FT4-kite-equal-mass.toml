@@ -1,0 +1,30 @@
+[family]
+id = "FT4-kite-equal-mass"
+area = "formal"
+kind = "graph"
+status = "G"
+title = "Two-loop kite with three equal-mass lines and two massless lines"
+tags = ["kite", "elliptic"]
+# The family of Remiddi and Tancredi, Eq. (5.2): D1 = k^2 + m^2, D2 = l^2, D3 = (k-l)^2 + m^2,
+# D4 = (k-p)^2, D5 = (l-p)^2 + m^2. The massive lines are the three that carry k, k-l and l-p.
+cnickel = "123|23|e|e|:aazza"
+loops = 2
+propagators = 5
+
+[[point]]
+name = "equal-mass"
+values = { "s" = "7/3", "m_a^2" = "2" }
+
+[[datum]]
+id = "master-count-family"
+type = "master_count"
+point = "equal-mass"
+value = 8
+scope = "family"
+sector = "n/a"
+symmetries = "not-stated"
+source = "RT16"
+location = "Sec. 5, Eq. (5.4), arXiv PDF p. 9"
+verified = "text"
+checked = "2026-10-09"
+note = "Eight independent masters of the whole family (5.2), found with a reduction program, m = 1. M1 to M5 are expressed in harmonic polylogarithms and M6, M7, M8 are not. M6 and M7 are the two masters of the equal-mass two-loop sunrise (p. 10). The kite has three massive and two massless propagators, not five massive ones."

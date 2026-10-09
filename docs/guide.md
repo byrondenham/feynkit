@@ -33,11 +33,12 @@ diagram given by its CNickel string.
 20. [Torus point counts](#torus-point-counts)
 21. [Degenerate faces](#degenerate-faces)
 22. [Strata and the stratum sum](#strata-and-the-stratum-sum)
-23. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
-24. [The database](#the-database)
-25. [Visualisation and export](#visualisation-and-export)
-26. [Standard diagram library](#standard-diagram-library)
-27. [References](#references)
+23. [The benchmark bank](#the-benchmark-bank)
+24. [Conformal and BMS artifact factories](#conformal-and-bms-artifact-factories)
+25. [The database](#the-database)
+26. [Visualisation and export](#visualisation-and-export)
+27. [Standard diagram library](#standard-diagram-library)
+28. [References](#references)
 
 ---
 
@@ -3104,6 +3105,55 @@ print(r.volume, r.master_count, r.total, r.agrees)
 ```
 
 prints `6 4 2 True`.
+
+---
+
+## The benchmark bank
+
+`feynkit.bank` holds integral families together with the numbers that papers have published for
+them: master counts, alphabets, singular loci, ranks. It exists to check feynkit against the
+literature, so it stores nothing that feynkit computed.
+
+Each family is a TOML file in `feynkit/bank/data/`, and `sources.toml` there lists the papers. A
+family is a `graph` (a CNickel string), a `polynomial` (a polynomial in variables and parameters,
+for Euler integrals with no graph) or a `reference`. It has named points with exact rational
+values, and published data. Every datum gives its paper, the place in it (a section, equation or
+table, and a page, which is the PDF page of the arXiv version named in `sources.toml`) and how it
+was read: `text`, `image`, or `cite-only` for a number that one paper quotes from another. A
+cite-only number is never `published`; the loader rejects it, and also a datum with no source or
+with a place that names no page.
+
+```python
+from feynkit import bank
+
+datum = bank.load("FT1-sunrise2-generic").datum("master-count-generic")
+print(datum.numbers, datum.source, datum.location)
+```
+
+prints `(4,) KK17 Sec. 4, Eq. (4.5), arXiv PDF p. 12`.
+
+A published count has a convention, and comparing across conventions is the commonest error. The
+datum records its `scope` (family, sector or top sector), whether it `excludes` products of tadpoles
+and whether symmetries between lines were used. The count that feynkit makes, $|\chi|$ of the
+complement of $\{G = 0\}$ in the torus, is the number of masters with all subsectors and no
+symmetries. For the two-loop sunrise with three different masses it is 7. The published 4 counts the
+top sector, so the three products of two tadpoles are taken off. At equal masses feynkit still
+gives 4, where the published 2 uses the symmetry between the three lines, so the test asks only for
+at least 2. `tests/bank_support.py` holds this adapter. The two-loop sunrise is elliptic, so its
+finite-field point counts are not polynomial in $p$ and `torus_count` finds no candidate for it;
+the bank counts critical points with `critical_point_count` instead.
+
+The tests are in `tests/test_bank_*.py`. The schema checks and the cheap counts, the sunrise and
+the pair $(|\chi|, \mathrm{vol})$ of the planar double box from Table 1 of Fevola, Mizera and
+Telen, run by default. Counts of the other families, the published letters of the double box
+against the principal Landau determinant, and the Euler characteristics of the chain arrangements
+are marked `slow`. Families whose data is `open` or `disputed` carry the marker `bank_open`: the
+test writes a JSON report, to `FEYNKIT_BANK_REPORT_DIR` if that is set, and fails on a crash but
+never on a mismatch. A solver that runs past its limit makes a test skip; an undecided count is
+not a pass.
+
+To add a family, write `<id>.toml` after an existing file and add any new paper to
+`sources.toml`; `python -m pytest tests/test_bank_schema.py` checks the file.
 
 ---
 

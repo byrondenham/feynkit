@@ -340,3 +340,13 @@ def test_integral_of_a_reference_family_is_refused() -> None:
 def test_loader_builds_the_integral_it_names() -> None:
     fi = bank.load("FT1-sunrise2-generic").integral()
     assert isinstance(fi, FeynmanIntegral)
+
+
+def test_guide_example_prints_what_the_guide_says(capsys: pytest.CaptureFixture[str]) -> None:
+    guide = Path(__file__).resolve().parents[1] / "docs" / "guide.md"
+    section = guide.read_text(encoding="utf-8").split("\n## The benchmark bank\n", 1)[1]
+    section = section.split("\n## ", 1)[0]
+    (code,) = re.findall(r"```python\n(.*?)```", section, re.DOTALL)
+    printed = section.split("prints `", 1)[1].split("`", 1)[0]
+    exec(compile(code, "docs/guide.md", "exec"), {})
+    assert capsys.readouterr().out.strip() == printed

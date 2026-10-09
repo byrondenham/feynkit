@@ -171,6 +171,25 @@
 
 ### Added
 
+- `feynkit.bank`, a bank of integral families with the numbers published for them, for checking
+  feynkit against the literature. A family is a TOML file under `feynkit/bank/data/`, a `graph`, a
+  `polynomial` or a `reference`, with exact points and published data; `sources.toml` lists the
+  papers. Each datum gives its paper, the section, equation or table and the page, and whether the
+  number was read from the text or an image of the page; a number quoted by one paper from another is
+  `cite-only` and cannot be `published`. The datum also records the convention of the count: its
+  scope, whether tadpole products are left out and whether symmetries were used. `load`,
+  `list_families`, `BankFamily.integral` and `BankFamily.polynomial_at` give the family and its
+  polynomial at a point. The first families are the two-loop sunrise with generic and equal masses
+  (Kalmykov and Kniehl, Remiddi and Tancredi), with massless lines, and on shell at the point J011;
+  the kite with three massive lines; the planar massless double box (Henn, with the pair of
+  Table 1 of Fevola, Mizera and Telen); and the two-site and three-site chains of cosmology as
+  hyperplane arrangements (Fevola, Pimentel, Sattelberger and Westerdijk; Arkani-Hamed, Baumann,
+  Hillman, Joyce, Lee and Pimentel), where the 25 and the 16 of the three-site chain are two
+  different quantities. The tests are in `tests/test_bank_*.py`: the schema and the cheap counts run
+  by default, the rest are marked `slow`, and the new marker `bank_open` is for data that is open or
+  disputed, whose tests report and never fail on a mismatch. `tomli` is now a dependency under
+  Python 3.10. See "The benchmark bank" in the guide.
+
 - `stratum_sum(fi, point)` and `stratum_sum_from_polynomial(g, variables, point)` in
   `feynkit.strata` compute the drop of a polynomial G below its volume as a sum over strata. For G
   with a full-dimensional Newton polytope P, they take a polynomial H with random coefficients on the

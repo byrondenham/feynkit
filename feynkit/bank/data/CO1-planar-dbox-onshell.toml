@@ -1,0 +1,67 @@
+[family]
+id = "CO1-planar-dbox-onshell"
+area = "collider"
+kind = "graph"
+status = "G"
+title = "Planar massless double box, on-shell legs"
+tags = ["double-box", "planar", "massless"]
+cnickel = "123|45|4e|5e|e|e|:zzzzzzz"
+loops = 2
+propagators = 7
+letter_symbols = { s = "s12", t = "s23" }
+note = "The same row of Table 1 is checked against the database entry in tests/test_degeneracy_table.py."
+
+# s12 = s and s23 = t of the source; the legs are massless.
+[[point]]
+name = "on-shell"
+values = { "s12" = "7/3", "s23" = "-5/2" }
+kinematics = "massless_on_shell"
+on_shell = { "p1^2" = "0", "p2^2" = "0", "p3^2" = "0", "p4^2" = "0" }
+
+[[datum]]
+id = "master-count"
+type = "master_count"
+point = "on-shell"
+value = 8
+scope = "family"
+sector = "n/a"
+symmetries = "not-stated"
+source = "Henn13"
+location = "Sec. 'Planar two-loop master integrals for 2 to 2 scattering' (unnumbered), arXiv PDF p. 3"
+verified = "text"
+checked = "2026-10-09"
+note = "There are 8 master integrals for the planar double ladder family, which has nine propagator slots. Basis f1 to f8, Eqs. (9) to (16)."
+
+[[datum]]
+id = "alphabet"
+type = "alphabet"
+point = "on-shell"
+value = 2
+letters = ["t/s", "(s+t)/s"]
+source = "Henn13"
+location = "Sec. 'Planar two-loop master integrals for 2 to 2 scattering' (unnumbered), text after Eq. (17), arXiv PDF p. 3"
+verified = "text"
+checked = "2026-10-09"
+note = "The symbol alphabet is {x, 1+x} with x = t/s, s = 2 p1.p2 and t = 2 p2.p3. The singular points x = 0, -1 and infinity correspond to s = 0, u = -s-t = 0 and t = 0."
+
+[[datum]]
+id = "euler-characteristic"
+type = "euler_characteristic"
+point = "on-shell"
+value = 12
+source = "FMT24"
+location = "Tab. 1, entry dbox, last column of the left table, arXiv PDF p. 14 (printed p. 13)"
+verified = "image"
+checked = "2026-10-09"
+note = "The signed Euler characteristic of the zero locus of G in the torus, for generic kinematics with the masses and external masses zero. The pair printed is (12, 238)."
+
+[[datum]]
+id = "volume"
+type = "volume"
+point = "on-shell"
+value = 238
+source = "FMT24"
+location = "Tab. 1, entry dbox, last column of the left table, arXiv PDF p. 14 (printed p. 13)"
+verified = "image"
+checked = "2026-10-09"
+note = "The normalised volume of the Newton polytope of G for the same kinematics."

@@ -1,0 +1,69 @@
+[family]
+id = "FT2-sunrise2-massless-lines"
+area = "formal"
+kind = "graph"
+status = "G"
+title = "Two-loop sunrise with one, two and three massless lines"
+tags = ["sunrise", "massless-lines"]
+cnickel = "111e|e|:nnn"
+loops = 2
+propagators = 3
+
+# A massless line is a point with the square of its mass set to 0.
+[[point]]
+name = "one-massless"
+values = { "s" = "7/3", "m_1^2" = "2", "m_2^2" = "3", "m_3^2" = "0" }
+
+[[point]]
+name = "two-massless"
+values = { "s" = "7/3", "m_1^2" = "2", "m_2^2" = "0", "m_3^2" = "0" }
+
+[[point]]
+name = "all-massless"
+values = { "s" = "7/3", "m_1^2" = "0", "m_2^2" = "0", "m_3^2" = "0" }
+
+[[datum]]
+id = "master-count-one-massless"
+type = "master_count"
+point = "one-massless"
+value = 3
+scope = "top-sector"
+sector = "111"
+symmetries = "n/a"
+excludes = ["tadpole-products"]
+source = "KK17"
+location = "Sec. 4.1, Eq. (4.13) and the Example below it (N_{2,2} = 3), arXiv PDF p. 14"
+verified = "text"
+checked = "2026-10-09"
+note = "R = 2 massive lines among three. The counts of this paper are holonomic ranks of Mellin-Barnes systems, so they do not use symmetries between lines."
+
+[[datum]]
+id = "master-count-two-massless"
+type = "master_count"
+point = "two-massless"
+value = 2
+scope = "top-sector"
+sector = "111"
+symmetries = "n/a"
+excludes = ["tadpole-products"]
+source = "KK17"
+location = "Sec. 4.1, Eq. (4.13) and the Example below it (N_{2,1} = 2), arXiv PDF p. 14"
+verified = "text"
+checked = "2026-10-09"
+note = "R = 1 massive line among three."
+
+[[datum]]
+id = "master-count-all-massless"
+type = "master_count"
+point = "all-massless"
+value = 1
+scope = "top-sector"
+sector = "111"
+symmetries = "n/a"
+excludes = ["tadpole-products"]
+source = "KK17"
+location = "Sec. 4.1, Eq. (4.13), arXiv PDF p. 14"
+verified = "text"
+checked = "2026-10-09"
+derived = "N_{L,R} = 2^R - delta_{0,L-R} of Eq. (4.13) at L = 2, R = 0"
+note = "Not printed for L = 2; the formula is stated for R <= L, which includes R = 0."

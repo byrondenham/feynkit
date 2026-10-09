@@ -1,0 +1,50 @@
+[family]
+id = "FT3-sunrise2-j011"
+area = "formal"
+kind = "graph"
+status = "H"
+title = "The on-shell two-loop sunrise J011 with one massless line"
+tags = ["sunrise", "on-shell", "disputed"]
+cnickel = "111e|e|:nnn"
+loops = 2
+propagators = 3
+
+# M_3 = 0 and M_1^2 = M_2^2 = p^2 = 1. The variable s is the square of the external momentum.
+[[point]]
+name = "j011"
+values = { "s" = "1", "m_1^2" = "1", "m_2^2" = "1", "m_3^2" = "0" }
+
+# The same masses at a generic external momentum, for comparison.
+[[point]]
+name = "j011-generic-momentum"
+values = { "s" = "7/3", "m_1^2" = "1", "m_2^2" = "1", "m_3^2" = "0" }
+
+[[datum]]
+id = "master-count-j011"
+type = "master_count"
+point = "j011"
+value = [2, 1]
+scope = "top-sector"
+sector = "111"
+symmetries = "n/a"
+excludes = ["tadpole-products"]
+status = "disputed"
+source = "KK17"
+location = "Sec. 6, arXiv PDF p. 19"
+verified = "text"
+checked = "2026-10-09"
+note = "Two published counts for the same integral. 2: the number of independent critical points of the Lee-Pomeransky polynomial by the criteria of the paper's Ref. [45] (q4 and q6). 1: one non-trivial master integral by differential reduction (Refs. [43, 49]), the second being a product of Gamma functions. The paper explains the difference by the treatment of propagator powers and dimension, and a footnote quotes a comment that the algebraic relation behind the second count does not follow from IBP relations, so the results do not contradict each other."
+
+[[datum]]
+id = "critical-points-j011"
+type = "geometry"
+point = "j011"
+value = 6
+scope = "top-sector"
+sector = "111"
+symmetries = "n/a"
+source = "KK17"
+location = "Sec. 6, arXiv PDF p. 19"
+verified = "text"
+checked = "2026-10-09"
+note = "Six non-degenerate critical points of the Lee-Pomeransky polynomial: q1, q2, q3 with G = 0 and index 2, and q4, q5, q6 with G = -4/27 and index 1."

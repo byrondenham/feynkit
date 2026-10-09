@@ -1,0 +1,57 @@
+[family]
+id = "CS2-three-site-chain"
+area = "cosmology"
+kind = "polynomial"
+status = "G"
+title = "Flat-space wavefunction of the three-site chain as an Euler integral"
+tags = ["wavefunction", "hyperplane-arrangement"]
+# The six linear forms of the denominator of the flat-space wavefunction, with each X_i shifted
+# by the integration variable x_i (FPSW24, Eq. (16), p. 14; ABHJ23, Eqs. (2.28) and (2.29), p. 23,
+# where Y12 is Y and Y23 is Y'). The three coordinate hyperplanes x_i = 0 are the other three.
+polynomial = "(X1 + x1 + Y12)*(X2 + x2 + Y12 + Y23)*(X3 + x3 + Y23)*(X1 + X2 + X3 + x1 + x2 + x3)*(X1 + X2 + x1 + x2 + Y23)*(X2 + X3 + x2 + x3 + Y12)"
+variables = ["x1", "x2", "x3"]
+parameters = ["X1", "X2", "X3", "Y12", "Y23"]
+
+[[point]]
+name = "generic"
+values = { "X1" = "13", "X2" = "29", "X3" = "41", "Y12" = "3", "Y23" = "7" }
+
+[[datum]]
+id = "twisted-cohomology-dimension"
+type = "cohomology_dimension"
+point = "generic"
+value = 25
+source = "ABHJ23"
+also = ["FPSW24"]
+location = "Sec. 4.1, Eq. (4.9) and footnote 18, arXiv PDF p. 40"
+verified = "text"
+checked = "2026-10-09"
+note = "The space of forms annihilated by the boundary operator has dimension 25, which is the number of bounded regions of the nine hyperplanes. It is the size of the basis for generic twisted integrals (Sec. 5.2, footnote 23, p. 57). FPSW24, Sec. 4, p. 19, calls it the dimension of the top twisted cohomology space, 'the full space of master integrals'."
+
+[[datum]]
+id = "wavefunction-system-size"
+type = "rank"
+point = "family"
+value = 16
+source = "ABHJ23"
+also = ["FPSW24"]
+location = "Sec. 4.4, text above Eq. (4.55), arXiv PDF p. 51, and Sec. 5.2, Eq. (5.19), p. 57"
+verified = "text"
+checked = "2026-10-09"
+note = "The differential system for the wavefunction has 16 basis functions including the wavefunction itself, 1 + 5 + 7 + 3 by layer (Eq. (5.19)). The wavefunction twists only the coordinate hyperplanes, so it needs fewer functions than the 25 of the generic twisted case (footnote 23, p. 57). FPSW24, Sec. 4, p. 19: certain subspaces of master integrals give a closed subsystem, 16 among originally 25. This is a different quantity from the 25 above, not a different count of it."
+
+[[datum]]
+id = "physical-singularities"
+type = "alphabet"
+point = "family"
+value = 13
+letters = [
+  "X1+Y12", "X2+Y12+Y23", "X3+Y23", "X1+X2+X3", "X1+X2+Y23", "X2+X3+Y12",
+  "X1-Y12", "X2+Y12-Y23", "X2-Y12+Y23", "X2-Y12-Y23",
+  "X1+X2-Y23", "X2+X3-Y12", "X3-Y23",
+]
+source = "FPSW24"
+location = "Sec. 3.2, Example 3.9, arXiv PDF p. 17"
+verified = "text"
+checked = "2026-10-09"
+note = "The physical singularities, a subset of the factors of the Euler discriminant, which are the non-zero minors of the matrix M_G described on that page. ABHJ23, Sec. 5.2, p. 57, gives the number of letters of the n-site chain as 2n^2 - 2n + 1, 13 for n = 3."

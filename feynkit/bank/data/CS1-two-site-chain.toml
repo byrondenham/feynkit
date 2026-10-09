@@ -1,0 +1,53 @@
+[family]
+id = "CS1-two-site-chain"
+area = "cosmology"
+kind = "polynomial"
+status = "G"
+title = "Flat-space wavefunction of the two-site chain as an Euler integral"
+tags = ["wavefunction", "hyperplane-arrangement"]
+# The integral is 2Y times the integral over the positive quadrant of
+# a1^eps a2^eps / (L1 L2 L3) da1 da2 (FPSW24, Sec. 3.1, p. 9). The polynomial is L1 L2 L3; the
+# coordinate lines a1 = 0 and a2 = 0 are the other two hyperplanes of the arrangement.
+polynomial = "(a1 + a2 + X1 + X2)*(a1 + X1 + Y)*(a2 + X2 + Y)"
+variables = ["a1", "a2"]
+parameters = ["X1", "X2", "Y"]
+
+# X1, X2 > |Y|, the case drawn in Fig. 2 of FPSW24.
+[[point]]
+name = "generic"
+values = { "X1" = "3", "X2" = "5", "Y" = "1" }
+
+[[datum]]
+id = "holonomic-rank"
+type = "rank"
+point = "family"
+value = 4
+source = "FPSW24"
+location = "Sec. 3.1, text before and after Eq. (10), arXiv PDF p. 11"
+verified = "text"
+checked = "2026-10-09"
+note = "The restricted GKZ system and the D-ideal I of Eq. (11) both have holonomic rank 4; a C(X1,X2,Y)-basis of the quotient is (1, d/dX1, d/dX2, d/dX1 d/dX2). The two ideals coincide over the rational Weyl algebra (Prop. 3.3, p. 12)."
+
+[[datum]]
+id = "bounded-regions"
+type = "cohomology_dimension"
+point = "generic"
+value = 4
+source = "FPSW24"
+also = ["ABHJ23"]
+location = "Fig. 2, arXiv PDF p. 9"
+verified = "text"
+checked = "2026-10-09"
+note = "The three lines and the coordinate axes enclose four bounded regions (caption of Fig. 2). ABHJ23, Sec. 4.1, p. 39, finds a four-dimensional space of forms annihilated by the boundary operator for the same arrangement."
+
+[[datum]]
+id = "singular-locus"
+type = "singular_locus"
+point = "family"
+value = 6
+letters = ["Y", "X1+X2", "X1+Y", "X1-Y", "X2+Y", "X2-Y"]
+source = "FPSW24"
+location = "Sec. 3.1, display after Eq. (11), arXiv PDF p. 11"
+verified = "text"
+checked = "2026-10-09"
+note = "Sing(I) = V(Y (X1+X2) (X1+Y) (X1-Y) (X2+Y) (X2-Y)), which the paper says corresponds exactly to the singular locus of the restricted GKZ system. Sec. 3.2, p. 17, says every letter of the differential equations is a factor of this locus."

@@ -95,6 +95,7 @@ _DATUM_KEYS = {
     "derived",
     "note",
     "letters",
+    "gap",
 }
 _DATUM_REQUIRED = ("id", "type", "point", "value", "source", "location", "verified", "checked")
 _SOURCE_KEYS = {"arxiv", "version", "authors", "title", "venue", "doi"}
@@ -149,6 +150,7 @@ class Datum:
     also: tuple[str, ...] = ()
     derived: str = ""
     note: str = ""
+    gap: str = ""
     letters: tuple[str, ...] = ()
 
     @property
@@ -516,6 +518,69 @@ def _check_datum(
         problems.append(f"{where}: letters must be a list of strings")
 
 
+def _check_second_sources(raw: Mapping[str, Any], problems: list[str]) -> None:
+    """A 'published-via' number needs a sibling datum read from text or image, or a gap note."""
+    data = [d for d in raw.get("datum", []) if isinstance(d, Mapping)]
+    for datum in data:
+        if datum.get("status") != "published-via":
+            continue
+        gap = datum.get("gap")
+        if isinstance(gap, str) and gap.strip():
+            continue
+        if "gap" in datum:
+            problems.append(f"datum {datum.get('id')}: gap must say why there is no second source")
+            continue
+        if not any(
+            other is not datum
+            and other.get("type") == datum.get("type")
+            and other.get("point") == datum.get("point")
+            and other.get("value") == datum.get("value")
+            and other.get("verified") in ("text", "image")
+            for other in data
+        ):
+            problems.append(
+                f"datum {datum.get('id')}: a 'published-via' number needs a second datum of the "
+                f"same type, point and value read from text or image, or a 'gap' note"
+            )
+
+
+_NAME = re.compile(r"[A-Za-z_][A-Za-z_0-9]*")
+
+
+def _check_letters(raw: Mapping[str, Any], head: Mapping[str, Any], problems: list[str]) -> None:
+    """Letters use only the names the family defines, and those name kinematic symbols."""
+    symbols = head.get("letter_symbols", {})
+    if not isinstance(symbols, Mapping):
+        return
+    kinematic: set[str] = set()
+    for point in raw.get("point", []):
+        if isinstance(point, Mapping) and isinstance(point.get("values"), Mapping):
+            kinematic |= set(point["values"])
+    if head.get("kind") == "graph":
+        stray = sorted(str(v) for v in symbols.values() if v not in kinematic)
+        problems += [
+            f"family: letter_symbols names {v!r}, which no point gives a value" for v in stray
+        ]
+        known = set(symbols)
+    else:
+        known = (
+            set(head.get("parameters", [])) if isinstance(head.get("parameters"), list) else set()
+        )
+    for datum in raw.get("datum", []):
+        letters = datum.get("letters", []) if isinstance(datum, Mapping) else []
+        if not isinstance(letters, list):
+            continue
+        for letter in letters:
+            if not isinstance(letter, str):
+                continue
+            used = set(_NAME.findall(letter))
+            if used - known:
+                problems.append(
+                    f"datum {datum.get('id')}: letter {letter!r} uses {sorted(used - known)}, "
+                    f"which the family does not define"
+                )
+
+
 def parse_family(raw: Mapping[str, Any], sources: Mapping[str, Source]) -> BankFamily:
     """Check one family's table and build it; raises :class:`BankError` listing every problem."""
     problems: list[str] = []
@@ -529,6 +594,8 @@ def parse_family(raw: Mapping[str, Any], sources: Mapping[str, Source]) -> BankF
         _check_datum(datum, index, names, sources, seen, problems)
     if not raw.get("datum"):
         problems.append("a family without published data has no use")
+    _check_letters(raw, head, problems)
+    _check_second_sources(raw, problems)
     if problems:
         raise BankError(f"{head.get('id', '?')}: " + "; ".join(problems))
     points = tuple(

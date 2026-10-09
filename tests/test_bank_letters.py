@@ -9,6 +9,8 @@ factor that is not found while faces were skipped is undecided, not a pass.
 
 from __future__ import annotations
 
+import copy
+
 import pytest
 import sympy as sp
 
@@ -25,6 +27,13 @@ def landau_families() -> list[str]:
         for i in bank.list_families()
         if bank.load(i).kind == "graph" and bank.load(i).data_of("alphabet")
     ]
+
+
+def divides_a_surface(factor: sp.Expr, surfaces: list[sp.Expr], symbols: list[sp.Symbol]) -> bool:
+    """Whether the factor divides one of the surfaces; a symbol outside theirs is an error."""
+    foreign = factor.free_symbols - set(symbols)
+    assert not foreign, f"{factor} uses {foreign}, which is no kinematic symbol of the surfaces"
+    return any(sp.rem(sp.expand(s), factor, *symbols) == 0 for s in surfaces)
 
 
 @pytest.mark.slow
@@ -51,9 +60,29 @@ def test_published_letters_divide_landau_components(family_id: str) -> None:
             numerator, denominator = sp.fraction(sp.together(sp.sympify(letter, locals=names)))
             for part in (numerator, denominator):
                 for factor, _ in sp.factor_list(part)[1]:
-                    if not any(sp.rem(sp.expand(s), factor, *symbols) == 0 for s in surfaces):
+                    if not divides_a_surface(factor, surfaces, symbols):
                         missing.append((letter, factor))
         if missing and analysis.skipped_faces:
             pytest.skip(f"undecided: faces were skipped, and {missing} were not found")
         assert not missing, point.name
         assert len(datum.letters) >= 1
+
+
+def test_a_misspelt_letter_symbol_is_caught() -> None:
+    # With t spelt "s32", the factor of t/s has a symbol no surface contains, and the test
+    # must fail on it instead of dividing by a coefficient. The loader rejects the same.
+    s12, s23, s32 = sp.symbols("s12 s23 s32", real=True)
+    assert sp.rem(s12, s32, s12, s23) == 0  # the false pass without the guard
+    with pytest.raises(AssertionError):
+        divides_a_surface(s32, [s12], [s12, s23])
+    assert divides_a_surface(s12, [s12], [s12, s23])
+    from tests.test_bank_schema import raw
+
+    table = copy.deepcopy(raw("CO1-planar-dbox-onshell"))
+    sources = dict(bank.load_sources())
+    table["family"]["letter_symbols"] = {"s": "s12", "t": "s32"}
+    with pytest.raises(bank.BankError):
+        bank.parse_family(table, sources)
+    table["family"]["letter_symbols"] = {"s": "s12"}
+    with pytest.raises(bank.BankError):
+        bank.parse_family(table, sources)

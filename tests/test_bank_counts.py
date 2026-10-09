@@ -6,7 +6,8 @@ number of master integrals with subsectors included and symmetries unused (Bitou
 Klausen and Panzer, arXiv:1712.09215, Cor. 37). The sources count differently: the top
 sector only, with symmetries between lines, or for a whole family. tests/bank_support.py
 holds the adapter that puts the computed count in the convention of each datum. Where a
-source used symmetries, the computed count must be at least the published one.
+source used symmetries or did not say, the computed count must be at least the published
+one and equal to its pinned baseline.
 
 The first tier is in the default suite: the two-loop sunrise, and the double box against the
 pair (|chi|, volume) of Fevola, Mizera and Telen. The second is marked slow and records the
@@ -14,6 +15,8 @@ count of every other published master count it can reach.
 """
 
 from __future__ import annotations
+
+import dataclasses
 
 import pytest
 
@@ -35,6 +38,17 @@ pytestmark = requires_singular
 FAST = {
     ("FT1-sunrise2-generic", "master-count-generic"),
     ("FT1-sunrise2-generic", "master-count-equal-mass"),
+}
+
+
+# Where a source used symmetries or did not say, the comparison is a lower bound, which a
+# wrong count above the published number would still pass. The computed family count is
+# therefore pinned as well: a change in it fails here. These are feynkit's own counts of the
+# complement, set against the published numbers by ">=", and are not reproductions of them.
+BASELINE = {
+    ("FT1-sunrise2-generic", "master-count-equal-mass"): 7,
+    ("FT4-kite-equal-mass", "master-count-family"): 13,
+    ("CO1-planar-dbox-onshell", "master-count"): 12,
 }
 
 
@@ -75,6 +89,7 @@ def test_master_count(family_id: str, datum_id: str, reports) -> None:  # noqa: 
         assert value == published
     else:
         assert value >= published
+        assert computed == BASELINE[(family_id, datum_id)]
 
 
 def test_double_box_matches_the_pair_of_table_1() -> None:
@@ -86,3 +101,15 @@ def test_double_box_matches_the_pair_of_table_1() -> None:
     assert count_at(family, "on-shell") == chi
     assert newton_volume(family, "on-shell") == volume
     assert chi < volume
+
+
+def test_adapt_refuses_a_scope_it_has_no_rule_for() -> None:
+    family = bank.load("FT1-sunrise2-generic")
+    datum = family.datum("master-count-generic")
+    sector = dataclasses.replace(datum, scope="sector")
+    with pytest.raises(pytest.fail.Exception):
+        adapt(family, sector, 7)
+    other = bank.load("FT4-kite-equal-mass")
+    top = dataclasses.replace(other.datum("master-count-family"), scope="top-sector")
+    with pytest.raises(pytest.fail.Exception):
+        adapt(other, top, 13)

@@ -61,4 +61,7 @@ def test_open_and_disputed_counts_are_reported(
     )
     assert path.is_file()
     assert all(isinstance(v, (int, str)) for row in rows for v in row.values())
+    for row in rows:
+        assert row["top_sector"] >= 0, row
+        assert row["euler_characteristic"] <= row["newton_volume"], row
     assert any(row["point"] == datum.point for row in rows)

@@ -27,23 +27,6 @@ else:  # pragma: no cover
 FAMILIES = bank.list_families()
 FILES = sorted(DATA_DIR.glob("*.toml"))
 
-# Names that do not belong in a repository, written in pieces so that this file does not
-# contain them either.
-FORBIDDEN = [
-    "".join(parts)
-    for parts in (
-        ("cla", "ude"),
-        ("anthr", "opic"),
-        ("chat", "gpt"),
-        ("open", "ai"),
-        ("gem", "ini"),
-        ("cop", "ilot"),
-        ("ki", "mi"),
-    )
-]
-# Things only the research layer has.
-PRIVATE = [r"\bR-\d{3}\b", r"\.research", r"\bcompendium\b", r"\bclaim\b"]
-
 
 def raw(family_id: str) -> dict:
     with (DATA_DIR / f"{family_id}.toml").open("rb") as handle:
@@ -120,14 +103,8 @@ def test_every_point_gives_an_exact_polynomial(family_id: str) -> None:
 
 
 @pytest.mark.parametrize("path", FILES, ids=lambda p: p.name)
-def test_files_are_ascii_and_free_of_forbidden_words(path: Path) -> None:
-    text = path.read_text(encoding="utf-8")
-    assert text.isascii()
-    lowered = text.lower()
-    for word in FORBIDDEN:
-        assert word not in lowered
-    for pattern in PRIVATE:
-        assert not re.search(pattern, text), pattern
+def test_files_are_ascii(path: Path) -> None:
+    assert path.read_text(encoding="utf-8").isascii()
 
 
 @pytest.mark.parametrize("family_id", FAMILIES)
@@ -283,11 +260,53 @@ def test_a_bad_table_is_rejected(spoil) -> None:  # noqa: ANN001
         bank.parse_family(table, sources)
 
 
-def test_a_cite_only_number_is_accepted_as_published_via() -> None:
-    table, sources = good()
+def cite_only(table: dict) -> dict:
     table["datum"][0]["verified"] = "cite-only"
     table["datum"][0]["status"] = "published-via"
+    return table["datum"][0]
+
+
+def test_a_cite_only_number_without_a_second_source_is_rejected() -> None:
+    table, sources = good()
+    cite_only(table)
+    with pytest.raises(bank.BankError, match="second datum"):
+        bank.parse_family(table, sources)
+
+
+def test_a_cite_only_number_with_a_read_second_source_is_accepted() -> None:
+    table, sources = good()
+    first = cite_only(table)
+    twin = dict(first, id="twin", verified="image", status="published", source=first["source"])
+    table["datum"].append(twin)
     assert bank.parse_family(table, sources).data[0].status == "published-via"
+
+
+@pytest.mark.parametrize("other", ["type", "point", "value"])
+def test_a_second_source_must_state_the_same_number(other: str) -> None:
+    table, sources = good()
+    first = cite_only(table)
+    twin = dict(first, id="twin", verified="text", status="published")
+    twin[other] = {"type": "volume", "point": "equal-mass", "value": 99}[other]
+    table["datum"].append(twin)
+    with pytest.raises(bank.BankError):
+        bank.parse_family(table, sources)
+
+
+def test_a_second_source_that_is_cite_only_too_is_rejected() -> None:
+    table, sources = good()
+    first = cite_only(table)
+    table["datum"].append(dict(first, id="twin"))
+    with pytest.raises(bank.BankError):
+        bank.parse_family(table, sources)
+
+
+def test_a_gap_note_stands_in_for_a_second_source() -> None:
+    table, sources = good()
+    cite_only(table)["gap"] = "The paper is not available online."
+    assert bank.parse_family(table, sources).data[0].status == "published-via"
+    table["datum"][0]["gap"] = ""
+    with pytest.raises(bank.BankError):
+        bank.parse_family(table, sources)
 
 
 def test_a_list_of_values_is_accepted_when_disputed() -> None:

@@ -40,6 +40,7 @@ DATUM_TYPES = (
     "euler_characteristic",
     "volume",
     "cohomology_dimension",
+    "system_size",
 )
 FUNCTION_CLASSES = ("polylog", "elliptic", "K3", "CY3", "hyperelliptic")
 SCOPES = ("family", "sector", "top-sector")

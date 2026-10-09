@@ -176,7 +176,8 @@
   `polynomial` or a `reference`, with exact points and published data; `sources.toml` lists the
   papers. Each datum gives its paper, the section, equation or table and the page, and whether the
   number was read from the text or an image of the page; a number quoted by one paper from another is
-  `cite-only` and cannot be `published`. The datum also records the convention of the count: its
+  `cite-only`, cannot be `published` and needs a second datum read from the text or an image, or a
+  `gap` note. The datum also records the convention of the count: its
   scope, whether tadpole products are left out and whether symmetries were used. `load`,
   `list_families`, `BankFamily.integral` and `BankFamily.polynomial_at` give the family and its
   polynomial at a point. The first families are the two-loop sunrise with generic and equal masses
@@ -185,9 +186,11 @@
   Table 1 of Fevola, Mizera and Telen); and the two-site and three-site chains of cosmology as
   hyperplane arrangements (Fevola, Pimentel, Sattelberger and Westerdijk; Arkani-Hamed, Baumann,
   Hillman, Joyce, Lee and Pimentel), where the 25 and the 16 of the three-site chain are two
-  different quantities. The tests are in `tests/test_bank_*.py`: the schema and the cheap counts run
+  different quantities (the 16 is typed `system_size`, an upper bound on the rank of the
+  wavefunction's system), and the 23 printed singular factors of the three-site chain are
+  tested for equality with the factors of the maximal minors of M_G. The tests are in `tests/test_bank_*.py`: the schema and the cheap counts run
   by default, the rest are marked `slow`, and the new marker `bank_open` is for data that is open or
-  disputed, whose tests report and never fail on a mismatch. `tomli` is now a dependency under
+  disputed, whose tests report, never fail on a mismatch and fail on a solver crash. `tomli` is now a dependency under
   Python 3.10. See "The benchmark bank" in the guide.
 
 - `stratum_sum(fi, point)` and `stratum_sum_from_polynomial(g, variables, point)` in

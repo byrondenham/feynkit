@@ -3120,8 +3120,10 @@ for Euler integrals with no graph) or a `reference`. It has named points with ex
 values, and published data. Every datum gives its paper, the place in it (a section, equation or
 table, and a page, which is the PDF page of the arXiv version named in `sources.toml`) and how it
 was read: `text`, `image`, or `cite-only` for a number that one paper quotes from another. A
-cite-only number is never `published`; the loader rejects it, and also a datum with no source or
-with a place that names no page.
+cite-only number is never `published`, and needs a second datum of the same type, point and value
+that was read from text or an image, or a `gap` note that says why there is none; the loader
+rejects it otherwise, and also a datum with no source or with a place that names no page. The
+letters of a datum may use only the symbols the family defines.
 
 ```python
 from feynkit import bank
@@ -3139,7 +3141,11 @@ complement of $\{G = 0\}$ in the torus, is the number of masters with all subsec
 symmetries. For the two-loop sunrise with three different masses it is 7. The published 4 counts the
 top sector, so the three products of two tadpoles are taken off. At equal masses feynkit still
 gives 4, where the published 2 uses the symmetry between the three lines, so the test asks only for
-at least 2. `tests/bank_support.py` holds this adapter. The two-loop sunrise is elliptic, so its
+at least 2. A lower bound like this cannot catch a count that is too high, so the test also pins
+feynkit's own count (7 here, 13 for the kite, 12 for the double box) against a baseline: these are
+lower bounds, not reproductions. `tests/bank_support.py` holds the adapter, which fails for a scope
+and family it has no rule for (a single sector, or the top sector of a graph other than the
+two-loop sunrise) instead of comparing unlike things. The two-loop sunrise is elliptic, so its
 finite-field point counts are not polynomial in $p$ and `torus_count` finds no candidate for it;
 the bank counts critical points with `critical_point_count` instead.
 
@@ -3148,9 +3154,13 @@ the pair $(|\chi|, \mathrm{vol})$ of the planar double box from Table 1 of Fevol
 Telen, run by default. Counts of the other families, the published letters of the double box
 against the principal Landau determinant, and the Euler characteristics of the chain arrangements
 are marked `slow`. Families whose data is `open` or `disputed` carry the marker `bank_open`: the
-test writes a JSON report, to `FEYNKIT_BANK_REPORT_DIR` if that is set, and fails on a crash but
-never on a mismatch. A solver that runs past its limit makes a test skip; an undecided count is
-not a pass.
+test writes a JSON report, to `FEYNKIT_BANK_REPORT_DIR` if that is set, and fails on a crash or a
+malformed result but never on a mismatch. Only a solver that runs past its limit makes a test skip,
+with the time limit as the reason; an undecided count is not a pass. For the chains, the test
+compares the factors of the maximal minors of the matrix $M_G$ with the printed singular locus for
+equality (6 factors for two sites, the 23 of Example 5.4 of Fevola, Mizera and Telen for three).
+The 16 of the three-site chain is typed `system_size`: the source gives the number of basis
+functions of a closed system, not that it is minimal, so it bounds the holonomic rank from above.
 
 To add a family, write `<id>.toml` after an existing file and add any new paper to
 `sources.toml`; `python -m pytest tests/test_bank_schema.py` checks the file.

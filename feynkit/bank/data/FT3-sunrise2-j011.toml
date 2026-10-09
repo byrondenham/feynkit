@@ -26,14 +26,14 @@ point = "j011"
 value = [2, 1]
 scope = "top-sector"
 sector = "111"
-symmetries = "n/a"
+symmetries = "not-stated"
 excludes = ["tadpole-products"]
 status = "disputed"
 source = "KK17"
 location = "Sec. 6, arXiv PDF p. 19"
 verified = "text"
 checked = "2026-10-09"
-note = "Two published counts for the same integral. 2: the number of independent critical points of the Lee-Pomeransky polynomial by the criteria of the paper's Ref. [45] (q4 and q6). 1: one non-trivial master integral by differential reduction (Refs. [43, 49]), the second being a product of Gamma functions. The paper explains the difference by the treatment of propagator powers and dimension, and a footnote quotes a comment that the algebraic relation behind the second count does not follow from IBP relations, so the results do not contradict each other."
+note = "Two published counts for the same integral. 2: the number of independent critical points of the Lee-Pomeransky polynomial by the criteria of the paper's Ref. [45] (q4 and q6). 1: one non-trivial master integral by differential reduction (Refs. [43, 49]), the second being a product of Gamma functions. The paper explains the difference by the treatment of propagator powers and dimension, and a footnote quotes a comment that the algebraic relation behind the second count does not follow from IBP relations, so the results do not contradict each other. At J011 the masses of lines 1 and 2 are equal, so exchanging them is a symmetry; q4 and q5 are exchanged by it, and the count 2 keeps q4 and q6. The paper does not say whether a symmetry was used."
 
 [[datum]]
 id = "critical-points-j011"

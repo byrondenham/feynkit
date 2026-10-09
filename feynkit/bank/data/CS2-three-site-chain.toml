@@ -30,7 +30,7 @@ note = "The space of forms annihilated by the boundary operator has dimension 25
 
 [[datum]]
 id = "wavefunction-system-size"
-type = "rank"
+type = "system_size"
 point = "family"
 value = 16
 source = "ABHJ23"
@@ -38,7 +38,7 @@ also = ["FPSW24"]
 location = "Sec. 4.4, text above Eq. (4.55), arXiv PDF p. 51, and Sec. 5.2, Eq. (5.19), p. 57"
 verified = "text"
 checked = "2026-10-09"
-note = "The differential system for the wavefunction has 16 basis functions including the wavefunction itself, 1 + 5 + 7 + 3 by layer (Eq. (5.19)). The wavefunction twists only the coordinate hyperplanes, so it needs fewer functions than the 25 of the generic twisted case (footnote 23, p. 57). FPSW24, Sec. 4, p. 19: certain subspaces of master integrals give a closed subsystem, 16 among originally 25. This is a different quantity from the 25 above, not a different count of it."
+note = "The differential system for the wavefunction has 16 basis functions including the wavefunction itself, 1 + 5 + 7 + 3 by layer (Eq. (5.19)). The wavefunction twists only the coordinate hyperplanes, so it needs fewer functions than the 25 of the generic twisted case (footnote 23, p. 57). FPSW24, Sec. 4, p. 19: certain subspaces of master integrals give a closed subsystem, 16 among originally 25. This is a different quantity from the 25 above, not a different count of it. Neither source says that the system is minimal, so 16 bounds the holonomic rank of the annihilator of the wavefunction from above and is not stated to equal it."
 
 [[datum]]
 id = "physical-singularities"
@@ -55,3 +55,20 @@ location = "Sec. 3.2, Example 3.9, arXiv PDF p. 17"
 verified = "text"
 checked = "2026-10-09"
 note = "The physical singularities, a subset of the factors of the Euler discriminant, which are the non-zero minors of the matrix M_G described on that page. ABHJ23, Sec. 5.2, p. 57, gives the number of letters of the n-site chain as 2n^2 - 2n + 1, 13 for n = 3."
+
+[[datum]]
+id = "singular-locus"
+type = "singular_locus"
+point = "family"
+value = 23
+letters = [
+  "X1+X2+X3", "X1+X2+Y23", "X1+X2-Y23", "X1+X3-Y12-Y23", "X1+Y12",
+  "X1-X3-Y12+Y23", "X1-Y12", "X1-Y12+2*Y23", "X1-Y12-2*Y23", "X2+X3+Y12",
+  "X2+X3-Y12", "X2+Y12+Y23", "X2+Y12-Y23", "X2-Y12+Y23", "X2-Y12-Y23",
+  "X3+2*Y12-Y23", "X3+Y23", "X3-2*Y12-Y23", "X3-Y23", "Y12", "Y12+Y23", "Y12-Y23", "Y23",
+]
+source = "FMT24"
+location = "Example 5.4, display after the listing, arXiv PDF p. 57 (printed p. 56)"
+verified = "image"
+checked = "2026-10-09"
+note = "The 23 discriminants of the specialised principal A-determinant of the three-site chain, in the paper's Y1 = Y12 and Y2 = Y23. FPSW24, Example 3.9, p. 17, points to this list. The paper adds that the singularities found in its Refs. [93, Sec. 4.3] and [94, App. B] are strictly contained in it. The 13 physical singularities above are among the 23."

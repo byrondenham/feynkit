@@ -9,6 +9,8 @@ the size of the closed system of the wavefunction.
 
 from __future__ import annotations
 
+import itertools
+
 import pytest
 import sympy as sp
 
@@ -64,13 +66,15 @@ def point_on(family: bank.BankFamily, letter: str, base: str) -> dict[str, int]:
 @pytest.mark.slow
 @pytest.mark.parametrize("family_id", chains())
 def test_the_characteristic_drops_on_every_printed_factor(family_id: str) -> None:
-    # The published factors lie in the Euler discriminant: the characteristic is smaller on
-    # each. This does not show that there are no other factors.
+    # Every printed factor lies in the Euler discriminant: the characteristic is smaller on
+    # each. That the list is complete is tested in test_the_minors_give_the_printed_locus.
     family = bank.load(family_id)
     (dimension,) = family.datum(family.data_of("cohomology_dimension")[0].id).numbers
     expression, variables, parameters = family.polynomial()
     checked = 0
+    expected = 0
     for datum in family.data_of("singular_locus") + family.data_of("alphabet"):
+        expected += len(datum.letters)
         for letter in datum.letters:
             values = point_on(family, letter, family.points[0].name)
             others = [
@@ -85,7 +89,70 @@ def test_the_characteristic_drops_on_every_printed_factor(family_id: str) -> Non
             chi = abs(torus_euler_characteristic([], variables, remove=polynomial, timeout=TIMEOUT))
             assert chi < dimension, letter
             checked += 1
+    assert checked == expected
     assert checked >= 6
+
+
+def normalised(factor: sp.Expr, parameters: list[sp.Symbol]) -> sp.Expr:
+    """A factor with integer coefficients, no common divisor and a positive leading term."""
+    poly = sp.Poly(sp.expand(factor), *parameters)
+    _, primitive = poly.primitive()
+    if primitive.LC() < 0:
+        primitive = -primitive
+    return primitive.as_expr()
+
+
+def minor_factors(family: bank.BankFamily) -> set[sp.Expr]:
+    """The irreducible factors of the non-zero maximal minors of the matrix M_G.
+
+    The columns of M_G are the hyperplanes of the arrangement, the factors of the polynomial
+    and the coordinate hyperplanes, each as the coefficients of the variables and the constant
+    term (Fevola and Matsubara-Heo; FPSW24, Sec. 3.2, p. 17). This is exact and uses no solver.
+    """
+    expression, variables, parameters = family.polynomial()
+    forms = [f for f, _ in sp.factor_list(expression)[1]] + list(variables)
+    columns = [
+        [sp.Poly(f, *variables).coeff_monomial(v) for v in variables]
+        + [sp.expand(f.subs(dict.fromkeys(variables, 0)))]
+        for f in forms
+    ]
+    n = len(variables) + 1
+    found: set[sp.Expr] = set()
+    for chosen in itertools.combinations(columns, n):
+        minor = sp.Matrix(chosen).T.det()
+        if minor == 0:
+            continue
+        for factor, _ in sp.factor_list(sp.expand(minor), *parameters)[1]:
+            if factor.free_symbols:
+                found.add(normalised(factor, list(parameters)))
+    return found
+
+
+def printed(family: bank.BankFamily, datum: bank.Datum) -> set[sp.Expr]:
+    parameters = [sp.Symbol(p) for p in family.parameters]
+    names = {str(p): p for p in parameters}
+    return {normalised(sp.sympify(letter, locals=names), parameters) for letter in datum.letters}
+
+
+@pytest.mark.parametrize("family_id", chains())
+def test_the_minors_give_the_printed_locus(family_id: str) -> None:
+    # The factors of the maximal minors of M_G are exactly the printed singular locus, not
+    # only a set that contains it; the physical singularities are among them.
+    family = bank.load(family_id)
+    parameters = [sp.Symbol(p) for p in family.parameters]
+    found = {normalised(f, parameters) for f in minor_factors(family)}
+    (locus,) = family.data_of("singular_locus")
+    letters = printed(family, locus)
+    assert len(letters) == len(locus.letters) == locus.numbers[0]
+    assert found == letters
+    for alphabet in family.data_of("alphabet"):
+        assert printed(family, alphabet) <= found
+
+
+def test_the_system_size_is_not_a_rank() -> None:
+    three = bank.load("CS2-three-site-chain")
+    assert three.datum("wavefunction-system-size").type == "system_size"
+    assert not three.data_of("rank")
 
 
 @pytest.mark.slow
